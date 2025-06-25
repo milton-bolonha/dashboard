@@ -1,0 +1,23 @@
+---
+description: "ONLY fill this for agent rules - describe when this rule should be applied"
+globs: ["*.ts", "*.tsx"] OR "" 
+alwaysApply: true OR false
+---
+
+# Rule Title
+
+## Critical Rules
+
+- Actionable rule that agent MUST follow
+- Another specific directive
+- Clear, measurable requirement
+
+## Examples
+
+<example>
+Valid example of following this rule properly
+</example>
+
+<example type="invalid">
+Invalid example showing what NOT to do
+</example>

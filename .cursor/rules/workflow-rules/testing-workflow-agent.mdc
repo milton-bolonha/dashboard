@@ -1,0 +1,53 @@
+---
+description: "Apply when user asks about testing, wants to write tests, or mentions test coverage. Use for test-driven development and quality assurance scenarios."
+globs: ""
+alwaysApply: false
+---
+
+# Testing Workflow
+
+## Context
+
+- Use when implementing test-driven development
+- Apply for writing unit, integration, or e2e tests
+- Ensure proper test coverage and quality
+
+## Critical Rules
+
+- Write tests before implementing features (TDD when requested)
+- Follow naming convention: `describe('FeatureName', () => {})`
+- Test both happy path and error scenarios
+- Mock external dependencies properly
+- Ensure tests are isolated and independent
+- Run tests before marking features complete
+- Maintain test coverage above 80% for critical paths
+- Use appropriate testing tools for the stack
+
+## Examples
+
+<example>
+User: "I need tests for my user service"
+
+AI: I'll create comprehensive tests for your user service. Let me write both unit tests and integration tests:
+
+```typescript
+describe('UserService', () => {
+  describe('createUser', () => {
+    it('should create user with valid data', async () => {
+      // Test implementation
+    });
+    
+    it('should throw error with invalid email', async () => {
+      // Error scenario test
+    });
+  });
+});
+```
+</example>
+
+<example type="invalid">
+User: "Add some tests"
+
+AI: `it('test', () => { expect(true).toBe(true); })`
+[Meaningless test that doesn't validate actual functionality]
+</example>

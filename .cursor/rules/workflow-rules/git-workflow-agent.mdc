@@ -1,0 +1,52 @@
+---
+description: "Apply when user wants to commit, push, or perform git operations. Use when they mention saving work, version control, or git commands."
+globs: ""
+alwaysApply: false
+---
+
+# Git Workflow
+
+## Context
+
+- Use when user wants to commit and push changes
+- Apply for git-related operations and version control
+- Ensure proper commit message formatting
+
+## Critical Rules
+
+- Always run `git add .` from workspace root to stage changes
+- Review staged changes before committing
+- Format commit messages as `type: brief description`
+  - feat: new feature
+  - fix: bug fix  
+  - docs: documentation changes
+  - refactor: code restructuring
+  - test: adding tests
+  - chore: maintenance tasks
+- Keep commit title under 72 characters
+- Include detailed body explaining what and why
+- Push changes to current remote branch
+
+## Examples
+
+<example>
+User: "Save my changes to git"
+
+AI: I'll help you commit and push your changes. Let me stage the files and create a proper commit message.
+
+`git add .`
+`git commit -m "feat: add user authentication system
+
+Implemented JWT-based authentication with secure password hashing
+and token refresh functionality. Added login/logout endpoints and
+middleware for protected routes."`
+
+`git push`
+</example>
+
+<example type="invalid">
+User: "Save changes"
+
+AI: `git commit -m "updated stuff"`
+[Bad commit message without proper format or explanation]
+</example>

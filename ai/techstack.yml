@@ -1,0 +1,389 @@
+repo_name: 
+report_id: 
+version: 0.1
+repo_type: Public
+timestamp: 
+requested_by: 
+provider: github
+branch: master
+detected_tools_count: 29
+tools:
+- name: JavaScript
+  description: Lightweight, interpreted, object-oriented language with first-class
+    functions
+  website_url: https://developer.mozilla.org/en-US/docs/Web/JavaScript
+  open_source: true
+  hosted_saas: false
+  category: Languages & Frameworks
+  sub_category: Languages
+  image_url: https://img.stackshare.io/service/1209/javascript.jpeg
+  detection_source_url: https://github.com/miltonbolonha/boilerplate-times
+  detection_source: Repo Metadata
+- name: MJML
+  description: The framework that makes responsive email easy
+  website_url: https://mjml.io
+  license: MIT
+  open_source: true
+  hosted_saas: false
+  category: Languages & Frameworks
+  sub_category: Languages
+  image_url: https://img.stackshare.io/service/6440/VwZquHQK_400x400.png
+  detection_source_url: https://github.com/miltonbolonha/boilerplate-times/blob/master/core/package.json
+  detection_source: core/package.json
+  last_updated_by: Milton Bolonha
+  last_updated_on: 2024-05-22 14:30:39.000000000 Z
+- name: TypeScript
+  description: A superset of JavaScript that compiles to clean JavaScript output
+  website_url: http://www.typescriptlang.org
+  license: Apache-2.0
+  open_source: true
+  hosted_saas: false
+  category: Languages & Frameworks
+  sub_category: Languages
+  image_url: https://img.stackshare.io/service/1612/bynNY5dJ.jpg
+  detection_source_url: https://github.com/miltonbolonha/boilerplate-times
+  detection_source: Repo Metadata
+- name: Next.js
+  description: A small framework for server-rendered universal JavaScript apps
+  website_url: https://nextjs.org/
+  version: 14.2.3
+  open_source: true
+  hosted_saas: false
+  category: Languages & Frameworks
+  sub_category: Frameworks (Full Stack)
+  image_url: https://img.stackshare.io/service/5936/nextjs.png
+  detection_source_url: https://github.com/miltonbolonha/boilerplate-times/blob/master/core/package.json
+  detection_source: core/package.json
+  last_updated_by: Milton Bolonha
+  last_updated_on: 2024-06-26 17:03:40.000000000 Z
+- name: React
+  description: A JavaScript library for building user interfaces
+  website_url: https://reactjs.org/
+  license: MIT
+  open_source: true
+  hosted_saas: false
+  category: Libraries
+  sub_category: Javascript UI Libraries
+  image_url: https://img.stackshare.io/service/1020/OYIaJ1KK.png
+  detection_source_url: https://github.com/miltonbolonha/boilerplate-times/blob/master/core/package.json
+  detection_source: core/package.json
+  last_updated_by: Milton Bolonha
+  last_updated_on: 2024-06-05 17:37:50.000000000 Z
+- name: Sass
+  description: Syntactically Awesome Style Sheets
+  website_url: http://sass-lang.com/
+  license: MIT
+  open_source: true
+  hosted_saas: false
+  category: Languages & Frameworks
+  sub_category: CSS Pre-processors / Extensions
+  image_url: https://img.stackshare.io/service/1171/jCR2zNJV.png
+  detection_source_url: https://github.com/miltonbolonha/boilerplate-times/blob/master/core/package.json
+  detection_source: core/package.json
+  last_updated_by: Milton Bolonha
+  last_updated_on: 2024-05-22 14:30:39.000000000 Z
+- name: Git
+  description: Fast, scalable, distributed revision control system
+  website_url: http://git-scm.com/
+  open_source: true
+  hosted_saas: false
+  category: Build, Test, Deploy
+  sub_category: Version Control System
+  image_url: https://img.stackshare.io/service/1046/git.png
+  detection_source_url: https://github.com/miltonbolonha/boilerplate-times
+  detection_source: Repo Metadata
+- name: GitHub Actions
+  description: Automate your workflow from idea to production
+  website_url: https://github.com/features/actions
+  open_source: false
+  hosted_saas: true
+  category: Build, Test, Deploy
+  sub_category: Continuous Integration
+  image_url: https://img.stackshare.io/service/11563/actions.png
+  detection_source_url: https://github.com/miltonbolonha/boilerplate-times/blob/master/.github/workflows/netlify-build-2024-09-06.yml
+  detection_source: ".github/workflows/netlify-build-2024-09-06.yml"
+  last_updated_by: Milton Bolonha
+  last_updated_on: 2024-07-10 18:53:46.000000000 Z
+- name: npm
+  description: The package manager for JavaScript.
+  website_url: https://www.npmjs.com/
+  open_source: false
+  hosted_saas: false
+  category: Build, Test, Deploy
+  sub_category: Front End Package Manager
+  image_url: https://img.stackshare.io/service/1120/lejvzrnlpb308aftn31u.png
+  detection_source_url: https://github.com/miltonbolonha/boilerplate-times/blob/master/package.json
+  detection_source: package.json
+  last_updated_by: Milton Bolonha
+  last_updated_on: 2024-05-22 01:23:22.000000000 Z
+- name: Netlify
+  description: Build, deploy and host your static site or app with a drag and drop
+    interface and automatic delpoys from GitHub or Bitbucket
+  website_url: https://www.netlify.com/
+  open_source: false
+  hosted_saas: true
+  category: Application Utilities
+  sub_category: Static Web Hosting
+  image_url: https://img.stackshare.io/service/2748/default_5dfbb146cf22182bca88c7d07f2515a5888fc12a.jpg
+  detection_source_url: https://github.com/miltonbolonha/boilerplate-times/blob/master/netlify.toml
+  detection_source: netlify.toml
+  last_updated_by: Milton Bolonha
+  last_updated_on: 2024-05-22 14:30:39.000000000 Z
+- name: Moment.js
+  description: A JavaScript date library for parsing, validating, manipulating, and
+    formatting dates
+  website_url: http://momentjs.com/
+  version: 2.30.1
+  license: MIT
+  open_source: true
+  hosted_saas: false
+  category: Libraries
+  sub_category: Javascript Utilities & Libraries
+  image_url: https://img.stackshare.io/service/3643/Xrtdc94q_400x400.png
+  detection_source_url: https://github.com/miltonbolonha/boilerplate-times/blob/master/core/package.json
+  detection_source: core/package.json
+  last_updated_by: Milton Bolonha
+  last_updated_on: 2024-06-26 17:03:40.000000000 Z
+- name: Showdown
+  description: JavaScript port of Markdown
+  website_url: https://github.com/coreyti/showdown
+  version: 2.1.0
+  license: MIT
+  open_source: true
+  hosted_saas: false
+  category: Libraries
+  sub_category: Javascript Utilities & Libraries
+  image_url: https://img.stackshare.io/no-img-open-source.png
+  detection_source_url: https://github.com/miltonbolonha/boilerplate-times/blob/master/core/package.json
+  detection_source: core/package.json
+  last_updated_by: Milton Bolonha
+  last_updated_on: 2024-06-10 20:53:16.000000000 Z
+- name: XSLT
+  description: The official Twitter account for the sum of all knowledge, Wikipedia.
+    Overseen by @jeffelder.
+  website_url: https://en.wikipedia.org/wiki/XSLT
+  open_source: false
+  hosted_saas: false
+  image_url: https://img.stackshare.io/service/4253/nZXfdUQq_normal.jpg
+  detection_source_url: https://github.com/miltonbolonha/boilerplate-times
+  detection_source: Repo Metadata
+- name: date-fns
+  description: Modern JavaScript date utility library
+  website_url: https://date-fns.org/
+  license: MIT
+  open_source: true
+  hosted_saas: false
+  category: Libraries
+  sub_category: Javascript Utilities & Libraries
+  image_url: https://img.stackshare.io/service/10865/default_5551fb8853689f607a2bc0d5a09355d5a3d52bf0.png
+  detection_source_url: https://github.com/miltonbolonha/boilerplate-times/blob/master/core/package.json
+  detection_source: core/package.json
+  last_updated_by: Milton Bolonha
+  last_updated_on: 2024-08-01 11:06:37.000000000 Z
+- name: chokidar
+  description: A neat wrapper around node.js fs.watch / fs.watchFile / fsevents
+  package_url: https://www.npmjs.com/chokidar
+  version: 3.6.0
+  license: MIT
+  open_source: true
+  hosted_saas: false
+  category: Libraries
+  sub_category: npm Packages
+  image_url: https://img.stackshare.io/package/16043/default_5fd43aeff4d6a935abc13737de01a0355210499d.png
+  detection_source_url: https://github.com/miltonbolonha/boilerplate-times/blob/master/package.json
+  detection_source: package.json
+  last_updated_by: Milton Bolonha
+  last_updated_on: 2024-05-22 14:30:39.000000000 Z
+- name: cross-env
+  description: Run scripts that set and use environment variables across platforms
+  package_url: https://www.npmjs.com/cross-env
+  version: 7.0.3
+  license: MIT
+  open_source: true
+  hosted_saas: false
+  category: Libraries
+  sub_category: npm Packages
+  image_url: https://img.stackshare.io/package/15828/default_14fd11531839d935f920b6d55bd6f3528c890ad7.png
+  detection_source_url: https://github.com/miltonbolonha/boilerplate-times/blob/master/package.json
+  detection_source: package.json
+  last_updated_by: Milton Bolonha
+  last_updated_on: 2024-06-14 19:36:49.000000000 Z
+- name: cross-fetch
+  description: Universal WHATWG Fetch API for Node
+  package_url: https://www.npmjs.com/cross-fetch
+  version: 4.0.0
+  license: MIT
+  open_source: true
+  hosted_saas: false
+  category: Libraries
+  sub_category: npm Packages
+  image_url: https://img.stackshare.io/package/17537/default_1922051267fa78212ab6eb1238cdf6aab8771493.png
+  detection_source_url: https://github.com/miltonbolonha/boilerplate-times/blob/master/core/package.json
+  detection_source: core/package.json
+  last_updated_by: Milton Bolonha
+  last_updated_on: 2024-05-22 14:30:39.000000000 Z
+- name: fs-extra
+  description: Fs-extra contains methods that aren't included in the vanilla Node.js
+    fs package
+  package_url: https://www.npmjs.com/fs-extra
+  version: 11.2.0
+  license: MIT
+  open_source: true
+  hosted_saas: false
+  category: Libraries
+  sub_category: npm Packages
+  image_url: https://img.stackshare.io/package/15836/default_b71c906aeda030a5e2f1fe40bf12a93be52404ab.png
+  detection_source_url: https://github.com/miltonbolonha/boilerplate-times/blob/master/package.json
+  detection_source: package.json
+  last_updated_by: Milton Bolonha
+  last_updated_on: 2024-05-22 14:30:39.000000000 Z
+- name: gray-matter
+  description: Parse front-matter from a string or file
+  package_url: https://www.npmjs.com/gray-matter
+  version: 4.0.3
+  license: MIT
+  open_source: true
+  hosted_saas: false
+  category: Libraries
+  sub_category: npm Packages
+  image_url: https://img.stackshare.io/package/17773/default_2f87d5add351cc79d3471e48bc0dd6f92c1288ad.png
+  detection_source_url: https://github.com/miltonbolonha/boilerplate-times/blob/master/core/package.json
+  detection_source: core/package.json
+  last_updated_by: Milton Bolonha
+  last_updated_on: 2024-05-22 14:30:39.000000000 Z
+- name: he
+  description: A robust HTML entities encoder/decoder with full Unicode support
+  package_url: https://www.npmjs.com/he
+  version: 1.2.0
+  license: MIT
+  open_source: true
+  hosted_saas: false
+  category: Libraries
+  sub_category: npm Packages
+  image_url: https://img.stackshare.io/package/17059/default_31b594d049ba66ce98c924544ccc4329a3f2d530.png
+  detection_source_url: https://github.com/miltonbolonha/boilerplate-times/blob/master/core/package.json
+  detection_source: core/package.json
+  last_updated_by: Milton Bolonha
+  last_updated_on: 2024-05-22 14:30:39.000000000 Z
+- name: moment
+  description: Parse, validate, manipulate, and display dates
+  package_url: https://www.npmjs.com/moment
+  version: 2.30.1
+  license: MIT
+  open_source: true
+  hosted_saas: false
+  category: Libraries
+  sub_category: npm Packages
+  image_url: https://img.stackshare.io/package/15847/default_4479dbac220be99e50e724b2df6cf415241d71fd.png
+  detection_source_url: https://github.com/miltonbolonha/boilerplate-times/blob/master/core/package.json
+  detection_source: core/package.json
+  last_updated_by: Milton Bolonha
+  last_updated_on: 2024-05-22 14:30:39.000000000 Z
+- name: react-dom
+  description: React package for working with the DOM
+  package_url: https://www.npmjs.com/react-dom
+  license: MIT
+  open_source: true
+  hosted_saas: false
+  category: Libraries
+  sub_category: npm Packages
+  image_url: https://img.stackshare.io/package/15808/default_14fd11531839d935f920b6d55bd6f3528c890ad7.png
+  detection_source_url: https://github.com/miltonbolonha/boilerplate-times/blob/master/core/package.json
+  detection_source: core/package.json
+  last_updated_by: Milton Bolonha
+  last_updated_on: 2024-06-05 17:37:50.000000000 Z
+- name: rehype-stringify
+  description: Rehype plugin to serialize HTML
+  package_url: https://www.npmjs.com/rehype-stringify
+  version: 10.0.0
+  open_source: false
+  hosted_saas: false
+  category: Build, Test, Deploy
+  sub_category: Package Managers
+  image_url: https://img.stackshare.io/package/npm/image.png
+  detection_source_url: https://github.com/miltonbolonha/boilerplate-times/blob/master/core/package.json
+  detection_source: core/package.json
+  last_updated_by: Milton Bolonha
+  last_updated_on: 2024-05-22 14:30:39.000000000 Z
+- name: remark
+  description: Markdown processor powered by plugins
+  package_url: https://www.npmjs.com/remark
+  version: 14.0.3
+  license: MIT
+  open_source: true
+  hosted_saas: false
+  category: Libraries
+  sub_category: npm Packages
+  image_url: https://img.stackshare.io/package/16952/default_caea01ce44a5fd1bb200d8fc0f8f2a1695b4e569.png
+  detection_source_url: https://github.com/miltonbolonha/boilerplate-times/blob/master/core/package.json
+  detection_source: core/package.json
+  last_updated_by: Milton Bolonha
+  last_updated_on: 2024-05-22 14:30:39.000000000 Z
+- name: remark-gfm
+  description: Remark plugin to support GFM
+  package_url: https://www.npmjs.com/remark-gfm
+  version: 4.0.0
+  open_source: false
+  hosted_saas: false
+  category: Build, Test, Deploy
+  sub_category: Package Managers
+  image_url: https://img.stackshare.io/package/npm/image.png
+  detection_source_url: https://github.com/miltonbolonha/boilerplate-times/blob/master/core/package.json
+  detection_source: core/package.json
+  last_updated_by: Milton Bolonha
+  last_updated_on: 2024-05-22 14:30:39.000000000 Z
+- name: remark-rehype
+  description: Remark plugin that turns markdown into HTML to support rehype
+  package_url: https://www.npmjs.com/remark-rehype
+  version: 11.1.0
+  open_source: false
+  hosted_saas: false
+  category: Build, Test, Deploy
+  sub_category: Package Managers
+  image_url: https://img.stackshare.io/package/npm/image.png
+  detection_source_url: https://github.com/miltonbolonha/boilerplate-times/blob/master/core/package.json
+  detection_source: core/package.json
+  last_updated_by: Milton Bolonha
+  last_updated_on: 2024-05-22 14:30:39.000000000 Z
+- name: slugify
+  description: Slugifies a String
+  package_url: https://www.npmjs.com/slugify
+  version: 1.6.6
+  license: MIT
+  open_source: true
+  hosted_saas: false
+  category: Libraries
+  sub_category: npm Packages
+  image_url: https://img.stackshare.io/package/17389/default_33c3173e7d0e91f7cea0eab9883ca83b157bd4a5.png
+  detection_source_url: https://github.com/miltonbolonha/boilerplate-times/blob/master/core/package.json
+  detection_source: core/package.json
+  last_updated_by: Milton Bolonha
+  last_updated_on: 2024-05-22 14:30:39.000000000 Z
+- name: unified
+  description: Interface for processing text using syntax trees
+  package_url: https://www.npmjs.com/unified
+  version: 11.0.4
+  license: MIT
+  open_source: true
+  hosted_saas: false
+  category: Libraries
+  sub_category: npm Packages
+  image_url: https://img.stackshare.io/package/17259/default_03da3f7f53e439ab3b23ec47828b2f3229885efd.png
+  detection_source_url: https://github.com/miltonbolonha/boilerplate-times/blob/master/core/package.json
+  detection_source: core/package.json
+  last_updated_by: Milton Bolonha
+  last_updated_on: 2024-06-05 17:37:50.000000000 Z
+- name: unist-util-visit
+  description: Recursively walk over unist nodes
+  package_url: https://www.npmjs.com/unist-util-visit
+  version: 5.0.0
+  license: MIT
+  open_source: true
+  hosted_saas: false
+  category: Libraries
+  sub_category: npm Packages
+  image_url: https://img.stackshare.io/package/17139/default_37d9ccc57ae4d32e7ff46614e4f8bb2c4ddc7964.png
+  detection_source_url: https://github.com/miltonbolonha/boilerplate-times/blob/master/core/package.json
+  detection_source: core/package.json
+  last_updated_by: Milton Bolonha
+  last_updated_on: 2024-08-01 11:06:37.000000000 Z

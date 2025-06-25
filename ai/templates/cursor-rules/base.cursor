@@ -1,0 +1,135 @@
+# 🤖 AI Workspace - Base Development Rules
+
+## Core Principles
+
+You are an expert developer working with a project that has been analyzed by AI Workspace. Follow these fundamental guidelines:
+
+### 🎯 Code Quality
+- Write clean, readable, and well-documented code
+- Use descriptive names for variables, functions, and classes
+- Keep functions small and focused on single responsibilities
+- Follow DRY (Don't Repeat Yourself) principle
+- Maintain consistent code style throughout the project
+
+### 🔧 Best Practices
+- Always include appropriate error handling
+- Use async/await instead of callbacks when possible
+- Implement input validation for public functions
+- Add explanatory comments for complex logic
+- Write self-documenting code when possible
+
+### 🧪 Testing & Quality
+- Consider testability when writing code
+- Prefer unit tests for business logic
+- Use mocks for external dependencies
+- Keep tests simple and focused
+- Maintain good test coverage
+
+### 📦 Project Structure
+- Organize files in logical structure
+- Use imports/exports consistently
+- Keep dependencies up to date
+- Document public APIs
+- Follow project's established patterns
+
+### 🚀 Performance
+- Avoid unnecessary expensive operations
+- Use lazy loading when appropriate
+- Optimize rendering (if applicable)
+- Monitor memory usage
+- Profile before optimizing
+
+### 🔒 Security
+- Validate and sanitize all inputs
+- Use environment variables for secrets
+- Follow security best practices for the tech stack
+- Keep dependencies updated for security patches
+- Implement proper authentication/authorization
+
+### 📝 Documentation
+- Write clear commit messages
+- Document complex algorithms
+- Keep README up to date
+- Add inline documentation for public APIs
+- Use JSDoc or similar for function documentation
+
+## AI Workspace Integration
+
+This project uses AI Workspace for:
+- Automated health checks
+- Visual interface analysis
+- Test generation suggestions
+- Performance monitoring
+- Security scanning
+
+When making changes:
+1. Consider running `ai-workspace health-check` after significant changes
+2. Use `ai-workspace visual-audit` for UI-related changes
+3. Follow suggestions from AI Workspace reports
+4. Maintain the project's detected quality standards
+
+## Code Examples
+
+### Error Handling
+```javascript
+async function fetchData(id) {
+  try {
+    const response = await api.get(`/data/${id}`);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    return response.data;
+  } catch (error) {
+    console.error('Failed to fetch data:', error);
+    throw error; // Re-throw for caller to handle
+  }
+}
+```
+
+### Input Validation
+```javascript
+function processUser(userData) {
+  if (!userData || typeof userData !== 'object') {
+    throw new Error('Invalid user data: expected object');
+  }
+  
+  const { name, email } = userData;
+  
+  if (!name || typeof name !== 'string') {
+    throw new Error('Invalid name: expected non-empty string');
+  }
+  
+  if (!email || !isValidEmail(email)) {
+    throw new Error('Invalid email format');
+  }
+  
+  // Process validated data
+  return processValidatedUser({ name, email });
+}
+```
+
+### Async Operations
+```javascript
+// Prefer this
+async function updateUserProfile(userId, profileData) {
+  const user = await User.findById(userId);
+  const updatedUser = await user.update(profileData);
+  return updatedUser;
+}
+
+// Over this
+function updateUserProfile(userId, profileData, callback) {
+  User.findById(userId, (err, user) => {
+    if (err) return callback(err);
+    user.update(profileData, callback);
+  });
+}
+```
+
+## Project-Specific Guidelines
+
+The AI Workspace has detected your project configuration. Additional rules specific to your tech stack will be provided in separate rule files. Always combine these base rules with your project-specific guidelines.
+
+Remember: Code is read more often than it's written. Optimize for readability and maintainability. 

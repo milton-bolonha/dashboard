@@ -1,0 +1,33 @@
+# AI Workspace - Generated ignore patterns
+
+# Dependencies
+node_modules/
+bower_components/
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Logs
+*.log
+logs/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Large data files
+*.csv
+*.json.large
+*.sql
+*.dump

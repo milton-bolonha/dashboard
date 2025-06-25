@@ -1,0 +1,11 @@
+{
+  "/api/billing/verify-user/route": "app/api/billing/verify-user/route.js",
+  "/api/content-types/route": "app/api/content-types/route.js",
+  "/api/users/sync/route": "app/api/users/sync/route.js",
+  "/api/billing/transactions/route": "app/api/billing/transactions/route.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/dashboard/content-types/page": "app/dashboard/content-types/page.js",
+  "/dashboard/billing/page": "app/dashboard/billing/page.js",
+  "/dashboard/users/page": "app/dashboard/users/page.js",
+  "/dashboard/sections/page": "app/dashboard/sections/page.js"
+}

@@ -1,0 +1,77 @@
+metadata:
+  currency: "BRL"
+  trial_days: 7
+  support_email: "amor@autoresapaixonados.com"
+
+plans:
+  cupido:
+    name: "Plano Cupido"
+    tagline: "Seu primeiro livro de amor"
+    price: 47
+    original_price: 67
+    interval: "one_time"
+    popular: false
+    features:
+      - "1 livro digital (PDF alta qualidade)"
+      - "Até 50 páginas personalizadas"
+      - "3 templates clássicos"
+      - "Preview em tempo real"
+      - "Suporte por email"
+      - "Download ilimitado"
+    includes:
+      max_books: 1
+      digital_pdf: true
+      max_pages: 50
+      templates: ["classic", "modern", "minimalist"]
+      ai_suggestions: false
+      custom_illustrations: false
+
+  afrodite:
+    name: "Plano Afrodite"
+    tagline: "Para amores que querem mais"
+    price: 127
+    popular: true
+    includes:
+      max_books: 3
+      max_pages: 100
+      templates: "*"
+      ai_suggestions: true
+      photo_integration: true
+      custom_cover: true
+      priority_support: true
+
+  zeus:
+    name: "Plano Zeus"
+    tagline: "O amor em sua forma mais épica"
+    price: 297
+    badge: "PREMIUM"
+    includes:
+      max_books: -1 # Ilimitado
+      max_pages: -1
+      advanced_ai: true
+      custom_illustrations: true
+      multiple_formats: true
+      professional_review: true
+      authenticity_certificate: true
+
+addons:
+  extra_book:
+    name: "Livro Extra"
+    price: 27
+    category: "books"
+
+  premium_ai:
+    name: "IA Premium"
+    price: 37
+    category: "features"
+    compatible_plans: ["cupido"]
+
+  photo_integration:
+    name: "Integração de Fotos"
+    price: 47
+    category: "features"
+
+  custom_illustrations:
+    name: "Ilustrações Personalizadas"
+    price: 87
+    category: "design"

@@ -1,0 +1,40 @@
+---
+description: ""
+globs: ""
+alwaysApply: true
+---
+
+# Code Quality Standards
+
+## Critical Rules
+
+- Write self-documenting code with clear variable and function names
+- Follow consistent indentation and formatting
+- Include error handling for all external operations
+- Add comments only for complex business logic, not obvious code
+- Keep functions focused and small (single responsibility)
+- Use meaningful commit messages following conventional commits
+- Write tests for critical business logic
+- Avoid deep nesting (max 3 levels)
+
+## Examples
+
+<example>
+// Good: Clear function name and error handling
+async function getUserProfile(userId: string): Promise<UserProfile> {
+  try {
+    const user = await userService.findById(userId);
+    return user.profile;
+  } catch (error) {
+    throw new Error(`Failed to get user profile: ${error.message}`);
+  }
+}
+</example>
+
+<example type="invalid">
+// Bad: Unclear naming and no error handling
+async function get(id) {
+  const u = await service.find(id);
+  return u.p;
+}
+</example>

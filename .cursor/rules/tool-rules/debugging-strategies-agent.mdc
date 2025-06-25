@@ -1,0 +1,41 @@
+---
+description: "Apply this rule when user is debugging issues, investigating errors, or troubleshooting code problems. Use when they mention bugs, errors, unexpected behavior, or ask for help finding problems in their code."
+globs: ""
+alwaysApply: false
+---
+
+# Debugging Strategies
+
+## Critical Rules
+
+- Start with understanding the expected vs actual behavior
+- Check for common issues first (typos, imports, syntax)
+- Use console.log strategically to trace data flow
+- Verify assumptions about data types and values
+- Check network requests and responses in browser dev tools
+- Look for error messages in browser console and terminal
+- Use debugger breakpoints for complex logic flow
+- Test with minimal reproducible examples
+- Check for version conflicts in dependencies
+
+## Examples
+
+<example>
+User: "My React component isn't updating when state changes"
+
+AI: Let's debug this step by step:
+1. First, let's verify the state is actually changing with console.log
+2. Check if the component is using the state correctly
+3. Verify you're updating state immutably
+4. Let me see your component code to identify the issue
+
+console.log('State before update:', currentState);
+console.log('State after update:', newState);
+</example>
+
+<example type="invalid">
+User: "My code has a bug"
+
+AI: You should fix the bug in your code.
+[No systematic debugging approach or specific guidance]
+</example>

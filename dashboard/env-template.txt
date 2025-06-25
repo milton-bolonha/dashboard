@@ -1,0 +1,51 @@
+# =====================================
+# 🔐 CONFIGURAÇÃO DE AMBIENTE - DASHBOARD
+# =====================================
+
+# -----------------------------
+# 🏛️ CLERK (Autenticação)
+# -----------------------------
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+CLERK_SECRET_KEY=sk_test_...
+
+# -----------------------------
+# 💳 STRIPE (Pagamentos)
+# -----------------------------
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+
+# -----------------------------
+# 🗄️ MONGODB (Database)
+# -----------------------------
+MONGODB_URI=mongodb://localhost:27017/dashboard
+# OU para MongoDB Atlas:
+# MONGODB_URI=mongodb+srv://user:password@cluster.mongodb.net/dashboard
+
+# -----------------------------
+# 🔒 SEGURANÇA
+# -----------------------------
+INTERNAL_API_KEY=your_secret_internal_key_here
+ADMIN_EXPORT_KEY=your_admin_export_key_here
+
+# -----------------------------
+# 🌐 APP
+# -----------------------------
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+NODE_ENV=development
+
+# -----------------------------
+# 📧 OPCIONAL (Email/Notificações)
+# -----------------------------
+# RESEND_API_KEY=re_...
+# WEBHOOK_URL=https://seu-dominio.netlify.app/.netlify/functions/stripe-webhook
+
+# =====================================
+# 📝 COMO CONFIGURAR:
+# =====================================
+# 1. Copie este arquivo para .env.local
+# 2. Preencha as chaves do Clerk e Stripe
+# 3. Configure sua string de conexão MongoDB
+# 4. Gere chaves seguras para INTERNAL_API_KEY e ADMIN_EXPORT_KEY
+# 5. Execute: npm install && npm run dev
+# ===================================== 

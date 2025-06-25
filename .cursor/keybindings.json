@@ -1,0 +1,23 @@
+[
+  {
+    "key": "cmd+shift+m",
+    "command": "cursor.generateGitCommitMessage",
+    "when": "scmRepository"
+  },
+  {
+    "key": "cmd+shift+h",
+    "command": "workbench.action.terminal.sendSequence",
+    "args": {
+      "text": "npm run ai:health\n"
+    },
+    "when": "terminalFocus"
+  },
+  {
+    "key": "cmd+shift+v",
+    "command": "workbench.action.terminal.sendSequence",
+    "args": {
+      "text": "npm run ai:visual\n"
+    },
+    "when": "terminalFocus"
+  }
+]

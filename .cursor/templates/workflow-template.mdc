@@ -1,0 +1,30 @@
+---
+description: "Describe when this workflow should be triggered and what it accomplishes"
+globs: ""
+alwaysApply: false
+---
+
+# Workflow Name
+
+## Context
+
+- When to use this workflow
+- What problem it solves
+- Prerequisites needed
+
+## Critical Rules
+
+- Step-by-step process
+- Required actions at each stage
+- Validation criteria
+- Success indicators
+
+## Examples
+
+<example>
+User triggers workflow scenario and expected AI response
+</example>
+
+<example type="invalid">
+Scenario where workflow should NOT be used
+</example>

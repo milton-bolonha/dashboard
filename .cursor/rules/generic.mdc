@@ -1,0 +1,20 @@
+---
+description: Padrões gerais de desenvolvimento
+globs: ["**/*.js", "**/*.ts"]
+alwaysApply: false
+---
+
+# 🔧 General Development Standards
+
+## JavaScript/TypeScript
+- Use ES6+ features
+- Prefira const/let sobre var
+- Use destructuring quando apropriado
+- Implemente proper error handling
+
+## Qualidade
+- Configure ESLint + Prettier
+- Use pre-commit hooks
+- Mantenha dependencies atualizadas
+
+@general-patterns.md

@@ -1,0 +1,20 @@
+{
+  "rules": {
+    "enableAutoApply": true,
+    "preferredRules": [
+      ".cursor/rules/generic.md",
+      ".cursor/rules/base.md",
+      ".cursor/rules/quality.md"
+    ]
+  },
+  "chat": {
+    "defaultMode": "agent",
+    "autoRefresh": true,
+    "largeContext": true
+  },
+  "features": {
+    "cursorTab": true,
+    "autoImport": true,
+    "iterateOnLints": true
+  }
+}

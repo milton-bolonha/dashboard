@@ -1,0 +1,9 @@
+cff-version: 1.0.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: "Bolonha"
+    given-names: "Milton"
+title: "NextJS Boilerplate Times"
+date-released: 2024-06-24
+url: "https://github.com/miltonbolonha/boilerplate-times"
+version: 1.0.0

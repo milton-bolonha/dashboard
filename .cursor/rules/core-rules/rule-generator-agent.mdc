@@ -1,0 +1,49 @@
+---
+description: "Apply when user requests creation of new rules, asks to remember certain behaviors, wants to modify existing rules, or requests future behavior changes. This rule ensures proper rule creation and organization."
+globs: ""
+alwaysApply: false
+---
+
+# Rule Generation System
+
+## Context
+
+- Use when user wants to create new rules for future behavior
+- Apply when modifying existing rules or rule structure
+- Ensure proper organization and naming conventions
+
+## Critical Rules
+
+- Always check existing rules in all .cursor/rules subfolders before creating new ones
+- Use proper naming convention: `rule-name-{auto|agent|manual|always}.mdc`
+- Place rules in appropriate organizational folders
+- Fill front matter fields correctly based on rule type:
+  - Auto Rule: description blank, specific globs, alwaysApply false
+  - Agent Rule: detailed description, globs blank, alwaysApply false  
+  - Always Rule: description blank, globs blank, alwaysApply true
+  - Manual Rule: description blank, globs blank, alwaysApply false
+- Include both valid and invalid examples
+- Focus on actionable directives, not explanations
+- After creating rule, confirm with user: path, type, and description
+
+## Examples
+
+<example>
+User: "Create a rule to always use TypeScript strict mode"
+
+AI: I'll create an auto rule for TypeScript strict mode. This will apply to all TypeScript files.
+
+[Creates .cursor/rules/stack-rules/typescript-strict-auto.mdc with proper front matter and content]
+
+Rule created successfully:
+- Path: .cursor/rules/stack-rules/typescript-strict-auto.mdc
+- Type: Auto Rule
+- Description: [blank - auto applies to *.ts, *.tsx files]
+</example>
+
+<example type="invalid">
+User: "Remember to use async/await"
+
+AI: I'll remember that for you.
+[No actual rule created, just verbal acknowledgment]
+</example>

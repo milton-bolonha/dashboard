@@ -1,0 +1,30 @@
+{
+  "name": "dev-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "ai",
+    "dashboard"
+  ],
+  "scripts": {
+    "ai:setup": "ai-workspace setup",
+    "goshdev": "npm --workspace=ai run goshdev",
+    "ai:health": "ai-workspace health-check",
+    "ai:visual": "ai-workspace visual-audit",
+    "ai:status": "ai-workspace status",
+    "test": "node --test",
+    "dash:dev": "npm --workspace=dashboard run dev",
+    "dash:build": "npm --workspace=dashboard run build",
+    "dash:start": "npm --workspace=dashboard run start"
+  },
+  "dependencies": {
+    "yaml": "^2.3.1",
+    "stripe": "^12.14.0",
+    "@netlify/functions": "^2.0.0",
+    "puppeteer-core": "^22.7.1",
+    "openai": "^4.31.0",
+    "uuid": "^9.0.0",
+    "dotenv": "^16.4.0"
+  }
+}

@@ -1,0 +1,43 @@
+---
+description: ""
+globs: ["src/**/*.ts", "src/**/*.js", "routes/**/*", "controllers/**/*"]
+alwaysApply: false
+---
+
+# Node.js API Development Standards
+
+## Critical Rules
+
+- Use TypeScript for type safety in API development
+- Implement proper error handling middleware
+- Use async/await over callbacks and raw promises
+- Validate all input data with appropriate schemas
+- Follow RESTful conventions for endpoint naming
+- Implement proper logging with structured format
+- Use environment variables for configuration
+- Add proper authentication and authorization middleware
+
+## Examples
+
+<example>
+// Good: Properly structured API endpoint with error handling
+export const createUser = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const validatedData = userSchema.parse(req.body);
+    const user = await userService.createUser(validatedData);
+    
+    logger.info('User created successfully', { userId: user.id });
+    res.status(201).json({ success: true, data: user });
+  } catch (error) {
+    next(error); // Pass to error handling middleware
+  }
+};
+</example>
+
+<example type="invalid">
+// Bad: No error handling, no validation, no types
+const createUser = (req, res) => {
+  const user = userService.createUser(req.body);
+  res.json(user);
+};
+</example>

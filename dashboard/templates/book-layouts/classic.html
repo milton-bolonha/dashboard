@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pt">
+  <head>
+    <meta charset="UTF-8" />
+    <title>{{title}}</title>
+    <style>
+      body {
+        font-family: "Times New Roman", serif;
+        margin: 4rem;
+      }
+      h1 {
+        text-align: center;
+      }
+      section {
+        margin-bottom: 2rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>{{title}}</h1>
+    <p>Por {{partner1.name}} & {{partner2.name}}</p>
+
+    <section>
+      <h2>Como nos conhecemos</h2>
+      <p>{{howWeMet}}</p>
+    </section>
+
+    {{#each importantEvents}}
+    <section>
+      <h2>{{title}}</h2>
+      <small>{{date}}</small>
+      <p>{{description}}</p>
+    </section>
+    {{/each}}
+  </body>
+</html>
