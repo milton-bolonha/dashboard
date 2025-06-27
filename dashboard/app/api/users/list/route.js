@@ -32,72 +32,78 @@ export async function GET(request) {
 
     console.log(`👥 Encontrados ${clerkUsers.length} usuários`);
 
-    const users = clerkUsers.map((user) => {
-      const metadata = user.unsafeMetadata || {};
+    const users = await Promise.all(
+      clerkUsers.map(async (user) => {
+        const metadata = user.unsafeMetadata || {};
 
-      let stripeData = null;
-      if (includeStripe && metadata.stripeCustomerId) {
-        try {
-          stripeData = await getStripeCustomerSummary(
-            metadata.stripeCustomerId
-          );
-        } catch (e) {
-          console.warn(
-            `⚠️ Erro ao buscar dados Stripe para ${user.id}:`,
-            e.message
-          );
+        let stripeData = null;
+        if (includeStripe && metadata.stripeCustomerId) {
+          try {
+            stripeData = await getStripeCustomerSummary(
+              metadata.stripeCustomerId
+            );
+          } catch (e) {
+            console.warn(
+              `⚠️ Erro ao buscar dados Stripe para ${user.id}:`,
+              e.message
+            );
+          }
         }
-      }
 
-      const userData = {
-        clerkId: user.id,
-        email: user.emailAddresses[0]?.emailAddress || "N/A",
-        firstName: user.firstName || "",
-        lastName: user.lastName || "",
-        createdAt: user.createdAt,
-        lastSignInAt: user.lastSignInAt,
-        stripeCustomerId: metadata.stripeCustomerId || null,
-        currentPlans: metadata.plans?.active || [],
-        expiredPlans: metadata.plans?.expired || [],
-        totalSpent: metadata.billing?.totalSpent || 0,
-        lastPayment: metadata.billing?.lastPayment || null,
-        lastVerified: metadata.plans?.lastVerified || null,
-        planCount: (metadata.plans?.active || []).length,
-        isActiveCustomer: (metadata.plans?.active || []).length > 0,
-        daysSinceCreation: Math.floor(
-          (Date.now() - new Date(user.createdAt).getTime()) /
-            (1000 * 60 * 60 * 24)
-        ),
-        daysSinceLastLogin: user.lastSignInAt
-          ? Math.floor(
-              (Date.now() - new Date(user.lastSignInAt).getTime()) /
-                (1000 * 60 * 60 * 24)
-            )
-          : null,
-      };
-
-      // Adicionar dados do Stripe se solicitado
-      if (stripeData) {
-        userData.stripeData = {
-          activeSubscriptions: stripeData.activeSubscriptions,
-          stripeTotalSpent: stripeData.totalSpent,
-          lastStripePayment: stripeData.lastPayment,
-          stripeInvoiceCount: stripeData.invoiceCount,
-          stripeCurrency: stripeData.currency,
+        const userData = {
+          clerkId: user.id,
+          email: user.emailAddresses[0]?.emailAddress || "N/A",
+          firstName: user.firstName || "",
+          lastName: user.lastName || "",
+          createdAt: user.createdAt,
+          lastSignInAt: user.lastSignInAt,
+          stripeCustomerId: metadata.stripeCustomerId || null,
+          currentPlans: metadata.plans?.active || [],
+          expiredPlans: metadata.plans?.expired || [],
+          totalSpent: metadata.billing?.totalSpent || 0,
+          lastPayment: metadata.billing?.lastPayment || null,
+          lastVerified: metadata.plans?.lastVerified || null,
+          planCount: (metadata.plans?.active || []).length,
+          isActiveCustomer: (metadata.plans?.active || []).length > 0,
+          daysSinceCreation: Math.floor(
+            (Date.now() - new Date(user.createdAt).getTime()) /
+              (1000 * 60 * 60 * 24)
+          ),
+          daysSinceLastLogin: user.lastSignInAt
+            ? Math.floor(
+                (Date.now() - new Date(user.lastSignInAt).getTime()) /
+                  (1000 * 60 * 60 * 24)
+              )
+            : null,
         };
-      }
 
-      return userData;
-    });
+        // Adicionar dados do Stripe se solicitado
+        if (stripeData) {
+          userData.stripeData = {
+            activeSubscriptions: stripeData.activeSubscriptions,
+            stripeTotalSpent: stripeData.totalSpent,
+            lastStripePayment: stripeData.lastPayment,
+            stripeInvoiceCount: stripeData.invoiceCount,
+            stripeCurrency: stripeData.currency,
+          };
+        }
+
+        return userData;
+      })
+    );
 
     // Gerar estatísticas
     const stats = {
       total: users.length,
       activeCustomers: users.filter((u) => u.isActiveCustomer).length,
       totalRevenue: users.reduce((sum, u) => sum + (u.totalSpent || 0), 0),
-      conversionRate: users.length > 0 
-        ? ((users.filter((u) => u.isActiveCustomer).length / users.length) * 100).toFixed(2) + "%" 
-        : "0%",
+      conversionRate:
+        users.length > 0
+          ? (
+              (users.filter((u) => u.isActiveCustomer).length / users.length) *
+              100
+            ).toFixed(2) + "%"
+          : "0%",
     };
 
     return NextResponse.json({

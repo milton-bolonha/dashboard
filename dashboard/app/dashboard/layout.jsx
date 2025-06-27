@@ -3,6 +3,7 @@
 import { ClerkProvider, useUser } from "@clerk/nextjs";
 import { Sidebar } from "../../components/ui/Sidebar";
 import { TopBar } from "../../components/ui/TopBar";
+import { SectionsProvider } from "../../contexts/SectionsContext";
 import { useUserPlanVerification } from "../../hooks/useUserPlanVerification";
 
 function DashboardContent({ children }) {
@@ -42,7 +43,9 @@ function DashboardContent({ children }) {
 export default function DashboardLayout({ children }) {
   return (
     <ClerkProvider>
-      <DashboardContent>{children}</DashboardContent>
+      <SectionsProvider>
+        <DashboardContent>{children}</DashboardContent>
+      </SectionsProvider>
     </ClerkProvider>
   );
 }

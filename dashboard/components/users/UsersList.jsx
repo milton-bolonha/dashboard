@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Card } from "../ui/Card";
-import { Button } from "../ui/Button";
+import Button from "../ui/Button";
 import { Input } from "../ui/Input";
 
 export function UsersList() {

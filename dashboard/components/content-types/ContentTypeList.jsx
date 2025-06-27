@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/components/ui/Button";
+import Button from "@/components/ui/Button";
 
 export default function ContentTypeList({ contentTypes, onEdit, onDelete }) {
   if (contentTypes.length === 0) {

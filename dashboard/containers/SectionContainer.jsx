@@ -3,33 +3,42 @@
 import { useState, useEffect, useCallback } from "react";
 import SectionList from "@/components/sections/SectionList";
 import SectionForm from "@/components/sections/SectionForm";
-import { Button } from "@/components/ui/Button";
+import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
+import { useSections } from "@/contexts/SectionsContext";
 
 export default function SectionContainer() {
-  const [sections, setSections] = useState([]);
+  const { sections, refreshSections } = useSections(); // ← Usar contexto
   const [contentTypes, setContentTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSection, setEditingSection] = useState(null);
 
-  const fetchData = useCallback(async () => {
+  const fetchContentTypes = useCallback(async () => {
     try {
       setLoading(true);
-      const [sectionsRes, contentTypesRes] = await Promise.all([
-        fetch("/api/sections"),
-        fetch("/api/content-types"),
-      ]);
-      if (!sectionsRes.ok || !contentTypesRes.ok)
-        throw new Error("Failed to fetch data");
+      console.log("🔍 SectionContainer: Tentando buscar content types...");
 
-      const sectionsData = await sectionsRes.json();
+      // API principal com autenticação flexível
+      const contentTypesRes = await fetch("/api/content-types");
+
+      if (!contentTypesRes.ok) {
+        throw new Error(
+          `Failed to fetch content types (status: ${contentTypesRes.status})`
+        );
+      }
+
       const contentTypesData = await contentTypesRes.json();
+      console.log(
+        "✅ SectionContainer: Content types carregados:",
+        contentTypesData
+      );
 
-      setSections(sectionsData.sections);
       setContentTypes(contentTypesData.contentTypes);
+      setError(null);
     } catch (err) {
+      console.error("❌ SectionContainer: Erro ao buscar content types:", err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -37,8 +46,8 @@ export default function SectionContainer() {
   }, []);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    fetchContentTypes();
+  }, [fetchContentTypes]);
 
   const handleOpenModal = (section = null) => {
     setEditingSection(section);
@@ -77,7 +86,7 @@ export default function SectionContainer() {
         throw new Error(errorData.error || "Failed to save section");
       }
 
-      await fetchData(); // Re-fetch
+      await refreshSections(); // ← Atualizar contexto global
       handleCloseModal();
     } catch (err) {
       console.error(err);
@@ -91,7 +100,7 @@ export default function SectionContainer() {
     try {
       const response = await fetch(`/api/sections/${id}`, { method: "DELETE" });
       if (!response.ok) throw new Error("Failed to delete section");
-      await fetchData();
+      await refreshSections(); // ← Atualizar contexto global
     } catch (err) {
       console.error(err);
       alert(err.message);

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { Input } from "@/components/ui/Input";
-import { Button } from "@/components/ui/Button";
+import Button from "@/components/ui/Button";
 
 export default function ContentTypeForm({ contentType, onSubmit, onCancel }) {
   const [formData, setFormData] = useState({

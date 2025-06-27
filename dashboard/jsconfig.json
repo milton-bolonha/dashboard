@@ -4,6 +4,7 @@
     "paths": {
       "@/components/*": ["components/*"],
       "@/containers/*": ["containers/*"],
+      "@/contexts/*": ["contexts/*"],
       "@/lib/*": ["lib/*"],
       "@/schemas/*": ["schemas/*"],
       "@/app/*": ["app/*"]

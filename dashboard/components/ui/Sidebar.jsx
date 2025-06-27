@@ -1,27 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSections } from "@/contexts/SectionsContext";
 
 export function Sidebar({ activePlans }) {
   const pathname = usePathname();
-  const [sections, setSections] = useState([]);
+  const { sections } = useSections(); // ← Usar contexto global
   const [isHovered, setIsHovered] = useState(false);
-
-  useEffect(() => {
-    loadSections();
-  }, []);
-
-  const loadSections = async () => {
-    try {
-      const response = await fetch("/api/sections");
-      const data = await response.json();
-      setSections(data.sections || []);
-    } catch (error) {
-      console.error("Erro ao carregar sections:", error);
-    }
-  };
 
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: "dashboard" },
@@ -123,7 +110,7 @@ export function Sidebar({ activePlans }) {
           </div>
         </div>
 
-        <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
+        <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto custom-scrollbar">
           {/* Indicador de planos ativos */}
           <div
             className={`mx-2 mb-4 overflow-hidden transition-all duration-300 ${

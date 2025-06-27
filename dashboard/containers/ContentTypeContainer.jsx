@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import ContentTypeList from "@/components/content-types/ContentTypeList";
 import ContentTypeForm from "@/components/content-types/ContentTypeForm";
-import { Button } from "@/components/ui/Button";
+import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 
 export default function ContentTypeContainer() {
@@ -16,11 +16,24 @@ export default function ContentTypeContainer() {
   const fetchContentTypes = useCallback(async () => {
     try {
       setLoading(true);
+      console.log("🔍 Tentando buscar content types...");
+
+      // API principal com autenticação flexível
       const response = await fetch("/api/content-types");
-      if (!response.ok) throw new Error("Failed to fetch content types");
+
+      if (!response.ok) {
+        throw new Error(
+          `Failed to fetch content types (status: ${response.status})`
+        );
+      }
+
       const data = await response.json();
+      console.log("✅ Content types carregados:", data);
+
       setContentTypes(data.contentTypes);
+      setError(null);
     } catch (err) {
+      console.error("❌ Erro ao buscar content types:", err);
       setError(err.message);
     } finally {
       setLoading(false);

@@ -69,7 +69,8 @@ export const ContentTypeSchema = {
   name: "contentTypes",
   fields: {
     name: { type: "string", required: true },
-    slug: { type: "string", required: true, unique: true },
+    slug: { type: "string", required: true },
+    userId: { type: "string", required: true }, // ← TRIANGULAÇÃO: Clerk User ID
     description: { type: "string" },
     icon: { type: "string", default: "folder" },
     views: {
@@ -95,6 +96,10 @@ export const ContentTypeSchema = {
     createdBy: { type: "objectId", ref: "users" },
     isActive: { type: "boolean", default: true },
   },
+  indexes: [
+    // Índice composto para garantir slug único por usuário
+    { fields: { userId: 1, slug: 1 }, unique: true },
+  ],
 };
 
 export const SectionSchema = {
@@ -103,6 +108,7 @@ export const SectionSchema = {
     name: { type: "string", required: true },
     slug: { type: "string", required: true },
     contentTypeId: { type: "objectId", ref: "contentTypes", required: true },
+    userId: { type: "string", required: true }, // ← TRIANGULAÇÃO: Clerk User ID
     description: { type: "string" },
     settings: {
       defaultView: { type: "string", enum: ["list", "grid"], default: "list" },
@@ -113,6 +119,10 @@ export const SectionSchema = {
     createdBy: { type: "objectId", ref: "users" },
     isActive: { type: "boolean", default: true },
   },
+  indexes: [
+    // Índice composto para garantir slug único por usuário
+    { fields: { userId: 1, slug: 1 }, unique: true },
+  ],
 };
 
 export const ItemSchema = {
@@ -121,6 +131,7 @@ export const ItemSchema = {
     title: { type: "string", required: true },
     slug: { type: "string", required: true },
     sectionId: { type: "objectId", ref: "sections", required: true },
+    userId: { type: "string", required: true }, // ← TRIANGULAÇÃO: Clerk User ID
     data: { type: "object", default: {} }, // dados dos addons
     status: {
       type: "string",
@@ -130,6 +141,10 @@ export const ItemSchema = {
     createdBy: { type: "objectId", ref: "users" },
     publishedAt: { type: "date" },
   },
+  indexes: [
+    // Índice composto para garantir slug único por usuário e section
+    { fields: { userId: 1, sectionId: 1, slug: 1 }, unique: true },
+  ],
 };
 
 export const BillingSchema = {

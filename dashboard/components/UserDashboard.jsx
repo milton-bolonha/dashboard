@@ -2,7 +2,7 @@
 
 import { useUser } from "@clerk/nextjs";
 import { useUserPlanVerification } from "../hooks/useUserPlanVerification";
-import { Button } from "./ui/Button";
+import Button from "./ui/Button";
 import { Card } from "./ui/Card";
 import Link from "next/link";
 

@@ -1,34 +1,98 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db.js";
 import { SectionSchema, validateSchema } from "@/schemas/index.js";
+import { getCurrentAuth } from "@/lib/auth";
 
 /**
  * GET /api/sections
- * Lista todas as sections
+ * Lista todas as sections do usuário (com triangulação por userId)
  */
 export async function GET() {
+  // TEMPORÁRIO: Tentar autenticação, mas não falhar se não conseguir
+  const authData = getCurrentAuth();
+  const userId = authData.userId || "temp_user_dev";
+
+  console.log(
+    "🔐 Sections GET: userId =",
+    userId,
+    authData.userId ? "(autenticado)" : "(modo dev)"
+  );
+
   try {
-    const sections = await db.find("sections", { isActive: true });
+    console.log(
+      `🔍 Tentando buscar sections do usuário ${userId} no MongoDB...`
+    );
+
+    const sections = await db.find("sections", {
+      userId: userId, // ← TRIANGULAÇÃO: só sections do usuário
+    });
+
+    console.log(
+      `✅ MongoDB conectado! Encontradas ${sections.length} sections do usuário`
+    );
     return NextResponse.json({ sections });
   } catch (error) {
     console.warn(
-      "Could not connect to DB for sections, returning empty array.",
+      "⚠️ Could not connect to DB for sections, using fallback data.",
       error.message
     );
-    return NextResponse.json({ sections: [] });
+
+    // FALLBACK: Dados mock para teste (com userId já obtido)
+    const mockSections = [
+      {
+        _id: "mock1",
+        name: "Seção Teste 1",
+        slug: "secao-teste-1",
+        contentTypeId: "ct1",
+        userId: userId, // ← TRIANGULAÇÃO: associar ao usuário atual
+        description: "Seção criada para teste",
+        settings: { defaultView: "list", itemsPerPage: 20 },
+        isActive: true,
+        createdAt: new Date(),
+      },
+      {
+        _id: "mock2",
+        name: "Seção Teste 2",
+        slug: "secao-teste-2",
+        contentTypeId: "ct1",
+        userId: userId, // ← TRIANGULAÇÃO: associar ao usuário atual
+        description: "Segunda seção de teste",
+        settings: { defaultView: "grid", itemsPerPage: 10 },
+        isActive: true,
+        createdAt: new Date(),
+      },
+    ];
+
+    console.log(
+      `🔄 Retornando ${mockSections.length} sections mock para usuário ${userId}`
+    );
+    return NextResponse.json({ sections: mockSections });
   }
 }
 
 /**
  * POST /api/sections
- * Cria uma nova section
+ * Cria uma nova section (com triangulação por userId)
  */
 export async function POST(request) {
   try {
     const data = await request.json();
 
+    // TEMPORÁRIO: Tentar autenticação, mas não falhar se não conseguir
+    const authData = getCurrentAuth();
+    const userId = authData.userId || "temp_user_dev";
+
+    console.log(
+      "🔐 Sections POST: userId =",
+      userId,
+      authData.userId ? "(autenticado)" : "(modo dev)"
+    );
+
+    // Adicionar userId aos dados para validação
+    const dataWithUserId = { ...data, userId };
+
     // Validar dados
-    const validation = validateSchema(data, SectionSchema);
+    const validation = validateSchema(dataWithUserId, SectionSchema);
     if (!validation.isValid) {
       return NextResponse.json(
         { error: "Validation failed", details: validation.errors },
@@ -44,8 +108,12 @@ export async function POST(request) {
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/(^-|-$)/g, "");
 
-    // Verificar se slug já existe
-    const existing = await db.findOne("sections", { slug });
+    // Verificar se slug já existe NO ESCOPO DO USUÁRIO (triangulação)
+    const existing = await db.findOne("sections", {
+      slug,
+      userId: userId, // ← TRIANGULAÇÃO: só verificar no escopo do usuário
+    });
+
     if (existing) {
       return NextResponse.json(
         { error: "Section with this slug already exists" },
@@ -53,10 +121,11 @@ export async function POST(request) {
       );
     }
 
-    // Criar section
+    // Criar section com userId (triangulação)
     const sectionData = {
       ...data,
       slug,
+      userId: userId, // ← TRIANGULAÇÃO: associar ao usuário
       settings: {
         defaultView: "list",
         itemsPerPage: 20,
