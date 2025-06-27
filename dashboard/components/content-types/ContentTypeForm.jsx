@@ -128,6 +128,10 @@ export default function ContentTypeForm({ contentType, onSubmit, onCancel }) {
                     <option value="textInput">Texto Curto</option>
                     <option value="textarea">Texto Longo</option>
                     <option value="imageUpload">Upload de Imagem</option>
+                    <option value="dateInput">📅 Data</option>
+                    <option value="selectInput">📋 Lista de Opções</option>
+                    <option value="numberInput">🔢 Número</option>
+                    <option value="checkboxInput">☑️ Checkbox</option>
                   </select>
                 </div>
               </div>

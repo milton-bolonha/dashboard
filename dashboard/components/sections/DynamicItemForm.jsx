@@ -13,7 +13,7 @@ export default function DynamicItemForm({
 }) {
   const [formData, setFormData] = useState({
     title: item?.title || "",
-    status: item?.status || "rascunho",
+    status: item?.status || "draft",
     data: item?.data || {},
   });
   const [loading, setLoading] = useState(false);
@@ -27,6 +27,14 @@ export default function DynamicItemForm({
           initialData[addon.id] = "";
         } else if (addon.type === "imageUpload") {
           initialData[addon.id] = null;
+        } else if (addon.type === "dateInput") {
+          initialData[addon.id] = "";
+        } else if (addon.type === "selectInput") {
+          initialData[addon.id] = "";
+        } else if (addon.type === "numberInput") {
+          initialData[addon.id] = "";
+        } else if (addon.type === "checkboxInput") {
+          initialData[addon.id] = false;
         }
       });
       setFormData((prev) => ({ ...prev, data: initialData }));
@@ -78,19 +86,6 @@ export default function DynamicItemForm({
     }
   };
 
-  // CONFIGURAÇÃO: Verificar se título customizado está definido nos addons
-  const titleAddon = contentType?.addons?.find(
-    (addon) =>
-      addon.type === "textInput" &&
-      (addon.id === "title" ||
-        addon.id === "titulo" ||
-        addon.name?.toLowerCase().includes("título"))
-  );
-
-  // Se há addon de título customizado, usar ele em vez do padrão
-  const useCustomTitle = !!titleAddon;
-  const titleLabel = titleAddon?.name || "Título do Item";
-
   const isEditing = !!item;
 
   return (
@@ -101,23 +96,24 @@ export default function DynamicItemForm({
           Informações Básicas
         </h3>
 
-        {/* Título - Apenas se NÃO há addon customizado */}
-        {!useCustomTitle && (
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Título do Item *
-            </label>
-            <input
-              type="text"
-              name="title"
-              value={formData.title}
-              onChange={handleInputChange}
-              placeholder="Digite o título do item..."
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-              required
-            />
-          </div>
-        )}
+        {/* Título Principal - SEMPRE PRESENTE */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Título do Item *
+            <span className="text-xs text-gray-500 ml-1">
+              (usado na listagem e URL)
+            </span>
+          </label>
+          <input
+            type="text"
+            name="title"
+            value={formData.title}
+            onChange={handleInputChange}
+            placeholder="Digite o título do item..."
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            required
+          />
+        </div>
 
         {/* Status */}
         <div className="mb-4">
@@ -130,9 +126,9 @@ export default function DynamicItemForm({
             onChange={handleInputChange}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
           >
-            <option value="rascunho">Rascunho</option>
-            <option value="publicado">Publicado</option>
-            <option value="arquivado">Arquivado</option>
+            <option value="draft">Rascunho</option>
+            <option value="published">Publicado</option>
+            <option value="archived">Arquivado</option>
           </select>
         </div>
       </div>
@@ -148,33 +144,7 @@ export default function DynamicItemForm({
           </h3>
 
           {contentType.addons.map((addon) => {
-            // Se este addon é para título e estamos usando título customizado
-            if (useCustomTitle && addon === titleAddon) {
-              return (
-                <div key={addon.id} className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {addon.name} {addon.required && "*"}
-                    <span className="text-xs text-blue-600 ml-1">
-                      (será usado como título principal)
-                    </span>
-                  </label>
-                  <input
-                    type="text"
-                    name={addon.id}
-                    value={formData.data[addon.id] || ""}
-                    onChange={handleAddonChange}
-                    placeholder={
-                      addon.placeholder ||
-                      `Digite ${addon.name.toLowerCase()}...`
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                    required={addon.required}
-                  />
-                </div>
-              );
-            }
-
-            // Renderizar addon normal
+            // Renderizar todos os addons como campos normais
             switch (addon.type) {
               case "textInput":
                 return (
@@ -237,6 +207,96 @@ export default function DynamicItemForm({
                         Arquivo atual: {formData.data[addon.id]}
                       </p>
                     )}
+                  </div>
+                );
+
+              case "dateInput":
+                return (
+                  <div key={addon.id} className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      {addon.name} {addon.required && "*"}
+                    </label>
+                    <input
+                      type="date"
+                      name={addon.id}
+                      value={formData.data[addon.id] || ""}
+                      onChange={handleAddonChange}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                      required={addon.required}
+                    />
+                  </div>
+                );
+
+              case "selectInput":
+                const options = addon.config?.options || [
+                  { value: "option1", label: "Opção 1" },
+                  { value: "option2", label: "Opção 2" },
+                  { value: "option3", label: "Opção 3" },
+                ];
+                return (
+                  <div key={addon.id} className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      {addon.name} {addon.required && "*"}
+                    </label>
+                    <select
+                      name={addon.id}
+                      value={formData.data[addon.id] || ""}
+                      onChange={handleAddonChange}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                      required={addon.required}
+                    >
+                      <option value="">Selecione...</option>
+                      {options.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                );
+
+              case "numberInput":
+                return (
+                  <div key={addon.id} className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      {addon.name} {addon.required && "*"}
+                    </label>
+                    <input
+                      type="number"
+                      name={addon.id}
+                      value={formData.data[addon.id] || ""}
+                      onChange={handleAddonChange}
+                      min={addon.config?.min}
+                      max={addon.config?.max}
+                      step={addon.config?.step || 1}
+                      placeholder={addon.placeholder || "Digite um número..."}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                      required={addon.required}
+                    />
+                  </div>
+                );
+
+              case "checkboxInput":
+                return (
+                  <div key={addon.id} className="mb-4">
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        name={addon.id}
+                        checked={formData.data[addon.id] || false}
+                        onChange={(e) => {
+                          const { name, checked } = e.target;
+                          setFormData((prev) => ({
+                            ...prev,
+                            data: { ...prev.data, [name]: checked },
+                          }));
+                        }}
+                        className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                      />
+                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {addon.name} {addon.required && "*"}
+                      </label>
+                    </div>
                   </div>
                 );
 

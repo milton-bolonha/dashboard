@@ -8,8 +8,8 @@ import { getCurrentAuth } from "@/lib/auth";
  * Lista todas as sections do usuário (com triangulação por userId)
  */
 export async function GET() {
-  // TEMPORÁRIO: Tentar autenticação, mas não falhar se não conseguir
-  const authData = getCurrentAuth();
+  // ✅ CORRIGIDO: Usar await com getCurrentAuth
+  const authData = await getCurrentAuth();
   const userId = authData.userId || "temp_user_dev";
 
   console.log(
@@ -78,8 +78,8 @@ export async function POST(request) {
   try {
     const data = await request.json();
 
-    // TEMPORÁRIO: Tentar autenticação, mas não falhar se não conseguir
-    const authData = getCurrentAuth();
+    // ✅ CORRIGIDO: Usar await com getCurrentAuth
+    const authData = await getCurrentAuth();
     const userId = authData.userId || "temp_user_dev";
 
     console.log(
@@ -91,7 +91,6 @@ export async function POST(request) {
     // Adicionar userId aos dados para validação
     const dataWithUserId = { ...data, userId };
 
-    // Validar dados
     const validation = validateSchema(dataWithUserId, SectionSchema);
     if (!validation.isValid) {
       return NextResponse.json(
@@ -100,7 +99,6 @@ export async function POST(request) {
       );
     }
 
-    // Gerar slug único
     const slug =
       data.slug ||
       data.name
@@ -109,12 +107,12 @@ export async function POST(request) {
         .replace(/(^-|-$)/g, "");
 
     // Verificar se slug já existe NO ESCOPO DO USUÁRIO (triangulação)
-    const existing = await db.findOne("sections", {
+    const existing = await db.find("sections", {
       slug,
       userId: userId, // ← TRIANGULAÇÃO: só verificar no escopo do usuário
     });
 
-    if (existing) {
+    if (existing.length > 0) {
       return NextResponse.json(
         { error: "Section with this slug already exists" },
         { status: 409 }
@@ -140,7 +138,7 @@ export async function POST(request) {
     // Buscar section criada
     const newSection = await db.findOne("sections", { _id: result.insertedId });
 
-    return NextResponse.json({ section: newSection }, { status: 201 });
+    return NextResponse.json({ section: newSection });
   } catch (error) {
     console.error("Error creating section:", error);
     return NextResponse.json(

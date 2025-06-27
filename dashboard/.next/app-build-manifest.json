@@ -1,15 +1,15 @@
 {
   "pages": {
+    "/api/sections/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/sections/route.js"
+    ],
     "/layout": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/css/app/layout.css",
       "static/chunks/app/layout.js"
-    ],
-    "/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/page.js"
     ],
     "/dashboard/layout": [
       "static/chunks/webpack.js",
@@ -26,40 +26,45 @@
       "static/chunks/main-app.js",
       "static/chunks/app/api/migrate/route.js"
     ],
-    "/api/billing/verify-user/route": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/api/billing/verify-user/route.js"
-    ],
     "/api/dashboard/stats/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/api/dashboard/stats/route.js"
     ],
-    "/api/sections/route": [
+    "/api/billing/verify-user/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/api/sections/route.js"
+      "static/chunks/app/api/billing/verify-user/route.js"
     ],
     "/api/users/sync/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/api/users/sync/route.js"
     ],
-    "/dashboard/content-types/page": [
+    "/dashboard/sections/[slug]/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/content-types/page.js"
+      "static/chunks/app/dashboard/sections/[slug]/page.js"
     ],
     "/api/content-types/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/api/content-types/route.js"
     ],
+    "/api/sections/[id]/items/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/sections/[id]/items/route.js"
+    ],
     "/dashboard/sections/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/sections/page.js"
+    ],
+    "/dashboard/content-types/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/content-types/page.js"
     ],
     "/dashboard/users/page": [
       "static/chunks/webpack.js",
@@ -70,21 +75,6 @@
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/api/users/list/route.js"
-    ],
-    "/dashboard/billing/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/billing/page.js"
-    ],
-    "/api/billing/transactions/route": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/api/billing/transactions/route.js"
-    ],
-    "/_not-found/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/_not-found/page.js"
     ]
   }
 }

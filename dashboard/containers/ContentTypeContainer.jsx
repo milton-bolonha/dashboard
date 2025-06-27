@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import ContentTypeList from "@/components/content-types/ContentTypeList";
+import { ModernContentTypesTable } from "@/components/content-types/ModernContentTypesTable";
 import ContentTypeForm from "@/components/content-types/ContentTypeForm";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
@@ -110,7 +110,7 @@ export default function ContentTypeContainer() {
       {error && <p className="text-red-500">{error}</p>}
 
       {!loading && !error && (
-        <ContentTypeList
+        <ModernContentTypesTable
           contentTypes={contentTypes}
           onEdit={handleOpenModal}
           onDelete={handleDelete}

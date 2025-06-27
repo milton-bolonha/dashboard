@@ -2,15 +2,16 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db.js";
 import { ObjectId } from "mongodb";
 import { getCurrentUserId, withAuth } from "@/lib/auth";
+import { checkItemLimit, logPlanCheck } from "@/lib/planLimits";
 
 /**
  * GET /api/sections/[id]/items
  * Lista todos os items de uma section pelo ID (com triangulação por userId)
  */
-export const GET = withAuth(async (request, { params }) => {
+export const GET = withAuth(async (request, { params }, { userId }) => {
   try {
     const { id } = await params;
-    const userId = getCurrentUserId();
+    console.log("🔧 Items GET: userId =", userId);
 
     // Validar ID
     if (!ObjectId.isValid(id)) {
@@ -57,11 +58,11 @@ export const GET = withAuth(async (request, { params }) => {
  * POST /api/sections/[id]/items
  * Cria um novo item na section pelo ID (com triangulação por userId)
  */
-export const POST = withAuth(async (request, { params }) => {
+export const POST = withAuth(async (request, { params }, { userId }) => {
   try {
     const { id } = await params;
     const data = await request.json();
-    const userId = getCurrentUserId();
+    console.log("🔧 Items POST: userId =", userId);
 
     // Validar ID
     if (!ObjectId.isValid(id)) {
@@ -84,6 +85,34 @@ export const POST = withAuth(async (request, { params }) => {
     // Validar dados básicos
     if (!data.title) {
       return NextResponse.json({ error: "Title is required" }, { status: 400 });
+    }
+
+    // ✅ VERIFICAR LIMITES DE PLANO (com bypass para dev)
+    try {
+      const currentItemCount = await db
+        .find("items", { userId })
+        .then((items) => items.length);
+      const limitCheck = await checkItemLimit(userId, [], currentItemCount);
+
+      logPlanCheck(userId, "criar item", limitCheck);
+
+      if (!limitCheck.canCreate) {
+        return NextResponse.json(
+          {
+            error: "Limite de items atingido",
+            details: limitCheck.reason,
+            limit: limitCheck.limit,
+            current: currentItemCount,
+          },
+          { status: 403 }
+        );
+      }
+    } catch (limitError) {
+      console.warn(
+        "⚠️ Erro na verificação de limites, permitindo criação:",
+        limitError.message
+      );
+      // Em caso de erro na verificação, permite criar (fail-safe)
     }
 
     // Gerar slug único para o item

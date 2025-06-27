@@ -7,11 +7,11 @@ import { getCurrentUserId, withAuth } from "@/lib/auth";
  * PUT /api/sections/[id]/items/[itemId]
  * Atualiza um item específico (com triangulação por userId)
  */
-export const PUT = withAuth(async (request, { params }) => {
+export const PUT = withAuth(async (request, { params }, { userId }) => {
   try {
     const { id, itemId } = await params;
     const data = await request.json();
-    const userId = getCurrentUserId();
+    console.log("🔧 Items PUT: userId =", userId);
 
     // Validar IDs
     if (!ObjectId.isValid(id) || !ObjectId.isValid(itemId)) {
@@ -90,10 +90,10 @@ export const PUT = withAuth(async (request, { params }) => {
  * DELETE /api/sections/[id]/items/[itemId]
  * Deleta um item específico (com triangulação por userId)
  */
-export const DELETE = withAuth(async (request, { params }) => {
+export const DELETE = withAuth(async (request, { params }, { userId }) => {
   try {
     const { id, itemId } = await params;
-    const userId = getCurrentUserId();
+    console.log("🔧 Items DELETE: userId =", userId);
 
     // Validar IDs
     if (!ObjectId.isValid(id) || !ObjectId.isValid(itemId)) {

@@ -5,28 +5,32 @@
 # -----------------------------
 # 🏛️ CLERK (Autenticação)
 # -----------------------------
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
-CLERK_SECRET_KEY=sk_test_...
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_XXXXXXXXX
+CLERK_SECRET_KEY=sk_test_XXXXXXXXX
+
+# 🎯 DESENVOLVIMENTO: Seu User ID do Clerk para simulação
+# Obtenha em: https://dashboard.clerk.dev -> Users -> [seu user] -> copiar ID
+DEV_USER_ID=user_XXXXXXXXX
 
 # -----------------------------
 # 💳 STRIPE (Pagamentos)
 # -----------------------------
-STRIPE_SECRET_KEY=sk_test_...
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_XXXXXXXXX
+STRIPE_SECRET_KEY=sk_test_XXXXXXXXX
 STRIPE_WEBHOOK_SECRET=whsec_...
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
 
 # -----------------------------
 # 🗄️ MONGODB (Database)
 # -----------------------------
-MONGODB_URI=mongodb://localhost:27017/dashboard
+MONGODB_URI=mongodb://localhost:27017/dashboard-engine
 # OU para MongoDB Atlas:
 # MONGODB_URI=mongodb+srv://user:password@cluster.mongodb.net/dashboard
 
 # -----------------------------
 # 🔒 SEGURANÇA
 # -----------------------------
-INTERNAL_API_KEY=your_secret_internal_key_here
-ADMIN_EXPORT_KEY=your_admin_export_key_here
+INTERNAL_API_KEY=sua_chave_secreta_aqui
+ADMIN_EXPORT_KEY=admin_export_key_123
 
 # -----------------------------
 # 🌐 APP

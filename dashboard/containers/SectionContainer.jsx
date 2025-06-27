@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import SectionList from "@/components/sections/SectionList";
+import { ModernSectionsTable } from "@/components/sections/ModernSectionsTable";
 import SectionForm from "@/components/sections/SectionForm";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
@@ -131,7 +131,7 @@ export default function SectionContainer() {
       {error && <p className="text-red-500">{error}</p>}
 
       {!loading && !error && (
-        <SectionList
+        <ModernSectionsTable
           sections={sections}
           contentTypes={contentTypes}
           onEdit={handleOpenModal}

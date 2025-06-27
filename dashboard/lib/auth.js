@@ -1,75 +1,112 @@
 import { auth } from "@clerk/nextjs/server";
 
 /**
- * Obtém o userId atual do Clerk nas APIs
- * @returns {string} userId ou lança erro se não autenticado
+ * ✅ DEV MODE REALISTA
+ * - Usa usuário real do Clerk
+ * - Simula plano ativo para desenvolvimento
+ * - Mantém segurança mas permite desenvolvimento
  */
-export function getCurrentUserId() {
-  const { userId } = auth();
 
-  if (!userId) {
+// 🎯 CONFIGURAÇÃO: ID do seu usuário Clerk para desenvolvimento
+const DEV_USER_ID = process.env.DEV_USER_ID || "your_clerk_user_id_here";
+const DEV_MODE = process.env.NODE_ENV === "development";
+
+// 🎭 SIMULAÇÃO: Plano ativo para desenvolvimento
+const DEV_USER_PLAN = {
+  plan: "zeus", // Plano premium para testes
+  active: true,
+  limits: {
+    maxSections: 999,
+    maxItems: 999,
+    maxAddons: 999,
+    maxUsers: 999,
+  },
+  features: ["all"],
+};
+
+/**
+ * Obtém o userId atual com suporte a desenvolvimento
+ */
+export async function getCurrentUserId() {
+  try {
+    const { userId } = await auth();
+
+    if (userId) {
+      console.log(`🔐 User autenticado: ${userId}`);
+      return userId;
+    }
+
+    // 🔧 DEV MODE: Se não autenticado mas em dev, usar usuário configurado
+    if (DEV_MODE && DEV_USER_ID && DEV_USER_ID !== "your_clerk_user_id_here") {
+      console.log(
+        `🎭 DEV MODE: Simulando usuário ${DEV_USER_ID} com plano ${DEV_USER_PLAN.plan}`
+      );
+      return DEV_USER_ID;
+    }
+
+    throw new Error("Usuário não autenticado");
+  } catch (error) {
     throw new Error("Usuário não autenticado");
   }
-
-  return userId;
 }
 
 /**
- * Obtém dados do usuário atual (opcional)
- * @returns {object|null} Dados do auth ou null se não autenticado
+ * Obtém dados de autenticação sem forçar erro (CORRIGIDO - agora usa await)
  */
-export function getCurrentAuth() {
-  return auth();
+export async function getCurrentAuth() {
+  try {
+    const { userId } = await auth();
+
+    if (userId) {
+      return {
+        userId,
+        isAuthenticated: true,
+        plan: null, // Será buscado do banco/Stripe em produção
+      };
+    }
+
+    // 🔧 DEV MODE: Retornar dados simulados
+    if (DEV_MODE && DEV_USER_ID && DEV_USER_ID !== "your_clerk_user_id_here") {
+      return {
+        userId: DEV_USER_ID,
+        isAuthenticated: true,
+        plan: DEV_USER_PLAN,
+        isDev: true,
+      };
+    }
+
+    return { userId: null, isAuthenticated: false };
+  } catch (error) {
+    console.warn("🔧 Auth fallback ativado:", error.message);
+
+    // 🔧 DEV MODE: Fallback para desenvolvimento
+    if (DEV_MODE && DEV_USER_ID && DEV_USER_ID !== "your_clerk_user_id_here") {
+      return {
+        userId: DEV_USER_ID,
+        isAuthenticated: true,
+        plan: DEV_USER_PLAN,
+        isDev: true,
+      };
+    }
+
+    return { userId: null, isAuthenticated: false };
+  }
 }
 
 /**
- * Verifica se o usuário está autenticado
- * @returns {boolean}
- */
-export function isAuthenticated() {
-  const { userId } = auth();
-  return !!userId;
-}
-
-/**
- * Middleware para proteger APIs que precisam de autenticação
- * @param {function} handler - Handler da API
- * @returns {function} Handler protegido
+ * Middleware de autenticação para APIs
  */
 export function withAuth(handler) {
-  return async (request, context) => {
+  return async (request, params) => {
     try {
-      console.log("🔐 withAuth: Validando autenticação...");
-      const authData = auth();
-      console.log("🔐 withAuth: Auth data completo:", authData);
+      const userId = await getCurrentUserId();
 
-      // DEBUG: Verificar chaves de ambiente
-      console.log("🔐 withAuth: Variáveis de ambiente:", {
-        hasPublicKey: !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
-        hasSecretKey: !!process.env.CLERK_SECRET_KEY,
-        publicKeyPrefix:
-          process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY?.substring(0, 10),
-        secretKeyPrefix: process.env.CLERK_SECRET_KEY?.substring(0, 10),
-      });
-
-      const userId = getCurrentUserId(); // Valida se está autenticado
-      console.log("🔐 withAuth: UserId obtido:", userId);
-
-      return await handler(request, context);
+      // ✅ Usuário autenticado ou em dev mode
+      return await handler(request, params, { userId });
     } catch (error) {
       console.error("🔐 withAuth: Erro de autenticação:", error.message);
-      console.error("🔐 withAuth: Stack trace:", error.stack);
-
       return new Response(
-        JSON.stringify({
-          error: "Acesso não autorizado",
-          details: error.message,
-          debug: {
-            hasPublicKey: !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
-            hasSecretKey: !!process.env.CLERK_SECRET_KEY,
-            timestamp: new Date().toISOString(),
-          },
-        }),
+        JSON.stringify({ error: "Usuário não autenticado" }),
         {
           status: 401,
           headers: { "Content-Type": "application/json" },
@@ -77,4 +114,18 @@ export function withAuth(handler) {
       );
     }
   };
+}
+
+/**
+ * Simula dados de plano para desenvolvimento
+ */
+export function getDevUserPlan() {
+  return DEV_USER_PLAN;
+}
+
+/**
+ * Verifica se está em modo de desenvolvimento
+ */
+export function isDevMode() {
+  return DEV_MODE;
 }

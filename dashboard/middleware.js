@@ -4,8 +4,8 @@ const isProtectedRoute = createRouteMatcher([
   "/dashboard(.*)",
   "/api/billing(.*)",
   "/api/users(.*)",
-  // "/api/sections(.*)",      // ← Permitir acesso às sections
-  // "/api/content-types(.*)", // ← Permitir acesso aos content-types
+  // "/api/sections(.*)", // 🔧 TEMPORÁRIO: desproteger para debug
+  // "/api/content-types(.*)", // 🔧 TEMPORÁRIO: desproteger para debug
 ]);
 
 export default clerkMiddleware(async (auth, req) => {

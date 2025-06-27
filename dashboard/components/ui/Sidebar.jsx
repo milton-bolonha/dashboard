@@ -17,7 +17,6 @@ export function Sidebar({ activePlans }) {
     { name: "Users", href: "/dashboard/users", icon: "users" },
     { name: "Plans", href: "/dashboard/plans", icon: "plans" },
     { name: "Billing", href: "/dashboard/billing", icon: "billing" },
-    { name: "Dev Mode", href: "/dashboard/dev", icon: "dev" },
   ];
 
   // Adicionar indicador visual para planos ativos

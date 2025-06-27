@@ -12,7 +12,9 @@ export function UsersList() {
   const [filter, setFilter] = useState("");
   const [planFilter, setPlanFilter] = useState("all");
   const [sortBy, setSortBy] = useState("createdAt");
-  const [viewMode, setViewMode] = useState("cards"); // cards | table
+  const [viewMode, setViewMode] = useState("table"); // Lista como padrão
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
 
   useEffect(() => {
     loadUsers();
@@ -37,6 +39,52 @@ export function UsersList() {
       setStats({});
     } finally {
       setLoading(false);
+    }
+  };
+
+  const exportToCSV = () => {
+    const csvData = filteredUsers.map((user) => ({
+      Nome:
+        user.firstName && user.lastName
+          ? `${user.firstName} ${user.lastName}`
+          : user.email?.split("@")[0] || "",
+      Email: user.email || "",
+      Planos: user.currentPlans?.join("; ") || "",
+      Status: user.isActiveCustomer ? "Ativo" : "Inativo",
+      TotalGasto: user.totalSpent || 0,
+      QuantidadePlanos: user.planCount || 0,
+      DataCriacao: user.createdAt
+        ? new Date(user.createdAt).toLocaleDateString("pt-BR")
+        : "",
+      UltimoLogin: user.lastSignInAt
+        ? new Date(user.lastSignInAt).toLocaleDateString("pt-BR")
+        : "Nunca",
+    }));
+
+    const headers = Object.keys(csvData[0] || {});
+    const csvContent = [
+      headers.join(","),
+      ...csvData.map((row) =>
+        headers
+          .map((header) => `"${String(row[header]).replace(/"/g, '""')}"`)
+          .join(",")
+      ),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute(
+        "download",
+        `usuarios_${new Date().toISOString().split("T")[0]}.csv`
+      );
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   };
 
@@ -67,6 +115,18 @@ export function UsersList() {
         return new Date(b.createdAt) - new Date(a.createdAt);
     }
   });
+
+  // Paginação
+  const totalPages = Math.ceil(sortedUsers.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedUsers = sortedUsers.slice(
+    startIndex,
+    startIndex + itemsPerPage
+  );
+
+  const goToPage = (page) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
 
   const formatCurrency = (value) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -202,7 +262,31 @@ export function UsersList() {
             <option value="planCount">📊 Mais Planos</option>
           </select>
 
+          <select
+            value={itemsPerPage}
+            onChange={(e) => {
+              setItemsPerPage(Number(e.target.value));
+              setCurrentPage(1);
+            }}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value={10}>10 por página</option>
+            <option value={20}>20 por página</option>
+            <option value={50}>50 por página</option>
+            <option value={100}>100 por página</option>
+          </select>
+
           <div className="flex bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode("table")}
+              className={`px-3 py-1 rounded text-sm font-medium ${
+                viewMode === "table"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              📊 Lista
+            </button>
             <button
               onClick={() => setViewMode("cards")}
               className={`px-3 py-1 rounded text-sm font-medium ${
@@ -213,34 +297,199 @@ export function UsersList() {
             >
               🎴 Cards
             </button>
-            <button
-              onClick={() => setViewMode("table")}
-              className={`px-3 py-1 rounded text-sm font-medium ${
-                viewMode === "table"
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              📊 Tabela
-            </button>
           </div>
         </div>
       </Card>
 
-      {/* Results Count */}
+      {/* Results Count & Actions */}
       <div className="flex justify-between items-center">
-        <p className="text-gray-600">
-          Mostrando {sortedUsers.length} de {users.length} usuários
-        </p>
-        <Button onClick={loadUsers} variant="secondary" className="text-sm">
-          🔄 Atualizar
-        </Button>
+        <div className="flex items-center gap-4">
+          <p className="text-gray-600">
+            Mostrando {startIndex + 1}-
+            {Math.min(startIndex + itemsPerPage, sortedUsers.length)} de{" "}
+            {sortedUsers.length} usuários
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            onClick={exportToCSV}
+            variant="secondary"
+            className="text-sm"
+            disabled={sortedUsers.length === 0}
+          >
+            📊 Exportar CSV
+          </Button>
+          <Button onClick={loadUsers} variant="secondary" className="text-sm">
+            🔄 Atualizar
+          </Button>
+        </div>
       </div>
 
       {/* Users List */}
-      {viewMode === "cards" ? (
+      {viewMode === "table" ? (
+        /* Table View */
+        <Card>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Usuário
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Planos
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Gasto
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Último Login
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {paginatedUsers.map((user) => (
+                  <tr key={user.clerkId} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm mr-3">
+                          {user.firstName?.[0] ||
+                            user.email?.[0]?.toUpperCase() ||
+                            "?"}
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {user.firstName && user.lastName
+                              ? `${user.firstName} ${user.lastName}`
+                              : user.email?.split("@")[0]}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {user.email}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {user.currentPlans && user.currentPlans.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {user.currentPlans.map((plan) => (
+                            <span
+                              key={plan}
+                              className={`px-2 py-1 text-xs font-medium rounded-full border ${getPlanBadgeColor(
+                                plan
+                              )}`}
+                            >
+                              {plan}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-500">—</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {formatCurrency(user.totalSpent)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span
+                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          user.isActiveCustomer
+                            ? "bg-green-100 text-green-800"
+                            : "bg-gray-100 text-gray-800"
+                        }`}
+                      >
+                        {user.isActiveCustomer ? "Ativo" : "Inativo"}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {formatDate(user.lastSignInAt)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Paginação */}
+          {totalPages > 1 && (
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-700">
+                  Página {currentPage} de {totalPages}
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    onClick={() => goToPage(1)}
+                    disabled={currentPage === 1}
+                    variant="secondary"
+                    size="sm"
+                  >
+                    ⏮️
+                  </Button>
+                  <Button
+                    onClick={() => goToPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    variant="secondary"
+                    size="sm"
+                  >
+                    ◀️
+                  </Button>
+
+                  {/* Números das páginas */}
+                  {[...Array(Math.min(5, totalPages))].map((_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+
+                    return (
+                      <Button
+                        key={pageNum}
+                        onClick={() => goToPage(pageNum)}
+                        variant={
+                          currentPage === pageNum ? "primary" : "secondary"
+                        }
+                        size="sm"
+                        className="min-w-[2rem]"
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  })}
+
+                  <Button
+                    onClick={() => goToPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    variant="secondary"
+                    size="sm"
+                  >
+                    ▶️
+                  </Button>
+                  <Button
+                    onClick={() => goToPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                    variant="secondary"
+                    size="sm"
+                  >
+                    ⏭️
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </Card>
+      ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {sortedUsers.map((user) => (
+          {paginatedUsers.map((user) => (
             <Card
               key={user.clerkId}
               className="p-6 hover:shadow-lg transition-shadow"
@@ -316,91 +565,76 @@ export function UsersList() {
             </Card>
           ))}
         </div>
-      ) : (
-        /* Table View */
-        <Card>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Usuário
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Planos
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Gasto
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Último Login
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {sortedUsers.map((user) => (
-                  <tr key={user.clerkId} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm mr-3">
-                          {user.firstName?.[0] ||
-                            user.email?.[0]?.toUpperCase() ||
-                            "?"}
-                        </div>
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {user.firstName && user.lastName
-                              ? `${user.firstName} ${user.lastName}`
-                              : user.email?.split("@")[0]}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {user.email}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {user.currentPlans && user.currentPlans.length > 0 ? (
-                        <div className="flex flex-wrap gap-1">
-                          {user.currentPlans.map((plan) => (
-                            <span
-                              key={plan}
-                              className={`px-2 py-1 text-xs font-medium rounded-full border ${getPlanBadgeColor(
-                                plan
-                              )}`}
-                            >
-                              {plan}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-sm text-gray-500">—</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatCurrency(user.totalSpent)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          user.isActiveCustomer
-                            ? "bg-green-100 text-green-800"
-                            : "bg-gray-100 text-gray-800"
-                        }`}
-                      >
-                        {user.isActiveCustomer ? "Ativo" : "Inativo"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(user.lastSignInAt)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      )}
+
+      {/* Paginação para Cards View */}
+      {viewMode === "cards" && totalPages > 1 && (
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-700">
+              Página {currentPage} de {totalPages}
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button
+                onClick={() => goToPage(1)}
+                disabled={currentPage === 1}
+                variant="secondary"
+                size="sm"
+              >
+                ⏮️
+              </Button>
+              <Button
+                onClick={() => goToPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                variant="secondary"
+                size="sm"
+              >
+                ◀️
+              </Button>
+
+              {/* Números das páginas */}
+              {[...Array(Math.min(5, totalPages))].map((_, i) => {
+                let pageNum;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+
+                return (
+                  <Button
+                    key={pageNum}
+                    onClick={() => goToPage(pageNum)}
+                    variant={currentPage === pageNum ? "primary" : "secondary"}
+                    size="sm"
+                    className="min-w-[2rem]"
+                  >
+                    {pageNum}
+                  </Button>
+                );
+              })}
+
+              <Button
+                onClick={() => goToPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                variant="secondary"
+                size="sm"
+              >
+                ▶️
+              </Button>
+              <Button
+                onClick={() => goToPage(totalPages)}
+                disabled={currentPage === totalPages}
+                variant="secondary"
+                size="sm"
+              >
+                ⏭️
+              </Button>
+            </div>
           </div>
         </Card>
       )}

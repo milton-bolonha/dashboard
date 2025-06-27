@@ -9,8 +9,8 @@ import { getCurrentAuth } from "@/lib/auth";
  * Lista todos os content types do usuário (com triangulação por userId)
  */
 export async function GET() {
-  // TEMPORÁRIO: Tentar autenticação, mas não falhar se não conseguir
-  const authData = getCurrentAuth();
+  // ✅ CORRIGIDO: Usar await com getCurrentAuth
+  const authData = await getCurrentAuth();
   const userId = authData.userId || "temp_user_dev";
 
   console.log(
@@ -34,29 +34,32 @@ export async function GET() {
     return NextResponse.json({ contentTypes });
   } catch (error) {
     console.warn(
-      "Could not connect to DB for content types, using fallback data.",
+      "⚠️ Could not connect to DB for content-types, using fallback data.",
       error.message
     );
 
-    // FALLBACK: Content Types mock para teste (com userId já obtido)
+    // FALLBACK: Content Types mock para teste
     const mockContentTypes = [
       {
-        _id: "ct1",
-        name: "Página",
-        slug: "pagina",
+        _id: "temp1",
+        name: "Página Temporária",
+        slug: "pagina-temp",
+        description: "Content type temporário para desenvolvimento",
         userId: userId, // ← TRIANGULAÇÃO: associar ao usuário atual
-        description: "Páginas do site",
-        addons: [], // Atualizado para o novo sistema
-        isActive: true,
-        createdAt: new Date(),
-      },
-      {
-        _id: "ct2",
-        name: "Artigo",
-        slug: "artigo",
-        userId: userId, // ← TRIANGULAÇÃO: associar ao usuário atual
-        description: "Artigos do blog",
-        addons: [], // Atualizado para o novo sistema
+        addons: [
+          {
+            id: "subtitulo",
+            name: "Subtítulo",
+            type: "textInput",
+            required: false,
+          },
+          {
+            id: "conteudo",
+            name: "Conteúdo Principal",
+            type: "textarea",
+            required: true,
+          },
+        ],
         isActive: true,
         createdAt: new Date(),
       },
@@ -78,8 +81,8 @@ export async function POST(request) {
     const data = await request.json();
     const { createDefaultSection = true, ...contentTypeData } = data;
 
-    // TEMPORÁRIO: Tentar autenticação, mas não falhar se não conseguir
-    const authData = getCurrentAuth();
+    // ✅ CORRIGIDO: Usar await com getCurrentAuth
+    const authData = await getCurrentAuth();
     const userId = authData.userId || "temp_user_dev";
 
     console.log(
@@ -130,26 +133,51 @@ export async function POST(request) {
       _id: result.insertedId,
     });
 
-    // 2. Se aplicável, criar a Section correspondente (também com userId)
+    // 2. Se solicitado, criar uma Section padrão para este Content Type
+    let newSection = null;
     if (createDefaultSection) {
-      const sectionData = {
-        name: newContentType.name,
-        slug: newContentType.slug,
-        contentTypeId: newContentType._id.toString(),
-        userId: userId, // ← TRIANGULAÇÃO: associar section ao usuário
-        description: `Section para o Content Type ${newContentType.name}`,
-        settings: {
-          defaultView: "list",
-          itemsPerPage: 20,
-          sortBy: "createdAt",
-          sortOrder: "desc",
-        },
-        isActive: true,
-      };
-      await db.insertOne("sections", sectionData);
+      try {
+        const sectionSlug =
+          contentTypeData.slug ||
+          contentTypeData.name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/(^-|-$)/g, "");
+
+        const sectionResult = await db.insertOne("sections", {
+          name: contentTypeData.name,
+          slug: sectionSlug,
+          contentTypeId: result.insertedId.toString(),
+          userId: userId, // ← TRIANGULAÇÃO: associar ao usuário
+          description: `Section criada automaticamente para ${contentTypeData.name}`,
+          settings: {
+            defaultView: "list",
+            itemsPerPage: 20,
+            sortBy: "createdAt",
+            sortOrder: "desc",
+          },
+        });
+
+        newSection = await db.findOne("sections", {
+          _id: sectionResult.insertedId,
+        });
+
+        console.log(
+          `✅ Section padrão criada: "${contentTypeData.name}" → /${sectionSlug}`
+        );
+      } catch (sectionError) {
+        console.warn("⚠️ Erro ao criar section padrão:", sectionError.message);
+        // Não falhar a operação se a section não for criada
+      }
     }
 
-    return NextResponse.json({ contentType: newContentType }, { status: 201 });
+    return NextResponse.json({
+      contentType: newContentType,
+      section: newSection,
+      message: createDefaultSection
+        ? "Content Type e Section criados com sucesso"
+        : "Content Type criado com sucesso",
+    });
   } catch (error) {
     console.error("Error creating content type:", error);
     return NextResponse.json(

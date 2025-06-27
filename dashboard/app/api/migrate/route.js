@@ -8,7 +8,7 @@ import { getCurrentAuth } from "@/lib/auth";
  */
 export async function POST() {
   try {
-    const authData = getCurrentAuth();
+    const authData = await getCurrentAuth();
     const userId = authData.userId || "temp_user_dev";
 
     console.log("🔄 MIGRAÇÃO: Iniciando migração para userId:", userId);
@@ -86,7 +86,7 @@ export async function POST() {
  */
 export async function GET() {
   try {
-    const authData = getCurrentAuth();
+    const authData = await getCurrentAuth();
     const userId = authData.userId || "temp_user_dev";
 
     const orphanContentTypes = await db.find("contentTypes", {

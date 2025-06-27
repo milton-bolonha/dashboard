@@ -1,15 +1,16 @@
 {
   "/api/sections/route": "app/api/sections/route.js",
-  "/api/content-types/route": "app/api/content-types/route.js",
-  "/api/users/list/route": "app/api/users/list/route.js",
-  "/_not-found/page": "app/_not-found/page.js",
+  "/favicon.ico/route": "app/favicon.ico/route.js",
+  "/api/migrate/route": "app/api/migrate/route.js",
+  "/api/dashboard/stats/route": "app/api/dashboard/stats/route.js",
   "/api/billing/verify-user/route": "app/api/billing/verify-user/route.js",
   "/api/users/sync/route": "app/api/users/sync/route.js",
-  "/api/billing/transactions/route": "app/api/billing/transactions/route.js",
-  "/page": "app/page.js",
+  "/api/content-types/route": "app/api/content-types/route.js",
+  "/api/sections/[id]/items/route": "app/api/sections/[id]/items/route.js",
+  "/api/users/list/route": "app/api/users/list/route.js",
   "/dashboard/page": "app/dashboard/page.js",
-  "/dashboard/content-types/page": "app/dashboard/content-types/page.js",
+  "/dashboard/sections/[slug]/page": "app/dashboard/sections/[slug]/page.js",
   "/dashboard/sections/page": "app/dashboard/sections/page.js",
-  "/dashboard/users/page": "app/dashboard/users/page.js",
-  "/dashboard/billing/page": "app/dashboard/billing/page.js"
+  "/dashboard/content-types/page": "app/dashboard/content-types/page.js",
+  "/dashboard/users/page": "app/dashboard/users/page.js"
 }

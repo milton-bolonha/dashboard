@@ -100,8 +100,26 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    // TODO: O que fazer com as sections e items que usam este content type?
-    // Por enquanto, apenas deletamos o content type.
+    // Verificação de deleção em cascata
+    // Não permitir deletar content type se tiver sections usando ele
+    const sectionsCount = await db.count("sections", {
+      contentTypeId: id,
+    });
+
+    if (sectionsCount > 0) {
+      return NextResponse.json(
+        {
+          error: `Não é possível deletar este Content Type. Existem ${sectionsCount} section(s) usando ele.`,
+          details: {
+            sectionsCount,
+            action: "delete_sections_first",
+            message:
+              "Primeiro delete ou transfira as sections para outro Content Type",
+          },
+        },
+        { status: 400 }
+      );
+    }
 
     return NextResponse.json(
       { message: "Content type deleted successfully" },

@@ -82,7 +82,26 @@ export async function DELETE(request, { params }) {
       return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
     }
 
-    // TODO: Deletar items associados a esta section
+    // Verificação de deleção em cascata
+    // Não permitir deletar section se tiver items
+    const itemsCount = await db.count("items", {
+      sectionId: id,
+    });
+
+    if (itemsCount > 0) {
+      return NextResponse.json(
+        {
+          error: `Não é possível deletar esta Section. Existem ${itemsCount} item(s) nela.`,
+          details: {
+            itemsCount,
+            action: "delete_items_first",
+            message: "Primeiro delete ou mova os items para outra section",
+          },
+        },
+        { status: 400 }
+      );
+    }
+
     const result = await db.deleteOne("sections", { _id: new ObjectId(id) });
     if (result.deletedCount === 0) {
       return NextResponse.json({ error: "Section not found" }, { status: 404 });
