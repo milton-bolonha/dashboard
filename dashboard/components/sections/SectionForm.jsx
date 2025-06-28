@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
+import { IconPicker } from "@/components/ui/IconPicker";
 
 export default function SectionForm({
   section,
@@ -14,9 +15,11 @@ export default function SectionForm({
     name: section?.name || "",
     slug: section?.slug || "",
     description: section?.description || "",
+    icon: section?.icon || "folder",
     contentTypeId:
       section?.contentTypeId ||
       (contentTypes.length > 0 ? contentTypes[0]._id : ""),
+    isActive: section?.isActive !== undefined ? section.isActive : true,
   });
   const [loading, setLoading] = useState(false);
 
@@ -55,6 +58,50 @@ export default function SectionForm({
             baseado no nome.
           </p>
         </div>
+
+        <IconPicker
+          selectedIcon={formData.icon}
+          onIconSelect={(icon) => setFormData((prev) => ({ ...prev, icon }))}
+        />
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Status
+          </label>
+          <div className="flex items-center space-x-3">
+            <label className="flex items-center">
+              <input
+                type="radio"
+                name="isActive"
+                value="true"
+                checked={formData.isActive === true}
+                onChange={() =>
+                  setFormData((prev) => ({ ...prev, isActive: true }))
+                }
+                className="mr-2"
+              />
+              <span className="text-sm text-gray-700 dark:text-gray-300">
+                Active
+              </span>
+            </label>
+            <label className="flex items-center">
+              <input
+                type="radio"
+                name="isActive"
+                value="false"
+                checked={formData.isActive === false}
+                onChange={() =>
+                  setFormData((prev) => ({ ...prev, isActive: false }))
+                }
+                className="mr-2"
+              />
+              <span className="text-sm text-gray-700 dark:text-gray-300">
+                Inactive
+              </span>
+            </label>
+          </div>
+        </div>
+
         <div>
           <label
             htmlFor="contentTypeId"

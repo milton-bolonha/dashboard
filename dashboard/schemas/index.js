@@ -110,6 +110,7 @@ export const SectionSchema = {
     contentTypeId: { type: "objectId", ref: "contentTypes", required: true },
     userId: { type: "string", required: true }, // ← TRIANGULAÇÃO: Clerk User ID
     description: { type: "string" },
+    icon: { type: "string", default: "folder" }, // ← NOVO: ícone customizado da section
     settings: {
       defaultView: { type: "string", enum: ["list", "grid"], default: "list" },
       itemsPerPage: { type: "number", default: 20 },

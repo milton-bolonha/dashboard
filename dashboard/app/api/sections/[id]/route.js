@@ -9,7 +9,7 @@ import { ObjectId } from "mongodb";
  */
 export async function GET(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     if (!ObjectId.isValid(id)) {
       return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
     }
@@ -35,14 +35,19 @@ export async function GET(request, { params }) {
  */
 export async function PUT(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     if (!ObjectId.isValid(id)) {
       return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
     }
 
     const data = await request.json();
+    console.log("🔍 Dados recebidos para validação:", data);
+
     const validation = validateSchema(data, SectionSchema);
+    console.log("🔍 Resultado da validação:", validation);
+
     if (!validation.isValid) {
+      console.error("❌ Validação falhou:", validation.errors);
       return NextResponse.json(
         { error: "Validation failed", details: validation.errors },
         { status: 400 }
@@ -77,7 +82,7 @@ export async function PUT(request, { params }) {
  */
 export async function DELETE(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     if (!ObjectId.isValid(id)) {
       return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
     }

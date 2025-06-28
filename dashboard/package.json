@@ -20,6 +20,7 @@
     "bcryptjs": "^2.4.3",
     "mongodb": "^6.3.0",
     "next": "15.3.4",
+    "next-themes": "^0.4.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "stripe": "^12.14.0",

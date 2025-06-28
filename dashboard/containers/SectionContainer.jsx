@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useUser } from "@clerk/nextjs";
 import { ModernSectionsTable } from "@/components/sections/ModernSectionsTable";
 import SectionForm from "@/components/sections/SectionForm";
 import Button from "@/components/ui/Button";
@@ -8,6 +9,7 @@ import Modal from "@/components/ui/Modal";
 import { useSections } from "@/contexts/SectionsContext";
 
 export default function SectionContainer() {
+  const { user } = useUser();
   const { sections, refreshSections } = useSections(); // ← Usar contexto
   const [contentTypes, setContentTypes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -63,27 +65,56 @@ export default function SectionContainer() {
     const isEditing = !!editingSection;
 
     try {
+      // Adicionar userId do usuário autenticado
+      const dataWithUserId = {
+        ...formData,
+        userId: user?.id,
+      };
+
+      console.log("🚀 SectionContainer: Enviando dados:", dataWithUserId);
       let response;
 
       if (isEditing) {
         // Para edição, usar a API específica da section
+        console.log("✏️ Editando section:", editingSection._id);
         response = await fetch(`/api/sections/${editingSection._id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
+          body: JSON.stringify(dataWithUserId),
         });
       } else {
         // Para criação, usar a API geral
+        console.log("➕ Criando nova section");
         response = await fetch("/api/sections", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
+          body: JSON.stringify(dataWithUserId),
         });
       }
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to save section");
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (parseError) {
+          console.error("❌ Erro ao fazer parse da resposta:", parseError);
+          throw new Error(
+            `API Error ${response.status}: ${response.statusText}`
+          );
+        }
+
+        console.error("❌ Erro da API:", errorData);
+        console.error("❌ Status da resposta:", response.status);
+        console.error("❌ StatusText da resposta:", response.statusText);
+
+        const errorMessage =
+          errorData?.error ||
+          errorData?.message ||
+          (errorData?.details && Array.isArray(errorData.details)
+            ? errorData.details.join(", ")
+            : "Unknown API error");
+
+        throw new Error(errorMessage);
       }
 
       await refreshSections(); // ← Atualizar contexto global

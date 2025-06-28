@@ -102,40 +102,42 @@ export default function BillingPage() {
     <div className="p-6">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
           💳 Transações & Billing
         </h1>
-        <p className="text-gray-600">
+        <p className="text-gray-600 dark:text-gray-400">
           Visualização de todas as transações e invoices pagas dos usuários
         </p>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-sm font-medium text-gray-500">
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+          <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
             Total de Transações
           </div>
-          <div className="text-2xl font-bold text-gray-900">
+          <div className="text-2xl font-bold text-gray-900 dark:text-white">
             {transactions.length}
           </div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-sm font-medium text-gray-500">Receita Total</div>
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+          <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
+            Receita Total
+          </div>
           <div className="text-2xl font-bold text-green-600">
             {formatCurrency(getTotalRevenue())}
           </div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-sm font-medium text-gray-500">
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+          <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
             Transações Pagas
           </div>
-          <div className="text-2xl font-bold text-gray-900">
+          <div className="text-2xl font-bold text-gray-900 dark:text-white">
             {transactions.filter((t) => t.status === "completed").length}
           </div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-sm font-medium text-gray-500">
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+          <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
             Taxa de Sucesso
           </div>
           <div className="text-2xl font-bold text-blue-600">
@@ -152,7 +154,7 @@ export default function BillingPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-lg shadow mb-6">
+      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow mb-6">
         <div className="flex flex-wrap gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -196,7 +198,7 @@ export default function BillingPage() {
       </div>
 
       {/* Transactions Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -221,7 +223,7 @@ export default function BillingPage() {
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {transactions.length === 0 ? (
                 <tr>
                   <td

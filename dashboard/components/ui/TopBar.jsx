@@ -2,6 +2,7 @@
 
 import { UserButton } from "@clerk/nextjs";
 import { useUserPlanVerification } from "../../hooks/useUserPlanVerification";
+import { ThemeToggle } from "./ThemeToggle";
 
 function UserPlansDropdown({ plans }) {
   const activePlans = plans?.active || [];
@@ -20,7 +21,7 @@ function UserPlansDropdown({ plans }) {
           </svg>
         </button>
 
-        <div className="absolute right-0 mt-2 w-64 bg-white rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+        <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
           <div className="py-2">
             <div className="px-4 py-2 text-sm text-gray-500 border-b">
               Nenhum plano ativo
@@ -55,7 +56,7 @@ function UserPlansDropdown({ plans }) {
         </svg>
       </button>
 
-      <div className="absolute right-0 mt-2 w-72 bg-white rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+      <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-800 rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
         <div className="py-2">
           <div className="px-4 py-2 text-sm font-medium text-gray-700 border-b">
             Seus Planos Ativos
@@ -104,11 +105,13 @@ export function TopBar({ user, children }) {
   const { plans, isVerifying } = useUserPlanVerification();
 
   return (
-    <header className="bg-white shadow-sm border-b border-gray-200">
+    <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 transition-colors">
       <div className="flex items-center justify-between h-16 px-6">
         {/* Left side - Logo/Title */}
         <div className="flex items-center space-x-4">
-          <h1 className="text-xl font-semibold text-gray-900">Dashboard</h1>
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
+            Dashboard
+          </h1>
         </div>
 
         {/* Center - Children content */}
@@ -118,6 +121,9 @@ export function TopBar({ user, children }) {
 
         {/* Right side - User info & plans */}
         <div className="flex items-center space-x-4">
+          {/* Theme Toggle */}
+          <ThemeToggle />
+
           {/* Planos do usuário */}
           {user && !isVerifying && <UserPlansDropdown plans={plans} />}
 
@@ -132,7 +138,7 @@ export function TopBar({ user, children }) {
           {/* User menu */}
           {user && (
             <div className="flex items-center space-x-3">
-              <span className="text-sm text-gray-700">
+              <span className="text-sm text-gray-700 dark:text-gray-300">
                 Olá, {user.firstName || "Usuário"}
               </span>
               <UserButton afterSignOutUrl="/" />
