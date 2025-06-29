@@ -3,7 +3,9 @@
 import { ClerkProvider, useUser } from "@clerk/nextjs";
 import { Sidebar } from "../../components/ui/Sidebar";
 import { TopBar } from "../../components/ui/TopBar";
+import { LoadingBar } from "../../components/ui/LoadingBar";
 import { SectionsProvider } from "../../contexts/SectionsContext";
+import { WorkspaceProvider } from "../../contexts/WorkspaceContext";
 import { useUserPlanVerification } from "../../hooks/useUserPlanVerification";
 
 function DashboardContent({ children }) {
@@ -12,6 +14,9 @@ function DashboardContent({ children }) {
 
   return (
     <div className="h-screen bg-gray-100 dark:bg-gray-900 transition-colors">
+      {/* Loading bar no topo */}
+      <LoadingBar />
+
       {/* Sidebar fixo */}
       <Sidebar activePlans={plans?.active} />
 
@@ -43,9 +48,11 @@ function DashboardContent({ children }) {
 export default function DashboardLayout({ children }) {
   return (
     <ClerkProvider>
-      <SectionsProvider>
-        <DashboardContent>{children}</DashboardContent>
-      </SectionsProvider>
+      <WorkspaceProvider>
+        <SectionsProvider>
+          <DashboardContent>{children}</DashboardContent>
+        </SectionsProvider>
+      </WorkspaceProvider>
     </ClerkProvider>
   );
 }

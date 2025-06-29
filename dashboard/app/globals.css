@@ -57,6 +57,9 @@
 .dark .bg-gray-700 {
   background-color: #374151 !important;
 }
+.dark .bg-gray-50 {
+  background-color: #374151 !important;
+}
 .dark .text-white {
   color: #ffffff !important;
 }
@@ -66,11 +69,154 @@
 .dark .text-gray-400 {
   color: #9ca3af !important;
 }
+.dark .text-gray-500 {
+  color: #acb4c4 !important;
+}
+.dark .text-gray-600 {
+  color: #edeff2 !important;
+}
+.dark .text-gray-700 {
+  color: #f3f4f6 !important;
+}
+.dark .text-gray-900 {
+  color: #ffffff !important;
+}
 .dark .border-gray-700 {
   border-color: #374151 !important;
 }
 .dark .border-gray-600 {
   border-color: #4b5563 !important;
+}
+.dark .border-gray-200 {
+  border-color: #374151 !important;
+}
+
+/* Tables dark mode */
+.dark thead {
+  background-color: #374151 !important;
+}
+.dark th {
+  color: #f9fafb !important;
+  border-color: #4b5563 !important;
+}
+.dark td {
+  color: #e5e7eb !important;
+  border-color: #374151 !important;
+}
+.dark tbody tr:hover {
+  background-color: #374151 !important;
+}
+
+/* =================================================
+   SIDEBAR LIGHT MODE - CORES DEFINITIVAS
+   ================================================= */
+
+/* 1. TEXTO PADRÃO - PRETO em fundo branco */
+.bg-gray-900 ~ * .bg-white nav a,
+.bg-gray-900 ~ * .bg-white nav span,
+.bg-gray-900 ~ * .bg-white nav button,
+.bg-gray-900.bg-white nav a,
+.bg-gray-900.bg-white nav span,
+.bg-gray-900.bg-white nav button,
+/* Sidebar específico */
+aside.bg-white a,
+aside.bg-white span,  
+aside.bg-white button,
+aside.bg-white .text-gray-300,
+aside.bg-white .text-gray-400,
+aside.bg-white .text-gray-500,
+aside.bg-white .text-gray-600 {
+  color: #111827 !important; /* PRETO TOTAL - texto padrão */
+}
+
+/* 2. HOVER STATE - Fundo cinza + texto branco */
+aside.bg-white a:hover,
+aside.bg-white button:hover,
+.bg-white nav a:hover,
+.bg-white nav button:hover {
+  background-color: #374151 !important; /* Fundo cinza escuro */
+  color: #ffffff !important; /* Texto branco */
+}
+
+/* 3. ACTIVE STATE - Fundo cinza escuro + texto branco/azul */
+aside.bg-white .bg-gray-800,
+aside.bg-white .border-l-4,
+.bg-white nav .bg-gray-800,
+.bg-white nav .border-l-4 {
+  background-color: #374151 !important; /* Fundo cinza escuro */
+  color: #ffffff !important; /* Texto branco no active */
+}
+
+/* 4. ACTIVE com border azul - texto azul claro */
+aside.bg-white .border-l-blue-500,
+.bg-white nav .border-l-blue-500 {
+  color: #60a5fa !important; /* Azul claro para destacar */
+}
+
+/* 5. Force override para classes Tailwind específicas (APENAS LIGHT MODE) */
+html:not(.dark) .bg-white .text-gray-300 {
+  color: #111827 !important;
+}
+html:not(.dark) .bg-white .text-gray-400 {
+  color: #111827 !important;
+}
+html:not(.dark) .bg-white .text-gray-500 {
+  color: #111827 !important;
+}
+html:not(.dark) .bg-white .text-gray-600 {
+  color: #111827 !important;
+}
+html.dark .dark-bg-gray-700 {
+  background-color: #002967;
+}
+/* Hover states light mode */
+.hover\:text-gray-900:hover {
+  color: #111827 !important;
+}
+
+/* Hover states dark mode */
+.dark .hover\:bg-gray-50:hover {
+  background-color: #374151 !important;
+}
+.dark .hover\:bg-gray-100:hover {
+  background-color: #4b5563 !important;
+}
+.dark .hover\:bg-gray-200:hover {
+  background-color: #4b5563 !important;
+}
+.dark .hover\:text-gray-900:hover {
+  color: #ffffff !important;
+}
+
+/* Select/Dropdown dark mode */
+.dark select {
+  background-color: #1f2937 !important;
+  color: #ffffff !important;
+  border-color: #4b5563 !important;
+}
+.dark option {
+  background-color: #1f2937 !important;
+  color: #ffffff !important;
+}
+
+/* Input dark mode */
+.dark input {
+  background-color: #1f2937 !important;
+  color: #ffffff !important;
+  border-color: #4b5563 !important;
+}
+.dark input:focus {
+  border-color: #3b82f6 !important;
+}
+
+/* Button dark mode */
+.dark button {
+  color: inherit;
+}
+
+/* Divide colors */
+.dark .divide-gray-200 > * + * {
+  border-color: #374151 !important;
 }
 
 body {
@@ -124,4 +270,72 @@ body {
   .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: rgba(75, 85, 99, 0.8);
   }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* =================================================
+   COMPONENTE CARDS - CONSISTÊNCIA VISUAL
+   ================================================= */
+.dashboard-card {
+  @apply bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm;
+}
+
+.dashboard-card h3 {
+  @apply text-lg font-semibold text-gray-900 dark:text-white mb-2;
+}
+
+.dashboard-card p {
+  @apply text-gray-600 dark:text-gray-300;
+}
+
+/* =================================================
+   TABELAS - DARK MODE SUPPORT
+   ================================================= */
+.dashboard-table {
+  @apply bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden;
+}
+
+.dashboard-table th {
+  @apply bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white font-medium;
+}
+
+.dashboard-table td {
+  @apply text-gray-900 dark:text-gray-200 border-t border-gray-200 dark:border-gray-600;
+}
+
+.dashboard-table tr:hover {
+  @apply bg-gray-50 dark:bg-gray-700;
+}
+
+/* =================================================
+   FORMS - DARK MODE SUPPORT
+   ================================================= */
+.dashboard-input {
+  @apply bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white;
+}
+
+.dashboard-input:focus {
+  @apply ring-blue-500 dark:ring-blue-400 border-blue-500 dark:border-blue-400;
+}
+
+.dashboard-select {
+  @apply bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white;
+}
+
+/* Theme configuration */
+html {
+  color-scheme: light dark;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
 }

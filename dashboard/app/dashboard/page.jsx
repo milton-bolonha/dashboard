@@ -1,8 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { fetchWithWorkspace } from "@/lib/api";
 
 export default function DashboardPage() {
+  const { currentWorkspace } = useWorkspace();
   const [stats, setStats] = useState({
     sections: 0,
     items: 0,
@@ -14,14 +17,16 @@ export default function DashboardPage() {
   const [migrationStatus, setMigrationStatus] = useState("");
 
   useEffect(() => {
-    loadStats();
+    if (currentWorkspace) {
+      loadStats();
+    }
     checkMigrationStatus();
-  }, []);
+  }, [currentWorkspace]);
 
   const loadStats = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/dashboard/stats");
+      const response = await fetchWithWorkspace("/api/dashboard/stats");
       const data = await response.json();
       setStats(data);
     } catch (error) {

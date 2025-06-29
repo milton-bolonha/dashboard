@@ -5,31 +5,109 @@ import { ObjectId } from "mongodb";
 import { getCurrentAuth } from "@/lib/auth";
 
 /**
- * GET /api/content-types
- * Lista todos os content types do usuário (com triangulação por userId)
+ * Helper para obter workspace do usuário (cria se não existir)
  */
-export async function GET() {
-  // ✅ CORRIGIDO: Usar await com getCurrentAuth
+async function getCurrentWorkspace(userId, requestedWorkspaceId = null) {
+  try {
+    let workspace;
+
+    // Se foi especificado um workspace, usar esse
+    if (requestedWorkspaceId) {
+      try {
+        // ✅ CORREÇÃO: Converter string para ObjectId
+        const workspaceObjectId = new ObjectId(requestedWorkspaceId);
+
+        workspace = await db.findOne("workspaces", {
+          _id: workspaceObjectId, // ← FIX: Usar ObjectId ao invés de string
+          $or: [{ ownerId: userId }, { "members.userId": userId }],
+        });
+
+        if (workspace) {
+          console.log(
+            `🎯 Content-types: Usando workspace específico: ${workspace.name} (${workspace._id})`
+          );
+          return workspace;
+        } else {
+          console.log(
+            `⚠️ Content-types: Workspace ${requestedWorkspaceId} não encontrado ou sem permissão`
+          );
+        }
+      } catch (error) {
+        console.log(
+          `❌ Content-types: Erro ao converter workspaceId para ObjectId: ${requestedWorkspaceId}`,
+          error
+        );
+      }
+    }
+
+    // Fallback: buscar qualquer workspace do usuário
+    workspace = await db.findOne("workspaces", {
+      $or: [{ ownerId: userId }, { "members.userId": userId }],
+    });
+
+    if (!workspace) {
+      console.log(
+        `🔧 Content-types: Criando workspace automático para usuário: ${userId}`
+      );
+
+      // Criar workspace automático
+      const result = await db.insertOne("workspaces", {
+        name: "Meu Workspace",
+        slug: `ws-${userId.slice(-8)}-${Date.now()}`,
+        ownerId: userId,
+        plan: "free",
+        members: [{ userId, role: "owner", permissions: { canExport: true } }],
+        limits: {
+          maxUsers: 1,
+          maxContentTypes: 3,
+          maxSections: 5,
+          maxItems: 100,
+        },
+        isActive: true,
+        createdAt: new Date(),
+      });
+
+      workspace = await db.findOne("workspaces", { _id: result.insertedId });
+    }
+
+    console.log(
+      `🏢 Content-types: Workspace selecionado: ${workspace.name} (${workspace._id})`
+    );
+    return workspace;
+  } catch (error) {
+    console.error("❌ Content-types: Erro ao obter workspace:", error);
+    throw error;
+  }
+}
+
+/**
+ * GET /api/content-types
+ * Lista todos os content types do usuário e workspace
+ */
+export async function GET(request) {
   const authData = await getCurrentAuth();
   const userId = authData.userId || "temp_user_dev";
 
-  console.log(
-    "🔐 Content-types GET: userId =",
-    userId,
-    authData.userId ? "(autenticado)" : "(modo dev)"
-  );
+  // Obter workspace ID do header (enviado pelo frontend)
+  const workspaceId = request.headers.get("x-workspace-id");
+
+  console.log("🔐 Content-types GET: userId =", userId);
+  console.log("🏢 Content-types: Workspace solicitado:", workspaceId);
 
   try {
+    // Obter workspace atual (específico ou fallback)
+    const workspace = await getCurrentWorkspace(userId, workspaceId);
     console.log(
-      `🔍 Tentando buscar content-types do usuário ${userId} no MongoDB...`
+      `🏢 Content-types: Workspace encontrado: ${workspace.name} (${workspace._id})`
     );
 
     const contentTypes = await db.find("contentTypes", {
-      userId: userId, // ← TRIANGULAÇÃO: só content types do usuário
+      userId: userId,
+      workspaceId: workspace._id, // ← WORKSPACE: filtrar por workspace
     });
 
     console.log(
-      `✅ MongoDB conectado! Encontrados ${contentTypes.length} content-types do usuário`
+      `✅ Content-types: Encontrados ${contentTypes.length} content-types para workspace ${workspace.name}`
     );
     return NextResponse.json({ contentTypes });
   } catch (error) {
@@ -74,27 +152,36 @@ export async function GET() {
 
 /**
  * POST /api/content-types
- * Cria um novo content type e, por padrão, uma section correspondente (com triangulação por userId)
+ * Cria um novo content type e section correspondente
  */
 export async function POST(request) {
   try {
     const data = await request.json();
     const { createDefaultSection = true, ...contentTypeData } = data;
 
-    // ✅ CORRIGIDO: Usar await com getCurrentAuth
     const authData = await getCurrentAuth();
     const userId = authData.userId || "temp_user_dev";
 
+    // Obter workspace ID do header (enviado pelo frontend)
+    const workspaceId = request.headers.get("x-workspace-id");
+
+    console.log("🔐 Content-types POST: userId =", userId);
+    console.log("🏢 Content-types: Workspace solicitado:", workspaceId);
+
+    // Obter workspace atual (específico ou fallback)
+    const workspace = await getCurrentWorkspace(userId, workspaceId);
     console.log(
-      "🔐 Content-types POST: userId =",
-      userId,
-      authData.userId ? "(autenticado)" : "(modo dev)"
+      `🏢 Content-types: Usando workspace: ${workspace.name} (${workspace._id})`
     );
 
-    // Adicionar userId aos dados para validação
-    const dataWithUserId = { ...contentTypeData, userId };
+    // Adicionar userId e workspaceId aos dados
+    const dataWithWorkspace = {
+      ...contentTypeData,
+      userId,
+      workspaceId: workspace._id,
+    };
 
-    const validation = validateSchema(dataWithUserId, ContentTypeSchema);
+    const validation = validateSchema(dataWithWorkspace, ContentTypeSchema);
     if (!validation.isValid) {
       return NextResponse.json(
         { error: "Validation failed", details: validation.errors },
@@ -109,10 +196,11 @@ export async function POST(request) {
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/(^-|-$)/g, "");
 
-    // Verificar se slug já existe NO ESCOPO DO USUÁRIO (triangulação)
+    // Verificar se slug já existe no workspace
     const existing = await db.findOne("contentTypes", {
       slug,
-      userId: userId, // ← TRIANGULAÇÃO: só verificar no escopo do usuário
+      userId: userId,
+      workspaceId: workspace._id, // ← WORKSPACE: verificar no escopo do workspace
     });
 
     if (existing) {
@@ -122,12 +210,13 @@ export async function POST(request) {
       );
     }
 
-    // 1. Criar o Content Type com userId (triangulação)
-    const result = await db.insertOne("contentTypes", {
-      ...contentTypeData,
+    // 1. Criar o Content Type usando o objeto já validado
+    const contentTypeToInsert = {
+      ...dataWithWorkspace,
       slug,
-      userId: userId, // ← TRIANGULAÇÃO: associar ao usuário
-    });
+    };
+
+    const result = await db.insertOne("contentTypes", contentTypeToInsert);
 
     const newContentType = await db.findOne("contentTypes", {
       _id: result.insertedId,
@@ -148,7 +237,8 @@ export async function POST(request) {
           name: contentTypeData.name,
           slug: sectionSlug,
           contentTypeId: result.insertedId.toString(),
-          userId: userId, // ← TRIANGULAÇÃO: associar ao usuário
+          userId: userId,
+          workspaceId: workspace._id, // <-- GARANTIA EXPLÍCITA
           description: `Section criada automaticamente para ${contentTypeData.name}`,
           settings: {
             defaultView: "list",

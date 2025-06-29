@@ -71,6 +71,7 @@ export const ContentTypeSchema = {
     name: { type: "string", required: true },
     slug: { type: "string", required: true },
     userId: { type: "string", required: true }, // ← TRIANGULAÇÃO: Clerk User ID
+    workspaceId: { type: "objectId", ref: "workspaces", required: true }, // ← WORKSPACE
     description: { type: "string" },
     icon: { type: "string", default: "folder" },
     views: {
@@ -109,6 +110,7 @@ export const SectionSchema = {
     slug: { type: "string", required: true },
     contentTypeId: { type: "objectId", ref: "contentTypes", required: true },
     userId: { type: "string", required: true }, // ← TRIANGULAÇÃO: Clerk User ID
+    workspaceId: { type: "objectId", ref: "workspaces", required: true }, // ← WORKSPACE
     description: { type: "string" },
     icon: { type: "string", default: "folder" }, // ← NOVO: ícone customizado da section
     settings: {
@@ -133,6 +135,7 @@ export const ItemSchema = {
     slug: { type: "string", required: true },
     sectionId: { type: "objectId", ref: "sections", required: true },
     userId: { type: "string", required: true }, // ← TRIANGULAÇÃO: Clerk User ID
+    workspaceId: { type: "objectId", ref: "workspaces", required: true }, // ← WORKSPACE
     data: { type: "object", default: {} }, // dados dos addons
     status: {
       type: "string",
@@ -145,6 +148,64 @@ export const ItemSchema = {
   indexes: [
     // Índice composto para garantir slug único por usuário e section
     { fields: { userId: 1, sectionId: 1, slug: 1 }, unique: true },
+  ],
+};
+
+export const WorkspaceSchema = {
+  name: "workspaces",
+  fields: {
+    name: { type: "string", required: true },
+    slug: { type: "string", required: true },
+    ownerId: { type: "string", required: true }, // Clerk User ID
+    description: { type: "string" },
+
+    plan: {
+      type: "string",
+      enum: ["free", "starter", "business", "enterprise"],
+      default: "free",
+    },
+
+    limits: {
+      maxUsers: { type: "number", default: 1 },
+      maxContentTypes: { type: "number", default: 3 },
+      maxSections: { type: "number", default: 5 },
+      maxItems: { type: "number", default: 100 },
+      maxAPICallsPerMonth: { type: "number", default: 1000 },
+    },
+
+    members: [
+      {
+        userId: { type: "string", required: true },
+        role: {
+          type: "string",
+          enum: ["owner", "admin", "editor", "viewer"],
+          default: "viewer",
+        },
+        permissions: {
+          canExport: { type: "boolean", default: false },
+          canInvite: { type: "boolean", default: false },
+          canManageBilling: { type: "boolean", default: false },
+        },
+        invitedAt: { type: "date", default: () => new Date() },
+        joinedAt: { type: "date" },
+      },
+    ],
+
+    security: {
+      apiKeyEnabled: { type: "boolean", default: false },
+      allowedIPs: [{ type: "string" }],
+    },
+
+    isActive: { type: "boolean", default: true },
+    createdAt: { type: "date", default: () => new Date() },
+    lastActivity: { type: "date", default: () => new Date() },
+  },
+
+  indexes: [
+    { fields: { slug: 1 }, unique: true },
+    { fields: { ownerId: 1 } },
+    { fields: { "members.userId": 1 } },
+    { fields: { plan: 1, isActive: 1 } },
   ],
 };
 

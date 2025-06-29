@@ -183,7 +183,7 @@ export function ModernContentTypesTable({
                 {/* Coluna Nome */}
                 <th
                   scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-100 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                   onClick={() => requestSort("name")}
                 >
                   <div className="flex items-center space-x-1">
@@ -195,7 +195,7 @@ export function ModernContentTypesTable({
                 {/* Coluna Slug */}
                 <th
                   scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-100 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                   onClick={() => requestSort("slug")}
                 >
                   <div className="flex items-center space-x-1">
@@ -207,7 +207,7 @@ export function ModernContentTypesTable({
                 {/* Coluna Addons */}
                 <th
                   scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-100 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                   onClick={() => requestSort("addonsCount")}
                 >
                   <div className="flex items-center space-x-1">
@@ -219,7 +219,7 @@ export function ModernContentTypesTable({
                 {/* Coluna Criado */}
                 <th
                   scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-100 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                   onClick={() => requestSort("createdAt")}
                 >
                   <div className="flex items-center space-x-1">

@@ -3,6 +3,8 @@
 import { UserButton } from "@clerk/nextjs";
 import { useUserPlanVerification } from "../../hooks/useUserPlanVerification";
 import { ThemeToggle } from "./ThemeToggle";
+import { WorkspaceSelector } from "./WorkspaceSelector";
+import { useWorkspace } from "../../contexts/WorkspaceContext";
 
 function UserPlansDropdown({ plans }) {
   const activePlans = plans?.active || [];
@@ -10,7 +12,7 @@ function UserPlansDropdown({ plans }) {
   if (activePlans.length === 0) {
     return (
       <div className="relative group">
-        <button className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors">
+        <button className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors">
           <span>🆓 Plano Gratuito</span>
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
             <path
@@ -103,19 +105,31 @@ function UserPlansDropdown({ plans }) {
 
 export function TopBar({ user, children }) {
   const { plans, isVerifying } = useUserPlanVerification();
+  const { currentWorkspace, loading: workspaceLoading } = useWorkspace();
+
+  // Nome do workspace ou fallback
+  const workspaceName = currentWorkspace?.name || "Dashboard Engine";
 
   return (
     <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 transition-colors">
       <div className="flex items-center justify-between h-16 px-6">
-        {/* Left side - Logo/Title */}
+        {/* Left side - Workspace Name */}
         <div className="flex items-center space-x-4">
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Dashboard
-          </h1>
+          {workspaceLoading ? (
+            <div className="flex items-center space-x-2">
+              <div className="w-4 h-4 bg-gray-300 dark:bg-gray-600 rounded animate-pulse"></div>
+              <div className="w-32 h-5 bg-gray-300 dark:bg-gray-600 rounded animate-pulse"></div>
+            </div>
+          ) : (
+            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
+              {workspaceName}
+            </h1>
+          )}
         </div>
 
-        {/* Center - Children content */}
-        <div className="flex-1 flex items-center justify-center">
+        {/* Center - Children content & Workspace Selector */}
+        <div className="flex-1 flex items-center justify-center space-x-4">
+          <WorkspaceSelector />
           {children}
         </div>
 

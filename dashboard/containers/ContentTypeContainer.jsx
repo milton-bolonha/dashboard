@@ -1,12 +1,15 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { ModernContentTypesTable } from "@/components/content-types/ModernContentTypesTable";
 import ContentTypeForm from "@/components/content-types/ContentTypeForm";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
+import { fetchWithWorkspace } from "@/lib/api";
 
 export default function ContentTypeContainer() {
+  const { currentWorkspace } = useWorkspace();
   const [contentTypes, setContentTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -18,8 +21,8 @@ export default function ContentTypeContainer() {
       setLoading(true);
       console.log("🔍 Tentando buscar content types...");
 
-      // API principal com autenticação flexível
-      const response = await fetch("/api/content-types");
+      // API principal com workspace injetado
+      const response = await fetchWithWorkspace("/api/content-types");
 
       if (!response.ok) {
         throw new Error(
@@ -41,8 +44,10 @@ export default function ContentTypeContainer() {
   }, []);
 
   useEffect(() => {
-    fetchContentTypes();
-  }, [fetchContentTypes]);
+    if (currentWorkspace) {
+      fetchContentTypes();
+    }
+  }, [fetchContentTypes, currentWorkspace]);
 
   const handleOpenModal = (contentType = null) => {
     setEditingContentType(contentType);
@@ -62,7 +67,7 @@ export default function ContentTypeContainer() {
     const method = isEditing ? "PUT" : "POST";
 
     try {
-      const response = await fetch(url, {
+      const response = await fetchWithWorkspace(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -86,7 +91,7 @@ export default function ContentTypeContainer() {
       return;
 
     try {
-      const response = await fetch(`/api/content-types/${id}`, {
+      const response = await fetchWithWorkspace(`/api/content-types/${id}`, {
         method: "DELETE",
       });
       if (!response.ok) throw new Error("Failed to delete content type");

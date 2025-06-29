@@ -2,14 +2,17 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useUser } from "@clerk/nextjs";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { ModernSectionsTable } from "@/components/sections/ModernSectionsTable";
 import SectionForm from "@/components/sections/SectionForm";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import { useSections } from "@/contexts/SectionsContext";
+import { fetchWithWorkspace } from "@/lib/api";
 
 export default function SectionContainer() {
   const { user } = useUser();
+  const { currentWorkspace } = useWorkspace();
   const { sections, refreshSections } = useSections(); // ← Usar contexto
   const [contentTypes, setContentTypes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,8 +25,8 @@ export default function SectionContainer() {
       setLoading(true);
       console.log("🔍 SectionContainer: Tentando buscar content types...");
 
-      // API principal com autenticação flexível
-      const contentTypesRes = await fetch("/api/content-types");
+      // API principal com autenticação flexível e workspace
+      const contentTypesRes = await fetchWithWorkspace("/api/content-types");
 
       if (!contentTypesRes.ok) {
         throw new Error(
@@ -77,17 +80,24 @@ export default function SectionContainer() {
       if (isEditing) {
         // Para edição, usar a API específica da section
         console.log("✏️ Editando section:", editingSection._id);
-        response = await fetch(`/api/sections/${editingSection._id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(dataWithUserId),
-        });
+        response = await fetchWithWorkspace(
+          `/api/sections/${editingSection._id}`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(dataWithUserId),
+          }
+        );
       } else {
         // Para criação, usar a API geral
         console.log("➕ Criando nova section");
-        response = await fetch("/api/sections", {
+        response = await fetchWithWorkspace("/api/sections", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify(dataWithUserId),
         });
       }
@@ -129,7 +139,9 @@ export default function SectionContainer() {
     if (!window.confirm("Tem certeza que deseja deletar esta Section?")) return;
 
     try {
-      const response = await fetch(`/api/sections/${id}`, { method: "DELETE" });
+      const response = await fetchWithWorkspace(`/api/sections/${id}`, {
+        method: "DELETE",
+      });
       if (!response.ok) throw new Error("Failed to delete section");
       await refreshSections(); // ← Atualizar contexto global
     } catch (err) {

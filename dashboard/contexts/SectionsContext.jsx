@@ -1,19 +1,46 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
+import { useWorkspace } from "./WorkspaceContext";
+import { fetchWithWorkspace } from "@/lib/api"; // Importar nosso wrapper
 
 const SectionsContext = createContext();
 
 export function SectionsProvider({ children }) {
+  const { currentWorkspace } = useWorkspace();
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const loadSections = async () => {
+  const loadSections = useCallback(async () => {
+    if (!currentWorkspace) {
+      console.log(
+        "⚠️ SectionsContext: Nenhum workspace atual, pulando carregamento"
+      );
+      setSections([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
-      console.log("🔍 SectionsContext: Tentando buscar sections...");
+      console.log(
+        `🔍 SectionsContext: Buscando sections do workspace: ${currentWorkspace.name}`
+      );
 
-      const response = await fetch("/api/sections");
+      // Usar o wrapper padronizado
+      const response = await fetchWithWorkspace("/api/sections", {
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      });
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -28,53 +55,39 @@ export function SectionsProvider({ children }) {
       }
 
       const data = await response.json();
-      console.log("✅ SectionsContext: Sections carregadas:", data);
+      console.log(
+        `✅ SectionsContext: ${
+          data.sections?.length || 0
+        } sections carregadas para ${currentWorkspace.name}`
+      );
       setSections(data.sections || []);
     } catch (error) {
       console.error("❌ SectionsContext: Erro ao carregar sections:", error);
-      // Em caso de erro, definir array vazio para não quebrar a UI
       setSections([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentWorkspace]); // Depender de currentWorkspace para recriar a função
 
-  const refreshSections = () => {
+  const refreshSections = useCallback(() => {
     console.log("🔄 SectionsContext: Refresh manual das sections...");
     loadSections();
+  }, [loadSections]);
 
-    // Broadcast para outros componentes que as sections foram atualizadas
-    window.dispatchEvent(
-      new CustomEvent("sectionsUpdated", { detail: { timestamp: Date.now() } })
-    );
-  };
-
-  // Carregar sections na inicialização
+  // Carregar sections na inicialização e quando a função loadSections mudar (ou seja, quando o workspace mudar)
   useEffect(() => {
     loadSections();
-  }, []);
+  }, [loadSections]);
 
-  // Auto-refresh a cada 30 segundos para manter dados sincronizados
+  // Auto-refresh a cada 30 segundos
   useEffect(() => {
     const intervalId = setInterval(() => {
       console.log("🔄 SectionsContext: Auto-refresh das sections (30s)");
       loadSections();
-    }, 30000); // 30 segundos
+    }, 30000);
 
     return () => clearInterval(intervalId);
-  }, []);
-
-  // Escutar eventos de atualização de outros componentes
-  useEffect(() => {
-    const handleSectionsUpdate = () => {
-      console.log("🔄 SectionsContext: Recebido evento de atualização");
-      loadSections();
-    };
-
-    window.addEventListener("sectionsUpdated", handleSectionsUpdate);
-    return () =>
-      window.removeEventListener("sectionsUpdated", handleSectionsUpdate);
-  }, []);
+  }, [loadSections]); // Reiniciar o intervalo se o workspace mudar
 
   const value = {
     sections,

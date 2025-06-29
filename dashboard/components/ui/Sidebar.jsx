@@ -3,15 +3,26 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useSections } from "@/contexts/SectionsContext";
 
 export function Sidebar() {
-  const [sections, setSections] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isCollapsed, setIsCollapsed] = useState(true);
-  const [isHovered, setIsHovered] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [showConfig, setShowConfig] = useState(false);
   const pathname = usePathname();
+  const { isCollapsed, setIsCollapsed, isHovered, setIsHovered } =
+    useSidebarState();
+  const { sections, loading: sectionsLoading } = useSections();
+  const { currentWorkspace } = useWorkspace();
+
+  const [showConfig, setShowConfig] = useState(false);
+
+  // Auto-expandir o menu "Content Creator" se a página ativa estiver dentro dele
+  useEffect(() => {
+    const isContentCreatorPage =
+      pathname === "/dashboard/sections" ||
+      pathname === "/dashboard/content-types" ||
+      pathname.startsWith("/dashboard/sections/"); // Incluir sub-páginas
+    setShowConfig(isContentCreatorPage);
+  }, [pathname]);
 
   // 🎨 BIBLIOTECA DE ÍCONES SVG PROFISSIONAIS (mantendo o que funcionou)
   const getIconSvg = (iconKey) => {
@@ -167,28 +178,6 @@ export function Sidebar() {
     return icons[iconKey] || icons["folder"];
   };
 
-  useEffect(() => {
-    fetchSections();
-  }, []);
-
-  const fetchSections = async () => {
-    try {
-      const response = await fetch("/api/sections");
-      if (response.ok) {
-        const data = await response.json();
-        console.log("🔍 Sections carregadas:", data); // Debug
-        // Assumir que sections são ativas se o campo não existe
-        const activeSections = Array.isArray(data) ? data : data.sections || [];
-        console.log("✅ Sections filtradas:", activeSections); // Debug
-        setSections(activeSections);
-      }
-    } catch (error) {
-      console.error("❌ Erro ao carregar sections:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const isActive = (href, exact = false) => {
     if (exact) {
       return pathname === href;
@@ -206,24 +195,24 @@ export function Sidebar() {
 
   return (
     <div
-      className={`${actualWidth} bg-gray-900 h-screen flex flex-col transition-all duration-300 fixed left-0 top-0 z-40`}
+      className={`${actualWidth} bg-white dark:bg-gray-900 h-screen flex flex-col transition-all duration-300 fixed left-0 top-0 z-40 border-r border-gray-200 dark:border-gray-800`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-800">
+      <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800">
         <div
           className={`overflow-hidden transition-all duration-300 ${
             isCollapsed && !isHovered ? "opacity-0 w-0" : "opacity-100 w-auto"
           }`}
         >
-          <h1 className="text-lg font-bold text-white whitespace-nowrap">
+          <h1 className="text-lg font-bold text-gray-900 dark:text-white whitespace-nowrap">
             Dashboard Engine
           </h1>
         </div>
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+          className="p-1.5 rounded-md text-gray-600 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -240,14 +229,16 @@ export function Sidebar() {
             href="/dashboard"
             className={`group w-full flex items-center px-2 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
               isActive("/dashboard", true)
-                ? "bg-gray-800 text-white shadow-lg border-l-4 border-blue-500"
-                : "text-gray-300 hover:bg-gray-700 hover:text-white"
+                ? "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white shadow-lg border-l-4 border-blue-500"
+                : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
             }`}
             title={isCollapsed && !isHovered ? "Dashboard" : ""}
           >
             <div
               className={`flex-shrink-0 w-5 h-5 ${
-                isActive("/dashboard", true) ? "text-blue-400" : ""
+                isActive("/dashboard", true)
+                  ? "text-blue-500 dark:text-blue-400"
+                  : ""
               }`}
             >
               <svg fill="currentColor" viewBox="0 0 20 20">
@@ -267,51 +258,76 @@ export function Sidebar() {
         </div>
 
         {/* Dynamic Sections */}
-        {sections.length > 0 && (
-          <div className="mb-2">
-            <div className="space-y-1">
-              {sections.map((section) => (
-                <Link
-                  key={section._id}
-                  href={`/dashboard/sections/${section.slug}`}
-                  className={`group w-full flex items-center px-2 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
-                    isActive(`/dashboard/sections/${section.slug}`)
-                      ? "bg-gray-800 text-white shadow-lg border-l-4 border-blue-500"
-                      : "text-gray-300 hover:bg-gray-700 hover:text-white"
-                  }`}
-                  title={isCollapsed && !isHovered ? section.name : ""}
-                >
-                  <div
-                    className={`flex-shrink-0 w-5 h-5 ${
-                      isActive(`/dashboard/sections/${section.slug}`)
-                        ? "text-blue-400"
-                        : ""
-                    }`}
-                  >
-                    <svg fill="currentColor" viewBox="0 0 20 20">
-                      {getIconSvg(section.icon || "folder")}
-                    </svg>
-                  </div>
-                  <div
-                    className={`ml-3 overflow-hidden transition-all duration-300 ${
-                      isCollapsed && !isHovered
-                        ? "opacity-0 w-0"
-                        : "opacity-100 w-auto"
-                    }`}
-                  >
-                    <span className="whitespace-nowrap">{section.name}</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
+        {sectionsLoading ? (
+          <div className="flex justify-center items-center p-4">
+            <svg
+              className="animate-spin h-5 w-5 text-gray-400"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              ></circle>
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              ></path>
+            </svg>
           </div>
+        ) : (
+          sections.length > 0 && (
+            <div className="mb-2">
+              <div className="space-y-1">
+                {sections.map((section) => (
+                  <Link
+                    key={section._id}
+                    href={`/dashboard/sections/${section.slug}`}
+                    className={`group w-full flex items-center px-2 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
+                      isActive(`/dashboard/sections/${section.slug}`)
+                        ? "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white shadow-lg border-l-4 border-blue-500"
+                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+                    }`}
+                    title={isCollapsed && !isHovered ? section.name : ""}
+                  >
+                    <div
+                      className={`flex-shrink-0 w-5 h-5 ${
+                        isActive(`/dashboard/sections/${section.slug}`)
+                          ? "text-blue-500 dark:text-blue-400"
+                          : ""
+                      }`}
+                    >
+                      <svg fill="currentColor" viewBox="0 0 20 20">
+                        {getIconSvg(section.icon || "folder")}
+                      </svg>
+                    </div>
+                    <div
+                      className={`ml-3 overflow-hidden transition-all duration-300 ${
+                        isCollapsed && !isHovered
+                          ? "opacity-0 w-0"
+                          : "opacity-100 w-auto"
+                      }`}
+                    >
+                      <span className="whitespace-nowrap">{section.name}</span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )
         )}
 
         {/* Content Creator - Corrigido completamente */}
         <div className="mb-2">
           <button
             onClick={() => setShowConfig(!showConfig)}
-            className="w-full flex items-center justify-between px-2 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700 hover:text-white rounded-md transition-all duration-200 cursor-pointer"
+            className="w-full flex items-center justify-between px-2 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white rounded-md transition-all duration-200 cursor-pointer"
             title={isCollapsed && !isHovered ? "Content Creator" : ""}
           >
             <div className="flex items-center">
@@ -352,14 +368,16 @@ export function Sidebar() {
                 href="/dashboard/sections"
                 className={`group w-full flex items-center px-2 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
                   isActive("/dashboard/sections")
-                    ? "bg-gray-800 text-white shadow-lg border-l-4 border-blue-500"
-                    : "text-gray-300 hover:bg-gray-700 hover:text-white"
+                    ? "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white shadow-lg border-l-4 border-blue-500"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
                 }`}
                 title={isCollapsed && !isHovered ? "Sections" : ""}
               >
                 <div
                   className={`flex-shrink-0 w-5 h-5 ${
-                    isActive("/dashboard/sections") ? "text-blue-400" : ""
+                    isActive("/dashboard/sections")
+                      ? "text-blue-500 dark:text-blue-400"
+                      : ""
                   }`}
                 >
                   <svg fill="currentColor" viewBox="0 0 20 20">
@@ -380,14 +398,16 @@ export function Sidebar() {
                 href="/dashboard/content-types"
                 className={`group w-full flex items-center px-2 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
                   isActive("/dashboard/content-types")
-                    ? "bg-gray-800 text-white shadow-lg border-l-4 border-blue-500"
-                    : "text-gray-300 hover:bg-gray-700 hover:text-white"
+                    ? "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white shadow-lg border-l-4 border-blue-500"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
                 }`}
                 title={isCollapsed && !isHovered ? "Content Types" : ""}
               >
                 <div
                   className={`flex-shrink-0 w-5 h-5 ${
-                    isActive("/dashboard/content-types") ? "text-blue-400" : ""
+                    isActive("/dashboard/content-types")
+                      ? "text-blue-500 dark:text-blue-400"
+                      : ""
                   }`}
                 >
                   <svg fill="currentColor" viewBox="0 0 20 20">
@@ -415,14 +435,16 @@ export function Sidebar() {
               href="/dashboard/users"
               className={`group w-full flex items-center px-2 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
                 isActive("/dashboard/users")
-                  ? "bg-gray-800 text-white shadow-lg border-l-4 border-gray-600"
-                  : "text-gray-300 hover:bg-gray-700 hover:text-white"
+                  ? "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white shadow-lg border-l-4 border-gray-600"
+                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
               }`}
               title={isCollapsed && !isHovered ? "Users" : ""}
             >
               <div
                 className={`flex-shrink-0 w-5 h-5 ${
-                  isActive("/dashboard/users") ? "text-gray-400" : ""
+                  isActive("/dashboard/users")
+                    ? "text-gray-500 dark:text-gray-400"
+                    : ""
                 }`}
               >
                 <svg fill="currentColor" viewBox="0 0 20 20">
@@ -443,14 +465,16 @@ export function Sidebar() {
               href="/dashboard/billing"
               className={`group w-full flex items-center px-2 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
                 isActive("/dashboard/billing")
-                  ? "bg-gray-800 text-white shadow-lg border-l-4 border-gray-600"
-                  : "text-gray-300 hover:bg-gray-700 hover:text-white"
+                  ? "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white shadow-lg border-l-4 border-gray-600"
+                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
               }`}
               title={isCollapsed && !isHovered ? "Billing" : ""}
             >
               <div
                 className={`flex-shrink-0 w-5 h-5 ${
-                  isActive("/dashboard/billing") ? "text-gray-400" : ""
+                  isActive("/dashboard/billing")
+                    ? "text-gray-500 dark:text-gray-400"
+                    : ""
                 }`}
               >
                 <svg fill="currentColor" viewBox="0 0 20 20">
@@ -476,14 +500,16 @@ export function Sidebar() {
             href="/dashboard/settings"
             className={`group w-full flex items-center px-2 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
               isActive("/dashboard/settings")
-                ? "bg-gray-800 text-white shadow-lg border-l-4 border-gray-600"
-                : "text-gray-300 hover:bg-gray-700 hover:text-white"
+                ? "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white shadow-lg border-l-4 border-gray-600"
+                : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
             }`}
             title={isCollapsed && !isHovered ? "Settings" : ""}
           >
             <div
               className={`flex-shrink-0 w-5 h-5 ${
-                isActive("/dashboard/settings") ? "text-gray-400" : ""
+                isActive("/dashboard/settings")
+                  ? "text-gray-500 dark:text-gray-400"
+                  : ""
               }`}
             >
               <svg fill="currentColor" viewBox="0 0 20 20">
@@ -509,10 +535,17 @@ export function Sidebar() {
           isCollapsed && !isHovered ? "opacity-0" : "opacity-100"
         }`}
       >
-        <div className="text-xs text-gray-500 text-center">
+        <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
           v1.0.0 • Dashboard Engine
         </div>
       </div>
     </div>
   );
+}
+
+// Hook customizado para abstrair a lógica de UI da sidebar
+function useSidebarState() {
+  const [isCollapsed, setIsCollapsed] = useState(true);
+  const [isHovered, setIsHovered] = useState(false);
+  return { isCollapsed, setIsCollapsed, isHovered, setIsHovered };
 }

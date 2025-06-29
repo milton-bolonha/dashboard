@@ -2,34 +2,116 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db.js";
 import { SectionSchema, validateSchema } from "@/schemas/index.js";
 import { getCurrentAuth } from "@/lib/auth";
+import { ObjectId } from "mongodb";
+
+/**
+ * Helper para obter workspace atual do usuário
+ */
+async function getCurrentWorkspace(userId, requestedWorkspaceId = null) {
+  try {
+    let workspace;
+
+    // Se foi especificado um workspace, usar esse
+    if (requestedWorkspaceId) {
+      // ✅ CORREÇÃO: Converter string para ObjectId
+      const workspaceObjectId = new ObjectId(requestedWorkspaceId);
+
+      workspace = await db.findOne("workspaces", {
+        _id: workspaceObjectId, // ← FIX: Usar ObjectId ao invés de string
+        $or: [{ ownerId: userId }, { "members.userId": userId }],
+      });
+
+      if (workspace) {
+        console.log(
+          `🎯 Usando workspace específico: ${workspace.name} (${workspace._id})`
+        );
+        return workspace;
+      } else {
+        console.log(
+          `⚠️ Workspace ${requestedWorkspaceId} não encontrado ou sem permissão`
+        );
+      }
+    }
+
+    // Fallback: buscar qualquer workspace do usuário
+    workspace = await db.findOne("workspaces", {
+      $or: [{ ownerId: userId }, { "members.userId": userId }],
+    });
+
+    if (!workspace) {
+      console.log(`🔧 Criando workspace automático para usuário: ${userId}`);
+
+      const result = await db.insertOne("workspaces", {
+        name: "Meu Workspace",
+        slug: `ws-${userId.slice(-8)}-${Date.now()}`,
+        ownerId: userId,
+        plan: "free",
+        members: [{ userId, role: "owner", permissions: { canExport: true } }],
+        limits: {
+          maxUsers: 1,
+          maxContentTypes: 3,
+          maxSections: 5,
+          maxItems: 100,
+        },
+        isActive: true,
+        createdAt: new Date(),
+      });
+
+      workspace = await db.findOne("workspaces", { _id: result.insertedId });
+    }
+
+    console.log(
+      `🏢 Workspace selecionado: ${workspace.name} (${workspace._id})`
+    );
+    return workspace;
+  } catch (error) {
+    console.error("❌ Erro ao obter workspace:", error);
+    throw error;
+  }
+}
 
 /**
  * GET /api/sections
- * Lista todas as sections do usuário (com triangulação por userId)
+ * Lista todas as sections do workspace atual
  */
-export async function GET() {
-  // ✅ CORRIGIDO: Usar await com getCurrentAuth
+export async function GET(request) {
   const authData = await getCurrentAuth();
   const userId = authData.userId || "temp_user_dev";
 
+  // Obter workspace ID do header (enviado pelo frontend)
+  const workspaceId = request.headers.get("x-workspace-id");
+
+  console.log("🔐 Sections GET: userId =", userId);
+  console.log("🏢 Workspace solicitado:", workspaceId);
   console.log(
-    "🔐 Sections GET: userId =",
-    userId,
-    authData.userId ? "(autenticado)" : "(modo dev)"
+    "📋 Headers recebidos:",
+    Object.fromEntries(request.headers.entries())
   );
 
   try {
-    console.log(
-      `🔍 Tentando buscar sections do usuário ${userId} no MongoDB...`
-    );
+    // Obter workspace atual (específico ou fallback)
+    const workspace = await getCurrentWorkspace(userId, workspaceId);
+    console.log(`🎯 Workspace em uso: ${workspace.name} (${workspace._id})`);
 
     const sections = await db.find("sections", {
-      userId: userId, // ← TRIANGULAÇÃO: só sections do usuário
+      userId: userId,
+      workspaceId: workspace._id, // ← WORKSPACE: filtrar por workspace específico
     });
 
     console.log(
-      `✅ MongoDB conectado! Encontradas ${sections.length} sections do usuário`
+      `✅ Query executada: { userId: "${userId}", workspaceId: "${workspace._id}" }`
     );
+    console.log(
+      `✅ Encontradas ${sections.length} sections para workspace ${workspace.name}`
+    );
+
+    // Debug: Mostrar workspaceId de cada section
+    sections.forEach((section, index) => {
+      console.log(
+        `  ${index + 1}. ${section.name} - workspaceId: ${section.workspaceId}`
+      );
+    });
+
     return NextResponse.json({ sections });
   } catch (error) {
     console.warn(
@@ -72,26 +154,35 @@ export async function GET() {
 
 /**
  * POST /api/sections
- * Cria uma nova section (com triangulação por userId)
+ * Cria uma nova section no workspace atual
  */
 export async function POST(request) {
   try {
     const data = await request.json();
 
-    // ✅ CORRIGIDO: Usar await com getCurrentAuth
     const authData = await getCurrentAuth();
     const userId = authData.userId || "temp_user_dev";
 
+    // Obter workspace ID do header (enviado pelo frontend)
+    const workspaceId = request.headers.get("x-workspace-id");
+
+    console.log("🔐 Sections POST: userId =", userId);
+    console.log("🏢 Workspace solicitado:", workspaceId);
+
+    // Obter workspace atual (específico ou fallback)
+    const workspace = await getCurrentWorkspace(userId, workspaceId);
     console.log(
-      "🔐 Sections POST: userId =",
-      userId,
-      authData.userId ? "(autenticado)" : "(modo dev)"
+      `🎯 Criando section no workspace: ${workspace.name} (${workspace._id})`
     );
 
-    // Adicionar userId aos dados para validação
-    const dataWithUserId = { ...data, userId };
+    // Adicionar userId e workspaceId aos dados
+    const dataWithWorkspace = {
+      ...data,
+      userId,
+      workspaceId: workspace._id,
+    };
 
-    const validation = validateSchema(dataWithUserId, SectionSchema);
+    const validation = validateSchema(dataWithWorkspace, SectionSchema);
     if (!validation.isValid) {
       return NextResponse.json(
         { error: "Validation failed", details: validation.errors },
@@ -106,10 +197,11 @@ export async function POST(request) {
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/(^-|-$)/g, "");
 
-    // Verificar se slug já existe NO ESCOPO DO USUÁRIO (triangulação)
+    // Verificar se slug já existe no workspace
     const existing = await db.find("sections", {
       slug,
-      userId: userId, // ← TRIANGULAÇÃO: só verificar no escopo do usuário
+      userId: userId,
+      workspaceId: workspace._id, // ← WORKSPACE: verificar no escopo do workspace
     });
 
     if (existing.length > 0) {
@@ -119,11 +211,10 @@ export async function POST(request) {
       );
     }
 
-    // Criar section com userId (triangulação)
+    // Usar o objeto já validado que contém o workspaceId
     const sectionData = {
-      ...data,
+      ...dataWithWorkspace,
       slug,
-      userId: userId, // ← TRIANGULAÇÃO: associar ao usuário
       settings: {
         defaultView: "list",
         itemsPerPage: 20,

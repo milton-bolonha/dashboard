@@ -2,22 +2,86 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Link from "next/link";
 import DynamicItemForm from "@/components/sections/DynamicItemForm";
 import { ModernItemsTable } from "@/components/sections/ModernItemsTable";
+import { Inspector } from "@/components/ui/Inspector";
+
+function Breadcrumbs({ section }) {
+  if (!section) return null;
+
+  return (
+    <nav aria-label="Breadcrumb">
+      <ol className="flex items-center space-x-2 text-sm">
+        <li>
+          <a
+            className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+            href="/dashboard"
+          >
+            Dashboard
+          </a>
+        </li>
+        <li>
+          <div className="flex items-center">
+            <svg
+              className="flex-shrink-0 h-5 w-5 text-gray-400 dark:text-gray-500"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fillRule="evenodd"
+                d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <a
+              className="ml-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              href="/dashboard/sections"
+            >
+              Sections
+            </a>
+          </div>
+        </li>
+        <li>
+          <div className="flex items-center">
+            <svg
+              className="flex-shrink-0 h-5 w-5 text-gray-400 dark:text-gray-500"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fillRule="evenodd"
+                d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <span
+              className="ml-2 text-sm font-medium text-gray-800 dark:text-white"
+              aria-current="page"
+            >
+              {section.name}
+            </span>
+          </div>
+        </li>
+      </ol>
+    </nav>
+  );
+}
 
 export default function SectionDetailPage() {
   const params = useParams();
   const slug = params.slug;
+  const { currentWorkspace } = useWorkspace();
 
   const [section, setSection] = useState(null);
-  const [contentType, setContentType] = useState(null); // ← Adicionar estado para contentType
+  const [contentType, setContentType] = useState(null);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [itemsLoading, setItemsLoading] = useState(false);
-  const [deletingItemId, setDeletingItemId] = useState(null); // ✅ Estado para loading do delete
+  const [deletingItemId, setDeletingItemId] = useState(null);
   const [error, setError] = useState(null);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false);
@@ -118,16 +182,37 @@ export default function SectionDetailPage() {
     ),
   };
 
+  // ✅ WORKSPACE: Helper para headers
+  const getWorkspaceHeaders = () => {
+    if (!currentWorkspace) return {};
+
+    return {
+      "x-workspace-id": currentWorkspace._id,
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      Pragma: "no-cache",
+      Expires: "0",
+    };
+  };
+
   useEffect(() => {
-    loadSection();
-  }, [slug]);
+    if (currentWorkspace) {
+      loadSection();
+    }
+  }, [slug, currentWorkspace]);
 
   const loadSection = async () => {
+    if (!currentWorkspace) {
+      console.log("⚠️ Aguardando workspace...");
+      return;
+    }
+
     try {
       setLoading(true);
 
       // Buscar section
-      const response = await fetch("/api/sections");
+      const response = await fetch("/api/sections", {
+        headers: getWorkspaceHeaders(),
+      });
       const data = await response.json();
 
       const foundSection = data.sections?.find((s) => s.slug === slug);
@@ -141,7 +226,9 @@ export default function SectionDetailPage() {
 
       // Buscar contentType correspondente à section
       if (foundSection.contentTypeId) {
-        const contentTypesResponse = await fetch("/api/content-types");
+        const contentTypesResponse = await fetch("/api/content-types", {
+          headers: getWorkspaceHeaders(),
+        });
         const contentTypesData = await contentTypesResponse.json();
 
         const foundContentType = contentTypesData.contentTypes?.find(
@@ -170,11 +257,18 @@ export default function SectionDetailPage() {
   };
 
   const loadItems = async (sectionSlug) => {
+    if (!currentWorkspace) {
+      console.log("⚠️ Aguardando workspace para carregar items...");
+      return;
+    }
+
     try {
       setItemsLoading(true);
 
       // Primeiro, buscar o ID da section pelo slug
-      const sectionsResponse = await fetch("/api/sections");
+      const sectionsResponse = await fetch("/api/sections", {
+        headers: getWorkspaceHeaders(),
+      });
       const sectionsData = await sectionsResponse.json();
       const targetSection = sectionsData.sections?.find(
         (s) => s.slug === sectionSlug
@@ -187,12 +281,16 @@ export default function SectionDetailPage() {
       }
 
       // Agora usar o ID para buscar items
-      let response = await fetch(`/api/sections/${targetSection._id}/items`);
+      let response = await fetch(`/api/sections/${targetSection._id}/items`, {
+        headers: getWorkspaceHeaders(),
+      });
 
       // Se der 404, tentar API de teste
       if (response.status === 404) {
         console.warn("API principal não encontrada, usando API de teste");
-        response = await fetch("/api/test-items");
+        response = await fetch("/api/test-items", {
+          headers: getWorkspaceHeaders(),
+        });
       }
 
       if (response.ok) {
@@ -228,11 +326,18 @@ export default function SectionDetailPage() {
       return;
     }
 
-    setDeletingItemId(item._id); // ✅ Marcar como deletando
+    if (!currentWorkspace) {
+      alert("Workspace não selecionado");
+      return;
+    }
+
+    setDeletingItemId(item._id);
 
     try {
       // Buscar ID da section
-      const sectionsResponse = await fetch("/api/sections");
+      const sectionsResponse = await fetch("/api/sections", {
+        headers: getWorkspaceHeaders(),
+      });
       const sectionsData = await sectionsResponse.json();
       const targetSection = sectionsData.sections?.find((s) => s.slug === slug);
 
@@ -244,6 +349,7 @@ export default function SectionDetailPage() {
         `/api/sections/${targetSection._id}/items/${item._id}`,
         {
           method: "DELETE",
+          headers: getWorkspaceHeaders(),
         }
       );
 
@@ -260,14 +366,21 @@ export default function SectionDetailPage() {
       console.error("❌ Erro ao deletar item:", error);
       alert(error.message);
     } finally {
-      setDeletingItemId(null); // ✅ Remover loading
+      setDeletingItemId(null);
     }
   };
 
   const handleUpdateItem = async (itemData) => {
+    if (!currentWorkspace) {
+      alert("Workspace não selecionado");
+      return;
+    }
+
     try {
       // Buscar ID da section
-      const sectionsResponse = await fetch("/api/sections");
+      const sectionsResponse = await fetch("/api/sections", {
+        headers: getWorkspaceHeaders(),
+      });
       const sectionsData = await sectionsResponse.json();
       const targetSection = sectionsData.sections?.find((s) => s.slug === slug);
 
@@ -279,7 +392,10 @@ export default function SectionDetailPage() {
         `/api/sections/${targetSection._id}/items/${editingItem._id}`,
         {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...getWorkspaceHeaders(),
+          },
           body: JSON.stringify(itemData),
         }
       );
@@ -303,9 +419,16 @@ export default function SectionDetailPage() {
   };
 
   const handleCreateItem = async (itemData) => {
+    if (!currentWorkspace) {
+      alert("Workspace não selecionado");
+      return;
+    }
+
     try {
       // Primeiro, buscar o ID da section pelo slug
-      const sectionsResponse = await fetch("/api/sections");
+      const sectionsResponse = await fetch("/api/sections", {
+        headers: getWorkspaceHeaders(),
+      });
       const sectionsData = await sectionsResponse.json();
       const targetSection = sectionsData.sections?.find((s) => s.slug === slug);
 
@@ -316,7 +439,10 @@ export default function SectionDetailPage() {
       // Tentar API principal com ID
       let response = await fetch(`/api/sections/${targetSection._id}/items`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getWorkspaceHeaders(),
+        },
         body: JSON.stringify(itemData),
       });
 
@@ -325,7 +451,10 @@ export default function SectionDetailPage() {
         console.warn("API principal não encontrada, usando API de teste");
         response = await fetch("/api/test-items", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...getWorkspaceHeaders(),
+          },
           body: JSON.stringify(itemData),
         });
       }
@@ -402,33 +531,7 @@ export default function SectionDetailPage() {
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg mb-6">
         <div className="px-6 py-4">
           {/* Breadcrumb */}
-          <nav className="flex mb-4" aria-label="Breadcrumb">
-            <ol className="flex items-center space-x-4 text-sm">
-              <li>
-                <Link
-                  href="/dashboard"
-                  className="text-gray-400 hover:text-gray-500"
-                >
-                  Dashboard
-                </Link>
-              </li>
-              <li className="text-gray-400">/</li>
-              <li>
-                <Link
-                  href="/dashboard/sections"
-                  className="text-gray-400 hover:text-gray-500"
-                >
-                  Sections
-                </Link>
-              </li>
-              <li className="text-gray-400">/</li>
-              <li>
-                <span className="text-gray-900 dark:text-white font-medium">
-                  {section.name}
-                </span>
-              </li>
-            </ol>
-          </nav>
+          <Breadcrumbs section={section} />
 
           <div className="flex items-center justify-between">
             <div>

@@ -1,0 +1,277 @@
+eu entro no meu dashboard logado, num tipo de devmode q criei pra codar, mas já to usando user já, não sei como tá isso tem q verificar se isso ta certinho pq pode estar relacionado com o erro. q vamos trarar... esatmos logado com clerk. temos planos era pra ter, eu tenho q cadastrar os planos no stripe e passar aqui no dotenv as ids dos planos... enfim... ai entro no meu admin/dashboard.... ai era pra eu adminstrar workspaces q tem uma sidear left onde tem as sections e algumas configs, e ai mudo de workspsace tem outras sections, esssas sections são criadas dentro de cada workspaces são independentes e são compostas de content types e addons... elas geram itens vc faz crud de items com ela no schema do contet type criado....
+
+tem uns erros q estavamos debugando e continua perpetuamente... preciso da sua ajuda sem perder funções
+eu vou colar um resumão depois dos erros de coisas q estamos fazendo... e tbm os dados todos de http://localhost:3000/api/debug/real-analysis
+
+ai vc começa a entender , temos um problema, não na verdade nós mesmos comprometemos a arquitetura e tá tudo bem.
+o q aconteceu q a arquitetura funcional, mas adicionamos uma camada superior q não mudava pseudo-nada abaixo, só colocava tudo separado por workspaces, digo, cada workspace tem sections e cada sections tem content type e os content types tem addons. e nas sections se tem crud de ítem q é o content  type de uma section configurado, uma instancia dele (não sei se já existe nome pra essa arquitetura, mas é comum).
+ai olha só eu resolvi q teríamos workspaces q diferentes workspaces carregariam diferentes sections e assim por diantes, na verdade um workspace é totalmente dados diferentes do outro ai vc tem workspace e abaixo sections e por ai vai, os componentes não estao prontos pra isso e nem a arquitetura schema nada, estávamos criando, mas não de cima pra baixo e sim de baixo pra cima
+
+
+então já ao entrar no dashboard, primeira coisa q vejo é meu dashboard nº 2 (na ordem do selector) entrou direto, ok, tenho pensamentos sobre ordenação de apresentação de workspace login, mas é pro futoro, temos coisas mais urgentes. o dashboard apresenta q tenho 4 sections nesse workspace, mas não temos. acessei outro workspace acusa 4 tbm.
+
+
+
+visitei uma section, eu add edit e remove item e deu certo.
+ai estranhamente, agora dentro de meu workspace com acesso a vários 4 sections, fazendo esses testes, em sections diz Nenhuma section encontrada
+Crie uma nova section para começar a gerenciar seus items. http://localhost:3000/dashboard/sections
+
+
+
+ai fiz 'Teste de nova seçao' criei ou tentei criar nova seção... ai Validation failed
+
+logs de erros:
+
+Console Error
+
+
+❌ Erro da API: {}
+
+containers\SectionContainer.jsx (114:17) @ handleSubmit
+
+
+  112 |         }
+  113 |
+> 114 |         console.error("❌ Erro da API:", errorData);
+      |                 ^
+  115 |         console.error("❌ Status da resposta:", response.status);
+  116 |         console.error("❌ StatusText da resposta:", response.statusText);
+  117 |
+Call Stack
+5
+
+Show 3 ignore-listed frame(s)
+handleSubmit
+containers\SectionContainer.jsx (114:17)
+async handleSubmit
+components\sections\SectionForm.jsx (34:5)
+
+
+containers\SectionContainer.jsx (115:17) @ handleSubmit
+
+
+  113 |
+  114 |         console.error("❌ Erro da API:", errorData);
+> 115 |         console.error("❌ Status da resposta:", response.status);
+      |                 ^
+  116 |         console.error("❌ StatusText da resposta:", response.statusText);
+  117 |
+  118 |         const errorMessage =
+Call Stack
+5
+
+Show 3 ignore-listed frame(s)
+handleSubmit
+containers\SectionContainer.jsx (115:17)
+async handleSubmit
+components\sections\SectionForm.jsx (34:5)
+
+ai foi erro em cascata na verdade
+
+containers\SectionContainer.jsx (116:17) @ handleSubmit
+
+
+  114 |         console.error("❌ Erro da API:", errorData);
+  115 |         console.error("❌ Status da resposta:", response.status);
+> 116 |         console.error("❌ StatusText da resposta:", response.statusText);
+      |                 ^
+  117 |
+  118 |         const errorMessage =
+  119 |           errorData?.error ||
+Call Stack
+5
+
+Show 3 ignore-listed frame(s)
+handleSubmit
+containers\SectionContainer.jsx (116:17)
+async handleSubmit
+components\sections\SectionForm.jsx (34:5)
+
+
+containers\SectionContainer.jsx (125:15) @ handleSubmit
+
+
+  123 |             : "Unknown API error");
+  124 |
+> 125 |         throw new Error(errorMessage);
+      |               ^
+  126 |       }
+  127 |
+  128 |       await refreshSections(); // ← Atualizar contexto global
+Call Stack
+2
+
+handleSubmit
+containers\SectionContainer.jsx (125:15)
+async handleSubmit
+components\sections\SectionForm.jsx (34:5)
+
+
+ao add content type 
+Validation failed
+
+
+Error: Validation failed
+
+containers\ContentTypeContainer.jsx (73:15) @ handleSubmit
+
+
+  71 |       if (!response.ok) {
+  72 |         const errorData = await response.json();
+> 73 |         throw new Error(errorData.error || "Failed to save content type");
+     |               ^
+  74 |       }
+  75 |
+  76 |       await fetchContentTypes(); // Re-fetch a lista
+Call Stack
+2
+
+handleSubmit
+containers\ContentTypeContainer.jsx (73:15)
+async handleSubmit
+components\content-types\ContentTypeForm.jsx (51:5)
+
+
+
+http://localhost:3000/dashboard/content-types
+Meu Workspace
+
+Meu Workspace
+
+
+🆓 Plano Gratuito
+Olá, Milton
+Content Types
+Novo Content Type
+Content Types (2)
+Gerencie as estruturas de dados do seu conteúdo
+
+Nome
+Slug
+Addons
+Criado
+Ações
+teeets
+teeeets
+1 addon	28/06/2025	
+
+Editar
+
+Deletar
+zzzz
+zzzzz
+zzzz
+1 addon	29/06/2025	
+
+Editar
+
+Deletar
+
+não vejo o lugar em http://localhost:3000/dashboard/settings pra deletar workspaces
+
+tinha isso no selector, alguma função lá.. . mas tava muito fácil e é algo importante demais.
+
+# 🚀 Contexto: Dashboard Engine - Sistema de Workspaces Implementado
+
+Olá! Estou continuando o desenvolvimento do **Dashboard Engine**, um SaaS para criar aplicações de conteúdo (CRMs, CMSs). Acabamos de implementar um sistema completo de **multi-workspaces** e preciso da sua ajuda para fazer os testes finais.
+
+## 📋 Estado Atual da Implementação
+
+### ✅ O que JÁ está implementado:
+
+1. **Sistema de Workspaces Completo:**
+   - Schema WorkspaceSchema com planos, membros, permissões, limites
+   - API `/api/workspaces` (GET/POST) funcionando
+   - WorkspaceContext e useWorkspace hook
+   - WorkspaceSelector no TopBar com dropdown profissional
+   - Migração automática de dados existentes
+
+2. **Dark Mode 100% Funcional:**
+   - CSS Variables com overrides manuais
+   - Todas as tabelas, inputs, selects funcionando
+   - JavaScript backup para aplicar classe `.dark`
+
+3. **UX Melhoradas:**
+   - Menu Content Creator com comportamento correto
+   - Links ativos corrigidos
+   - Ícones e cores padronizadas
+
+4. **Next.js 15 Compatibilidade:**
+   - `await params` em rotas dinâmicas
+   - Validação de formulários corrigida
+
+### 🔧 Arquivos Modificados Principais:
+- `/dashboard/schemas/index.js` - WorkspaceSchema
+- `/dashboard/app/api/workspaces/route.js` - API endpoint
+- `/dashboard/contexts/WorkspaceContext.jsx` - Context provider
+- `/dashboard/components/ui/WorkspaceSelector.jsx` - Seletor dropdown
+- `/dashboard/scripts/migrate-to-workspaces.js` - Script de migração
+- `/dashboard/app/globals.css` - Dark mode CSS fixes
+
+## ⚠️ PROBLEMA ATUAL - MongoDB Connection
+
+**Status:** Script de migração carregando env vars (24 variáveis), mas MongoDB connection refused.
+
+**Configuração atual:**
+- `.env.local` tem MongoDB Atlas URI
+- URI estava sem database name - foi corrigido para incluir `/dashboard-engine`
+- dotenv configurado no script de migração
+
+**Último erro:** `ECONNREFUSED 127.0.0.1:27017` - indica que pode estar tentando localhost ao invés do Atlas.
+
+## 🎯 PRÓXIMOS PASSOS URGENTES:
+
+1. **Resolver conexão MongoDB** - Debug do URI loading
+2. **Rodar migração:** `npm run migrate:workspaces`
+3. **Testar sistema completo:**
+   - Criar workspace
+   - Criar content-type
+   - Criar seção
+   - Adicionar items
+   - Testar seletor de workspace
+   - Testar isolamento de dados entre workspaces
+
+## 🧪 TESTES que precisamos fazer:
+
+### Teste 1: Conexão e Migração
+```bash
+npm run migrate:workspaces
+```
+
+### Teste 2: API Workspaces
+- GET `/api/workspaces` - listar workspaces do usuário
+- POST `/api/workspaces` - criar novo workspace
+
+### Teste 3: Frontend Integration
+- WorkspaceSelector aparecendo no TopBar
+- Dropdown funcionando
+- Switching entre workspaces
+- Formulário "Create Workspace"
+
+### Teste 4: Isolamento de Dados
+- Criar content-type em workspace A
+- Verificar que não aparece em workspace B
+- Testar seções e items também
+
+## 📁 Estrutura de Projeto:
+- `/dashboard/` - App principal Next.js
+- Schemas MongoDB com workspaceId em todos os models
+- Sistema de autenticação Clerk integrado
+- TailwindCSS com dark mode funcional
+
+## 🚨 URGENTE:
+Preciso resolver o MongoDB e fazer esses testes HOJE. O sistema está 95% pronto, só falta resolver essa conexão e validar que tudo funciona integrado.
+
+**Pergunta:** Pode me ajudar a debugar a conexão MongoDB e depois fazer os testes completos do sistema de workspaces? Estamos muito perto de finalizar!
+
+---
+
+Esse prompt dá todo o contexto necessário para o próximo assistente continuar exatamente de onde paramos! 🎯
+
+o selector aprensta esse html
+<div class="absolute top-full left-0 mt-1 w-72 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"><div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700"><p class="text-sm font-medium text-gray-900 dark:text-gray-100">Workspaces</p><p class="text-xs text-gray-500 dark:text-gray-400">3 workspaces</p></div><div class="py-2 max-h-60 overflow-y-auto"><div class="group flex items-center justify-between hover:bg-gray-100 dark:hover:bg-gray-700 bg-blue-50 dark:bg-blue-900/20"><button class="flex-1 px-4 py-2 text-left text-sm cursor-pointer transition-colors flex items-center space-x-3 text-blue-700 dark:text-blue-300"><div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white text-xs font-bold">M</div><div class="flex-1"><p class="font-medium truncate">Meu Workspace</p><p class="text-xs text-gray-500 dark:text-gray-400 capitalize">free</p></div></button><div class="flex items-center space-x-2 px-2"><div class="w-2 h-2 bg-blue-500 rounded-full"></div></div></div><div class="group flex items-center justify-between hover:bg-gray-100 dark:hover:bg-gray-700 "><button class="flex-1 px-4 py-2 text-left text-sm cursor-pointer transition-colors flex items-center space-x-3 text-gray-700 dark:text-gray-200"><div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white text-xs font-bold">A</div><div class="flex-1"><p class="font-medium truncate">Autores Apaixonados</p><p class="text-xs text-gray-500 dark:text-gray-400 capitalize"></p></div></button><div class="flex items-center space-x-2 px-2"></div></div><div class="group flex items-center justify-between hover:bg-gray-100 dark:hover:bg-gray-700 "><button class="flex-1 px-4 py-2 text-left text-sm cursor-pointer transition-colors flex items-center space-x-3 text-gray-700 dark:text-gray-200"><div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white text-xs font-bold">D</div><div class="flex-1"><p class="font-medium truncate">Deletar</p><p class="text-xs text-gray-500 dark:text-gray-400 capitalize"></p></div></button><div class="flex items-center space-x-2 px-2"></div></div></div><div class="border-t border-gray-200 dark:border-gray-700 px-4 py-3"><button class="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" data-slot="icon" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"></path></svg><span>Criar workspace</span></button></div></div>
+
+
+
+http://localhost:3000/api/debug/real-analysis
+{"status":"success","analysis":{"timestamp":"2025-06-29T14:58:16.922Z","userId":"user_2z4m1NLU3MeJAQ0Zq0ylZEWqR2g","workspaces":{"total":7,"data":[{"id":"686094ba0859d3a73bde04ab","name":"Meu Workspace","slug":"ws-lZEWqR2g-1751159994131","ownerId":"user_2z4m1NLU3MeJAQ0Zq0ylZEWqR2g"},{"id":"6860995e0859d3a73bde04ae","name":"Autores Apaixonados","slug":"autores-apaixonados","ownerId":"user_2z4m1NLU3MeJAQ0Zq0ylZEWqR2g"},{"id":"68609ebc0859d3a73bde04af","name":"Autores Apaixonados","slug":"autores-apaixonados-1","ownerId":"user_2z4m1NLU3MeJAQ0Zq0ylZEWqR2g"},{"id":"68609ef40859d3a73bde04b0","name":"Autores Apaixonados","slug":"autores-apaixonados-2","ownerId":"user_2z4m1NLU3MeJAQ0Zq0ylZEWqR2g"},{"id":"68609eff0859d3a73bde04b1","name":"Teste","slug":"teste","ownerId":"user_2z4m1NLU3MeJAQ0Zq0ylZEWqR2g"},{"id":"6860a8530859d3a73bde04b2","name":"Autores Apaixonados","slug":"autores-apaixonados-3","ownerId":"user_2z4m1NLU3MeJAQ0Zq0ylZEWqR2g"},{"id":"68611c6a199e5949af08e752","name":"Deletar","slug":"deletar","ownerId":"user_2z4m1NLU3MeJAQ0Zq0ylZEWqR2g"}]},"contentTypes":{"total":2,"withWorkspaceId":2,"withoutWorkspaceId":0,"data":[{"id":"686096f90859d3a73bde04ac","name":"teeets","slug":"teeeets","workspaceId":"686094ba0859d3a73bde04ab","hasWorkspaceId":true},{"id":"6861368a0f56e9beac7311d6","name":"zzzz","slug":"zzzz","workspaceId":"686094ba0859d3a73bde04ab","hasWorkspaceId":true}]},"sections":{"total":7,"withWorkspaceId":7,"withoutWorkspaceId":0,"data":[{"id":"686096f90859d3a73bde04ad","name":"teeets","slug":"teeeets","contentTypeId":"686096f90859d3a73bde04ac","workspaceId":"686094ba0859d3a73bde04ab","hasWorkspaceId":true},{"id":"6860a9230859d3a73bde04b3","name":"asdfsadf","slug":"asdfsadfas","contentTypeId":"686096f90859d3a73bde04ac","workspaceId":"686094ba0859d3a73bde04ab","hasWorkspaceId":true},{"id":"68611f35199e5949af08e753","name":"unica","slug":"unica","contentTypeId":"686096f90859d3a73bde04ac","workspaceId":"686094ba0859d3a73bde04ab","hasWorkspaceId":true},{"id":"686124bc199e5949af08e754","name":"primeira","slug":"primeira","contentTypeId":"686096f90859d3a73bde04ac","workspaceId":"68611c6a199e5949af08e752","hasWorkspaceId":true},{"id":"686136370f56e9beac7311d5","name":"ttt","slug":"tttt","contentTypeId":"686096f90859d3a73bde04ac","workspaceId":"68611c6a199e5949af08e752","hasWorkspaceId":true},{"id":"6861368a0f56e9beac7311d7","name":"zzzz","slug":"zzzz","contentTypeId":"6861368a0f56e9beac7311d6","workspaceId":"686094ba0859d3a73bde04ab","hasWorkspaceId":true},{"id":"686136b00f56e9beac7311d8","name":"ttttte","slug":"ttttte","contentTypeId":"686096f90859d3a73bde04ac","workspaceId":"6860a8530859d3a73bde04b2","hasWorkspaceId":true}]},"items":{"total":0,"withWorkspaceId":0,"withoutWorkspaceId":0},"problems":{"contentTypesWithoutWorkspace":0,"sectionsWithoutWorkspace":0,"itemsWithoutWorkspace":0}},"rawData":{"workspaces":[{"_id":"686094ba0859d3a73bde04ab","name":"Meu Workspace","slug":"ws-lZEWqR2g-1751159994131","ownerId":"user_2z4m1NLU3MeJAQ0Zq0ylZEWqR2g","plan":"free","members":[{"userId":"user_2z4m1NLU3MeJAQ0Zq0ylZEWqR2g","role":"owner","permissions":{"canExport":true}}],"limits":{"maxUsers":1,"maxContentTypes":3,"maxSections":5,"maxItems":100},"isActive":true,"createdAt":"2025-06-29T01:19:54.131Z","updatedAt":"2025-06-29T01:19:54.131Z"},{"_id":"6860995e0859d3a73bde04ae","name":"Autores Apaixonados","description":"Workspace criado pelo usuário","ownerId":"user_2z4m1NLU3MeJAQ0Zq0ylZEWqR2g","slug":"autores-apaixonados","members":[{"userId":"user_2z4m1NLU3MeJAQ0Zq0ylZEWqR2g","role":"owner","permissions":{"canExport":true,"canInvite":true,"canManageBilling":true},"joinedAt":"2025-06-29T01:39:42.325Z"}],"createdAt":"2025-06-29T01:39:42.351Z","lastActivity":"2025-06-29T01:39:42.325Z","updatedAt":"2025-06-29T01:39:42.351Z"},{"_id":"68609ebc0859d3a73bde04af","name":"Autores Apaixonados","description":"Workspace criado pelo usuário","ownerId":"user_2z4m1NLU3MeJAQ0Zq0ylZEWqR2g","slug":"autores-apaixonados-1","members":[{"userId":"user_2z4m1NLU3MeJAQ0Zq0ylZEWqR2g","role":"owner","permissions":{"canExport":true,"canInvite":true,"canManageBilling":true},"joinedAt":"2025-06-29T02:02:36.724Z"}],"createdAt":"2025-06-29T02:02:36.725Z","lastActivity":"2025-06-29T02:02:36.724Z","updatedAt":"2025-06-29T02:02:36.725Z"},{"_id":"68609ef40859d3a73bde04b0","name":"Autores Apaixonados","description":"Workspace criado pelo usuário","ownerId":"user_2z4m1NLU3MeJAQ0Zq0ylZEWqR2g","slug":"autores-apaixonados-2","members":[{"userId":"user_2z4m1NLU3MeJAQ0Zq0ylZEWqR2g","role":"owner","permissions":{"canExport":true,"canInvite":true,"canManageBilling":true},"joinedAt":"2025-06-29T02:03:32.235Z"}],"createdAt":"2025-06-29T02:03:32.235Z","lastActivity":"2025-06-29T02:03:32.235Z","updatedAt":"2025-06-29T02:03:32.235Z"},{"_id":"68609eff0859d3a73bde04b1","name":"Teste","description":"Workspace criado pelo usuário","ownerId":"user_2z4m1NLU3MeJAQ0Zq0ylZEWqR2g","slug":"teste","members":[{"userId":"user_2z4m1NLU3MeJAQ0Zq0ylZEWqR2g","role":"owner","permissions":{"canExport":true,"canInvite":true,"canManageBilling":true},"joinedAt":"2025-06-29T02:03:43.862Z"}],"createdAt":"2025-06-29T02:03:43.863Z","lastActivity":"2025-06-29T02:03:43.862Z","updatedAt":"2025-06-29T02:03:43.863Z"},{"_id":"6860a8530859d3a73bde04b2","name":"Autores Apaixonados","description":"Workspace criado pelo usuário","ownerId":"user_2z4m1NLU3MeJAQ0Zq0ylZEWqR2g","slug":"autores-apaixonados-3","isActive":true,"members":[{"userId":"user_2z4m1NLU3MeJAQ0Zq0ylZEWqR2g","role":"owner","permissions":{"canExport":true,"canInvite":true,"canManageBilling":true},"joinedAt":"2025-06-29T02:43:30.999Z"}],"createdAt":"2025-06-29T02:43:31.000Z","lastActivity":"2025-06-29T02:43:30.999Z","updatedAt":"2025-06-29T02:43:31.000Z"},{"_id":"68611c6a199e5949af08e752","name":"Deletar","description":"Workspace criado pelo usuário","ownerId":"user_2z4m1NLU3MeJAQ0Zq0ylZEWqR2g","slug":"deletar","isActive":true,"members":[{"userId":"user_2z4m1NLU3MeJAQ0Zq0ylZEWqR2g","role":"owner","permissions":{"canExport":true,"canInvite":true,"canManageBilling":true},"joinedAt":"2025-06-29T10:58:50.689Z"}],"createdAt":"2025-06-29T10:58:50.690Z","lastActivity":"2025-06-29T10:58:50.689Z","updatedAt":"2025-06-29T10:58:50.690Z"}],"contentTypes":[{"_id":"686096f90859d3a73bde04ac","name":"teeets","slug":"teeeets","description":"","icon":"folder","addons":[{"id":"b930873e-0e88-493e-b5f2-0ae271aff27d","name":"asdasd","type":"textInput","required":true}],"userId":"user_2z4m1NLU3MeJAQ0Zq0ylZEWqR2g","workspaceId":"686094ba0859d3a73bde04ab","createdAt":"2025-06-29T01:29:29.894Z","updatedAt":"2025-06-29T01:29:29.894Z"},{"_id":"6861368a0f56e9beac7311d6","name":"zzzz","slug":"zzzz","description":"zzzzz","icon":"folder","addons":[{"id":"72e8af51-073b-4544-969e-79a1a33c4256","name":"asdf","type":"textInput","required":false}],"userId":"user_2z4m1NLU3MeJAQ0Zq0ylZEWqR2g","workspaceId":"686094ba0859d3a73bde04ab","createdAt":"2025-06-29T12:50:18.522Z","updatedAt":"2025-06-29T12:50:18.522Z"}],"sections":[{"_id":"686096f90859d3a73bde04ad","name":"teeets","slug":"teeeets","contentTypeId":"686096f90859d3a73bde04ac","userId":"user_2z4m1NLU3MeJAQ0Zq0ylZEWqR2g","workspaceId":"686094ba0859d3a73bde04ab","description":"Section criada automaticamente para teeets","settings":{"defaultView":"list","itemsPerPage":20,"sortBy":"createdAt","sortOrder":"desc"},"createdAt":"2025-06-29T01:29:29.971Z","updatedAt":"2025-06-29T01:29:29.971Z"},{"_id":"6860a9230859d3a73bde04b3","name":"asdfsadf","slug":"asdfsadfas","description":"","icon":"folder","contentTypeId":"686096f90859d3a73bde04ac","isActive":true,"userId":"user_2z4m1NLU3MeJAQ0Zq0ylZEWqR2g","workspaceId":"686094ba0859d3a73bde04ab","settings":{"defaultView":"list","itemsPerPage":20,"sortBy":"createdAt","sortOrder":"desc"},"createdAt":"2025-06-29T02:46:59.285Z","updatedAt":"2025-06-29T02:46:59.285Z"},{"_id":"68611f35199e5949af08e753","name":"unica","slug":"unica","description":"","icon":"shopping-cart","contentTypeId":"686096f90859d3a73bde04ac","isActive":true,"userId":"user_2z4m1NLU3MeJAQ0Zq0ylZEWqR2g","workspaceId":"686094ba0859d3a73bde04ab","settings":{"defaultView":"list","itemsPerPage":20,"sortBy":"createdAt","sortOrder":"desc"},"createdAt":"2025-06-29T11:10:45.107Z","updatedAt":"2025-06-29T11:10:45.107Z"},{"_id":"686124bc199e5949af08e754","name":"primeira","slug":"primeira","description":"","icon":"clipboard-list","contentTypeId":"686096f90859d3a73bde04ac","isActive":true,"userId":"user_2z4m1NLU3MeJAQ0Zq0ylZEWqR2g","workspaceId":"68611c6a199e5949af08e752","settings":{"defaultView":"list","itemsPerPage":20,"sortBy":"createdAt","sortOrder":"desc"},"createdAt":"2025-06-29T11:34:20.941Z","updatedAt":"2025-06-29T11:34:20.941Z"},{"_id":"686136370f56e9beac7311d5","name":"ttt","slug":"tttt","description":"","icon":"book-open","contentTypeId":"686096f90859d3a73bde04ac","isActive":true,"userId":"user_2z4m1NLU3MeJAQ0Zq0ylZEWqR2g","workspaceId":"68611c6a199e5949af08e752","settings":{"defaultView":"list","itemsPerPage":20,"sortBy":"createdAt","sortOrder":"desc"},"createdAt":"2025-06-29T12:48:55.307Z","updatedAt":"2025-06-29T12:48:55.308Z"},{"_id":"6861368a0f56e9beac7311d7","name":"zzzz","slug":"zzzz","contentTypeId":"6861368a0f56e9beac7311d6","userId":"user_2z4m1NLU3MeJAQ0Zq0ylZEWqR2g","workspaceId":"686094ba0859d3a73bde04ab","description":"Section criada automaticamente para zzzz","settings":{"defaultView":"list","itemsPerPage":20,"sortBy":"createdAt","sortOrder":"desc"},"createdAt":"2025-06-29T12:50:18.585Z","updatedAt":"2025-06-29T12:50:18.585Z"},{"_id":"686136b00f56e9beac7311d8","name":"ttttte","slug":"ttttte","description":"","icon":"shopping-cart","contentTypeId":"686096f90859d3a73bde04ac","isActive":true,"userId":"user_2z4m1NLU3MeJAQ0Zq0ylZEWqR2g","workspaceId":"6860a8530859d3a73bde04b2","settings":{"defaultView":"list","itemsPerPage":20,"sortBy":"createdAt","sortOrder":"desc"},"createdAt":"2025-06-29T12:50:56.249Z","updatedAt":"2025-06-29T12:50:56.249Z"}],"items":[]}}

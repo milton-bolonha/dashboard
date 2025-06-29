@@ -68,9 +68,36 @@ export const db = {
     return result;
   },
 
+  async updateMany(collection, filter, update) {
+    const coll = await getCollection(collection);
+    const result = await coll.updateMany(filter, {
+      $set: {
+        ...update,
+        updatedAt: new Date(),
+      },
+    });
+    return result;
+  },
+
+  async deleteMany(collection, filter) {
+    const coll = await getCollection(collection);
+    const result = await coll.deleteMany(filter);
+    return result;
+  },
+
   async deleteOne(collection, filter) {
     const coll = await getCollection(collection);
     const result = await coll.deleteOne(filter);
     return result;
+  },
+
+  async count(collection, filter = {}) {
+    const coll = await getCollection(collection);
+    return await coll.countDocuments(filter);
+  },
+
+  async distinct(collection, field, filter = {}) {
+    const coll = await getCollection(collection);
+    return await coll.distinct(field, filter);
   },
 };
