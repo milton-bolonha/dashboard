@@ -20,7 +20,18 @@ export function ThemeToggle() {
   }
 
   const toggleTheme = () => {
-    setTheme(theme === "dark" ? "light" : "dark");
+    const newTheme = theme === "dark" ? "light" : "dark";
+    setTheme(newTheme);
+
+    // Forçar aplicação da classe dark no html
+    if (newTheme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+
+    console.log("🌙 Theme mudou para:", newTheme);
+    console.log("🌙 Classes no html:", document.documentElement.className);
   };
 
   return (
