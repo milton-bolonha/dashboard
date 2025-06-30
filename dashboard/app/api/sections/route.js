@@ -3,6 +3,7 @@ import { db } from "@/lib/db.js";
 import { SectionSchema, validateSchema } from "@/schemas/index.js";
 import { getCurrentAuth } from "@/lib/auth";
 import { ObjectId } from "mongodb";
+import { checkPlan } from "#lib/plan-check.js";
 
 /**
  * Helper para obter workspace atual do usuário
@@ -163,17 +164,29 @@ export async function POST(request) {
     const authData = await getCurrentAuth();
     const userId = authData.userId || "temp_user_dev";
 
-    // Obter workspace ID do header (enviado pelo frontend)
     const workspaceId = request.headers.get("x-workspace-id");
-
-    console.log("🔐 Sections POST: userId =", userId);
-    console.log("🏢 Workspace solicitado:", workspaceId);
-
-    // Obter workspace atual (específico ou fallback)
     const workspace = await getCurrentWorkspace(userId, workspaceId);
-    console.log(
-      `🎯 Criando section no workspace: ${workspace.name} (${workspace._id})`
-    );
+
+    // --- Verificação de Plano ---
+    const isPro = await checkPlan("pro"); // Verifica se o plano é 'pro' ou superior
+    if (!isPro) {
+      // Lógica para plano 'free'
+      const sectionCount = await db.count("sections", {
+        workspaceId: workspace._id,
+      });
+      const FREE_PLAN_LIMIT = 3;
+
+      if (sectionCount >= FREE_PLAN_LIMIT) {
+        return NextResponse.json(
+          {
+            error: "Limite de seções atingido para o plano gratuito.",
+            code: "PLAN_LIMIT_REACHED",
+          },
+          { status: 403 }
+        );
+      }
+    }
+    // --- Fim da Verificação de Plano ---
 
     // Adicionar userId e workspaceId aos dados
     const dataWithWorkspace = {

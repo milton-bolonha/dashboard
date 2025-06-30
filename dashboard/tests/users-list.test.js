@@ -1,5 +1,7 @@
-import test from "node:test";
-import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import assert from "node:assert";
+import { validate } from "#lib/validate.js";
+import { sectionSchema, itemSchema } from "#schemas/index.js";
 
 // Mock MongoDB connection para testes
 const mockDb = {
@@ -25,69 +27,73 @@ const mockDb = {
   },
 };
 
-test("Dashboard stats API structure", () => {
-  const expectedStats = {
-    sections: 0,
-    items: 0,
-    users: 0,
-    plans: 0,
-  };
+describe("Users List API tests", () => {
+  it("Dashboard stats API structure", () => {
+    const expectedStats = {
+      sections: 0,
+      items: 0,
+      users: 0,
+      plans: 0,
+    };
 
-  // Testa estrutura esperada
-  assert.equal(typeof expectedStats.sections, "number");
-  assert.equal(typeof expectedStats.items, "number");
-  assert.equal(typeof expectedStats.users, "number");
-  assert.equal(typeof expectedStats.plans, "number");
-});
+    // Testa estrutura esperada
+    assert.equal(typeof expectedStats.sections, "number");
+    assert.equal(typeof expectedStats.items, "number");
+    assert.equal(typeof expectedStats.users, "number");
+    assert.equal(typeof expectedStats.plans, "number");
+  });
 
-test("Section validation", () => {
-  const validSection = {
-    name: "Test Section",
-    contentTypeId: "507f1f77bcf86cd799439011",
-    description: "Test description",
-  };
+  it("Section validation", () => {
+    const validSection = {
+      name: "Test Section",
+      contentTypeId: "507f1f77bcf86cd799439011",
+      description: "Test description",
+    };
 
-  // Validação básica
-  assert.ok(validSection.name);
-  assert.ok(validSection.contentTypeId);
-  assert.equal(typeof validSection.name, "string");
-});
+    // Validação básica
+    assert.ok(validSection.name);
+    assert.ok(validSection.contentTypeId);
+    assert.equal(typeof validSection.name, "string");
+  });
 
-test("Slug generation", () => {
-  const name = "My Awesome Section!";
-  const expectedSlug = "my-awesome-section";
+  it("Slug generation", () => {
+    const name = "My Awesome Section!";
+    const expectedSlug = "my-awesome-section";
 
-  const slug = name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
+    const slug = name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "");
 
-  assert.equal(slug, expectedSlug);
-});
+    assert.equal(slug, expectedSlug);
+  });
 
-test("Schema validation helper", async () => {
-  const { validateSchema, SectionSchema } = await import("@/schemas/index.js");
+  it("Schema validation helper", async () => {
+    const { validateSchema, SectionSchema } = await import(
+      "@/schemas/index.js"
+    );
 
-  const validData = {
-    name: "Test Section",
-    slug: "test-section",
-    contentTypeId: "507f1f77bcf86cd799439011",
-  };
+    const validData = {
+      name: "Test Section",
+      slug: "test-section",
+      contentTypeId: "507f1f77bcf86cd799439011",
+    };
 
-  const invalidData = {
-    // missing required name
-    contentTypeId: "507f1f77bcf86cd799439011",
-  };
+    const invalidData = {
+      // missing required name
+      contentTypeId: "507f1f77bcf86cd799439011",
+    };
 
-  const validResult = validateSchema(validData, SectionSchema);
-  const invalidResult = validateSchema(invalidData, SectionSchema);
+    const validResult = validateSchema(validData, SectionSchema);
+    const invalidResult = validateSchema(invalidData, SectionSchema);
 
-  console.log("Valid result:", validResult);
-  console.log("Invalid result:", invalidResult);
+    console.log("Valid result:", validResult);
+    console.log("Invalid result:", invalidResult);
 
-  assert.equal(validResult.isValid, true);
-  assert.equal(invalidResult.isValid, false);
-  assert.ok(invalidResult.errors.length > 0);
+    assert.equal(validResult.isValid, true);
+    assert.equal(invalidResult.isValid, false);
+    assert.ok(invalidResult.errors.length > 0);
+  });
 });
 
 console.log("✔ API tests completed");

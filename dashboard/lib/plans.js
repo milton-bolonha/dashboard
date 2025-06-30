@@ -1,8 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import YAML from "yaml";
+import { fileURLToPath } from "url";
 
-const PLANS_PATH = path.resolve(process.cwd(), "config", "plans.yml");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const PLANS_PATH = path.join(__dirname, "..", "config", "plans.yml");
 
 let cache = null;
 

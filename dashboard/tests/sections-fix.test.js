@@ -69,11 +69,16 @@ test("Deve gerar slug automaticamente a partir do nome", () => {
   const sectionName = "Minha Seção Especial!!!";
 
   const generatedSlug = sectionName
+    .toString()
+    .normalize("NFD") // Normaliza para decompor acentos
+    .replace(/[\u0300-\u036f]/g, "") // Remove os acentos
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
+    .trim()
+    .replace(/\s+/g, "-") // Substitui espaços por -
+    .replace(/[^\w-]+/g, "") // Remove todos os caracteres não-palavra (exceto -)
+    .replace(/--+/g, "-"); // Substitui múltiplos - por um único -
 
-  assert.equal(
+  assert.strictEqual(
     generatedSlug,
     "minha-secao-especial",
     "Deve gerar slug correto"

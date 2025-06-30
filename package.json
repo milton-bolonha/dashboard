@@ -1,6 +1,6 @@
 {
   "name": "dev-workspace",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "type": "module",
   "workspaces": [
@@ -13,18 +13,21 @@
     "ai:health": "ai-workspace health-check",
     "ai:visual": "ai-workspace visual-audit",
     "ai:status": "ai-workspace status",
-    "test": "node --test",
+    "test": "npm --workspace=dashboard run test",
     "dash:dev": "npm --workspace=dashboard run dev",
     "dash:build": "npm --workspace=dashboard run build",
     "dash:start": "npm --workspace=dashboard run start"
   },
   "dependencies": {
-    "yaml": "^2.3.1",
-    "stripe": "^12.14.0",
     "@netlify/functions": "^2.0.0",
-    "puppeteer-core": "^22.7.1",
+    "dotenv": "^16.4.0",
     "openai": "^4.31.0",
+    "puppeteer-core": "^22.7.1",
+    "stripe": "^12.14.0",
     "uuid": "^9.0.0",
-    "dotenv": "^16.4.0"
+    "yaml": "^2.3.1"
+  },
+  "devDependencies": {
+    "get-port": "^7.1.0"
   }
 }
