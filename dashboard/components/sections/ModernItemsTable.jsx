@@ -2,6 +2,8 @@
 
 import React, { useState } from "react";
 import Button from "@/components/ui/Button";
+import { ColumnSelector } from "@/components/ui/ColumnSelector";
+import { useTableColumns } from "@/hooks/useTableColumns";
 
 export function ModernItemsTable({
   items = [],
@@ -13,6 +15,26 @@ export function ModernItemsTable({
   loading = false,
 }) {
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
+
+  // ✅ NOVA FUNCIONALIDADE: Controle de colunas visíveis
+  const availableColumns = contentType?.addons || [];
+  const defaultVisibleColumns = availableColumns
+    .slice(0, 3)
+    .map((addon) => addon.id); // Mostrar apenas 3 primeiros por padrão
+
+  const {
+    visibleColumns,
+    toggleColumn,
+    resetToDefault,
+    showAllColumns,
+    hideAllColumns,
+    isColumnVisible,
+    getVisibleColumns,
+  } = useTableColumns(
+    section?._id || "default", // ID único da section
+    availableColumns,
+    defaultVisibleColumns
+  );
 
   // Função para ordenar items
   const sortedItems = React.useMemo(() => {
@@ -70,9 +92,10 @@ export function ModernItemsTable({
     );
   };
 
-  // Renderizar valor do campo baseado no tipo
+  // ✅ CORREÇÃO: Renderizar valor do campo baseado no tipo
   const renderFieldValue = (item, addon) => {
-    const value = item.data?.[addon.name] || item[addon.name] || "";
+    // ✅ FIX: Usar addon.id para acessar dados (não addon.name)
+    const value = item.data?.[addon.id] || item[addon.id] || "";
 
     switch (addon.type) {
       case "dateInput":
@@ -91,6 +114,13 @@ export function ModernItemsTable({
         );
       case "numberInput":
         return value ? Number(value).toLocaleString("pt-BR") : "-";
+      case "textarea":
+        // Para textarea, limitar o tamanho na tabela
+        return value
+          ? value.length > 50
+            ? `${value.substring(0, 50)}...`
+            : value
+          : "-";
       default:
         return value || "-";
     }
@@ -176,15 +206,29 @@ export function ModernItemsTable({
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+    <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
       <div className="px-4 py-5 sm:p-6">
-        <div className="mb-4">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-            Items ({items.length})
-          </h3>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Visualize e gerencie os items desta section
-          </p>
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+              Items ({items.length})
+            </h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Visualize e gerencie os items desta section
+            </p>
+          </div>
+
+          {/* ✅ NOVO: Seletor de colunas */}
+          {availableColumns.length > 0 && (
+            <ColumnSelector
+              availableColumns={availableColumns}
+              visibleColumns={visibleColumns}
+              onToggleColumn={toggleColumn}
+              onResetToDefault={resetToDefault}
+              onShowAll={showAllColumns}
+              onHideAll={hideAllColumns}
+            />
+          )}
         </div>
 
         <div className="overflow-x-auto">
@@ -215,8 +259,8 @@ export function ModernItemsTable({
                   </div>
                 </th>
 
-                {/* Colunas dos addons do Content Type */}
-                {contentType?.addons?.map((addon) => (
+                {/* ✅ NOVO: Colunas dos addons (apenas visíveis) */}
+                {getVisibleColumns().map((addon) => (
                   <th
                     key={addon.id}
                     scope="col"
@@ -259,8 +303,8 @@ export function ModernItemsTable({
                     {getStatusBadge(item.status)}
                   </td>
 
-                  {/* Colunas dos addons */}
-                  {contentType?.addons?.map((addon) => (
+                  {/* ✅ NOVO: Colunas dos addons (apenas visíveis) */}
+                  {getVisibleColumns().map((addon) => (
                     <td
                       key={addon.id}
                       className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white"

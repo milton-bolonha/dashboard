@@ -5,6 +5,7 @@
       "@/components/*": ["components/*"],
       "@/containers/*": ["containers/*"],
       "@/contexts/*": ["contexts/*"],
+      "@/hooks/*": ["hooks/*"],
       "@/lib/*": ["lib/*"],
       "@/schemas/*": ["schemas/*"],
       "@/app/*": ["app/*"]

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useSections } from "@/contexts/SectionsContext"; // ✅ CORREÇÃO: Importar contexto de sections
 import { ModernContentTypesTable } from "@/components/content-types/ModernContentTypesTable";
 import ContentTypeForm from "@/components/content-types/ContentTypeForm";
 import Button from "@/components/ui/Button";
@@ -10,6 +11,7 @@ import { fetchWithWorkspace } from "@/lib/api";
 
 export default function ContentTypeContainer() {
   const { currentWorkspace } = useWorkspace();
+  const { refreshSections } = useSections(); // ✅ CORREÇÃO: Usar contexto de sections
   const [contentTypes, setContentTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -78,7 +80,18 @@ export default function ContentTypeContainer() {
         throw new Error(errorData.error || "Failed to save content type");
       }
 
-      await fetchContentTypes(); // Re-fetch a lista
+      // ✅ CORREÇÃO: Verificar se uma section foi criada automaticamente
+      const result = await response.json();
+      console.log("🎯 ContentType salvo:", result);
+
+      await fetchContentTypes(); // Re-fetch a lista de content types
+
+      // Se uma section foi criada automaticamente, atualizar o menu
+      if (result.section && !isEditing) {
+        console.log("🔄 Section criada automaticamente, atualizando menu...");
+        await refreshSections(); // ✅ Atualizar contexto de sections
+      }
+
       handleCloseModal();
     } catch (err) {
       console.error(err);

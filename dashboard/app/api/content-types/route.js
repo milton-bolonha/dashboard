@@ -174,33 +174,50 @@ export async function POST(request) {
       `🏢 Content-types: Usando workspace: ${workspace.name} (${workspace._id})`
     );
 
-    // Adicionar userId e workspaceId aos dados
+    // ✅ CORREÇÃO: Gerar slug ANTES da validação
+    const slug =
+      contentTypeData.slug ||
+      (contentTypeData.name
+        ? contentTypeData.name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/(^-|-$)/g, "")
+        : "");
+
+    // 🐛 DEBUG: Logs detalhados
+    console.log("🔍 === DEBUG CONTENT TYPE ===");
+    console.log("🔍 Dados recebidos:", JSON.stringify(data, null, 2));
+    console.log("🔍 userId:", userId);
+    console.log("🔍 workspaceId:", workspace._id);
+    console.log("🔍 slug gerado:", slug);
+
+    // Adicionar userId, workspaceId e slug aos dados
     const dataWithWorkspace = {
       ...contentTypeData,
       userId,
       workspaceId: workspace._id,
+      slug,
     };
+
+    console.log(
+      "🔍 Dados para validação:",
+      JSON.stringify(dataWithWorkspace, null, 2)
+    );
 
     const validation = validateSchema(dataWithWorkspace, ContentTypeSchema);
     if (!validation.isValid) {
+      console.error("❌ Falha na validação:", validation.errors);
       return NextResponse.json(
         { error: "Validation failed", details: validation.errors },
         { status: 400 }
       );
     }
 
-    const slug =
-      contentTypeData.slug ||
-      contentTypeData.name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)/g, "");
-
     // Verificar se slug já existe no workspace
     const existing = await db.findOne("contentTypes", {
       slug,
       userId: userId,
-      workspaceId: workspace._id, // ← WORKSPACE: verificar no escopo do workspace
+      workspaceId: workspace._id,
     });
 
     if (existing) {
@@ -211,10 +228,7 @@ export async function POST(request) {
     }
 
     // 1. Criar o Content Type usando o objeto já validado
-    const contentTypeToInsert = {
-      ...dataWithWorkspace,
-      slug,
-    };
+    const contentTypeToInsert = dataWithWorkspace; // slug já está incluído
 
     const result = await db.insertOne("contentTypes", contentTypeToInsert);
 

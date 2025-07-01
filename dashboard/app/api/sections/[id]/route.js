@@ -5,6 +5,60 @@ import { ObjectId } from "mongodb";
 import { getCurrentAuth } from "@/lib/auth";
 
 /**
+ * Helper para obter workspace do usuário
+ */
+async function getCurrentWorkspace(userId, requestedWorkspaceId = null) {
+  try {
+    let workspace;
+
+    // Se foi especificado um workspace, usar esse
+    if (requestedWorkspaceId) {
+      try {
+        const workspaceObjectId = new ObjectId(requestedWorkspaceId);
+
+        workspace = await db.findOne("workspaces", {
+          _id: workspaceObjectId,
+          $or: [{ ownerId: userId }, { "members.userId": userId }],
+        });
+
+        if (workspace) {
+          console.log(
+            `🎯 Sections EDIT: Usando workspace específico: ${workspace.name} (${workspace._id})`
+          );
+          return workspace;
+        } else {
+          console.log(
+            `⚠️ Sections EDIT: Workspace ${requestedWorkspaceId} não encontrado ou sem permissão`
+          );
+        }
+      } catch (error) {
+        console.log(
+          `❌ Sections EDIT: Erro ao converter workspaceId para ObjectId: ${requestedWorkspaceId}`,
+          error
+        );
+      }
+    }
+
+    // Fallback: buscar qualquer workspace do usuário
+    workspace = await db.findOne("workspaces", {
+      $or: [{ ownerId: userId }, { "members.userId": userId }],
+    });
+
+    if (!workspace) {
+      throw new Error("Nenhum workspace encontrado para o usuário");
+    }
+
+    console.log(
+      `🏢 Sections EDIT: Workspace selecionado: ${workspace.name} (${workspace._id})`
+    );
+    return workspace;
+  } catch (error) {
+    console.error("❌ Sections EDIT: Erro ao obter workspace:", error);
+    throw error;
+  }
+}
+
+/**
  * GET /api/sections/[id]
  * Pega uma section específica
  */
@@ -42,9 +96,47 @@ export async function PUT(request, { params }) {
     }
 
     const data = await request.json();
-    console.log("🔍 Dados recebidos para validação:", data);
 
-    const validation = validateSchema(data, SectionSchema);
+    // ✅ CORREÇÃO: Obter autenticação e workspace (igual ao POST)
+    const authData = await getCurrentAuth();
+    const userId = authData.userId || "temp_user_dev";
+    const workspaceId = request.headers.get("x-workspace-id");
+
+    // Obter workspace atual
+    const workspace = await getCurrentWorkspace(userId, workspaceId);
+
+    // ✅ CORREÇÃO: Gerar slug ANTES da validação se necessário
+    const slug =
+      data.slug ||
+      (data.name
+        ? data.name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/(^-|-$)/g, "")
+        : "");
+
+    // 🐛 DEBUG: Logs detalhados para edição
+    console.log("🔍 === DEBUG SECTION EDIT ===");
+    console.log("🔍 ID:", id);
+    console.log("🔍 userId:", userId);
+    console.log("🔍 workspaceId:", workspace._id);
+    console.log("🔍 Dados recebidos:", JSON.stringify(data, null, 2));
+    console.log("🔍 slug gerado:", slug);
+
+    // ✅ CORREÇÃO: Adicionar userId, workspaceId e slug aos dados antes da validação
+    const dataWithAuth = {
+      ...data,
+      userId,
+      workspaceId: workspace._id,
+      slug,
+    };
+
+    console.log(
+      "🔍 Dados para validação (EDIT):",
+      JSON.stringify(dataWithAuth, null, 2)
+    );
+
+    const validation = validateSchema(dataWithAuth, SectionSchema);
     console.log("🔍 Resultado da validação:", validation);
 
     if (!validation.isValid) {
@@ -58,7 +150,7 @@ export async function PUT(request, { params }) {
     const result = await db.updateOne(
       "sections",
       { _id: new ObjectId(id) },
-      data
+      dataWithAuth // ✅ Usar dados com userId, workspaceId e slug incluídos
     );
     if (result.matchedCount === 0) {
       return NextResponse.json({ error: "Section not found" }, { status: 404 });

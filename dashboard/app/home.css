@@ -1,0 +1,177 @@
+/* ========================================
+   HOME PAGE STYLES - Separado do Dashboard
+   ======================================== */
+
+/* Reset e Base */
+.home-page {
+  min-height: 100vh;
+}
+
+/* Light Theme (Padrão) */
+.home-page {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;
+  --bg-accent: #f1f5f9;
+  --text-primary: #1f2937;
+  --text-secondary: #4b5563;
+  --text-muted: #6b7280;
+  --border-color: #e5e7eb;
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+}
+
+/* Dark Theme */
+html.dark .home-page {
+  --bg-primary: #111827;
+  --bg-secondary: #1f2937;
+  --bg-accent: #374151;
+  --text-primary: #f9fafb;
+  --text-secondary: #e5e7eb;
+  --text-muted: #9ca3af;
+  --border-color: #374151;
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3);
+}
+
+/* Layout Components */
+.home-header {
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-color);
+  backdrop-filter: blur(8px);
+}
+
+.home-hero {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.home-section {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+/* Cards */
+.home-card {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  box-shadow: var(--shadow);
+}
+
+.home-card:hover {
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+
+/* Use Case Cards - Cores específicas para fundos claros */
+.use-case-card {
+  color: #1f2937 !important;
+}
+
+.use-case-card h3,
+.use-case-card .feature-name {
+  color: #1f2937 !important;
+}
+
+.use-case-card p,
+.use-case-card .feature-value {
+  color: #4b5563 !important;
+}
+
+/* FAQ */
+.faq-item {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.faq-question {
+  color: var(--text-primary);
+}
+
+.faq-answer {
+  color: var(--text-secondary);
+}
+
+/* Buttons */
+.btn-primary {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-primary:hover {
+  background: #2563eb;
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+}
+
+.btn-secondary:hover {
+  background: var(--bg-accent);
+}
+
+/* Utilities */
+.text-primary {
+  color: var(--text-primary) !important;
+}
+.text-secondary {
+  color: var(--text-secondary) !important;
+}
+.text-muted {
+  color: var(--text-muted) !important;
+}
+.bg-primary {
+  background: var(--bg-primary) !important;
+}
+.bg-secondary {
+  background: var(--bg-secondary) !important;
+}
+.border-color {
+  border-color: var(--border-color) !important;
+}
+
+/* Gradients - Sempre consistentes */
+.gradient-blue-purple {
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+}
+
+.gradient-bg {
+  background: linear-gradient(
+    135deg,
+    var(--bg-secondary) 0%,
+    var(--bg-primary) 100%
+  );
+}
+
+/* Cursor Pointer para Elementos Clicáveis */
+a,
+button,
+.faq-item button,
+[role="button"],
+[onClick],
+.cursor-pointer {
+  cursor: pointer;
+}
+
+/* Links */
+a {
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  opacity: 0.8;
+}
+
+/* Botões de Tab */
+.tab-button {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tab-button:hover {
+  opacity: 0.8;
+}

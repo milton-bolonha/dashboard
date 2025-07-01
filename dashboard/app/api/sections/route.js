@@ -188,27 +188,42 @@ export async function POST(request) {
     }
     // --- Fim da Verificação de Plano ---
 
-    // Adicionar userId e workspaceId aos dados
-    const dataWithWorkspace = {
-      ...data,
-      userId,
-      workspaceId: workspace._id,
-    };
-
-    const validation = validateSchema(dataWithWorkspace, SectionSchema);
-    if (!validation.isValid) {
-      return NextResponse.json(
-        { error: "Validation failed", details: validation.errors },
-        { status: 400 }
-      );
-    }
-
+    // ✅ CORREÇÃO: Gerar slug ANTES da validação
     const slug =
       data.slug ||
       data.name
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/(^-|-$)/g, "");
+
+    // 🐛 DEBUG: Logs detalhados
+    console.log("🔍 === DEBUG SECTION ===");
+    console.log("🔍 Dados recebidos:", JSON.stringify(data, null, 2));
+    console.log("🔍 userId:", userId);
+    console.log("🔍 workspaceId:", workspace._id);
+    console.log("🔍 slug gerado:", slug);
+
+    // Adicionar userId, workspaceId e slug aos dados
+    const dataWithWorkspace = {
+      ...data,
+      userId,
+      workspaceId: workspace._id,
+      slug,
+    };
+
+    console.log(
+      "🔍 Dados para validação:",
+      JSON.stringify(dataWithWorkspace, null, 2)
+    );
+
+    const validation = validateSchema(dataWithWorkspace, SectionSchema);
+    if (!validation.isValid) {
+      console.error("❌ Falha na validação:", validation.errors);
+      return NextResponse.json(
+        { error: "Validation failed", details: validation.errors },
+        { status: 400 }
+      );
+    }
 
     // Verificar se slug já existe no workspace
     const existing = await db.find("sections", {
@@ -224,10 +239,9 @@ export async function POST(request) {
       );
     }
 
-    // Usar o objeto já validado que contém o workspaceId
+    // Usar o objeto já validado que contém o workspaceId e slug
     const sectionData = {
-      ...dataWithWorkspace,
-      slug,
+      ...dataWithWorkspace, // slug já está incluído
       settings: {
         defaultView: "list",
         itemsPerPage: 20,

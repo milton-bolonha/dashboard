@@ -12,7 +12,8 @@ export default function ContentTypeForm({ contentType, onSubmit, onCancel }) {
     description: contentType?.description || "",
     icon: contentType?.icon || "folder",
     addons: contentType?.addons || [],
-    createDefaultSection: true,
+    // ✅ CORREÇÃO: Só usar createDefaultSection se estiver criando (não editando)
+    createDefaultSection: contentType ? false : true, // Se contentType existe = editando, então false
   });
   const [loading, setLoading] = useState(false);
 
@@ -75,24 +76,27 @@ export default function ContentTypeForm({ contentType, onSubmit, onCancel }) {
           value={formData.description}
           onChange={handleChange}
         />
-        <div className="pt-4">
-          <label className="flex items-center space-x-3">
-            <input
-              type="checkbox"
-              name="createDefaultSection"
-              checked={formData.createDefaultSection}
-              onChange={handleChange}
-              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <span className="text-sm text-gray-700 dark:text-gray-300">
-              Criar uma Section no menu para este Content Type
-            </span>
-          </label>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 pl-7">
-            Recomendado. Desmarque apenas se for usar este Content Type em
-            múltiplas Sections customizadas.
-          </p>
-        </div>
+        {/* ✅ CORREÇÃO: Só mostrar checkbox quando criando (não editando) */}
+        {!contentType && (
+          <div className="pt-4">
+            <label className="flex items-center space-x-3">
+              <input
+                type="checkbox"
+                name="createDefaultSection"
+                checked={formData.createDefaultSection}
+                onChange={handleChange}
+                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700 dark:text-gray-300">
+                Criar uma Section no menu para este Content Type
+              </span>
+            </label>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 pl-7">
+              Recomendado. Desmarque apenas se for usar este Content Type em
+              múltiplas Sections customizadas.
+            </p>
+          </div>
+        )}
       </div>
 
       <div>
