@@ -1,11 +1,14 @@
 "use client";
 import { createContext, useContext, useState, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
+import { useRouter, usePathname } from "next/navigation";
 
 const WorkspaceContext = createContext();
 
 export function WorkspaceProvider({ children }) {
   const { user } = useUser();
+  const router = useRouter();
+  const pathname = usePathname();
   const [workspaces, setWorkspaces] = useState([]);
   const [currentWorkspace, setCurrentWorkspace] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -97,6 +100,17 @@ export function WorkspaceProvider({ children }) {
 
       console.log("✅ Workspace ativado:", newWorkspace.name);
 
+      // ✅ NOVO: Redirecionar para dashboard após criar novo workspace
+      // Novo workspace não terá as sections/items da página atual
+      const shouldRedirect = pathname !== "/dashboard";
+
+      if (shouldRedirect) {
+        console.log(
+          `🔄 Redirecionando de "${pathname}" para "/dashboard" após criar novo workspace`
+        );
+        router.push("/dashboard");
+      }
+
       return newWorkspace;
     } catch (err) {
       console.error("❌ Erro ao criar workspace:", err);
@@ -112,6 +126,10 @@ export function WorkspaceProvider({ children }) {
 
     setSwitching(true); // ← LOADING: Iniciar loading
 
+    // ✅ NOVO: Verificar se precisa redirecionar após mudança de workspace
+    // Só NÃO redirecionar se estiver na home do dashboard
+    const shouldRedirect = pathname !== "/dashboard";
+
     setCurrentWorkspace(workspace);
     localStorage.setItem("currentWorkspaceId", workspace._id);
 
@@ -119,6 +137,20 @@ export function WorkspaceProvider({ children }) {
 
     // Forçar um re-render dos componentes dependentes, como a sidebar
     refreshSections();
+
+    // ✅ NOVO: Redirecionar para dashboard se estava em página específica
+    if (shouldRedirect) {
+      console.log(
+        `🔄 Redirecionando de "${pathname}" para "/dashboard" devido à mudança de workspace`
+      );
+      console.log(`📍 Workspace alterado para: ${workspace.name}`);
+      router.push("/dashboard");
+    } else {
+      // Já estava na home do dashboard, não precisa redirecionar
+      console.log(
+        `✅ Permanecendo em /dashboard - Workspace ativo: ${workspace.name}`
+      );
+    }
 
     // Parar o indicador de "switching"
     // Um pequeno timeout pode ajudar a UI a "respirar"
