@@ -22,26 +22,42 @@ export const UserSchema = {
 };
 
 export const PlanSchema = {
-  name: "plans",
-  fields: {
-    name: { type: "string", required: true },
-    description: { type: "string" },
-    price: { type: "number", required: true },
-    currency: { type: "string", default: "BRL" },
-    interval: {
-      type: "string",
-      enum: ["monthly", "yearly", "lifetime"],
-      default: "monthly",
-    },
-    limits: {
-      maxSections: { type: "number", default: 5 },
-      maxItems: { type: "number", default: 100 },
-      maxAddons: { type: "number", default: 3 },
-      maxUsers: { type: "number", default: 1 },
-    },
-    features: { type: "array", default: [] },
-    isActive: { type: "boolean", default: true },
+  _id: { type: "string", default: () => new ObjectId().toString() },
+  name: { type: "string", required: true }, // Ex: "Starter", "Business"
+  slug: { type: "string", required: true, unique: true }, // Ex: "starter", "business"
+  description: { type: "string" },
+  stripePriceIds: {
+    monthly: { type: "string" }, // ID do preço mensal no Stripe
+    yearly: { type: "string" }, // ID do preço anual no Stripe
   },
+  features: [
+    {
+      featureId: { type: "string", ref: "features" },
+      enabled: { type: "boolean", default: true },
+      limits: { type: "object" }, // Limites específicos para esta feature neste plano
+    },
+  ],
+  limits: {
+    workspaces: { type: "number", default: 1 },
+    workspaceMembers: { type: "number", default: 5 },
+    sections: { type: "number", default: 10 },
+    itemsPerSection: { type: "number", default: 100 },
+    storage: { type: "number", default: 1073741824 }, // 1GB em bytes
+    apiCalls: { type: "number", default: 1000 },
+    customLimits: { type: "object" }, // Limites customizados
+  },
+  permissions: [
+    {
+      resource: { type: "string" }, // Ex: "billing", "users", "sections"
+      actions: [{ type: "string" }], // Ex: ["view", "create", "edit", "delete"]
+    },
+  ],
+  hierarchy: { type: "number", default: 0 }, // 0 = free, 1 = starter, 2 = business, etc
+  isActive: { type: "boolean", default: true },
+  isDefault: { type: "boolean", default: false }, // Plano padrão para novos usuários
+  metadata: { type: "object" }, // Dados extras customizados
+  createdAt: { type: "date", default: Date.now },
+  updatedAt: { type: "date", default: Date.now },
 };
 
 export const LicenseSchema = {
@@ -133,12 +149,78 @@ export const SectionSchema = {
     description: { type: "string" },
     icon: { type: "string", default: "folder" }, // ← NOVO: ícone customizado da section
     order: { type: "number", default: 0 }, // ← NOVO: Ordem no menu
+
+    // Controles de Acesso
+    access: {
+      visibility: {
+        type: "string",
+        enum: [
+          "public",
+          "authenticated",
+          "workspace_member",
+          "role_based",
+          "plan_based",
+          "custom",
+        ],
+        default: "workspace_member",
+      },
+
+      // Para visibility = "public"
+      publicSettings: {
+        allowAnonymousView: { type: "boolean", default: false },
+        allowAnonymousCreate: { type: "boolean", default: false },
+        requireEmail: { type: "boolean", default: false },
+        requireCaptcha: { type: "boolean", default: true },
+      },
+
+      // Para visibility = "role_based"
+      allowedRoles: [
+        {
+          type: "string",
+          enum: ["owner", "admin", "editor", "author", "viewer", "guest"],
+        },
+      ],
+
+      // Para visibility = "plan_based"
+      allowedPlans: [{ type: "string" }], // IDs dos planos
+      minimumPlan: { type: "string" }, // ID do plano mínimo
+
+      // Para visibility = "custom"
+      customRuleId: { type: "string", ref: "access_rules" },
+
+      // Mensagens customizadas
+      deniedMessage: { type: "string" },
+      upgradePrompt: { type: "string" },
+      upgradeUrl: { type: "string" },
+    },
+
+    // Monetização
+    monetization: {
+      isPaid: { type: "boolean", default: false },
+      price: { type: "number" }, // Preço one-time
+      stripePriceId: { type: "string" }, // Para cobrança
+      purchaseType: {
+        type: "string",
+        enum: ["one_time", "subscription", "usage_based"],
+        default: "one_time",
+      },
+      usageCreditsRequired: { type: "number" }, // Créditos por uso
+    },
+
+    // Limites específicos da section
+    limits: {
+      maxItems: { type: "number" }, // Override do limite do plano
+      maxItemSize: { type: "number" }, // Tamanho máximo por item em bytes
+      customLimits: { type: "object" },
+    },
+
     settings: {
       defaultView: { type: "string", enum: ["list", "grid"], default: "list" },
       itemsPerPage: { type: "number", default: 20 },
       sortBy: { type: "string", default: "createdAt" },
       sortOrder: { type: "string", enum: ["asc", "desc"], default: "desc" },
     },
+
     createdBy: { type: "objectId", ref: "users" },
     isActive: { type: "boolean", default: true },
   },
@@ -147,6 +229,8 @@ export const SectionSchema = {
     { fields: { userId: 1, slug: 1 }, unique: true },
     // ← NOVO: Índice para ordenação
     { fields: { workspaceId: 1, order: 1 } },
+    // Índice para visibilidade
+    { fields: { "access.visibility": 1, isActive: 1 } },
   ],
 };
 
@@ -181,41 +265,168 @@ export const WorkspaceSchema = {
     ownerId: { type: "string", required: true }, // Clerk User ID
     description: { type: "string" },
 
-    plan: {
+    // Billing & Plans - Dinâmico
+    planId: { type: "string", ref: "plans" }, // Referência ao plano no MongoDB
+    planStatus: {
       type: "string",
-      enum: ["free", "starter", "business", "enterprise"],
-      default: "free",
+      enum: ["active", "canceled", "past_due", "trialing"],
+      default: "active",
     },
 
+    // IDs do Stripe para rastreamento completo
+    stripe: {
+      customerId: { type: "string" }, // cus_xxx
+      subscriptionId: { type: "string" }, // sub_xxx
+      priceId: { type: "string" }, // price_xxx (do plano atual)
+      productId: { type: "string" }, // prod_xxx
+      paymentMethodId: { type: "string" }, // pm_xxx
+
+      // Status da última sincronização
+      lastSync: { type: "date" },
+      syncStatus: {
+        type: "string",
+        enum: ["synced", "pending", "error"],
+        default: "pending",
+      },
+      syncError: { type: "string" },
+
+      // Metadata adicional
+      subscriptionItems: [
+        {
+          // Para tracking de múltiplos items
+          id: { type: "string" }, // si_xxx
+          priceId: { type: "string" }, // price_xxx
+          quantity: { type: "number", default: 1 },
+        },
+      ],
+
+      // Histórico de invoices
+      lastInvoiceId: { type: "string" }, // in_xxx
+      lastPaymentIntentId: { type: "string" }, // pi_xxx
+      lastChargeId: { type: "string" }, // ch_xxx
+    },
+
+    // Retrocompatibilidade (deprecated - usar stripe.customerId e stripe.subscriptionId)
+    stripeCustomerId: { type: "string" },
+    stripeSubscriptionId: { type: "string" },
+
+    trialEndsAt: { type: "date" },
+
+    // Features compradas separadamente
+    purchasedFeatures: [
+      {
+        featureId: { type: "string", ref: "features" },
+
+        // IDs do Stripe para rastreamento
+        stripe: {
+          priceId: { type: "string" }, // price_xxx
+          productId: { type: "string" }, // prod_xxx
+          subscriptionId: { type: "string" }, // sub_xxx (se recorrente)
+          subscriptionItemId: { type: "string" }, // si_xxx
+          paymentIntentId: { type: "string" }, // pi_xxx (se one-time)
+          invoiceId: { type: "string" }, // in_xxx
+          checkoutSessionId: { type: "string" }, // cs_xxx
+        },
+
+        // Detalhes da compra
+        purchaseType: {
+          type: "string",
+          enum: ["one_time", "subscription", "usage_based"],
+          default: "one_time",
+        },
+        amount: { type: "number" }, // Valor pago
+        currency: { type: "string", default: "BRL" },
+
+        // Datas
+        purchasedAt: { type: "date", default: () => new Date() },
+        activatedAt: { type: "date" },
+        expiresAt: { type: "date" }, // Para features com tempo limitado
+        canceledAt: { type: "date" },
+
+        // Status
+        status: {
+          type: "string",
+          enum: ["active", "expired", "canceled", "pending"],
+          default: "active",
+        },
+
+        // Para compatibilidade (deprecated)
+        stripePriceId: { type: "string" },
+        stripeSubscriptionId: { type: "string" },
+      },
+    ],
+
+    // Limites dinâmicos (calculados baseado no plano + addons)
     limits: {
       maxUsers: { type: "number", default: 1 },
       maxContentTypes: { type: "number", default: 3 },
       maxSections: { type: "number", default: 5 },
       maxItems: { type: "number", default: 100 },
       maxAPICallsPerMonth: { type: "number", default: 1000 },
+      storage: { type: "number", default: 1073741824 }, // 1GB em bytes
+      customLimits: { type: "object" },
     },
 
+    // Membros com roles expandidos
     members: [
       {
         userId: { type: "string", required: true },
         role: {
           type: "string",
-          enum: ["owner", "admin", "editor", "viewer"],
+          enum: ["owner", "admin", "editor", "author", "viewer", "guest"],
           default: "viewer",
         },
-        permissions: {
-          canExport: { type: "boolean", default: false },
-          canInvite: { type: "boolean", default: false },
-          canManageBilling: { type: "boolean", default: false },
-        },
+        permissions: { type: "object" }, // Permissões customizadas por usuário
         invitedAt: { type: "date", default: () => new Date() },
         joinedAt: { type: "date" },
+        invitedBy: { type: "string" },
+        lastActiveAt: { type: "date" },
+      },
+    ],
+
+    // Permissões customizadas do workspace
+    customPermissions: [
+      {
+        userId: { type: "string" },
+        resource: { type: "string" },
+        permissions: [{ type: "string" }],
+        grantedBy: { type: "string" },
+        grantedAt: { type: "date" },
+      },
+    ],
+
+    // Uso atual
+    usage: {
+      sections: { type: "number", default: 0 },
+      items: { type: "number", default: 0 },
+      storage: { type: "number", default: 0 }, // em bytes
+      apiCalls: { type: "number", default: 0 },
+      customMetrics: { type: "object" },
+    },
+
+    // Chaves de acesso ativas
+    activeKeys: [
+      {
+        keyId: { type: "string", ref: "access_keys" },
+        code: { type: "string" },
+        type: { type: "string" }, // plan, feature, addon, custom
+        activatedAt: { type: "date" },
+        expiresAt: { type: "date" },
+        activatedBy: { type: "string" }, // userId que ativou
+        grants: { type: "object" }, // Cache dos grants da chave
+        status: {
+          type: "string",
+          enum: ["active", "expired", "revoked"],
+          default: "active",
+        },
       },
     ],
 
     security: {
       apiKeyEnabled: { type: "boolean", default: false },
       allowedIPs: [{ type: "string" }],
+      defaultVisibility: { type: "string", default: "workspace_member" },
+      allowPublicSections: { type: "boolean", default: false },
     },
 
     isActive: { type: "boolean", default: true },
@@ -227,7 +438,8 @@ export const WorkspaceSchema = {
     { fields: { slug: 1 }, unique: true },
     { fields: { ownerId: 1 } },
     { fields: { "members.userId": 1 } },
-    { fields: { plan: 1, isActive: 1 } },
+    { fields: { planId: 1, isActive: 1 } },
+    { fields: { stripeCustomerId: 1 } },
   ],
 };
 
@@ -247,6 +459,236 @@ export const BillingSchema = {
     paidAt: { type: "date" },
     notes: { type: "string" },
     stripePaymentIntentId: { type: "string" },
+  },
+};
+
+// Schema para Features/Addons
+export const FeatureSchema = {
+  _id: { type: "string", default: () => new ObjectId().toString() },
+  name: { type: "string", required: true },
+  slug: { type: "string", required: true, unique: true },
+  description: { type: "string" },
+  type: {
+    type: "string",
+    enum: ["core", "addon", "credits", "integration", "view", "field"],
+    required: true,
+  },
+  category: { type: "string" }, // Para agrupar features na UI
+
+  // Configuração de acesso
+  accessType: {
+    type: "string",
+    enum: ["included_in_plan", "purchasable", "both"],
+    default: "included_in_plan",
+  },
+
+  // Se for comprável separadamente
+  pricing: {
+    stripePriceId: { type: "string" }, // Para addons pagos
+    type: { type: "string", enum: ["one_time", "recurring", "usage_based"] },
+    usageCredits: { type: "number" }, // Créditos consumidos por uso
+  },
+
+  // Requisitos
+  requirements: {
+    minimumPlan: { type: "string" }, // Plano mínimo necessário
+    requiredFeatures: [{ type: "string" }], // Outras features necessárias
+  },
+
+  // Configurações específicas
+  config: { type: "object" }, // Configurações específicas da feature
+
+  isActive: { type: "boolean", default: true },
+  createdAt: { type: "date", default: Date.now },
+  updatedAt: { type: "date", default: Date.now },
+};
+
+// Schema para Regras de Acesso Customizadas
+export const AccessRuleSchema = {
+  _id: { type: "string", default: () => new ObjectId().toString() },
+  name: { type: "string", required: true },
+  description: { type: "string" },
+
+  // Tipo de recurso que a regra se aplica
+  resourceType: {
+    type: "string",
+    enum: ["route", "section", "field", "action", "api_endpoint"],
+    required: true,
+  },
+  resourceId: { type: "string" }, // ID específico ou padrão (ex: "/dashboard/users/*")
+
+  // Condições de acesso
+  conditions: {
+    visibility: {
+      type: "string",
+      enum: ["public", "authenticated", "workspace_member", "custom"],
+      default: "workspace_member",
+    },
+
+    // Se workspace_member, quais roles têm acesso
+    allowedRoles: [
+      {
+        type: "string",
+        enum: ["owner", "admin", "editor", "author", "viewer", "guest"],
+      },
+    ],
+
+    // Planos que têm acesso
+    allowedPlans: [{ type: "string" }], // IDs dos planos
+
+    // Features necessárias
+    requiredFeatures: [{ type: "string" }], // IDs das features
+
+    // Regras customizadas (JavaScript expression como string)
+    customRule: { type: "string" }, // Ex: "user.metadata.beta === true"
+  },
+
+  // Ações permitidas
+  permissions: [
+    {
+      action: { type: "string" }, // view, create, edit, delete, export, etc
+      allowed: { type: "boolean", default: true },
+    },
+  ],
+
+  // Mensagens customizadas
+  messages: {
+    denied: { type: "string" },
+    upgradePrompt: { type: "string" },
+    upgradeUrl: { type: "string" },
+  },
+
+  // Prioridade (regras com maior prioridade sobrescrevem as menores)
+  priority: { type: "number", default: 0 },
+
+  isActive: { type: "boolean", default: true },
+  createdBy: { type: "string" },
+  createdAt: { type: "date", default: Date.now },
+  updatedAt: { type: "date", default: Date.now },
+};
+
+// Schema para controle de créditos/uso
+export const UsageCreditsSchema = {
+  _id: { type: "string", default: () => new ObjectId().toString() },
+  workspaceId: { type: "string", required: true },
+  type: { type: "string", required: true }, // Ex: "ai_generation", "pdf_export"
+
+  credits: {
+    total: { type: "number", default: 0 }, // Total de créditos disponíveis
+    used: { type: "number", default: 0 }, // Créditos usados
+    bonus: { type: "number", default: 0 }, // Créditos bonus (promoções)
+  },
+
+  // Histórico de recargas
+  purchases: [
+    {
+      date: { type: "date" },
+      amount: { type: "number" },
+      stripePriceId: { type: "string" },
+      stripePaymentIntentId: { type: "string" },
+    },
+  ],
+
+  // Histórico de uso
+  usage: [
+    {
+      date: { type: "date" },
+      amount: { type: "number" },
+      description: { type: "string" },
+      metadata: { type: "object" },
+    },
+  ],
+
+  expiresAt: { type: "date" }, // Créditos podem expirar
+  createdAt: { type: "date", default: Date.now },
+  updatedAt: { type: "date", default: Date.now },
+};
+
+// Schema para Sistema de Chaves/Cupons
+export const AccessKeySchema = {
+  _id: { type: "string", default: () => new ObjectId().toString() },
+
+  // Identificador da chave
+  code: { type: "string", required: true, unique: true }, // Ex: "BETA2024-ABC123"
+  name: { type: "string", required: true }, // Ex: "Beta Tester - Plan Business"
+  description: { type: "string" },
+
+  // Tipo de acesso que a chave libera
+  type: {
+    type: "string",
+    enum: ["plan", "feature", "addon", "custom"],
+    required: true,
+  },
+
+  // Configuração específica por tipo
+  grants: {
+    // Se type = "plan"
+    planId: { type: "string", ref: "plans" },
+    planDuration: { type: "number" }, // Dias de acesso (null = permanente)
+
+    // Se type = "feature" ou "addon"
+    featureIds: [{ type: "string", ref: "features" }],
+    featureDuration: { type: "number" }, // Dias de acesso
+
+    // Se type = "custom"
+    customPermissions: [{ type: "string" }], // Lista de permissões customizadas
+    customLimits: { type: "object" }, // Limites customizados
+
+    // Modificadores especiais
+    limitBonus: { type: "object" }, // Bonus nos limites (ex: +10 sections)
+  },
+
+  // Configurações de uso
+  usage: {
+    maxUses: { type: "number", default: 1 }, // Quantas vezes pode ser usada
+    currentUses: { type: "number", default: 0 }, // Quantas vezes foi usada
+    allowMultiplePerUser: { type: "boolean", default: false }, // Mesmo usuário pode usar várias vezes
+    allowMultiplePerWorkspace: { type: "boolean", default: false }, // Mesmo workspace pode usar várias vezes
+  },
+
+  // Restrições
+  restrictions: {
+    validFrom: { type: "date" }, // Válida a partir de
+    validUntil: { type: "date" }, // Válida até
+    allowedEmails: [{ type: "string" }], // Emails específicos que podem usar
+    allowedDomains: [{ type: "string" }], // Domínios específicos (ex: @empresa.com)
+    requiredMetadata: { type: "object" }, // Metadata que o usuário deve ter
+  },
+
+  // Histórico de ativações
+  activations: [
+    {
+      userId: { type: "string", required: true },
+      workspaceId: { type: "string", required: true },
+      userEmail: { type: "string" },
+      activatedAt: { type: "date", default: Date.now },
+      expiresAt: { type: "date" }, // Quando expira para este usuário
+      status: {
+        type: "string",
+        enum: ["active", "expired", "revoked"],
+        default: "active",
+      },
+      ip: { type: "string" },
+      userAgent: { type: "string" },
+    },
+  ],
+
+  // Configurações
+  isActive: { type: "boolean", default: true },
+  isPublic: { type: "boolean", default: false }, // Pode ser usada por qualquer pessoa
+  autoExpire: { type: "boolean", default: true }, // Expira automaticamente
+
+  // Metadata
+  tags: [{ type: "string" }], // Para organização (ex: ["beta", "promocional"])
+  createdBy: { type: "string", required: true },
+  createdAt: { type: "date", default: Date.now },
+  updatedAt: { type: "date", default: Date.now },
+
+  // Analytics
+  analytics: {
+    viewCount: { type: "number", default: 0 }, // Quantas vezes foi vista
+    attemptCount: { type: "number", default: 0 }, // Tentativas de uso
+    successCount: { type: "number", default: 0 }, // Usos bem-sucedidos
   },
 };
 
