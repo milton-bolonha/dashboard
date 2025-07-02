@@ -19,7 +19,9 @@
     "test:sidebar": "node --test tests/sidebar-hover.test.js",
     "test:middleware": "node --test tests/middleware-clerk.test.js",
     "test:api": "node --test tests/api-corrections.test.js",
+    "test:cloudinary": "node --test tests/cloudinary.test.js",
     "test:corrections": "npm run test:sidebar && npm run test:middleware && npm run test:api",
+    "test:all": "npm run test:corrections && npm run test:cloudinary",
     "setup": "node scripts/setup-env.js",
     "migrate:workspaces": "node scripts/run-migration.js",
     "sync:clerk": "node scripts/sync-clerk-users.js"
@@ -28,6 +30,7 @@
     "@clerk/nextjs": "^6.23.0",
     "@heroicons/react": "^2.2.0",
     "bcryptjs": "^2.4.3",
+    "cloudinary": "^2.7.0",
     "dotenv": "^17.0.0",
     "mongodb": "^6.3.0",
     "next": "15.3.4",

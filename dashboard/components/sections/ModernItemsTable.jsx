@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Button from "@/components/ui/Button";
 import { ColumnSelector } from "@/components/ui/ColumnSelector";
 import { useTableColumns } from "@/hooks/useTableColumns";
+import { buildUrl } from "@/lib/cloudinary";
 
 export function ModernItemsTable({
   items = [],
@@ -98,31 +99,136 @@ export function ModernItemsTable({
     const value = item.data?.[addon.id] || item[addon.id] || "";
 
     switch (addon.type) {
-      case "dateInput":
-        return value ? new Date(value).toLocaleDateString("pt-BR") : "-";
-      case "checkboxInput":
-        return value ? "✅ Sim" : "❌ Não";
+      case "cloudinaryUpload":
+        return value ? (
+          <div className="flex items-center space-x-2">
+            <img
+              src={buildUrl(value, { width: 100, height: 60, crop: "fill" })}
+              alt={addon.name}
+              className="w-12 h-8 rounded object-cover border border-gray-200 dark:border-gray-600"
+              loading="lazy"
+            />
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              🌤️ Cloudinary
+            </span>
+          </div>
+        ) : (
+          <span className="text-gray-400 dark:text-gray-500">-</span>
+        );
+
+      case "cloudinaryGallery":
+        const images = Array.isArray(value) ? value : [];
+        return images.length > 0 ? (
+          <div className="flex items-center space-x-2">
+            <div className="flex -space-x-1 overflow-hidden">
+              {images.slice(0, 3).map((publicId, index) => (
+                <img
+                  key={index}
+                  src={buildUrl(publicId, {
+                    width: 100,
+                    height: 60,
+                    crop: "fill",
+                  })}
+                  alt={`${addon.name} ${index + 1}`}
+                  className="w-8 h-6 rounded object-cover border-2 border-white dark:border-gray-800"
+                  loading="lazy"
+                />
+              ))}
+            </div>
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              🌤️📁 {images.length} imagem{images.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+        ) : (
+          <span className="text-gray-400 dark:text-gray-500">-</span>
+        );
+
       case "imageUpload":
         return value ? (
-          <img
-            src={value}
-            alt={addon.name}
-            className="w-8 h-8 rounded object-cover"
-          />
+          <div className="flex items-center space-x-2">
+            <div className="w-12 h-8 bg-gray-100 dark:bg-gray-700 rounded flex items-center justify-center">
+              <svg
+                className="w-4 h-4 text-gray-400"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <span className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-20">
+              {value}
+            </span>
+          </div>
         ) : (
-          "-"
+          <span className="text-gray-400 dark:text-gray-500">-</span>
         );
+
+      case "dateInput":
+        return value ? (
+          <span className="text-sm">
+            📅 {new Date(value).toLocaleDateString("pt-BR")}
+          </span>
+        ) : (
+          <span className="text-gray-400 dark:text-gray-500">-</span>
+        );
+
+      case "checkboxInput":
+        return (
+          <span
+            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+              value
+                ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300"
+                : "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300"
+            }`}
+          >
+            {value ? "✅ Sim" : "❌ Não"}
+          </span>
+        );
+
       case "numberInput":
-        return value ? Number(value).toLocaleString("pt-BR") : "-";
+        return value ? (
+          <span className="text-sm font-mono">
+            {Number(value).toLocaleString("pt-BR")}
+          </span>
+        ) : (
+          <span className="text-gray-400 dark:text-gray-500">-</span>
+        );
+
+      case "selectInput":
+        return value ? (
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300">
+            {value}
+          </span>
+        ) : (
+          <span className="text-gray-400 dark:text-gray-500">-</span>
+        );
+
       case "textarea":
         // Para textarea, limitar o tamanho na tabela
-        return value
-          ? value.length > 50
-            ? `${value.substring(0, 50)}...`
-            : value
-          : "-";
+        return value ? (
+          <div className="max-w-48">
+            <p
+              className="text-sm text-gray-900 dark:text-white truncate"
+              title={value}
+            >
+              {value.length > 50 ? `${value.substring(0, 50)}...` : value}
+            </p>
+          </div>
+        ) : (
+          <span className="text-gray-400 dark:text-gray-500">-</span>
+        );
+
+      case "textInput":
       default:
-        return value || "-";
+        return value ? (
+          <span className="text-sm text-gray-900 dark:text-white">{value}</span>
+        ) : (
+          <span className="text-gray-400 dark:text-gray-500">-</span>
+        );
     }
   };
 

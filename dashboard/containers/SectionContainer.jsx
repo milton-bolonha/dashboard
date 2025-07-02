@@ -66,72 +66,28 @@ export default function SectionContainer() {
 
   const handleSubmit = async (formData) => {
     const isEditing = !!editingSection;
+    const url = isEditing
+      ? `/api/sections/${editingSection._id}`
+      : "/api/sections";
+    const method = isEditing ? "PUT" : "POST";
 
     try {
-      // Adicionar userId do usuário autenticado
-      const dataWithUserId = {
-        ...formData,
-        userId: user?.id,
-      };
-
-      console.log("🚀 SectionContainer: Enviando dados:", dataWithUserId);
-      let response;
-
-      if (isEditing) {
-        // Para edição, usar a API específica da section
-        console.log("✏️ Editando section:", editingSection._id);
-        response = await fetchWithWorkspace(
-          `/api/sections/${editingSection._id}`,
-          {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(dataWithUserId),
-          }
-        );
-      } else {
-        // Para criação, usar a API geral
-        console.log("➕ Criando nova section");
-        response = await fetchWithWorkspace("/api/sections", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(dataWithUserId),
-        });
-      }
+      const response = await fetchWithWorkspace(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
 
       if (!response.ok) {
-        let errorData;
-        try {
-          errorData = await response.json();
-        } catch (parseError) {
-          console.error("❌ Erro ao fazer parse da resposta:", parseError);
-          throw new Error(
-            `API Error ${response.status}: ${response.statusText}`
-          );
-        }
-
-        console.error("❌ Erro da API:", errorData);
-        console.error("❌ Status da resposta:", response.status);
-        console.error("❌ StatusText da resposta:", response.statusText);
-
-        const errorMessage =
-          errorData?.error ||
-          errorData?.message ||
-          (errorData?.details && Array.isArray(errorData.details)
-            ? errorData.details.join(", ")
-            : "Unknown API error");
-
-        throw new Error(errorMessage);
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to save section");
       }
 
-      await refreshSections(); // ← Atualizar contexto global
+      await refreshSections(); // Atualizar lista via contexto
       handleCloseModal();
     } catch (err) {
       console.error(err);
-      alert(err.message);
+      alert(err.message); // Simples alerta por enquanto
     }
   };
 
@@ -143,35 +99,51 @@ export default function SectionContainer() {
         method: "DELETE",
       });
       if (!response.ok) throw new Error("Failed to delete section");
-      await refreshSections(); // ← Atualizar contexto global
+      await refreshSections(); // Atualizar lista via contexto
     } catch (err) {
       console.error(err);
       alert(err.message);
     }
   };
 
+  // ✅ NOVO: Callback para reordenação
+  const handleReorder = async (reorderedSections) => {
+    // Atualizar contexto imediatamente para feedback visual
+    await refreshSections();
+  };
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <div className="text-red-600 dark:text-red-400">
+          <h3 className="text-lg font-medium">Erro ao carregar sections</h3>
+          <p className="mt-2">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Sections
-        </h1>
-        <Button
-          onClick={() => handleOpenModal()}
-          disabled={contentTypes.length === 0}
-        >
-          Nova Section
-        </Button>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Sections
+          </h1>
+          <p className="text-gray-600 dark:text-gray-300">
+            Gerencie as áreas de conteúdo do seu workspace
+          </p>
+        </div>
+        <Button onClick={() => handleOpenModal()}>Nova Section</Button>
       </div>
 
-      {contentTypes.length === 0 && !loading && (
-        <p className="text-yellow-600 dark:text-yellow-400">
-          Você precisa criar um Content Type antes de criar uma Section.
-        </p>
+      {loading && (
+        <div className="text-center py-12">
+          <div className="text-gray-500 dark:text-gray-400">
+            Carregando sections...
+          </div>
+        </div>
       )}
-
-      {loading && <p>Carregando...</p>}
-      {error && <p className="text-red-500">{error}</p>}
 
       {!loading && !error && (
         <ModernSectionsTable
@@ -179,6 +151,7 @@ export default function SectionContainer() {
           contentTypes={contentTypes}
           onEdit={handleOpenModal}
           onDelete={handleDelete}
+          onReorder={handleReorder} // ✅ NOVO: Passar callback
         />
       )}
 

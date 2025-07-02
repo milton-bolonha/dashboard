@@ -16,6 +16,7 @@ export default function SectionForm({
     slug: section?.slug || "",
     description: section?.description || "",
     icon: section?.icon || "folder",
+    order: section?.order || 0,
     contentTypeId:
       section?.contentTypeId ||
       (contentTypes.length > 0 ? contentTypes[0]._id : ""),
@@ -59,10 +60,53 @@ export default function SectionForm({
           </p>
         </div>
 
+        <div>
+          <Input
+            label="Ordem no Menu"
+            name="order"
+            type="number"
+            value={formData.order}
+            onChange={handleChange}
+            placeholder="0"
+            min="0"
+          />
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Define a posição desta section no menu lateral. Menor número = mais
+            acima.
+          </p>
+        </div>
+
+        <Input
+          label="Descrição (opcional)"
+          name="description"
+          value={formData.description}
+          onChange={handleChange}
+          placeholder="Descreva o propósito desta section..."
+        />
+
         <IconPicker
           selectedIcon={formData.icon}
           onIconSelect={(icon) => setFormData((prev) => ({ ...prev, icon }))}
         />
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Content Type
+          </label>
+          <select
+            name="contentTypeId"
+            value={formData.contentTypeId}
+            onChange={handleChange}
+            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+            required
+          >
+            {contentTypes.map((contentType) => (
+              <option key={contentType._id} value={contentType._id}>
+                {contentType.name}
+              </option>
+            ))}
+          </select>
+        </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -101,29 +145,6 @@ export default function SectionForm({
             </label>
           </div>
         </div>
-
-        <div>
-          <label
-            htmlFor="contentTypeId"
-            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-          >
-            Content Type
-          </label>
-          <select
-            id="contentTypeId"
-            name="contentTypeId"
-            value={formData.contentTypeId}
-            onChange={handleChange}
-            required
-            className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-          >
-            {contentTypes.map((ct) => (
-              <option key={ct._id} value={ct._id}>
-                {ct.name}
-              </option>
-            ))}
-          </select>
-        </div>
       </div>
 
       <div className="flex justify-end space-x-4 pt-4 border-t dark:border-gray-700">
@@ -131,7 +152,7 @@ export default function SectionForm({
           Cancelar
         </Button>
         <Button type="submit" loading={loading}>
-          Salvar Section
+          {section ? "Atualizar" : "Criar"} Section
         </Button>
       </div>
     </form>

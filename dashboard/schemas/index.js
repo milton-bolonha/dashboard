@@ -87,11 +87,30 @@ export const ContentTypeSchema = {
         name: { type: "string", required: true },
         type: {
           type: "string",
-          enum: ["textInput", "textarea", "imageUpload"],
+          enum: [
+            "textInput",
+            "textarea",
+            "imageUpload",
+            "cloudinaryUpload", // ← Upload único via Cloudinary
+            "cloudinaryGallery", // ← NOVO: Galeria múltipla via Cloudinary
+            "dateInput",
+            "selectInput",
+            "numberInput",
+            "checkboxInput",
+          ],
           required: true,
         },
         required: { type: "boolean", default: false },
-        config: { type: "object", default: {} },
+        config: { type: "object", default: {} }, // Configurações específicas do addon
+        placeholder: { type: "string" }, // ← NOVO: Placeholder customizado
+        helpText: { type: "string" }, // ← NOVO: Texto de ajuda
+        validation: {
+          // ← NOVO: Validações customizadas
+          minLength: { type: "number" },
+          maxLength: { type: "number" },
+          pattern: { type: "string" }, // regex
+          required: { type: "boolean", default: false },
+        },
       },
     },
     createdBy: { type: "objectId", ref: "users" },
@@ -113,6 +132,7 @@ export const SectionSchema = {
     workspaceId: { type: "objectId", ref: "workspaces", required: true }, // ← WORKSPACE
     description: { type: "string" },
     icon: { type: "string", default: "folder" }, // ← NOVO: ícone customizado da section
+    order: { type: "number", default: 0 }, // ← NOVO: Ordem no menu
     settings: {
       defaultView: { type: "string", enum: ["list", "grid"], default: "list" },
       itemsPerPage: { type: "number", default: 20 },
@@ -125,6 +145,8 @@ export const SectionSchema = {
   indexes: [
     // Índice composto para garantir slug único por usuário
     { fields: { userId: 1, slug: 1 }, unique: true },
+    // ← NOVO: Índice para ordenação
+    { fields: { workspaceId: 1, order: 1 } },
   ],
 };
 

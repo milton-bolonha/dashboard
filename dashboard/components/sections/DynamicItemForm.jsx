@@ -3,6 +3,9 @@
 import { useState, useEffect } from "react";
 import Button from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import CloudinaryUploadField from "@/components/ui/CloudinaryUploadField";
+import CloudinaryGalleryField from "@/components/ui/CloudinaryGalleryField";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 
 export default function DynamicItemForm({
   item,
@@ -11,6 +14,8 @@ export default function DynamicItemForm({
   onSubmit,
   onCancel,
 }) {
+  const { currentWorkspace } = useWorkspace();
+
   const [formData, setFormData] = useState({
     title: item?.title || "",
     status: item?.status || "draft",
@@ -18,7 +23,9 @@ export default function DynamicItemForm({
   });
   const [loading, setLoading] = useState(false);
 
-  // Inicializar dados dos addons quando contentType mudar
+  const workspaceSlug = currentWorkspace?.slug || null;
+  const sectionSlug = section?.slug || null;
+
   useEffect(() => {
     if (!item && contentType?.addons) {
       const initialData = {};
@@ -35,6 +42,10 @@ export default function DynamicItemForm({
           initialData[addon.id] = "";
         } else if (addon.type === "checkboxInput") {
           initialData[addon.id] = false;
+        } else if (addon.type === "cloudinaryUpload") {
+          initialData[addon.id] = "";
+        } else if (addon.type === "cloudinaryGallery") {
+          initialData[addon.id] = [];
         }
       });
       setFormData((prev) => ({ ...prev, data: initialData }));
@@ -49,14 +60,12 @@ export default function DynamicItemForm({
   const handleAddonChange = (e) => {
     const { name, value, type, files } = e.target;
 
-    // Para upload de arquivos
     if (type === "file" && files?.[0]) {
       setFormData((prev) => ({
         ...prev,
         data: { ...prev.data, [name]: files[0].name },
       }));
     } else {
-      // Para campos normais
       setFormData((prev) => ({
         ...prev,
         data: { ...prev.data, [name]: value },
@@ -69,7 +78,6 @@ export default function DynamicItemForm({
     setLoading(true);
 
     try {
-      // Validar campos obrigatórios dos addons
       if (contentType?.addons) {
         for (const addon of contentType.addons) {
           if (addon.required && !formData.data[addon.id]) {
@@ -96,7 +104,8 @@ export default function DynamicItemForm({
           Informações Básicas
         </h3>
 
-        {/* Título Principal - SEMPRE PRESENTE */}
+        {/* Organização automática sem mostrar detalhes técnicos */}
+
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Título do Item *
@@ -115,7 +124,6 @@ export default function DynamicItemForm({
           />
         </div>
 
-        {/* Status */}
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Status
@@ -144,14 +152,47 @@ export default function DynamicItemForm({
           </h3>
 
           {contentType.addons.map((addon) => {
-            // Renderizar todos os addons como campos normais
             switch (addon.type) {
+              case "cloudinaryUpload":
+                return (
+                  <CloudinaryUploadField
+                    key={addon.id}
+                    addon={addon}
+                    value={formData.data[addon.id] || ""}
+                    onChange={handleAddonChange}
+                    required={addon.required}
+                    workspaceSlug={workspaceSlug}
+                    sectionSlug={sectionSlug}
+                  />
+                );
+
+              case "cloudinaryGallery":
+                return (
+                  <CloudinaryGalleryField
+                    key={addon.id}
+                    addon={addon}
+                    value={formData.data[addon.id] || []}
+                    onChange={handleAddonChange}
+                    required={addon.required}
+                    workspaceSlug={workspaceSlug}
+                    sectionSlug={sectionSlug}
+                  />
+                );
+
               case "textInput":
                 return (
                   <div key={addon.id} className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      {addon.name} {addon.required && "*"}
+                      {addon.name}{" "}
+                      {addon.required && (
+                        <span className="text-red-500">*</span>
+                      )}
                     </label>
+                    {addon.helpText && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                        {addon.helpText}
+                      </p>
+                    )}
                     <input
                       type="text"
                       name={addon.id}
@@ -161,7 +202,7 @@ export default function DynamicItemForm({
                         addon.placeholder ||
                         `Digite ${addon.name.toLowerCase()}...`
                       }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white transition-colors"
                       required={addon.required}
                     />
                   </div>
@@ -171,8 +212,16 @@ export default function DynamicItemForm({
                 return (
                   <div key={addon.id} className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      {addon.name} {addon.required && "*"}
+                      {addon.name}{" "}
+                      {addon.required && (
+                        <span className="text-red-500">*</span>
+                      )}
                     </label>
+                    {addon.helpText && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                        {addon.helpText}
+                      </p>
+                    )}
                     <textarea
                       name={addon.id}
                       value={formData.data[addon.id] || ""}
@@ -182,7 +231,7 @@ export default function DynamicItemForm({
                         `Digite ${addon.name.toLowerCase()}...`
                       }
                       rows={4}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white transition-colors resize-y"
                       required={addon.required}
                     />
                   </div>
@@ -192,20 +241,30 @@ export default function DynamicItemForm({
                 return (
                   <div key={addon.id} className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      {addon.name} {addon.required && "*"}
+                      {addon.name}{" "}
+                      {addon.required && (
+                        <span className="text-red-500">*</span>
+                      )}
                     </label>
+                    {addon.helpText && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                        {addon.helpText}
+                      </p>
+                    )}
                     <input
                       type="file"
                       name={addon.id}
                       onChange={handleAddonChange}
                       accept="image/*"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-colors"
                       required={addon.required && !formData.data[addon.id]}
                     />
                     {formData.data[addon.id] && (
-                      <p className="text-sm text-gray-500 mt-1">
-                        Arquivo atual: {formData.data[addon.id]}
-                      </p>
+                      <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-md">
+                        <p className="text-sm text-green-700 dark:text-green-300">
+                          ✅ Arquivo atual: {formData.data[addon.id]}
+                        </p>
+                      </div>
                     )}
                   </div>
                 );
@@ -214,14 +273,22 @@ export default function DynamicItemForm({
                 return (
                   <div key={addon.id} className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      {addon.name} {addon.required && "*"}
+                      {addon.name}{" "}
+                      {addon.required && (
+                        <span className="text-red-500">*</span>
+                      )}
                     </label>
+                    {addon.helpText && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                        {addon.helpText}
+                      </p>
+                    )}
                     <input
                       type="date"
                       name={addon.id}
                       value={formData.data[addon.id] || ""}
                       onChange={handleAddonChange}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white transition-colors"
                       required={addon.required}
                     />
                   </div>
@@ -236,13 +303,21 @@ export default function DynamicItemForm({
                 return (
                   <div key={addon.id} className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      {addon.name} {addon.required && "*"}
+                      {addon.name}{" "}
+                      {addon.required && (
+                        <span className="text-red-500">*</span>
+                      )}
                     </label>
+                    {addon.helpText && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                        {addon.helpText}
+                      </p>
+                    )}
                     <select
                       name={addon.id}
                       value={formData.data[addon.id] || ""}
                       onChange={handleAddonChange}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white transition-colors"
                       required={addon.required}
                     >
                       <option value="">Selecione...</option>
@@ -259,8 +334,16 @@ export default function DynamicItemForm({
                 return (
                   <div key={addon.id} className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      {addon.name} {addon.required && "*"}
+                      {addon.name}{" "}
+                      {addon.required && (
+                        <span className="text-red-500">*</span>
+                      )}
                     </label>
+                    {addon.helpText && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                        {addon.helpText}
+                      </p>
+                    )}
                     <input
                       type="number"
                       name={addon.id}
@@ -270,7 +353,7 @@ export default function DynamicItemForm({
                       max={addon.config?.max}
                       step={addon.config?.step || 1}
                       placeholder={addon.placeholder || "Digite um número..."}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white transition-colors"
                       required={addon.required}
                     />
                   </div>
@@ -279,7 +362,7 @@ export default function DynamicItemForm({
               case "checkboxInput":
                 return (
                   <div key={addon.id} className="mb-4">
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-start space-x-3">
                       <input
                         type="checkbox"
                         name={addon.id}
@@ -291,11 +374,21 @@ export default function DynamicItemForm({
                             data: { ...prev.data, [name]: checked },
                           }));
                         }}
-                        className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                        className="mt-1 w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 transition-colors"
                       />
-                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {addon.name} {addon.required && "*"}
-                      </label>
+                      <div>
+                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          {addon.name}{" "}
+                          {addon.required && (
+                            <span className="text-red-500">*</span>
+                          )}
+                        </label>
+                        {addon.helpText && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            {addon.helpText}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );

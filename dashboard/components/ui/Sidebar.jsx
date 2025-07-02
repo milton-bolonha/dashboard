@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useSections } from "@/contexts/SectionsContext";
+import React from "react";
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -14,6 +15,11 @@ export function Sidebar() {
   const { currentWorkspace } = useWorkspace();
 
   const [showConfig, setShowConfig] = useState(false);
+
+  // ✅ NOVO: Sections ordenadas para o menu
+  const orderedSections = React.useMemo(() => {
+    return [...sections].sort((a, b) => (a.order || 0) - (b.order || 0));
+  }, [sections]);
 
   // Auto-expandir o menu "Content Creator" se a página ativa estiver dentro dele
   useEffect(() => {
@@ -285,7 +291,7 @@ export function Sidebar() {
           sections.length > 0 && (
             <div className="mb-2">
               <div className="space-y-1">
-                {sections.map((section) => (
+                {orderedSections.map((section) => (
                   <Link
                     key={section._id}
                     href={`/dashboard/sections/${section.slug}`}
