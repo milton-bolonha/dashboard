@@ -1,52 +1,48 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
+import { clerkMiddleware } from "@clerk/nextjs/server";
 
-// Lista de rotas que não exigem autenticação
-const isPublicRoute = createRouteMatcher([
-  "/",
-  "/sign-in(.*)",
-  "/sign-up(.*)",
-  "/api/webhooks(.*)",
-]);
+export default clerkMiddleware({
+  // A landing page (/) é pública. Todas as outras rotas
+  // são protegidas por padrão.
+  publicRoutes: ["/"],
 
-// Lista de rotas que exigem a role de 'superadmin'
-const isSuperAdminRoute = createRouteMatcher([
-  "/dashboard/admin/(.*)",
-  "/api/admin/(.*)",
-]);
+  // Callback para debug
+  beforeAuth: (req) => {
+    console.log(
+      `[MIDDLEWARE DEBUG] Before auth - ${req.method} ${req.nextUrl.pathname}`
+    );
 
-export default clerkMiddleware((auth, req) => {
-  const { userId, sessionClaims } = auth();
+    // Log dos headers de autenticação
+    const authHeader = req.headers.get("Authorization");
+    const cookieHeader = req.headers.get("Cookie");
 
-  // Se a rota é pública, permite o acesso sem verificar o login.
-  if (isPublicRoute(req)) {
-    return NextResponse.next();
-  }
+    console.log(`[MIDDLEWARE DEBUG] Headers:`, {
+      hasAuthHeader: !!authHeader,
+      authPrefix: authHeader ? authHeader.substring(0, 20) + "..." : "null",
+      hasCookies: !!cookieHeader,
+      cookieCount: cookieHeader ? cookieHeader.split(";").length : 0,
+    });
+  },
 
-  // Se a rota NÃO é pública, ela requer um usuário logado.
-  // Se não há userId, redireciona para a página de login.
-  if (!userId) {
-    const signInUrl = new URL("/sign-in", req.url);
-    signInUrl.searchParams.set("redirect_url", req.url);
-    return NextResponse.redirect(signInUrl);
-  }
-
-  // Se o usuário está logado, verificamos se a rota exige superadmin.
-  if (isSuperAdminRoute(req)) {
-    // Se a rota é de superadmin mas o usuário não tem a role, redireciona.
-    if (sessionClaims?.publicMetadata?.role !== "superadmin") {
-      const dashboardUrl = new URL("/dashboard", req.url);
-      return NextResponse.redirect(dashboardUrl);
+  afterAuth: (auth, req) => {
+    // Log apenas para APIs críticas
+    if (req.nextUrl.pathname.includes("/api/access-keys/")) {
+      console.log(
+        `[MIDDLEWARE] ${req.method} ${req.nextUrl.pathname} - userId: ${
+          auth.userId || "undefined"
+        }`
+      );
     }
-  }
 
-  // Se o usuário está logado e passou por todas as verificações, permite o acesso.
-  return NextResponse.next();
+    // Se não tiver userId e não for rota pública, redirect
+    if (!auth.userId && req.nextUrl.pathname !== "/") {
+      return Response.redirect(new URL("/", req.url));
+    }
+  },
 });
 
 export const config = {
   matcher: [
-    // Executar o middleware em todas as rotas, exceto as de arquivos estáticos.
+    // Executa o middleware em todas as rotas, exceto as de arquivos estáticos.
     "/((?!.+\\.[\\w]+$|_next).*)",
     "/(api|trpc)(.*)",
   ],

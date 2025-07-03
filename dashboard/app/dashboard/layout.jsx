@@ -1,23 +1,22 @@
 "use client";
 
-import { useUser, UserButton } from "@clerk/nextjs";
+import { useState } from "react";
+import { useUser } from "@clerk/nextjs";
 import { Sidebar } from "@/components/ui/Sidebar";
-import { TopBar } from "../../components/ui/TopBar";
-import { LoadingBar } from "../../components/ui/LoadingBar";
-import { SectionsProvider } from "../../contexts/SectionsContext";
-import { WorkspaceProvider } from "../../contexts/WorkspaceContext";
-import { useUserPlanVerification } from "../../hooks/useUserPlanVerification";
+import { TopBar } from "@/components/ui/TopBar";
+import { DashboardProviders } from "@/contexts/DashboardProviders";
 
 // Este é o layout principal para a área autenticada do dashboard.
-// Ele garante que o sidebar seja exibido em todas as páginas do dashboard.
+// Ele garante que o sidebar e o topbar sejam exibidos em todas as páginas do dashboard.
 export default function DashboardLayout({ children }) {
-  const { isLoaded, isSignedIn } = useUser();
-  const { plans } = useUserPlanVerification();
+  const { isLoaded, isSignedIn, user } = useUser();
+  const [isCollapsed, setIsCollapsed] = useState(true);
+  const [isHovered, setIsHovered] = useState(false);
 
   if (!isLoaded) {
     // Tela de carregamento enquanto o Clerk verifica a sessão
     return (
-      <div className="h-screen w-full flex items-center justify-center">
+      <div className="h-screen w-full flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600"></div>
       </div>
     );
@@ -29,12 +28,24 @@ export default function DashboardLayout({ children }) {
     return null;
   }
 
+  const mainContentMargin = isCollapsed && !isHovered ? "ml-16" : "ml-64";
+
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
-      <Sidebar />
-      <main className="flex-1 overflow-y-auto pl-16">
-        <div className="p-6">{children}</div>
-      </main>
-    </div>
+    <DashboardProviders>
+      <div className="h-screen bg-gray-50 dark:bg-gray-900">
+        <Sidebar
+          isCollapsed={isCollapsed}
+          setIsCollapsed={setIsCollapsed}
+          isHovered={isHovered}
+          setIsHovered={setIsHovered}
+        />
+        <div
+          className={`flex flex-col flex-1 transition-all duration-300 ${mainContentMargin}`}
+        >
+          <TopBar user={user} />
+          <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        </div>
+      </div>
+    </DashboardProviders>
   );
 }

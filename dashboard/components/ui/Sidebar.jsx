@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
@@ -8,35 +8,39 @@ import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useSections } from "@/contexts/SectionsContext";
 import React from "react";
 
-export function Sidebar() {
+export function Sidebar({
+  isCollapsed,
+  setIsCollapsed,
+  isHovered,
+  setIsHovered,
+}) {
   const pathname = usePathname();
   const { user } = useUser();
-  const { isCollapsed, setIsCollapsed, isHovered, setIsHovered } =
-    useSidebarState();
   const { sections, loading: sectionsLoading } = useSections();
   const { currentWorkspace } = useWorkspace();
 
   const [showConfig, setShowConfig] = useState(false);
   const [showAccessControl, setShowAccessControl] = useState(false);
 
-  // Verificar se o usuário é superadmin
   const isSuperAdmin = user?.publicMetadata?.role === "superadmin";
 
-  // ✅ NOVO: Sections ordenadas para o menu
-  const orderedSections = React.useMemo(() => {
+  const orderedSections = useMemo(() => {
     return [...sections].sort((a, b) => (a.order || 0) - (b.order || 0));
   }, [sections]);
 
-  // Auto-expandir o menu "Content Creator" se a página ativa estiver dentro dele
   useEffect(() => {
     const isContentCreatorPage =
       pathname === "/dashboard/sections" ||
       pathname === "/dashboard/content-types" ||
-      pathname.startsWith("/dashboard/sections/"); // Incluir sub-páginas
-    setShowConfig(isContentCreatorPage);
+      pathname.startsWith("/dashboard/sections/");
+    if (isContentCreatorPage) setShowConfig(true);
+
+    const isAccessControlPage =
+      pathname.startsWith("/dashboard/admin") ||
+      pathname.startsWith("/dashboard/access");
+    if (isAccessControlPage) setShowAccessControl(true);
   }, [pathname]);
 
-  // 🎨 BIBLIOTECA DE ÍCONES SVG PROFISSIONAIS (mantendo o que funcionou)
   const getIconSvg = (iconKey) => {
     const icons = {
       "document-text": (
@@ -195,7 +199,6 @@ export function Sidebar() {
       return pathname === href;
     }
 
-    // Para /dashboard/sections, só ativar se for exatamente a página de sections, não as subpáginas
     if (href === "/dashboard/sections") {
       return pathname === "/dashboard/sections";
     }
@@ -691,11 +694,4 @@ export function Sidebar() {
       </div>
     </div>
   );
-}
-
-// Hook customizado para abstrair a lógica de UI da sidebar
-function useSidebarState() {
-  const [isCollapsed, setIsCollapsed] = useState(true);
-  const [isHovered, setIsHovered] = useState(false);
-  return { isCollapsed, setIsCollapsed, isHovered, setIsHovered };
 }

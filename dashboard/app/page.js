@@ -10,11 +10,21 @@ import {
   Code,
   HelpCircle,
   Users,
+  DollarSign,
+  Shield,
+  Key,
+  Zap,
+  CreditCard,
+  Lock,
+  TrendingUp,
+  Globe,
+  Settings,
+  Crown,
 } from "lucide-react";
 import "./home.css";
 
-// Componente principal da Página
-export default function Home() {
+// Componente principal da Landing Page
+export default function LandingPage() {
   const { isSignedIn, user, isLoaded } = useUser();
 
   if (!isLoaded) {
@@ -30,6 +40,9 @@ export default function Home() {
       <Header isSignedIn={isSignedIn} />
       <main>
         <HeroSection isSignedIn={isSignedIn} user={user} />
+        <MonetizationSection />
+        <AccessControlSection />
+        <EnterpriseSection />
         <UseCasesSection />
         <FaqSection />
       </main>
@@ -54,7 +67,7 @@ const Header = ({ isSignedIn }) => (
             <>
               <Link
                 href="/dashboard"
-                className="btn-primary hidden sm:inline-block px-4 py-2 rounded-md text-sm font-semibold"
+                className="btn-primary hidden sm:inline-block px-4 py-2 rounded-md text-sm font-semibold cursor-pointer"
               >
                 Acessar Dashboard
               </Link>
@@ -62,13 +75,13 @@ const Header = ({ isSignedIn }) => (
             </>
           ) : (
             <>
-              <SignInButton mode="modal">
-                <button className="text-sm font-semibold text-secondary hover:text-blue-600">
+              <SignInButton mode="modal" fallbackRedirectUrl="/dashboard">
+                <button className="text-sm font-semibold text-secondary hover:text-blue-600 cursor-pointer">
                   Entrar
                 </button>
               </SignInButton>
-              <SignUpButton mode="modal">
-                <button className="btn-primary px-4 py-2 rounded-md text-sm font-semibold">
+              <SignUpButton mode="modal" fallbackRedirectUrl="/dashboard">
+                <button className="btn-primary px-4 py-2 rounded-md text-sm font-semibold cursor-pointer">
                   Criar Conta
                 </button>
               </SignUpButton>
@@ -85,11 +98,11 @@ const HeroSection = ({ isSignedIn, user }) => (
   <section className="home-hero py-20 sm:py-32">
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
       <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-primary tracking-tight">
-        Um CMS para construir outros CMSs.
+        Uma Plataforma para Construir seu SaaS.
       </h1>
       <p className="mt-6 max-w-2xl mx-auto text-lg text-secondary">
-        O DashMaster.PRO é a plataforma modular para criar Workspaces, Tipos de
-        Conteúdo, Addons e Lógicas de Negócio com agilidade e profundidade.
+        O DashMaster.PRO é o motor para criar Workspaces, monetizar com Planos e
+        Features, e controlar tudo com um sistema de acesso de nível enterprise.
       </p>
       <div className="mt-8 flex justify-center gap-4">
         {isSignedIn ? (
@@ -101,19 +114,443 @@ const HeroSection = ({ isSignedIn, user }) => (
           </Link>
         ) : (
           <>
-            <SignUpButton mode="modal">
-              <button className="btn-primary inline-flex items-center justify-center px-6 py-3 rounded-md shadow-sm text-base font-medium">
+            <SignUpButton mode="modal" fallbackRedirectUrl="/dashboard">
+              <button className="btn-primary inline-flex items-center justify-center px-6 py-3 rounded-md shadow-sm text-base font-medium cursor-pointer">
                 Começar Grátis
                 <ArrowRight className="ml-2 h-5 w-5" />
               </button>
             </SignUpButton>
-            <SignInButton mode="modal">
-              <button className="btn-secondary inline-flex items-center justify-center px-6 py-3 rounded-md text-base font-medium">
+            <SignInButton mode="modal" fallbackRedirectUrl="/dashboard">
+              <button className="btn-secondary inline-flex items-center justify-center px-6 py-3 rounded-md text-base font-medium cursor-pointer">
                 Ver Documentação
               </button>
             </SignInButton>
           </>
         )}
+      </div>
+    </div>
+  </section>
+);
+
+// Seção de Monetização
+const MonetizationSection = () => (
+  <section className="py-20 bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="text-center mb-16">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl mb-6">
+          <DollarSign className="w-8 h-8 text-white" />
+        </div>
+        <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white mb-4">
+          Engine de Monetização Completo
+        </h2>
+        <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+          Transforme seu projeto em uma plataforma SaaS lucrativa com nosso
+          sistema avançado de billing e planos
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300">
+          <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center mb-6">
+            <CreditCard className="w-6 h-6 text-white" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+            Stripe Integrado
+          </h3>
+          <p className="text-gray-600 dark:text-gray-300 mb-4">
+            Customer Portal nativo, webhooks automáticos e sincronização em
+            tempo real de assinaturas
+          </p>
+          <ul className="space-y-2 text-sm text-gray-500 dark:text-gray-400">
+            <li className="flex items-center">
+              <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
+              Planos recorrentes e one-time
+            </li>
+            <li className="flex items-center">
+              <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
+              Gestão automática de billing
+            </li>
+            <li className="flex items-center">
+              <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
+              Webhooks configurados
+            </li>
+          </ul>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300">
+          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center mb-6">
+            <TrendingUp className="w-6 h-6 text-white" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+            Planos Dinâmicos
+          </h3>
+          <p className="text-gray-600 dark:text-gray-300 mb-4">
+            Configure planos pelo MongoDB, não por código. Mude preços, features
+            e limites sem deploy
+          </p>
+          <ul className="space-y-2 text-sm text-gray-500 dark:text-gray-400">
+            <li className="flex items-center">
+              <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
+              Free, Business, Enterprise
+            </li>
+            <li className="flex items-center">
+              <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
+              Features por plano
+            </li>
+            <li className="flex items-center">
+              <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
+              Addons pagos separadamente
+            </li>
+          </ul>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300">
+          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center mb-6">
+            <Settings className="w-6 h-6 text-white" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+            Controle Granular
+          </h3>
+          <p className="text-gray-600 dark:text-gray-300 mb-4">
+            Limits por workspace, features condicionais e upgrade prompts
+            inteligentes
+          </p>
+          <ul className="space-y-2 text-sm text-gray-500 dark:text-gray-400">
+            <li className="flex items-center">
+              <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
+              Limites automáticos
+            </li>
+            <li className="flex items-center">
+              <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
+              Prompts de upgrade
+            </li>
+            <li className="flex items-center">
+              <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
+              Analytics de conversão
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div className="text-center">
+        <div className="inline-block bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900 dark:to-emerald-900 rounded-2xl p-8">
+          <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+            💰 Comece a Monetizar Hoje
+          </h3>
+          <p className="text-gray-600 dark:text-gray-300 mb-6">
+            Nosso sistema de billing está pronto para receber pagamentos desde o
+            primeiro dia
+          </p>
+          <div className="flex flex-wrap justify-center gap-4 text-sm font-semibold">
+            <span className="bg-green-500 text-white px-4 py-2 rounded-full">
+              🎯 Free → Paid Conversion
+            </span>
+            <span className="bg-blue-500 text-white px-4 py-2 rounded-full">
+              📊 Revenue Analytics
+            </span>
+            <span className="bg-purple-500 text-white px-4 py-2 rounded-full">
+              🚀 Upsell Automation
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+);
+
+// Seção de Controle de Acesso
+const AccessControlSection = () => (
+  <section className="py-20 bg-white dark:bg-gray-900">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="text-center mb-16">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-orange-500 to-red-600 rounded-2xl mb-6">
+          <Key className="w-8 h-8 text-white" />
+        </div>
+        <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white mb-4">
+          Sistema de Chaves & Beta Testing
+        </h2>
+        <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+          Gerencie beta testers, demos e campanhas promocionais com nosso
+          sistema avançado de chaves de acesso
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center mb-16">
+        <div>
+          <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+            🔑 Libere Acessos sem Pagamento
+          </h3>
+          <div className="space-y-6">
+            <div className="flex items-start space-x-4">
+              <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Crown className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+              </div>
+              <div>
+                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
+                  Chaves de Plano
+                </h4>
+                <p className="text-gray-600 dark:text-gray-300 text-sm">
+                  <code className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
+                    PLAN2024-ABC123
+                  </code>{" "}
+                  - Libera acesso completo ao plano Business por 30 dias
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start space-x-4">
+              <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Zap className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
+                  Chaves de Feature
+                </h4>
+                <p className="text-gray-600 dark:text-gray-300 text-sm">
+                  <code className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
+                    FEAT2024-XYZ789
+                  </code>{" "}
+                  - Ativa Analytics Premium + Export PDF
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start space-x-4">
+              <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Settings className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div>
+                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
+                  Chaves Customizadas
+                </h4>
+                <p className="text-gray-600 dark:text-gray-300 text-sm">
+                  <code className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
+                    CUST2024-DEF456
+                  </code>{" "}
+                  - Permissões específicas + bonus de limites
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-2xl p-8">
+          <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-6">
+            📋 Casos de Uso Práticos
+          </h4>
+          <div className="space-y-4">
+            <div className="bg-white dark:bg-gray-600 rounded-xl p-4">
+              <h5 className="font-semibold text-gray-900 dark:text-white mb-2">
+                🧪 Beta Testers
+              </h5>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                50 chaves para beta testers com acesso Business por 60 dias
+              </p>
+            </div>
+
+            <div className="bg-white dark:bg-gray-600 rounded-xl p-4">
+              <h5 className="font-semibold text-gray-900 dark:text-white mb-2">
+                💼 Demos de Vendas
+              </h5>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Chaves específicas por email para demonstrações com prospects
+              </p>
+            </div>
+
+            <div className="bg-white dark:bg-gray-600 rounded-xl p-4">
+              <h5 className="font-semibold text-gray-900 dark:text-white mb-2">
+                🎁 Campanhas Promocionais
+              </h5>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Black Friday: 1000 chaves com 6 meses grátis
+              </p>
+            </div>
+
+            <div className="bg-white dark:bg-gray-600 rounded-xl p-4">
+              <h5 className="font-semibold text-gray-900 dark:text-white mb-2">
+                🎓 Programa Educacional
+              </h5>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Acesso gratuito para domínios .edu por 1 ano
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-gradient-to-r from-orange-500 to-red-600 rounded-2xl p-8 text-center text-white">
+        <h3 className="text-2xl font-bold mb-4">🚀 Acelere sua Adoção</h3>
+        <p className="text-lg mb-6 opacity-90">
+          Sistema completo de chaves com restrições por email, domínio, tempo e
+          uso
+        </p>
+        <div className="flex flex-wrap justify-center gap-4 text-sm font-semibold">
+          <span className="bg-white bg-opacity-20 px-4 py-2 rounded-full">
+            🎯 Targeting Avançado
+          </span>
+          <span className="bg-white bg-opacity-20 px-4 py-2 rounded-full">
+            📊 Analytics Detalhados
+          </span>
+          <span className="bg-white bg-opacity-20 px-4 py-2 rounded-full">
+            🔒 Controle Total
+          </span>
+        </div>
+      </div>
+    </div>
+  </section>
+);
+
+// Seção Enterprise
+const EnterpriseSection = () => (
+  <section className="py-20 bg-gradient-to-br from-purple-50 to-pink-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="text-center mb-16">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-600 to-pink-600 rounded-2xl mb-6">
+          <Shield className="w-8 h-8 text-white" />
+        </div>
+        <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white mb-4">
+          Enterprise-Ready Features
+        </h2>
+        <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+          Recursos de nível corporativo prontos para escalar seu negócio
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg">
+          <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center mb-6">
+            <Lock className="w-6 h-6 text-white" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+            Controle de Acesso Granular
+          </h3>
+          <p className="text-gray-600 dark:text-gray-300 mb-6">
+            Sistema multi-dimensional de permissões por workspace, section, role
+            e plano
+          </p>
+          <ul className="space-y-3">
+            <li className="flex items-start space-x-3">
+              <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+              <span className="text-sm text-gray-600 dark:text-gray-300">
+                <strong>Role-Based Access:</strong> Owner, Admin, Editor, Viewer
+                com permissões específicas
+              </span>
+            </li>
+            <li className="flex items-start space-x-3">
+              <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+              <span className="text-sm text-gray-600 dark:text-gray-300">
+                <strong>Visibilidade Configurável:</strong> Public, Private,
+                Authenticated, Plan-based
+              </span>
+            </li>
+            <li className="flex items-start space-x-3">
+              <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+              <span className="text-sm text-gray-600 dark:text-gray-300">
+                <strong>Access Rules:</strong> Regras customizadas em JavaScript
+              </span>
+            </li>
+          </ul>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg">
+          <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-teal-600 rounded-xl flex items-center justify-center mb-6">
+            <Globe className="w-6 h-6 text-white" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+            Autenticação Enterprise (Clerk)
+          </h3>
+          <p className="text-gray-600 dark:text-gray-300 mb-6">
+            Integração nativa com Clerk para autenticação profissional e Stripe
+            para pagamentos
+          </p>
+          <ul className="space-y-3">
+            <li className="flex items-start space-x-3">
+              <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+              <span className="text-sm text-gray-600 dark:text-gray-300">
+                <strong>Clerk SSO:</strong> Google, GitHub, Microsoft, SAML
+                enterprise
+              </span>
+            </li>
+            <li className="flex items-start space-x-3">
+              <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+              <span className="text-sm text-gray-600 dark:text-gray-300">
+                <strong>Stripe Portal:</strong> Webhooks automáticos, sync em
+                tempo real
+              </span>
+            </li>
+            <li className="flex items-start space-x-3">
+              <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+              <span className="text-sm text-gray-600 dark:text-gray-300">
+                <strong>Multi-Factor Auth:</strong> SMS, TOTP, backup codes
+                integrados
+              </span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg">
+        <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-8 text-center">
+          🎯 Sistema de Monetização Flexível
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <TrendingUp className="w-8 h-8 text-white" />
+            </div>
+            <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-3">
+              Planos Recorrentes
+            </h4>
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Free, Business, Enterprise com features e limites configuráveis
+            </p>
+          </div>
+
+          <div className="text-center">
+            <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Zap className="w-8 h-8 text-white" />
+            </div>
+            <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-3">
+              Addons Pagos
+            </h4>
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Features vendidas separadamente: Analytics, Exports, Integrações
+            </p>
+          </div>
+
+          <div className="text-center">
+            <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <CreditCard className="w-8 h-8 text-white" />
+            </div>
+            <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-3">
+              Usage-Based
+            </h4>
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Cobrança por uso: API calls, storage, export credits
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="text-center mt-12">
+        <div className="inline-block bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl p-8 text-white">
+          <h3 className="text-2xl font-bold mb-4">🚀 Pronto para Escalar</h3>
+          <p className="text-lg mb-6 opacity-90">
+            Toda a infraestrutura enterprise que você precisa, desde o primeiro
+            dia
+          </p>
+          <div className="flex flex-wrap justify-center gap-4 text-sm font-semibold">
+            <span className="bg-white bg-opacity-20 px-4 py-2 rounded-full">
+              🔒 Multi-tenant Security
+            </span>
+            <span className="bg-white bg-opacity-20 px-4 py-2 rounded-full">
+              📊 Revenue Analytics
+            </span>
+            <span className="bg-white bg-opacity-20 px-4 py-2 rounded-full">
+              ⚡ Auto-scaling
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -341,130 +778,8 @@ const UseCasesSection = () => {
                 </p>
               </div>
             </div>
-
-            {/* Empresa Média */}
-            <div className="home-card rounded-3xl p-8 hover:shadow-2xl transition-all duration-300">
-              <div className="flex items-center mb-6">
-                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl flex items-center justify-center mr-4">
-                  <CheckCircle className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-2xl font-bold text-primary">Empresa</h3>
-                  <p className="text-green-600 font-medium">
-                    Multi-Departamento
-                  </p>
-                </div>
-              </div>
-              <div className="space-y-4 text-secondary">
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
-                  <p>
-                    <strong>RH:</strong> Funcionários, Avaliações, Benefícios
-                  </p>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
-                  <p>
-                    <strong>Vendas:</strong> Leads, Oportunidades, Propostas
-                  </p>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
-                  <p>
-                    <strong>Marketing:</strong> Campanhas, Conteúdo, Analytics
-                  </p>
-                </div>
-              </div>
-              <div className="mt-6 p-4 bg-green-50 rounded-xl">
-                <p className="text-sm text-green-700 font-medium">
-                  "Unificamos todos os departamentos em uma única plataforma.
-                  ROI de 400% no primeiro ano."
-                </p>
-              </div>
-            </div>
-
-            {/* Startup */}
-            <div className="home-card rounded-3xl p-8 hover:shadow-2xl transition-all duration-300">
-              <div className="flex items-center mb-6">
-                <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl flex items-center justify-center mr-4">
-                  <ArrowRight className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-2xl font-bold text-primary">Startup</h3>
-                  <p className="text-orange-600 font-medium">Growth Hacking</p>
-                </div>
-              </div>
-              <div className="space-y-4 text-secondary">
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
-                  <p>
-                    <strong>Produto:</strong> Features, Bugs, Roadmap
-                  </p>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
-                  <p>
-                    <strong>Growth:</strong> Experiments, Metrics, Funnels
-                  </p>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
-                  <p>
-                    <strong>Investidores:</strong> Reports, KPIs, Updates
-                  </p>
-                </div>
-              </div>
-              <div className="mt-6 p-4 bg-orange-50 rounded-xl">
-                <p className="text-sm text-orange-700 font-medium">
-                  "Conseguimos escalar de 0 a 10k usuários organizando todos os
-                  dados de growth em um lugar só."
-                </p>
-              </div>
-            </div>
           </div>
         )}
-
-        {/* Features Grid */}
-        <div className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="home-card rounded-2xl p-8 hover:shadow-xl transition-all duration-300">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl flex items-center justify-center mb-4">
-              <ArrowRight className="w-6 h-6 text-white" />
-            </div>
-            <h3 className="text-xl font-semibold text-primary mb-3">
-              Setup em Minutos
-            </h3>
-            <p className="text-secondary">
-              Crie Content Types, configure Sections com ícones personalizados e
-              comece a trabalhar em menos de 5 minutos.
-            </p>
-          </div>
-
-          <div className="home-card rounded-2xl p-8 hover:shadow-xl transition-all duration-300">
-            <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center mb-4">
-              <Book className="w-6 h-6 text-white" />
-            </div>
-            <h3 className="text-xl font-semibold text-primary mb-3">
-              Multi-Workspace
-            </h3>
-            <p className="text-secondary">
-              Gerencie múltiplos projetos ou clientes com isolamento completo,
-              controle de acesso granular e billing separado.
-            </p>
-          </div>
-
-          <div className="home-card rounded-2xl p-8 hover:shadow-xl transition-all duration-300">
-            <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-blue-500 rounded-xl flex items-center justify-center mb-4">
-              <CheckCircle className="w-6 h-6 text-white" />
-            </div>
-            <h3 className="text-xl font-semibold text-primary mb-3">
-              Enterprise Ready
-            </h3>
-            <p className="text-secondary">
-              Stripe + Clerk integrados, API completa, roles avançados e
-              escalabilidade automática para qualquer tamanho.
-            </p>
-          </div>
-        </div>
       </div>
     </section>
   );
@@ -572,7 +887,7 @@ const FaqSection = () => {
               soluções mais sofisticadas em menos tempo.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <SignUpButton mode="modal">
+              <SignUpButton mode="modal" fallbackRedirectUrl="/dashboard">
                 <button className="bg-white text-blue-600 px-8 py-3 rounded-full font-semibold hover:bg-blue-50 transition-colors">
                   Começar Gratuitamente
                 </button>

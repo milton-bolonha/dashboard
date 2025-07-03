@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useSession } from "@clerk/nextjs";
 
 const IconKey = () => (
   <svg
@@ -20,6 +21,7 @@ const IconKey = () => (
 
 export default function ActivateKeyModal({ isOpen, onClose, onSuccess }) {
   const { currentWorkspace } = useWorkspace();
+  const { session } = useSession();
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -33,36 +35,90 @@ export default function ActivateKeyModal({ isOpen, onClose, onSuccess }) {
       return;
     }
 
+    if (!session) {
+      setError("Sua sessão não foi encontrada. Tente recarregar a página.");
+      return;
+    }
+
+    console.log("\n[CLIENT DEBUG] === INICIANDO ATIVAÇÃO DA CHAVE ===");
+    console.log("[CLIENT DEBUG] Informações da sessão:", {
+      sessionId: session.id,
+      userId: session.user?.id,
+      hasSession: !!session,
+      sessionStatus: session.status,
+      lastActiveAt: session.lastActiveAt,
+      createdAt: session.createdAt,
+    });
+
     setLoading(true);
     setError("");
     setSuccess("");
 
     try {
+      console.log("[CLIENT DEBUG] Obtendo token...");
+      const token = await session.getToken();
+      console.log("[CLIENT DEBUG] Token obtido:", {
+        hasToken: !!token,
+        tokenPrefix: token ? token.substring(0, 20) + "..." : "null",
+        tokenLength: token ? token.length : 0,
+      });
+
+      const requestBody = {
+        code: code.trim().toLowerCase(),
+        workspaceId: currentWorkspace._id,
+      };
+
+      console.log("[CLIENT DEBUG] Preparando requisição:", {
+        url: "/api/access-keys/activate",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${
+            token ? "[TOKEN_PRESENTE]" : "[TOKEN_AUSENTE]"
+          }`,
+        },
+        body: requestBody,
+      });
+
+      console.log("[CLIENT DEBUG] Enviando requisição...");
       const response = await fetch("/api/access-keys/activate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code: code.trim().toUpperCase(),
-          workspaceId: currentWorkspace._id,
-        }),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      console.log("[CLIENT DEBUG] Resposta recebida:", {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries()),
       });
 
       const result = await response.json();
+      console.log("[CLIENT DEBUG] Resultado parseado:", result);
 
       if (result.success) {
+        console.log("[CLIENT DEBUG] Sucesso na ativação da chave");
         setSuccess(result.message);
         setCode("");
         onSuccess?.(result);
-        // Fechar modal após 2 segundos para mostrar sucesso
         setTimeout(() => {
           onClose();
           setSuccess("");
         }, 2000);
       } else {
+        console.log("[CLIENT DEBUG] Erro na ativação:", result.error);
         setError(result.error || "Erro ao ativar chave");
       }
     } catch (error) {
-      console.error("Erro ao ativar chave:", error);
+      console.error("[CLIENT DEBUG] Erro CRÍTICO:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+      });
       setError("Erro de conexão");
     } finally {
       setLoading(false);
@@ -70,10 +126,8 @@ export default function ActivateKeyModal({ isOpen, onClose, onSuccess }) {
   };
 
   const handleCodeChange = (e) => {
-    // Transformar para maiúsculo e remover espaços
-    const value = e.target.value.toUpperCase().replace(/\s/g, "");
+    const value = e.target.value.replace(/\s/g, "");
     setCode(value);
-    // Limpar erro quando começar a digitar
     if (error) setError("");
   };
 
@@ -102,7 +156,6 @@ export default function ActivateKeyModal({ isOpen, onClose, onSuccess }) {
           </button>
         </div>
 
-        {/* Alertas */}
         {error && (
           <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
             ❌ {error}
@@ -124,10 +177,9 @@ export default function ActivateKeyModal({ isOpen, onClose, onSuccess }) {
               type="text"
               value={code}
               onChange={handleCodeChange}
-              placeholder="Ex: PLAN2024-ABC123"
+              placeholder="Ex: DS-SA-KEY-..."
               className="w-full px-3 py-2 border rounded-lg text-center font-mono text-lg tracking-wider"
               disabled={loading || success}
-              maxLength={20}
               required
             />
             <p className="text-xs text-gray-600 mt-1">
@@ -167,7 +219,6 @@ export default function ActivateKeyModal({ isOpen, onClose, onSuccess }) {
           </div>
         </form>
 
-        {/* Preview do código formatado */}
         {code && !success && (
           <div className="mt-4 p-3 bg-gray-100 rounded-lg">
             <p className="text-sm text-gray-600 mb-1">Código formatado:</p>
@@ -181,12 +232,10 @@ export default function ActivateKeyModal({ isOpen, onClose, onSuccess }) {
   );
 }
 
-// Componente do botão para abrir o modal
 export function ActivateKeyButton({ className = "" }) {
   const [showModal, setShowModal] = useState(false);
 
   const handleSuccess = (result) => {
-    // Recarregar a página para atualizar permissões
     window.location.reload();
   };
 
