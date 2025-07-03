@@ -3,18 +3,24 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useSections } from "@/contexts/SectionsContext";
 import React from "react";
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { user } = useUser();
   const { isCollapsed, setIsCollapsed, isHovered, setIsHovered } =
     useSidebarState();
   const { sections, loading: sectionsLoading } = useSections();
   const { currentWorkspace } = useWorkspace();
 
   const [showConfig, setShowConfig] = useState(false);
+  const [showAccessControl, setShowAccessControl] = useState(false);
+
+  // Verificar se o usuário é superadmin
+  const isSuperAdmin = user?.publicMetadata?.role === "superadmin";
 
   // ✅ NOVO: Sections ordenadas para o menu
   const orderedSections = React.useMemo(() => {
@@ -433,6 +439,144 @@ export function Sidebar() {
             </div>
           )}
         </div>
+
+        {/* Access Control & Plans - AGORA SÓ PARA SUPER ADMIN */}
+        {isSuperAdmin && (
+          <div className="mb-2">
+            <button
+              onClick={() => setShowAccessControl(!showAccessControl)}
+              className="w-full flex items-center justify-between px-2 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white rounded-md transition-all duration-200 cursor-pointer"
+              title={isCollapsed && !isHovered ? "Access Control" : ""}
+            >
+              <div className="flex items-center">
+                <div className="flex-shrink-0 w-5 h-5">
+                  <svg fill="currentColor" viewBox="0 0 20 20">
+                    {getIconSvg("lock-closed")}
+                  </svg>
+                </div>
+                <div
+                  className={`ml-3 overflow-hidden transition-all duration-300 ${
+                    isCollapsed && !isHovered
+                      ? "opacity-0 w-0"
+                      : "opacity-100 w-auto"
+                  }`}
+                >
+                  <span className="whitespace-nowrap">Access Control</span>
+                </div>
+              </div>
+              <div
+                className={`flex-shrink-0 w-4 h-4 transition-all duration-200 ${
+                  isCollapsed && !isHovered ? "opacity-0" : "opacity-100"
+                } ${showAccessControl ? "rotate-180" : "rotate-0"}`}
+              >
+                <svg fill="currentColor" viewBox="0 0 20 20">
+                  {getIconSvg("chevron-down")}
+                </svg>
+              </div>
+            </button>
+
+            {showAccessControl && (
+              <div
+                className={`mt-1 space-y-1 transition-all duration-300 ${
+                  isCollapsed && !isHovered ? "ml-0" : "ml-2"
+                }`}
+              >
+                <Link
+                  href="/dashboard/admin/plans"
+                  className={`group w-full flex items-center px-2 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
+                    isActive("/dashboard/admin/plans")
+                      ? "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white shadow-lg border-l-4 border-green-500"
+                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+                  }`}
+                  title={isCollapsed && !isHovered ? "Plans Management" : ""}
+                >
+                  <div
+                    className={`flex-shrink-0 w-5 h-5 ${
+                      isActive("/dashboard/admin/plans")
+                        ? "text-green-500 dark:text-green-400"
+                        : ""
+                    }`}
+                  >
+                    <svg fill="currentColor" viewBox="0 0 20 20">
+                      {getIconSvg("shopping-cart")}
+                    </svg>
+                  </div>
+                  <div
+                    className={`ml-3 overflow-hidden transition-all duration-300 ${
+                      isCollapsed && !isHovered
+                        ? "opacity-0 w-0"
+                        : "opacity-100 w-auto"
+                    }`}
+                  >
+                    <span className="whitespace-nowrap">Plans</span>
+                  </div>
+                </Link>
+
+                <Link
+                  href="/dashboard/admin/access-keys"
+                  className={`group w-full flex items-center px-2 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
+                    isActive("/dashboard/admin/access-keys")
+                      ? "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white shadow-lg border-l-4 border-orange-500"
+                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+                  }`}
+                  title={isCollapsed && !isHovered ? "Access Keys" : ""}
+                >
+                  <div
+                    className={`flex-shrink-0 w-5 h-5 ${
+                      isActive("/dashboard/admin/access-keys")
+                        ? "text-orange-500 dark:text-orange-400"
+                        : ""
+                    }`}
+                  >
+                    <svg fill="currentColor" viewBox="0 0 20 20">
+                      {getIconSvg("tag")}
+                    </svg>
+                  </div>
+                  <div
+                    className={`ml-3 overflow-hidden transition-all duration-300 ${
+                      isCollapsed && !isHovered
+                        ? "opacity-0 w-0"
+                        : "opacity-100 w-auto"
+                    }`}
+                  >
+                    <span className="whitespace-nowrap">Access Keys</span>
+                  </div>
+                </Link>
+
+                <Link
+                  href="/dashboard/access/permissions"
+                  className={`group w-full flex items-center px-2 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
+                    isActive("/dashboard/access/permissions")
+                      ? "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white shadow-lg border-l-4 border-blue-500"
+                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+                  }`}
+                  title={isCollapsed && !isHovered ? "Permissions" : ""}
+                >
+                  <div
+                    className={`flex-shrink-0 w-5 h-5 ${
+                      isActive("/dashboard/access/permissions")
+                        ? "text-blue-500 dark:text-blue-400"
+                        : ""
+                    }`}
+                  >
+                    <svg fill="currentColor" viewBox="0 0 20 20">
+                      {getIconSvg("check-circle")}
+                    </svg>
+                  </div>
+                  <div
+                    className={`ml-3 overflow-hidden transition-all duration-300 ${
+                      isCollapsed && !isHovered
+                        ? "opacity-0 w-0"
+                        : "opacity-100 w-auto"
+                    }`}
+                  >
+                    <span className="whitespace-nowrap">Permissions</span>
+                  </div>
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Management - Margens consistentes */}
         <div className="mb-2">

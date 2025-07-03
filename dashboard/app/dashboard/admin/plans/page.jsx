@@ -1,628 +1,282 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useAccess } from "@/hooks/useAccess";
-import { toast } from "react-hot-toast";
+import { useUser } from "@clerk/nextjs";
+
+// Ícones
+const IconPlus = () => (
+  <svg
+    className="w-5 h-5"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+    />
+  </svg>
+);
+
+const IconEdit = () => (
+  <svg
+    className="w-4 h-4"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5l12.232-12.232z"
+    />
+  </svg>
+);
+
+const IconTrash = () => (
+  <svg
+    className="w-4 h-4"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+    />
+  </svg>
+);
+
+const IconSpinner = () => (
+  <svg
+    className="animate-spin h-5 w-5 text-white"
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+  >
+    <circle
+      className="opacity-25"
+      cx="12"
+      cy="12"
+      r="10"
+      stroke="currentColor"
+      strokeWidth="4"
+    ></circle>
+    <path
+      className="opacity-75"
+      fill="currentColor"
+      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+    ></path>
+  </svg>
+);
 
 export default function PlansAdminPage() {
-  const router = useRouter();
-  const { canSync } = useAccess();
+  const { user } = useUser();
   const [plans, setPlans] = useState([]);
-  const [features, setFeatures] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [editingPlan, setEditingPlan] = useState(null);
-  const [showPlanModal, setShowPlanModal] = useState(false);
+  const [error, setError] = useState("");
 
-  // Verificar permissão de super admin
+  const isSuperAdmin = user?.publicMetadata?.role === "superadmin";
+
   useEffect(() => {
-    if (!canSync("manage", "system")) {
-      router.push("/dashboard");
+    if (isSuperAdmin) {
+      loadPlans();
     }
-  }, [canSync, router]);
+  }, [isSuperAdmin]);
 
-  // Carregar dados
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadPlans = async () => {
     try {
-      const [plansRes, featuresRes] = await Promise.all([
-        fetch("/api/admin/plans"),
-        fetch("/api/admin/features"),
-      ]);
-
-      if (plansRes.ok && featuresRes.ok) {
-        setPlans(await plansRes.json());
-        setFeatures(await featuresRes.json());
+      setLoading(true);
+      setError("");
+      const response = await fetch("/api/admin/plans");
+      if (response.ok) {
+        setPlans(await response.json());
+      } else {
+        throw new Error("Falha ao carregar os planos.");
       }
-    } catch (error) {
-      toast.error("Erro ao carregar dados");
+    } catch (err) {
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSavePlan = async (planData) => {
-    try {
-      const url = editingPlan
-        ? `/api/admin/plans/${editingPlan._id}`
-        : "/api/admin/plans";
-
-      const method = editingPlan ? "PUT" : "POST";
-
-      const response = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(planData),
-      });
-
-      if (response.ok) {
-        toast.success(editingPlan ? "Plano atualizado!" : "Plano criado!");
-        setShowPlanModal(false);
-        setEditingPlan(null);
-        loadData();
-      } else {
-        throw new Error("Erro ao salvar plano");
-      }
-    } catch (error) {
-      toast.error(error.message);
-    }
+  const handleEdit = (planId) => {
+    // Lógica para abrir modal de edição
+    console.log("Editar plano:", planId);
   };
 
-  const handleDeletePlan = async (planId) => {
+  const handleDelete = async (planId) => {
     if (!confirm("Tem certeza que deseja excluir este plano?")) return;
 
-    try {
-      const response = await fetch(`/api/admin/plans/${planId}`, {
-        method: "DELETE",
-      });
-
-      if (response.ok) {
-        toast.success("Plano excluído!");
-        loadData();
-      }
-    } catch (error) {
-      toast.error("Erro ao excluir plano");
-    }
+    // Lógica para exclusão
+    console.log("Excluir plano:", planId);
   };
 
+  if (!isSuperAdmin) {
+    return (
+      <div className="p-8 text-center">
+        <div className="text-6xl mb-4">
+          <svg
+            className="mx-auto h-12 w-12 text-gray-400"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            aria-hidden="true"
+          >
+            <path
+              vectorEffect="non-scaling-stroke"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+            />
+          </svg>
+        </div>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+          Acesso Restrito
+        </h1>
+        <p className="text-gray-600 dark:text-gray-400">
+          Esta área é restrita apenas para super administradores.
+        </p>
+      </div>
+    );
+  }
+
   if (loading) {
-    return <div className="p-8">Carregando...</div>;
+    return (
+      <div className="p-8 text-center">
+        <IconSpinner />
+        <p className="mt-2 text-gray-600 dark:text-gray-400">
+          Carregando planos...
+        </p>
+      </div>
+    );
   }
 
   return (
-    <div className="p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Gerenciar Planos</h1>
-          <p className="text-gray-600">
-            Configure planos, limites e permissões do sistema
+    <div className="p-6">
+      <header className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+            Gerenciamento de Planos
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-2">
+            Crie e gerencie os planos de assinatura do sistema.
           </p>
         </div>
+        <button
+          onClick={() => console.log("Adicionar novo plano")}
+          className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <IconPlus />
+          Novo Plano
+        </button>
+      </header>
 
-        {/* Botão de adicionar */}
-        <div className="mb-6 flex justify-end">
-          <button
-            onClick={() => {
-              setEditingPlan(null);
-              setShowPlanModal(true);
-            }}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            Adicionar Plano
-          </button>
-        </div>
-
-        {/* Lista de planos */}
-        <div className="grid gap-6">
-          {plans.map((plan) => (
-            <PlanCard
-              key={plan._id}
-              plan={plan}
-              onEdit={() => {
-                setEditingPlan(plan);
-                setShowPlanModal(true);
-              }}
-              onDelete={() => handleDeletePlan(plan._id)}
-            />
-          ))}
-        </div>
-
-        {/* Modal de edição/criação */}
-        {showPlanModal && (
-          <PlanModal
-            plan={editingPlan}
-            features={features}
-            onSave={handleSavePlan}
-            onClose={() => {
-              setShowPlanModal(false);
-              setEditingPlan(null);
-            }}
-          />
-        )}
-      </div>
-    </div>
-  );
-}
-
-// Componente do card de plano
-function PlanCard({ plan, onEdit, onDelete }) {
-  return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <div className="flex justify-between items-start mb-4">
-        <div>
-          <h3 className="text-xl font-semibold">{plan.name}</h3>
-          <p className="text-gray-600">{plan.description}</p>
-          <p className="text-sm text-gray-500 mt-1">Slug: {plan.slug}</p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={onEdit}
-            className="px-3 py-1 text-blue-600 hover:bg-blue-50 rounded"
-          >
-            Editar
-          </button>
-          <button
-            onClick={onDelete}
-            className="px-3 py-1 text-red-600 hover:bg-red-50 rounded"
-          >
-            Excluir
-          </button>
-        </div>
-      </div>
-
-      {/* Limites */}
-      <div className="mb-4">
-        <h4 className="font-medium mb-2">Limites:</h4>
-        <div className="grid grid-cols-3 gap-4 text-sm">
-          <div>
-            <span className="text-gray-600">Workspaces:</span>{" "}
-            <span className="font-medium">{plan.limits?.workspaces || 0}</span>
-          </div>
-          <div>
-            <span className="text-gray-600">Membros:</span>{" "}
-            <span className="font-medium">
-              {plan.limits?.workspaceMembers || 0}
-            </span>
-          </div>
-          <div>
-            <span className="text-gray-600">Seções:</span>{" "}
-            <span className="font-medium">{plan.limits?.sections || 0}</span>
-          </div>
-          <div>
-            <span className="text-gray-600">Itens/Seção:</span>{" "}
-            <span className="font-medium">
-              {plan.limits?.itemsPerSection || 0}
-            </span>
-          </div>
-          <div>
-            <span className="text-gray-600">API Calls:</span>{" "}
-            <span className="font-medium">{plan.limits?.apiCalls || 0}</span>
-          </div>
-          <div>
-            <span className="text-gray-600">Storage:</span>{" "}
-            <span className="font-medium">
-              {formatBytes(plan.limits?.storage || 0)}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Features */}
-      {plan.features?.length > 0 && (
-        <div>
-          <h4 className="font-medium mb-2">Features ativas:</h4>
-          <div className="flex flex-wrap gap-2">
-            {plan.features.map((feature) => (
-              <span
-                key={feature.featureId}
-                className="px-2 py-1 bg-green-100 text-green-700 rounded text-sm"
-              >
-                {feature.featureId}
-              </span>
-            ))}
-          </div>
+      {error && (
+        <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+          <p>
+            <strong>Erro:</strong> {error}
+          </p>
         </div>
       )}
 
-      {/* Status */}
-      <div className="mt-4 flex items-center gap-4">
-        {plan.isDefault && (
-          <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm">
-            Plano Padrão
-          </span>
-        )}
-        <span
-          className={`px-2 py-1 rounded text-sm ${
-            plan.isActive
-              ? "bg-green-100 text-green-700"
-              : "bg-gray-100 text-gray-600"
-          }`}
-        >
-          {plan.isActive ? "Ativo" : "Inativo"}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-// Modal de edição/criação de plano
-function PlanModal({ plan, features, onSave, onClose }) {
-  const [formData, setFormData] = useState({
-    name: plan?.name || "",
-    slug: plan?.slug || "",
-    description: plan?.description || "",
-    hierarchy: plan?.hierarchy || 0,
-    isActive: plan?.isActive ?? true,
-    isDefault: plan?.isDefault || false,
-    stripePriceIds: plan?.stripePriceIds || { monthly: "", yearly: "" },
-    limits: plan?.limits || {
-      workspaces: 1,
-      workspaceMembers: 5,
-      sections: 10,
-      itemsPerSection: 100,
-      storage: 1073741824,
-      apiCalls: 1000,
-    },
-    features: plan?.features || [],
-    permissions: plan?.permissions || [],
-  });
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSave(formData);
-  };
-
-  const toggleFeature = (featureId) => {
-    const exists = formData.features.find((f) => f.featureId === featureId);
-
-    if (exists) {
-      setFormData({
-        ...formData,
-        features: formData.features.filter((f) => f.featureId !== featureId),
-      });
-    } else {
-      setFormData({
-        ...formData,
-        features: [...formData.features, { featureId, enabled: true }],
-      });
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <h2 className="text-2xl font-bold mb-6">
-            {plan ? "Editar Plano" : "Novo Plano"}
-          </h2>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Informações básicas */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">
+      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 dark:bg-gray-800">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Nome do Plano
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border rounded-lg"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Slug (identificador único)
-                </label>
-                <input
-                  type="text"
-                  value={formData.slug}
-                  onChange={(e) =>
-                    setFormData({ ...formData, slug: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border rounded-lg"
-                  pattern="[a-z0-9-]+"
-                  required
-                />
-              </div>
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Price ID (Mensal)
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Hierarquia
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Ações
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+              {plans.map((plan) => (
+                <tr
+                  key={plan._id}
+                  className="hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                >
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="font-semibold text-gray-900 dark:text-white">
+                      {plan.name}
+                    </div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                      {plan.slug}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span
+                      className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        plan.isActive
+                          ? "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300"
+                          : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+                      }`}
+                    >
+                      {plan.isActive ? "Ativo" : "Inativo"}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap font-mono text-sm text-gray-600 dark:text-gray-400">
+                    {plan.stripePriceIds?.monthly || "Não definido"}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                    {plan.hierarchy}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <div className="flex justify-end items-center gap-2">
+                      <button
+                        onClick={() => handleEdit(plan._id)}
+                        className="p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors cursor-pointer"
+                        title="Editar Plano"
+                      >
+                        <IconEdit />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(plan._id)}
+                        className="p-2 text-gray-500 hover:text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors cursor-pointer"
+                        title="Excluir Plano"
+                      >
+                        <IconTrash />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {plans.length === 0 && !loading && (
+            <div className="text-center py-12">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Nenhum plano encontrado
+              </h3>
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                Comece adicionando um novo plano para o seu sistema.
+              </p>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                Descrição
-              </label>
-              <textarea
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                className="w-full px-3 py-2 border rounded-lg"
-                rows={3}
-              />
-            </div>
-
-            {/* Stripe Price IDs */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Stripe Price ID (Mensal)
-                </label>
-                <input
-                  type="text"
-                  value={formData.stripePriceIds.monthly}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      stripePriceIds: {
-                        ...formData.stripePriceIds,
-                        monthly: e.target.value,
-                      },
-                    })
-                  }
-                  className="w-full px-3 py-2 border rounded-lg"
-                  placeholder="price_..."
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Stripe Price ID (Anual)
-                </label>
-                <input
-                  type="text"
-                  value={formData.stripePriceIds.yearly}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      stripePriceIds: {
-                        ...formData.stripePriceIds,
-                        yearly: e.target.value,
-                      },
-                    })
-                  }
-                  className="w-full px-3 py-2 border rounded-lg"
-                  placeholder="price_..."
-                />
-              </div>
-            </div>
-
-            {/* Limites */}
-            <div>
-              <h3 className="font-medium mb-3">Limites do Plano</h3>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm text-gray-600 mb-1">
-                    Workspaces
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.limits.workspaces}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        limits: {
-                          ...formData.limits,
-                          workspaces: parseInt(e.target.value),
-                        },
-                      })
-                    }
-                    className="w-full px-3 py-2 border rounded-lg"
-                    min="0"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm text-gray-600 mb-1">
-                    Membros/Workspace
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.limits.workspaceMembers}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        limits: {
-                          ...formData.limits,
-                          workspaceMembers: parseInt(e.target.value),
-                        },
-                      })
-                    }
-                    className="w-full px-3 py-2 border rounded-lg"
-                    min="0"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm text-gray-600 mb-1">
-                    Seções
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.limits.sections}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        limits: {
-                          ...formData.limits,
-                          sections: parseInt(e.target.value),
-                        },
-                      })
-                    }
-                    className="w-full px-3 py-2 border rounded-lg"
-                    min="0"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm text-gray-600 mb-1">
-                    Itens/Seção
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.limits.itemsPerSection}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        limits: {
-                          ...formData.limits,
-                          itemsPerSection: parseInt(e.target.value),
-                        },
-                      })
-                    }
-                    className="w-full px-3 py-2 border rounded-lg"
-                    min="0"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm text-gray-600 mb-1">
-                    API Calls/mês
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.limits.apiCalls}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        limits: {
-                          ...formData.limits,
-                          apiCalls: parseInt(e.target.value),
-                        },
-                      })
-                    }
-                    className="w-full px-3 py-2 border rounded-lg"
-                    min="0"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm text-gray-600 mb-1">
-                    Storage (GB)
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.limits.storage / (1024 * 1024 * 1024)}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        limits: {
-                          ...formData.limits,
-                          storage:
-                            parseInt(e.target.value) * 1024 * 1024 * 1024,
-                        },
-                      })
-                    }
-                    className="w-full px-3 py-2 border rounded-lg"
-                    min="0"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Features */}
-            <div>
-              <h3 className="font-medium mb-3">Features Incluídas</h3>
-              <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border rounded-lg p-3">
-                {features.map((feature) => (
-                  <label
-                    key={feature._id}
-                    className="flex items-center space-x-2 cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={formData.features.some(
-                        (f) => f.featureId === feature._id
-                      )}
-                      onChange={() => toggleFeature(feature._id)}
-                      className="rounded"
-                    />
-                    <span className="text-sm">{feature.name}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {/* Configurações */}
-            <div className="flex items-center gap-6">
-              <label className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  checked={formData.isActive}
-                  onChange={(e) =>
-                    setFormData({ ...formData, isActive: e.target.checked })
-                  }
-                  className="rounded"
-                />
-                <span className="text-sm">Plano Ativo</span>
-              </label>
-
-              <label className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  checked={formData.isDefault}
-                  onChange={(e) =>
-                    setFormData({ ...formData, isDefault: e.target.checked })
-                  }
-                  className="rounded"
-                />
-                <span className="text-sm">Plano Padrão</span>
-              </label>
-
-              <div className="flex items-center space-x-2">
-                <label className="text-sm">Hierarquia:</label>
-                <input
-                  type="number"
-                  value={formData.hierarchy}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      hierarchy: parseInt(e.target.value),
-                    })
-                  }
-                  className="w-20 px-2 py-1 border rounded"
-                  min="0"
-                />
-              </div>
-            </div>
-
-            {/* Botões */}
-            <div className="flex justify-end gap-3 pt-4 border-t">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 border rounded-lg hover:bg-gray-50"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                {plan ? "Atualizar" : "Criar"} Plano
-              </button>
-            </div>
-          </form>
+          )}
         </div>
       </div>
     </div>
   );
-}
-
-// Função auxiliar para formatar bytes
-function formatBytes(bytes) {
-  if (bytes === 0) return "0 Bytes";
-  if (bytes === -1) return "Ilimitado";
-
-  const k = 1024;
-  const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
 }

@@ -1,58 +1,40 @@
 "use client";
 
-import { ClerkProvider, useUser } from "@clerk/nextjs";
-import { Sidebar } from "../../components/ui/Sidebar";
+import { useUser, UserButton } from "@clerk/nextjs";
+import { Sidebar } from "@/components/ui/Sidebar";
 import { TopBar } from "../../components/ui/TopBar";
 import { LoadingBar } from "../../components/ui/LoadingBar";
 import { SectionsProvider } from "../../contexts/SectionsContext";
 import { WorkspaceProvider } from "../../contexts/WorkspaceContext";
 import { useUserPlanVerification } from "../../hooks/useUserPlanVerification";
 
-function DashboardContent({ children }) {
-  const { user } = useUser();
+// Este é o layout principal para a área autenticada do dashboard.
+// Ele garante que o sidebar seja exibido em todas as páginas do dashboard.
+export default function DashboardLayout({ children }) {
+  const { isLoaded, isSignedIn } = useUser();
   const { plans } = useUserPlanVerification();
 
-  return (
-    <div className="h-screen bg-gray-100 dark:bg-gray-900 transition-colors">
-      {/* Loading bar no topo */}
-      <LoadingBar />
-
-      {/* Sidebar fixo */}
-      <Sidebar activePlans={plans?.active} />
-
-      {/* Main content with left margin for fixed sidebar */}
-      <div className="ml-16 transition-all duration-300 flex flex-col h-full overflow-hidden">
-        {/* Top bar */}
-        <TopBar user={user}>
-          <div className="flex items-center space-x-4">
-            {plans?.active?.length > 0 && (
-              <div className="flex items-center space-x-2">
-                <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                <span className="text-sm text-gray-600 dark:text-gray-300">
-                  {plans.active.length} plano(s) ativo(s)
-                </span>
-              </div>
-            )}
-          </div>
-        </TopBar>
-
-        {/* Page content */}
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 dark:bg-gray-900 transition-colors p-6">
-          {children}
-        </main>
+  if (!isLoaded) {
+    // Tela de carregamento enquanto o Clerk verifica a sessão
+    return (
+      <div className="h-screen w-full flex items-center justify-center">
+        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600"></div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
-export default function DashboardLayout({ children }) {
+  // Se o usuário não estiver logado, o middleware já o terá redirecionado.
+  // Esta verificação é uma segurança adicional.
+  if (!isSignedIn) {
+    return null;
+  }
+
   return (
-    <ClerkProvider>
-      <WorkspaceProvider>
-        <SectionsProvider>
-          <DashboardContent>{children}</DashboardContent>
-        </SectionsProvider>
-      </WorkspaceProvider>
-    </ClerkProvider>
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
+      <Sidebar />
+      <main className="flex-1 overflow-y-auto pl-16">
+        <div className="p-6">{children}</div>
+      </main>
+    </div>
   );
 }

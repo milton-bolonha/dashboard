@@ -16,7 +16,8 @@
     "test": "npm --workspace=dashboard run test",
     "dash:dev": "npm --workspace=dashboard run dev",
     "dash:build": "npm --workspace=dashboard run build",
-    "dash:start": "npm --workspace=dashboard run start"
+    "dash:start": "npm --workspace=dashboard run start",
+    "dash:superadmin": "npm --workspace=dashboard run setup:superadmin"
   },
   "dependencies": {
     "@netlify/functions": "^2.0.0",

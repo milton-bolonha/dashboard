@@ -1,4 +1,5 @@
-import { auth, currentUser } from "@clerk/nextjs";
+import { auth } from "@clerk/nextjs/server";
+import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { AccessKeys } from "@/lib/access-keys";
 

@@ -23,6 +23,7 @@
     "test:corrections": "npm run test:sidebar && npm run test:middleware && npm run test:api",
     "test:all": "npm run test:corrections && npm run test:cloudinary",
     "setup": "node scripts/setup-env.js",
+    "setup:superadmin": "node scripts/generate-superadmin-key.js",
     "migrate:workspaces": "node scripts/run-migration.js",
     "sync:clerk": "node scripts/sync-clerk-users.js"
   },

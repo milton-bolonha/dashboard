@@ -1,67 +1,91 @@
-import { auth } from "@clerk/nextjs";
+import { auth } from "@clerk/nextjs/server";
+import { clerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { AccessKeys } from "@/lib/access-keys";
+import { db } from "@/lib/db";
+import bcrypt from "bcryptjs";
 
-export async function POST(request) {
+async function handleSuperAdminSetup(key, userId) {
+  const setupCollection = db.collection("_internal_setup");
+  const setupKeyDoc = await setupCollection.findOne({
+    type: "SUPER_ADMIN_SETUP_KEY",
+  });
+
+  // Se não houver documento de setup, não é uma chave de super admin
+  if (!setupKeyDoc) return null;
+
+  // Verificar se a chave expirou
+  if (new Date() > setupKeyDoc.expiresAt) {
+    await setupCollection.deleteOne({ _id: setupKeyDoc._id });
+    return {
+      success: false,
+      error: "A chave de configuração de super admin expirou.",
+    };
+  }
+
+  // Comparar a chave fornecida com o hash
+  const isValid = await bcrypt.compare(key, setupKeyDoc.hash);
+
+  if (isValid) {
+    // Chave válida! Promover usuário a super admin
+    await clerkClient.users.updateUser(userId, {
+      publicMetadata: { role: "superadmin" },
+    });
+
+    // Destruir a chave para que não possa ser usada novamente
+    await setupCollection.deleteOne({ _id: setupKeyDoc._id });
+
+    return {
+      success: true,
+      message:
+        "Super Admin ativado! Você agora tem controle total. A página será recarregada.",
+      grants: {
+        role: "superadmin",
+      },
+    };
+  }
+
+  // Se a chave for do tipo setup mas inválida, retorna nulo para continuar o fluxo normal
+  return null;
+}
+
+export async function POST(req) {
   try {
     const { userId } = auth();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { code, workspaceId } = await request.json();
-
+    const { code, workspaceId } = await req.json();
     if (!code || !workspaceId) {
       return NextResponse.json(
-        { error: "Code and workspaceId are required" },
+        { error: "Código da chave e ID do workspace são obrigatórios" },
         { status: 400 }
       );
     }
 
-    // Obter dados do usuário (email)
-    const user = await clerkClient.users.getUser(userId);
-    const userEmail = user.emailAddresses.find(
-      (e) => e.id === user.primaryEmailAddressId
-    )?.emailAddress;
-
-    if (!userEmail) {
-      return NextResponse.json(
-        { error: "User email not found" },
-        { status: 400 }
-      );
+    // 1. Tentar processar como chave de setup de Super Admin primeiro
+    if (code.startsWith("ds-sa-key")) {
+      const setupResult = await handleSuperAdminSetup(code, userId);
+      if (setupResult) {
+        return NextResponse.json(setupResult);
+      }
     }
 
-    // Obter IP e User Agent para tracking
-    const ip =
-      request.headers.get("x-forwarded-for") ||
-      request.headers.get("x-real-ip") ||
-      "unknown";
-    const userAgent = request.headers.get("user-agent") || "unknown";
+    // 2. Se não for uma chave de setup, processar como chave de acesso normal
+    const accessKeys = new AccessKeys();
+    const result = await accessKeys.activateKey(code, userId, workspaceId);
 
-    // Ativar chave
-    const result = await AccessKeys.activateKey(
-      code.trim().toUpperCase(),
-      userId,
-      workspaceId,
-      userEmail,
-      { ip, userAgent }
-    );
-
-    return NextResponse.json({
-      success: true,
-      message: `Chave "${result.key.name}" ativada com sucesso!`,
-      grants: result.grants,
-      expiresAt: result.activation.expiresAt,
-    });
+    if (result.success) {
+      return NextResponse.json(result);
+    } else {
+      return NextResponse.json({ error: result.error }, { status: 400 });
+    }
   } catch (error) {
-    console.error("Erro ao ativar chave:", error);
-
+    console.error("Erro na ativação da chave:", error);
     return NextResponse.json(
-      {
-        error: error.message || "Erro interno do servidor",
-        success: false,
-      },
-      { status: 400 }
+      { error: "Ocorreu um erro interno." },
+      { status: 500 }
     );
   }
 }
