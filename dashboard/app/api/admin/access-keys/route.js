@@ -16,9 +16,8 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
 
-    // Lógica de listKeys movida para cá
     const filters = {
-      type: searchParams.get("type"),
+      type: searchParams.get("type") || undefined,
       isActive:
         searchParams.get("isActive") === "true"
           ? true
@@ -28,22 +27,7 @@ export async function GET(request) {
       tags: searchParams.get("tags")?.split(",").filter(Boolean),
     };
 
-    const query = {};
-    if (filters.type) {
-      query.type = filters.type;
-    }
-    if (filters.isActive !== undefined) {
-      query.isActive = filters.isActive;
-    }
-    if (Array.isArray(filters.tags) && filters.tags.length > 0) {
-      query.tags = { $in: filters.tags };
-    }
-    const options = {
-      sort: { createdAt: -1 },
-    };
-
-    const keys = await db.find("access_keys", query, options);
-    // Fim da lógica de listKeys
+    const keys = await AccessKeys.listKeys(filters);
 
     return NextResponse.json(keys);
   } catch (error) {

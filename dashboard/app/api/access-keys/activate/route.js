@@ -1,11 +1,12 @@
-import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { AccessKeys } from "@/lib/access-keys";
 import { getCollection } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import { getAuthenticatedUser } from "@/lib/auth";
+import { logDebug, logError } from "@/lib/logger";
 
 async function handleSuperAdminSetup(key, userId) {
-  console.log(`[DEBUG] Iniciando setup super admin para userId: ${userId}`);
+  logDebug(`Iniciando setup super admin para userId: ${userId}`);
 
   try {
     const setupCollection = await getCollection("_internal_setup");
@@ -14,12 +15,12 @@ async function handleSuperAdminSetup(key, userId) {
     });
 
     if (!setupKeyDoc) {
-      console.log(`[DEBUG] Nenhuma chave de setup encontrada no banco`);
+      logDebug(`Nenhuma chave de setup encontrada no banco`);
       return null;
     }
 
     if (new Date() > setupKeyDoc.expiresAt) {
-      console.log(`[DEBUG] Chave de setup expirada: ${setupKeyDoc.expiresAt}`);
+      logDebug(`Chave de setup expirada: ${setupKeyDoc.expiresAt}`);
       await setupCollection.deleteOne({ _id: setupKeyDoc._id });
       return {
         success: false,
@@ -28,10 +29,10 @@ async function handleSuperAdminSetup(key, userId) {
     }
 
     const isValid = await bcrypt.compare(key, setupKeyDoc.hash);
-    console.log(`[DEBUG] Validação da chave: ${isValid}`);
+    logDebug(`Validação da chave: ${isValid}`);
 
     if (isValid) {
-      console.log(`[DEBUG] Atualizando usuário ${userId} para super admin`);
+      logDebug(`Atualizando usuário ${userId} para super admin`);
 
       // Usar fetch para atualizar o usuário via API do Clerk
       const response = await fetch(`https://api.clerk.com/v1/users/${userId}`, {
@@ -46,18 +47,18 @@ async function handleSuperAdminSetup(key, userId) {
       });
 
       if (!response.ok) {
-        console.log(`[DEBUG] Erro ao atualizar usuário: ${response.status}`);
+        logDebug(`Erro ao atualizar usuário: ${response.status}`);
         const errorText = await response.text();
-        console.log(`[DEBUG] Resposta do Clerk: ${errorText}`);
+        logDebug(`Resposta do Clerk: ${errorText}`);
         return {
           success: false,
           error: "Erro ao atualizar permissões do usuário.",
         };
       }
 
-      console.log(`[DEBUG] ✅ Usuário atualizado com sucesso no Clerk`);
+      logDebug(`✅ Usuário atualizado com sucesso no Clerk`);
       await setupCollection.deleteOne({ _id: setupKeyDoc._id });
-      console.log(`[DEBUG] Chave de setup removida após uso`);
+      logDebug(`Chave de setup removida após uso`);
 
       return {
         success: true,
@@ -71,7 +72,7 @@ async function handleSuperAdminSetup(key, userId) {
 
     return null;
   } catch (error) {
-    console.log(`[DEBUG] Erro no handleSuperAdminSetup:`, error.message);
+    logError(`Erro no handleSuperAdminSetup:`, error.message);
     return {
       success: false,
       error: "Erro interno ao processar chave de super admin.",
@@ -79,82 +80,21 @@ async function handleSuperAdminSetup(key, userId) {
   }
 }
 
-// Função para extrair userId do token JWT
-function extractUserIdFromJWT(token) {
-  try {
-    const payload = JSON.parse(
-      Buffer.from(token.split(".")[1], "base64").toString()
-    );
-    console.log(`[DEBUG] Payload do JWT:`, {
-      sub: payload.sub,
-      iss: payload.iss,
-      exp: payload.exp,
-    });
-
-    return payload.sub;
-  } catch (error) {
-    console.log(`[DEBUG] Erro ao decodificar JWT:`, error.message);
-    return null;
-  }
-}
-
 export async function POST(req) {
   const startTime = Date.now();
-  console.log(`\n[DEBUG] === INICIANDO REQUISIÇÃO ACTIVATE KEY ===`);
+  logDebug(`=== INICIANDO REQUISIÇÃO ACTIVATE KEY ===`);
 
   try {
-    // Log detalhado dos headers
-    const headers = Object.fromEntries(req.headers.entries());
-    console.log(`[DEBUG] Headers recebidos:`, {
-      authorization: headers.authorization
-        ? `Bearer ${headers.authorization.substring(7, 20)}...`
-        : "AUSENTE",
-      "content-type": headers["content-type"],
-    });
-
-    // Tentativa 1: Usar auth() do Clerk
-    console.log(`[DEBUG] Tentando autenticação com auth()...`);
-    const authResult = auth();
-    console.log(`[DEBUG] Resultado auth():`, {
-      userId: authResult.userId,
-      sessionId: authResult.sessionId,
-      hasUserId: !!authResult.userId,
-    });
-
-    let userId = authResult.userId;
-
-    // Tentativa 2: Se auth() não funcionou, extrair do JWT
-    if (!userId) {
-      console.log(`[DEBUG] auth() falhou, tentando extração do JWT...`);
-
-      const bearerToken = req.headers.get("Authorization");
-      if (!bearerToken) {
-        console.log(`[DEBUG] ERRO: Header Authorization não encontrado`);
-        return NextResponse.json(
-          {
-            error: "Unauthorized - Token de autorização necessário",
-          },
-          { status: 401 }
-        );
-      }
-
-      const token = bearerToken.replace("Bearer ", "");
-      userId = extractUserIdFromJWT(token);
-      console.log(`[DEBUG] userId extraído do JWT: ${userId}`);
-    }
-
-    // Se ainda não tem userId, retornar erro
-    if (!userId) {
-      console.log(`[DEBUG] ERRO FINAL: Não foi possível obter userId`);
+    const authResult = await getAuthenticatedUser();
+    if (authResult.error) {
       return NextResponse.json(
-        {
-          error: "Unauthorized - Usuário não autenticado",
-        },
-        { status: 401 }
+        { error: authResult.error },
+        { status: authResult.status }
       );
     }
+    const { userId } = authResult;
 
-    console.log(`[DEBUG] ✅ userId confirmado: ${userId}`);
+    logDebug(`✅ userId confirmado: ${userId}`);
 
     const body = await req.json();
     const { code, workspaceId } = body;
@@ -162,7 +102,7 @@ export async function POST(req) {
     // Normalizar a chave para comparação segura
     const normalizedKey = code?.toLowerCase().trim();
 
-    console.log(`[DEBUG] Body recebido:`, {
+    logDebug(`Body recebido:`, {
       hasCode: !!normalizedKey,
       normalizedKey: normalizedKey,
       workspaceId: workspaceId,
@@ -174,23 +114,23 @@ export async function POST(req) {
       normalizedKey === "dev-superadmin-key-12345" ||
       normalizedKey?.startsWith("ds-sa-key-")
     ) {
-      console.log(`[DEBUG] 🔑 Processando chave de super admin...`);
+      logDebug(`🔑 Processando chave de super admin...`);
       const setupResult = await handleSuperAdminSetup(normalizedKey, userId);
 
       if (setupResult?.success) {
-        console.log(`[DEBUG] ✅ Setup result:`, setupResult);
+        logDebug(`✅ Setup result:`, setupResult);
         return NextResponse.json(setupResult);
       } else {
         const errorMsg =
           setupResult?.error || "Chave de super admin inválida ou expirada.";
-        console.log(`[DEBUG] ❌ Falha no setup: ${errorMsg}`);
+        logDebug(`❌ Falha no setup: ${errorMsg}`);
         return NextResponse.json({ error: errorMsg }, { status: 400 });
       }
     }
     // --- FIM DA CORREÇÃO ---
 
     // Processar outras chaves
-    console.log(`[DEBUG] Processando chave de acesso regular...`);
+    logDebug(`Processando chave de acesso regular...`);
     // --- CORREÇÃO: Chamar método estático diretamente ---
     const result = await AccessKeys.activateKey(
       normalizedKey,
@@ -198,7 +138,7 @@ export async function POST(req) {
       workspaceId
     );
 
-    console.log(`[DEBUG] Resultado final:`, {
+    logDebug(`Resultado final:`, {
       success: result.success,
       error: result.error,
       elapsed: Date.now() - startTime,
@@ -210,7 +150,7 @@ export async function POST(req) {
       return NextResponse.json({ error: result.error }, { status: 400 });
     }
   } catch (error) {
-    console.error(`[DEBUG] ERRO CRÍTICO na ativação da chave:`, {
+    logError(`ERRO CRÍTICO na ativação da chave:`, {
       message: error.message,
       stack: error.stack?.split("\n")[0],
       elapsed: Date.now() - startTime,

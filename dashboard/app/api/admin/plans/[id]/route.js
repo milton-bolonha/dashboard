@@ -1,22 +1,7 @@
-import { auth } from "@clerk/nextjs/server";
-import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-
-// Verificar se é super admin
-async function checkSuperAdmin() {
-  const { userId } = auth();
-  if (!userId) {
-    return { error: "Unauthorized", status: 401 };
-  }
-
-  const user = await currentUser();
-  if (user?.publicMetadata?.role !== "superadmin") {
-    return { error: "Forbidden - Super admin only", status: 403 };
-  }
-
-  return { userId, user };
-}
+import { checkSuperAdmin } from "@/lib/auth";
+import { ObjectId } from "mongodb";
 
 // PUT - Atualizar plano
 export async function PUT(request, { params }) {
@@ -29,11 +14,16 @@ export async function PUT(request, { params }) {
   }
 
   try {
-    const { id } = params;
     const data = await request.json();
+    const { id } = params;
+
+    if (!ObjectId.isValid(id)) {
+      return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
+    }
+    const objectId = new ObjectId(id);
 
     // Verificar se plano existe
-    const existing = await db.findOne("plans", { _id: id });
+    const existing = await db.findOne("plans", { _id: objectId });
     if (!existing) {
       return NextResponse.json({ error: "Plan not found" }, { status: 404 });
     }
@@ -42,7 +32,7 @@ export async function PUT(request, { params }) {
     if (data.slug && data.slug !== existing.slug) {
       const slugExists = await db.findOne("plans", {
         slug: data.slug,
-        _id: { $ne: id },
+        _id: { $ne: objectId },
       });
 
       if (slugExists) {
@@ -57,7 +47,7 @@ export async function PUT(request, { params }) {
     if (data.isDefault && !existing.isDefault) {
       await db.updateMany(
         "plans",
-        { isDefault: true, _id: { $ne: id } },
+        { isDefault: true, _id: { $ne: objectId } },
         { $set: { isDefault: false } }
       );
     }
@@ -82,11 +72,14 @@ export async function PUT(request, { params }) {
       updatedBy: authCheck.userId,
     };
 
+    // Remover o _id dos dados de atualização para evitar erros
+    const { _id, ...updatePayload } = updateData;
+
     // Atualizar plano
-    await db.updateOne("plans", { _id: id }, { $set: updateData });
+    await db.updateOne("plans", { _id: objectId }, updatePayload);
 
     // Retornar plano atualizado
-    const updated = await db.findOne("plans", { _id: id });
+    const updated = await db.findOne("plans", { _id: objectId });
     return NextResponse.json(updated);
   } catch (error) {
     console.error("Error updating plan:", error);
@@ -109,9 +102,10 @@ export async function DELETE(request, { params }) {
 
   try {
     const { id } = params;
+    const objectId = new ObjectId(id);
 
     // Verificar se plano existe
-    const plan = await db.findOne("plans", { _id: id });
+    const plan = await db.findOne("plans", { _id: objectId });
     if (!plan) {
       return NextResponse.json({ error: "Plan not found" }, { status: 404 });
     }
@@ -136,7 +130,7 @@ export async function DELETE(request, { params }) {
     }
 
     // Deletar plano
-    await db.deleteOne("plans", { _id: id });
+    await db.deleteOne("plans", { _id: objectId });
 
     return NextResponse.json({
       success: true,

@@ -1,5 +1,6 @@
 import * as ClerkServer from "@clerk/nextjs/server";
 import { createRemoteJWKSet, jwtVerify } from "jose";
+import { logDebug, logWarn, logError } from "./logger";
 
 const clerkFrontendApi = process.env.NEXT_PUBLIC_CLERK_FRONTEND_API;
 
@@ -50,7 +51,7 @@ export async function getAuthenticatedUser() {
     const authObject = await ClerkServer.auth();
 
     if (authObject && authObject.userId) {
-      console.log("getAuthenticatedUser: Sucesso via auth()");
+      logDebug("getAuthenticatedUser: Sucesso via auth()");
       return {
         userId: authObject.userId,
         session: authObject.session,
@@ -59,16 +60,14 @@ export async function getAuthenticatedUser() {
     }
 
     // --- Início do Fallback JWT com 'jose' ---
-    console.warn(
+    logWarn(
       "getAuthenticatedUser: auth() falhou. Tentando fallback com verificação JWT via 'jose'."
     );
     const { getToken, session } = ClerkServer.auth();
     const token = await getToken();
 
     if (!token) {
-      console.error(
-        "getAuthenticatedUser (Fallback): Nenhum token encontrado."
-      );
+      logError("getAuthenticatedUser (Fallback): Nenhum token encontrado.");
       return { error: "Unauthorized: No session token", status: 401 };
     }
 
@@ -76,7 +75,7 @@ export async function getAuthenticatedUser() {
     const userIdFromToken = payload.sub;
 
     if (!userIdFromToken) {
-      console.error(
+      logError(
         "getAuthenticatedUser (Fallback): Não foi possível verificar o token JWT."
       );
       return {
@@ -85,7 +84,7 @@ export async function getAuthenticatedUser() {
       };
     }
 
-    console.log(
+    logDebug(
       `getAuthenticatedUser: Sucesso via Fallback JWT. userId: ${userIdFromToken}`
     );
 
@@ -102,9 +101,9 @@ export async function getAuthenticatedUser() {
     };
     // --- Fim do Fallback JWT ---
   } catch (error) {
-    console.error("Erro fatal em getAuthenticatedUser:", error.message);
+    logError("Erro fatal em getAuthenticatedUser:", error.message);
     if (error.code === "ERR_JWKS_REMOTE_FAILED") {
-      console.error(
+      logError(
         "Falha ao buscar JWKS. Verifique a variável de ambiente NEXT_PUBLIC_CLERK_FRONTEND_API."
       );
       return { error: "Auth configuration error", status: 500 };
@@ -133,7 +132,7 @@ export async function checkSuperAdmin() {
     const user = await manualClient.users.getUser(userId);
 
     // Log para depuração final
-    console.log(
+    logDebug(
       "checkSuperAdmin: Metadados privados do usuário:",
       JSON.stringify(user.privateMetadata, null, 2)
     );
@@ -141,18 +140,18 @@ export async function checkSuperAdmin() {
     const isSuperAdmin = user.privateMetadata?.role === "superadmin";
 
     if (!isSuperAdmin) {
-      console.error(
+      logError(
         `checkSuperAdmin: User ${userId} is not a super admin. Role encontrada nos metadados: ${user.privateMetadata?.role}`
       );
       return { error: "Forbidden - Super admin only", status: 403 };
     }
 
-    console.log(
+    logDebug(
       `checkSuperAdmin: Acesso de Super Admin concedido para ${userId}.`
     );
     return { userId };
   } catch (error) {
-    console.error(
+    logError(
       `checkSuperAdmin: Erro ao buscar usuário ${userId} da API do Clerk:`,
       error
     );
@@ -168,13 +167,13 @@ export async function getCurrentUserId() {
     const { userId } = await ClerkServer.auth();
 
     if (userId) {
-      console.log(`🔐 User autenticado: ${userId}`);
+      logDebug(`🔐 User autenticado: ${userId}`);
       return userId;
     }
 
     // 🔧 DEV MODE: Se não autenticado mas em dev, usar usuário configurado
     if (DEV_MODE && DEV_USER_ID && DEV_USER_ID !== "your_clerk_user_id_here") {
-      console.log(
+      logDebug(
         `🎭 DEV MODE: Simulando usuário ${DEV_USER_ID} com plano ${DEV_USER_PLAN.plan}`
       );
       return DEV_USER_ID;
@@ -213,7 +212,7 @@ export async function getCurrentAuth() {
 
     return { userId: null, isAuthenticated: false };
   } catch (error) {
-    console.warn("🔧 Auth fallback ativado:", error.message);
+    logWarn("🔧 Auth fallback ativado:", error.message);
 
     // 🔧 DEV MODE: Fallback para desenvolvimento
     if (DEV_MODE && DEV_USER_ID && DEV_USER_ID !== "your_clerk_user_id_here") {
@@ -240,7 +239,7 @@ export function withAuth(handler) {
       // ✅ Usuário autenticado ou em dev mode
       return await handler(request, params, { userId });
     } catch (error) {
-      console.error("🔐 withAuth: Erro de autenticação:", error.message);
+      logError("🔐 withAuth: Erro de autenticação:", error.message);
       return new Response(
         JSON.stringify({ error: "Usuário não autenticado" }),
         {

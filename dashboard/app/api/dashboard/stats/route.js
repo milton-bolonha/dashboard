@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db.js";
-import { getCurrentAuth } from "@/lib/auth";
+import { getAuthenticatedUser } from "@/lib/auth";
 import { ObjectId } from "mongodb";
+import { logDebug, logError } from "@/lib/logger";
 
 /**
  * Helper para obter workspace atual do usuário
@@ -80,19 +81,54 @@ async function getCurrentWorkspace(userId, requestedWorkspaceId = null) {
  */
 export async function GET(request) {
   try {
-    const authData = await getCurrentAuth();
-    const userId = authData.userId || "temp_user_dev";
+    const authResult = await getAuthenticatedUser();
+    if (authResult.error) {
+      return NextResponse.json(
+        { error: authResult.error },
+        { status: authResult.status }
+      );
+    }
+    const { userId } = authResult;
 
-    // Obter workspace ID do header (enviado pelo frontend)
-    const workspaceId = request.headers.get("x-workspace-id");
+    const requestedWorkspaceId = request.headers.get("x-workspace-id");
+    logDebug(
+      `Buscando stats para usuário ${userId} e workspace ${requestedWorkspaceId}`
+    );
 
-    console.log("🔐 Stats GET: userId =", userId);
-    console.log("🏢 Stats: Workspace solicitado:", workspaceId);
+    let workspace;
+    if (requestedWorkspaceId) {
+      try {
+        const workspaceObjectId = new ObjectId(requestedWorkspaceId);
+        workspace = await db.findOne("workspaces", {
+          _id: workspaceObjectId,
+          $or: [{ ownerId: userId }, { "members.userId": userId }],
+        });
+      } catch (e) {
+        logError("ID de workspace inválido fornecido:", requestedWorkspaceId);
+      }
+    }
 
-    // Obter workspace atual (específico ou fallback)
-    const workspace = await getCurrentWorkspace(userId, workspaceId);
+    if (!workspace) {
+      workspace = await db.findOne("workspaces", {
+        $or: [{ ownerId: userId }, { "members.userId": userId }],
+      });
+    }
 
-    // Contar documentos usando o método mais eficiente `count`
+    // Se ainda não houver workspace, é um erro, o frontend deveria ter garantido um.
+    if (!workspace) {
+      logError(
+        `Nenhum workspace encontrado para o usuário ${userId}. O frontend deveria ter criado um.`
+      );
+      return NextResponse.json(
+        { error: "Nenhum workspace encontrado para o usuário." },
+        { status: 404 }
+      );
+    }
+
+    logDebug(
+      `Calculando stats para o workspace ${workspace.name} (${workspace._id})`
+    );
+
     const [sectionsCount, contentTypesCount, itemsCount] = await Promise.all([
       db.count("sections", {
         workspaceId: workspace._id,
@@ -110,25 +146,21 @@ export async function GET(request) {
       contentTypes: contentTypesCount,
       items: itemsCount,
       workspaceName: workspace.name,
-      workspaceId: workspace._id,
+      workspaceId: workspace._id.toString(), // Enviar como string para o frontend
     };
 
-    console.log(`✅ Stats para workspace ${workspace.name}:`, stats);
+    logDebug(`Stats para workspace ${workspace.name}:`, stats);
 
     return NextResponse.json(stats);
   } catch (error) {
-    console.warn(
-      "Could not connect to DB for stats, returning 0.",
-      error.message
+    logError(
+      "Erro ao buscar estatísticas do dashboard:",
+      error.message,
+      error.stack
     );
-    // Se o DB não estiver conectado, retorne 0 em vez de erro.
-    const stats = {
-      sections: 0,
-      contentTypes: 0,
-      items: 0,
-      workspaceName: "Desconhecido",
-      workspaceId: null,
-    };
-    return NextResponse.json(stats);
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 }
+    );
   }
 }

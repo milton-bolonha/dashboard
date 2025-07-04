@@ -5,17 +5,8 @@ import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useSession } from "@clerk/nextjs";
 
 const IconKey = () => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    className="h-5 w-5"
-    viewBox="0 0 20 20"
-    fill="currentColor"
-  >
-    <path
-      fillRule="evenodd"
-      d="M18 8a6 6 0 01-7.743 5.743L10 14l-1 1-1 1H6v-2H5v-2H4v-2H3v-1a1 1 0 011-1h1v-1H4a1 1 0 01-1-1V7a1 1 0 011-1h1V5h1V4h1V3a3 3 0 016 0v1h1v1h1v1h1v1a1 1 0 011 1v3.432A6 6 0 0118 8zm-6-4a1 1 0 100 2 1 1 0 000-2z"
-      clipRule="evenodd"
-    />
+  <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+    <path d="M18 8a6 6 0 01-7.743 5.743L10 14l-1 1-1 1H6v2H2v-4l4.257-4.257A6 6 0 1118 8zm-6-4a1 1 0 100 2 2 2 0 012 2 1 1 0 102 0 4 4 0 00-4-4z" />
   </svg>
 );
 
@@ -150,7 +141,7 @@ export default function ActivateKeyModal({ isOpen, onClose, onSuccess }) {
           <button
             onClick={handleClose}
             disabled={loading}
-            className="text-gray-500 hover:text-gray-700 disabled:opacity-50"
+            className="text-gray-500 hover:text-gray-700 disabled:opacity-50 cursor-pointer"
           >
             ✕
           </button>
@@ -243,7 +234,7 @@ export function ActivateKeyButton({ className = "" }) {
     <>
       <button
         onClick={() => setShowModal(true)}
-        className={`inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold cursor-pointer ${className}`}
+        className={`inline-flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 font-medium transition-colors cursor-pointer ${className}`}
       >
         <IconKey />
         Ativar Chave de Acesso

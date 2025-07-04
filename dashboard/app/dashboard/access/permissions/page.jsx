@@ -80,7 +80,7 @@ export default function PermissionsPage() {
             Revise suas permissões e limites atuais neste workspace.
           </p>
         </div>
-        <ActivateKeyButton className="bg-blue-600 hover:bg-blue-700 font-semibold cursor-pointer" />
+        <ActivateKeyButton className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 font-medium transition-colors cursor-pointer" />
       </header>
 
       <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 p-6">

@@ -225,7 +225,7 @@ export default function CloudinaryGalleryField({
                 <button
                   type="button"
                   onClick={() => handleRemoveImage(index)}
-                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-red-600 transition-all opacity-0 group-hover:opacity-100"
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-red-600 transition-all opacity-0 group-hover:opacity-100 cursor-pointer"
                 >
                   ×
                 </button>

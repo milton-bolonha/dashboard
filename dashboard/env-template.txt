@@ -6,11 +6,11 @@
 # 🏛️ CLERK (Autenticação)
 # -----------------------------
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_XXXXXXXXX
-CLERK_SECRET_KEY=sk_test_XXXXXXXXX
+CLERK_SECRET_KEY=
 
 # 🎯 DESENVOLVIMENTO: Seu User ID do Clerk para simulação
 # Obtenha em: https://dashboard.clerk.dev -> Users -> [seu user] -> copiar ID
-DEV_USER_ID=user_XXXXXXXXX
+DEV_USER_ID= # Optional: Clerk user_id for simulating a user in dev mode
 
 # -----------------------------
 # 💳 STRIPE (Pagamentos)
@@ -52,4 +52,7 @@ NODE_ENV=development
 # 3. Configure sua string de conexão MongoDB
 # 4. Gere chaves seguras para INTERNAL_API_KEY e ADMIN_EXPORT_KEY
 # 5. Execute: npm install && npm run dev
-# ===================================== 
+# =====================================
+
+# Dashboard specific
+DASH_DEBUG_MODE=false # Set to true to enable detailed debug logging 

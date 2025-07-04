@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { ObjectId } from "mongodb";
+import { logError } from "@/lib/logger";
 
 export async function GET(request) {
   try {
@@ -46,7 +47,7 @@ export async function GET(request) {
       message: "Permissões obtidas com sucesso.",
     });
   } catch (error) {
-    console.error("User permissions error:", error);
+    logError("User permissions error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

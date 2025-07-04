@@ -399,16 +399,19 @@ export class AccessKeys {
     if (filters.type) {
       query.type = filters.type;
     }
-    if (filters.isActive !== undefined) {
+
+    // Tratar booleano explicitamente
+    if (filters.isActive === true || filters.isActive === false) {
       query.isActive = filters.isActive;
     }
+
+    // Apenas adiciona o filtro de tags se for um array com conteúdo
     if (Array.isArray(filters.tags) && filters.tags.length > 0) {
       query.tags = { $in: filters.tags };
     }
 
-    const options = {
-      sort: { createdAt: -1 },
-    };
+    // Adicionar ordenação padrão para consistência
+    const options = { sort: { createdAt: -1 } };
 
     return await db.find("access_keys", query, options);
   }

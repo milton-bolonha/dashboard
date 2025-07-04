@@ -1,13 +1,19 @@
-import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { createAccessEngine } from "@/lib/access-engine";
+import { getAuthenticatedUser } from "@/lib/auth";
+import { logError } from "@/lib/logger";
+import { ObjectId } from "mongodb";
 
 export async function POST(request) {
   try {
-    const { userId } = auth();
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authResult = await getAuthenticatedUser();
+    if (authResult.error) {
+      return NextResponse.json(
+        { error: authResult.error },
+        { status: authResult.status }
+      );
     }
+    const { userId } = authResult;
 
     const workspaceId = request.headers.get("x-workspace-id");
     if (!workspaceId) {
@@ -35,7 +41,12 @@ export async function POST(request) {
     let resource = null;
     if (resourceId) {
       const { db } = await import("@/lib/db");
-      resource = await db.findOne(resourceType, { _id: resourceId });
+      try {
+        const objectId = new ObjectId(resourceId);
+        resource = await db.findOne(resourceType, { _id: objectId });
+      } catch (e) {
+        // Ignorar erro de ObjectId inválido, recurso não será encontrado
+      }
     }
 
     // Verificar permissão
@@ -63,7 +74,7 @@ export async function POST(request) {
       allowed: true,
     });
   } catch (error) {
-    console.error("Access check error:", error);
+    logError("Access check error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

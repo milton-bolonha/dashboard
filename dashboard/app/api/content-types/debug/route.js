@@ -1,64 +1,44 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { checkSuperAdmin } from "@/lib/auth";
+import { logDebug, logError } from "@/lib/logger";
 
 /**
  * GET /api/content-types/debug
- * API temporária para debug - SEM AUTENTICAÇÃO
+ * API de depuração para administradores.
  */
 export async function GET() {
   try {
-    console.log("🔍 DEBUG: Tentando buscar ALL content-types no MongoDB...");
+    const authCheck = await checkSuperAdmin();
+    if (authCheck.error) {
+      return NextResponse.json(
+        { error: authCheck.error },
+        { status: authCheck.status }
+      );
+    }
+
+    logDebug("Tentando buscar ALL content-types no MongoDB...");
 
     const contentTypes = await db.find("contentTypes", {});
 
-    console.log(
-      `✅ DEBUG: MongoDB conectado! Encontrados ${contentTypes.length} content-types TOTAL`
+    logDebug(
+      `MongoDB conectado! Encontrados ${contentTypes.length} content-types TOTAL`
     );
     return NextResponse.json({
       contentTypes,
       debug: {
         total: contentTypes.length,
-        message: "API debug sem autenticação funcionando",
+        message: "API de depuração executada com sucesso.",
       },
     });
   } catch (error) {
-    console.warn(
-      "⚠️ DEBUG: Could not connect to DB, using fallback data.",
-      error.message
-    );
-
-    // FALLBACK: Content Types mock para teste
-    const mockContentTypes = [
+    logError("Falha ao buscar content-types na rota de debug:", error.message);
+    return NextResponse.json(
       {
-        _id: "debug1",
-        name: "Debug Página",
-        slug: "debug-pagina",
-        description: "Content type de debug",
-        addons: [],
-        isActive: true,
-        createdAt: new Date(),
+        error: "Internal server error ao buscar content types para debug.",
+        details: error.message,
       },
-      {
-        _id: "debug2",
-        name: "Debug Artigo",
-        slug: "debug-artigo",
-        description: "Content type de debug",
-        addons: [],
-        isActive: true,
-        createdAt: new Date(),
-      },
-    ];
-
-    console.log(
-      `🔄 DEBUG: Retornando ${mockContentTypes.length} content-types mock`
+      { status: 500 }
     );
-    return NextResponse.json({
-      contentTypes: mockContentTypes,
-      debug: {
-        total: mockContentTypes.length,
-        message: "Usando dados mock - MongoDB não disponível",
-        error: error.message,
-      },
-    });
   }
 }

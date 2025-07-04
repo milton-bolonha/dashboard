@@ -69,7 +69,7 @@ export async function POST(request) {
 
     // Criar plano
     const plan = {
-      _id: new ObjectId().toString(),
+      _id: new ObjectId(),
       name: data.name,
       slug: data.slug,
       description: data.description || "",
@@ -89,14 +89,15 @@ export async function POST(request) {
       features: data.features || [],
       permissions: data.permissions || [],
       metadata: data.metadata || {},
-      createdAt: new Date(),
-      updatedAt: new Date(),
       createdBy: authCheck.userId,
     };
 
-    await db.insertOne("plans", plan);
+    const result = await db.insertOne("plans", plan);
 
-    return NextResponse.json(plan, { status: 201 });
+    // Para retornar o documento completo, incluindo os campos adicionados por db.insertOne
+    const newPlan = await db.findOne("plans", { _id: result.insertedId });
+
+    return NextResponse.json(newPlan, { status: 201 });
   } catch (error) {
     console.error("Error creating plan:", error);
     return NextResponse.json(
