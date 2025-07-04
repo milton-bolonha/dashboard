@@ -391,19 +391,26 @@ export class AccessKeys {
   }
 
   /**
-   * Lista chaves com filtros
+   * Lista todas as chaves de acesso com base em filtros
    */
   static async listKeys(filters = {}) {
     const query = {};
 
-    if (filters.type) query.type = filters.type;
-    if (filters.isActive !== undefined) query.isActive = filters.isActive;
-    if (filters.createdBy) query.createdBy = filters.createdBy;
-    if (filters.tags?.length > 0) query.tags = { $in: filters.tags };
+    if (filters.type) {
+      query.type = filters.type;
+    }
+    if (filters.isActive !== undefined) {
+      query.isActive = filters.isActive;
+    }
+    if (Array.isArray(filters.tags) && filters.tags.length > 0) {
+      query.tags = { $in: filters.tags };
+    }
 
-    const keys = await db.find("access_keys", query).sort({ createdAt: -1 });
+    const options = {
+      sort: { createdAt: -1 },
+    };
 
-    return keys;
+    return await db.find("access_keys", query, options);
   }
 
   /**

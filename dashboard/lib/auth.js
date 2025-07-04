@@ -1,4 +1,13 @@
-import { auth } from "@clerk/nextjs/server";
+import * as ClerkServer from "@clerk/nextjs/server";
+import { createRemoteJWKSet, jwtVerify } from "jose";
+
+const clerkFrontendApi = process.env.NEXT_PUBLIC_CLERK_FRONTEND_API;
+
+if (!clerkFrontendApi) {
+  throw new Error(
+    "FATAL: A variável de ambiente NEXT_PUBLIC_CLERK_FRONTEND_API não está definida. A autenticação não pode funcionar. Por favor, adicione-a ao seu arquivo .env.local."
+  );
+}
 
 /**
  * ✅ DEV MODE REALISTA
@@ -24,12 +33,139 @@ const DEV_USER_PLAN = {
   features: ["all"],
 };
 
+// URL para buscar as chaves públicas de assinatura do Clerk.
+// Isso é necessário para verificar a autenticidade do JWT com a biblioteca 'jose'.
+const JWKS = createRemoteJWKSet(
+  new URL(`${clerkFrontendApi}/.well-known/jwks.json`)
+);
+
+/**
+ * Obtém o usuário autenticado, com um fallback robusto e seguro.
+ * Tenta obter o userId usando o método padrão auth().
+ * Se falhar, usa 'jose' para verificar e decodificar o token JWT.
+ * @returns {Promise<{userId: string|null, session: object|null, claims: object|null, error?: string, status?: number}>}
+ */
+export async function getAuthenticatedUser() {
+  try {
+    const authObject = await ClerkServer.auth();
+
+    if (authObject && authObject.userId) {
+      console.log("getAuthenticatedUser: Sucesso via auth()");
+      return {
+        userId: authObject.userId,
+        session: authObject.session,
+        claims: authObject.sessionClaims,
+      };
+    }
+
+    // --- Início do Fallback JWT com 'jose' ---
+    console.warn(
+      "getAuthenticatedUser: auth() falhou. Tentando fallback com verificação JWT via 'jose'."
+    );
+    const { getToken, session } = ClerkServer.auth();
+    const token = await getToken();
+
+    if (!token) {
+      console.error(
+        "getAuthenticatedUser (Fallback): Nenhum token encontrado."
+      );
+      return { error: "Unauthorized: No session token", status: 401 };
+    }
+
+    const { payload } = await jwtVerify(token, JWKS);
+    const userIdFromToken = payload.sub;
+
+    if (!userIdFromToken) {
+      console.error(
+        "getAuthenticatedUser (Fallback): Não foi possível verificar o token JWT."
+      );
+      return {
+        error: "Unauthorized: Invalid session token",
+        status: 401,
+      };
+    }
+
+    console.log(
+      `getAuthenticatedUser: Sucesso via Fallback JWT. userId: ${userIdFromToken}`
+    );
+
+    const manualClient = ClerkServer.createClerkClient({
+      secretKey: process.env.CLERK_SECRET_KEY,
+    });
+    const user = await manualClient.users.getUser(userIdFromToken);
+    const claims = user.privateMetadata || {};
+
+    return {
+      userId: userIdFromToken,
+      session: session,
+      claims: claims,
+    };
+    // --- Fim do Fallback JWT ---
+  } catch (error) {
+    console.error("Erro fatal em getAuthenticatedUser:", error.message);
+    if (error.code === "ERR_JWKS_REMOTE_FAILED") {
+      console.error(
+        "Falha ao buscar JWKS. Verifique a variável de ambiente NEXT_PUBLIC_CLERK_FRONTEND_API."
+      );
+      return { error: "Auth configuration error", status: 500 };
+    }
+    return { error: "Internal Server Error", status: 500 };
+  }
+}
+
+/**
+ * Função de verificação de Super Admin que usa nossa função robusta.
+ * @returns {Promise<{userId: string|null, error?: string, status?: number}>}
+ */
+export async function checkSuperAdmin() {
+  const authData = await getAuthenticatedUser();
+
+  if (authData.error) {
+    return { error: authData.error, status: authData.status };
+  }
+
+  const { userId } = authData;
+
+  try {
+    const manualClient = ClerkServer.createClerkClient({
+      secretKey: process.env.CLERK_SECRET_KEY,
+    });
+    const user = await manualClient.users.getUser(userId);
+
+    // Log para depuração final
+    console.log(
+      "checkSuperAdmin: Metadados privados do usuário:",
+      JSON.stringify(user.privateMetadata, null, 2)
+    );
+
+    const isSuperAdmin = user.privateMetadata?.role === "superadmin";
+
+    if (!isSuperAdmin) {
+      console.error(
+        `checkSuperAdmin: User ${userId} is not a super admin. Role encontrada nos metadados: ${user.privateMetadata?.role}`
+      );
+      return { error: "Forbidden - Super admin only", status: 403 };
+    }
+
+    console.log(
+      `checkSuperAdmin: Acesso de Super Admin concedido para ${userId}.`
+    );
+    return { userId };
+  } catch (error) {
+    console.error(
+      `checkSuperAdmin: Erro ao buscar usuário ${userId} da API do Clerk:`,
+      error
+    );
+    return { error: "Internal Server Error during user fetch", status: 500 };
+  }
+}
+
 /**
  * Obtém o userId atual com suporte a desenvolvimento
  */
 export async function getCurrentUserId() {
   try {
-    const { userId } = await auth();
+    const { userId } = await ClerkServer.auth();
 
     if (userId) {
       console.log(`🔐 User autenticado: ${userId}`);
@@ -55,7 +191,7 @@ export async function getCurrentUserId() {
  */
 export async function getCurrentAuth() {
   try {
-    const { userId } = await auth();
+    const { userId } = await ClerkServer.auth();
 
     if (userId) {
       return {

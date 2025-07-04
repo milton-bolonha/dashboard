@@ -6,6 +6,8 @@ import dotenv from "dotenv";
 // Configurar dotenv para carregar as variáveis de ambiente
 dotenv.config({ path: "./.env.local" });
 
+const STATIC_DEV_KEY = "dev-superadmin-key-12345";
+
 // Função para gerar chaves seguras
 function generateKey(prefix, bytes) {
   const key = randomBytes(bytes).toString("hex");
@@ -14,7 +16,7 @@ function generateKey(prefix, bytes) {
 
 async function main() {
   // 1. Gerar ambas as chaves
-  const superAdminKey = generateKey("ds-sa-key", 24);
+  const superAdminKey = STATIC_DEV_KEY;
   const encryptionKey = generateKey("clerk-enc-key", 32);
   const hashedKey = await bcrypt.hash(superAdminKey, 10);
 

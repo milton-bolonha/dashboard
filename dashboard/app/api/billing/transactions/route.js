@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { getAuthenticatedUser } from "@/lib/auth";
 import { getCollection } from "../../../../lib/db";
 
 export async function POST(request) {
@@ -113,17 +113,25 @@ export async function POST(request) {
 
 export async function GET(request) {
   try {
-    const { userId } = auth();
-    if (!userId) {
-      // Verificar se é chamada interna
+    const { userId, error, status: authStatus } = await getAuthenticatedUser();
+
+    if (error) {
+      // Permitir chamadas internas com API Key como fallback
       const authHeader = request.headers.get("authorization");
       if (!authHeader?.includes(process.env.INTERNAL_API_KEY)) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        return NextResponse.json({ error }, { status: authStatus });
       }
     }
 
     const { searchParams } = new URL(request.url);
-    const targetUserId = searchParams.get("userId") || userId;
+    const targetUserId = searchParams.get("userId") || userId; // Usa o userId autenticado se nenhum for especificado
+    if (!targetUserId) {
+      return NextResponse.json(
+        { error: "Unauthorized - User ID not found" },
+        { status: 401 }
+      );
+    }
+
     const limit = parseInt(searchParams.get("limit") || "50");
     const skip = parseInt(searchParams.get("skip") || "0");
     const status = searchParams.get("status");

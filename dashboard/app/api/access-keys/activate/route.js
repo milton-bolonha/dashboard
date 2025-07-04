@@ -41,7 +41,7 @@ async function handleSuperAdminSetup(key, userId) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          public_metadata: { role: "superadmin" },
+          private_metadata: { role: "superadmin" },
         }),
       });
 
@@ -156,41 +156,46 @@ export async function POST(req) {
 
     console.log(`[DEBUG] ✅ userId confirmado: ${userId}`);
 
-    // Processar o body da requisição
     const body = await req.json();
+    const { code, workspaceId } = body;
+
+    // Normalizar a chave para comparação segura
+    const normalizedKey = code?.toLowerCase().trim();
+
     console.log(`[DEBUG] Body recebido:`, {
-      hasCode: !!body.code,
-      codePrefix: body.code?.substring(0, 15),
-      workspaceId: body.workspaceId,
+      hasCode: !!normalizedKey,
+      normalizedKey: normalizedKey,
+      workspaceId: workspaceId,
     });
 
-    // Verificar se é chave de super admin
-    if (body.code?.toLowerCase().startsWith("ds-sa-key")) {
+    // --- CORREÇÃO: Lógica para Super Admin ---
+    // Verifica a chave estática ou o prefixo de chaves dinâmicas
+    if (
+      normalizedKey === "dev-superadmin-key-12345" ||
+      normalizedKey?.startsWith("ds-sa-key-")
+    ) {
       console.log(`[DEBUG] 🔑 Processando chave de super admin...`);
-      // Converter para minúsculas para comparação
-      const normalizedKey = body.code.toLowerCase();
-      console.log(`[DEBUG] Chave normalizada: ${normalizedKey}`);
-
       const setupResult = await handleSuperAdminSetup(normalizedKey, userId);
-      if (setupResult) {
+
+      if (setupResult?.success) {
         console.log(`[DEBUG] ✅ Setup result:`, setupResult);
         return NextResponse.json(setupResult);
       } else {
-        console.log(`[DEBUG] ❌ Chave de super admin inválida`);
-        return NextResponse.json(
-          { error: "Chave de super admin inválida" },
-          { status: 400 }
-        );
+        const errorMsg =
+          setupResult?.error || "Chave de super admin inválida ou expirada.";
+        console.log(`[DEBUG] ❌ Falha no setup: ${errorMsg}`);
+        return NextResponse.json({ error: errorMsg }, { status: 400 });
       }
     }
+    // --- FIM DA CORREÇÃO ---
 
     // Processar outras chaves
     console.log(`[DEBUG] Processando chave de acesso regular...`);
-    const accessKeys = new AccessKeys();
-    const result = await accessKeys.activateKey(
-      body.code,
+    // --- CORREÇÃO: Chamar método estático diretamente ---
+    const result = await AccessKeys.activateKey(
+      normalizedKey,
       userId,
-      body.workspaceId
+      workspaceId
     );
 
     console.log(`[DEBUG] Resultado final:`, {

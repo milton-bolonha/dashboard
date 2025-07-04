@@ -100,7 +100,7 @@ export default function PermissionsPage() {
               <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300 capitalize">
                 {userRole || "Carregando..."}
               </span>
-              {user?.publicMetadata?.role === "superadmin" && (
+              {user?.privateMetadata?.role === "superadmin" && (
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300">
                   Super Admin
                 </span>

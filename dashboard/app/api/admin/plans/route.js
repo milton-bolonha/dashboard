@@ -1,23 +1,7 @@
-import { auth } from "@clerk/nextjs/server";
-import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { ObjectId } from "mongodb";
-
-// Verificar se é super admin
-async function checkSuperAdmin() {
-  const { userId } = auth();
-  if (!userId) {
-    return { error: "Unauthorized", status: 401 };
-  }
-
-  const user = await currentUser();
-  if (user?.publicMetadata?.role !== "superadmin") {
-    return { error: "Forbidden - Super admin only", status: 403 };
-  }
-
-  return { userId, user };
-}
+import { checkSuperAdmin } from "@/lib/auth";
 
 // GET - Listar todos os planos
 export async function GET(request) {
@@ -30,7 +14,10 @@ export async function GET(request) {
   }
 
   try {
-    const plans = await db.find("plans", {}).sort({ hierarchy: 1 });
+    const options = {
+      sort: { hierarchy: 1 },
+    };
+    const plans = await db.find("plans", {}, options);
     return NextResponse.json(plans);
   } catch (error) {
     console.error("Error fetching plans:", error);

@@ -1,22 +1,7 @@
-import { auth } from "@clerk/nextjs/server";
-import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
 import { AccessKeys } from "@/lib/access-keys";
-
-// Verificar se é super admin
-async function checkSuperAdmin() {
-  const { userId } = auth();
-  if (!userId) {
-    return { error: "Unauthorized", status: 401 };
-  }
-
-  const user = await currentUser();
-  if (user?.publicMetadata?.role !== "superadmin") {
-    return { error: "Forbidden - Super admin only", status: 403 };
-  }
-
-  return { userId, user };
-}
+import { checkSuperAdmin } from "@/lib/auth";
 
 // GET - Listar chaves
 export async function GET(request) {
@@ -30,6 +15,8 @@ export async function GET(request) {
 
   try {
     const { searchParams } = new URL(request.url);
+
+    // Lógica de listKeys movida para cá
     const filters = {
       type: searchParams.get("type"),
       isActive:
@@ -41,7 +28,23 @@ export async function GET(request) {
       tags: searchParams.get("tags")?.split(",").filter(Boolean),
     };
 
-    const keys = await AccessKeys.listKeys(filters);
+    const query = {};
+    if (filters.type) {
+      query.type = filters.type;
+    }
+    if (filters.isActive !== undefined) {
+      query.isActive = filters.isActive;
+    }
+    if (Array.isArray(filters.tags) && filters.tags.length > 0) {
+      query.tags = { $in: filters.tags };
+    }
+    const options = {
+      sort: { createdAt: -1 },
+    };
+
+    const keys = await db.find("access_keys", query, options);
+    // Fim da lógica de listKeys
+
     return NextResponse.json(keys);
   } catch (error) {
     console.error("Erro ao listar chaves:", error);
@@ -121,13 +124,14 @@ export async function POST(request) {
       createdBy: authCheck.userId,
     };
 
+    console.log("Creating key with config:", keyConfig);
     const key = await AccessKeys.generateKey(keyConfig);
 
     return NextResponse.json(key, { status: 201 });
   } catch (error) {
     console.error("Erro ao criar chave:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Internal server error", details: error.message },
       { status: 500 }
     );
   }

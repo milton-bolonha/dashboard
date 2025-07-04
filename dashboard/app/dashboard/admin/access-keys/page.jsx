@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useUser } from "@clerk/nextjs";
+import { useUser, useAuth } from "@clerk/nextjs";
+import { fetchWithAuth } from "@/lib/api";
 
 export default function AccessKeysAdminPage() {
   const { user } = useUser();
+  const { getToken } = useAuth();
   const [keys, setKeys] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -27,7 +29,9 @@ export default function AccessKeysAdminPage() {
     try {
       setLoading(true);
       setError("");
-      const response = await fetch("/api/admin/access-keys");
+      const token = await getToken();
+      console.log("🔑 Clerk Token (loadKeys):", token);
+      const response = await fetchWithAuth("/api/admin/access-keys", token);
 
       if (response.ok) {
         const data = await response.json();
@@ -47,7 +51,10 @@ export default function AccessKeysAdminPage() {
     try {
       setSaving(true);
       setError("");
-      const response = await fetch("/api/admin/access-keys", {
+      const token = await getToken();
+      console.log("🔑 Clerk Token (handleCreateKey):", token);
+      console.log("📦 Sending Key Data:", keyData);
+      const response = await fetchWithAuth("/api/admin/access-keys", token, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(keyData),
@@ -78,9 +85,15 @@ export default function AccessKeysAdminPage() {
       setDeleting((prev) => ({ ...prev, [keyId]: true }));
       setError("");
 
-      const response = await fetch(`/api/admin/access-keys/${keyId}/revoke`, {
-        method: "POST",
-      });
+      const token = await getToken();
+      console.log("🔑 Clerk Token (revokeKey):", token);
+      const response = await fetchWithAuth(
+        `/api/admin/access-keys/${keyId}/revoke`,
+        token,
+        {
+          method: "POST",
+        }
+      );
 
       if (response.ok) {
         loadKeys();
@@ -326,6 +339,7 @@ export default function AccessKeysAdminPage() {
 
 // Modal de Criar Chave
 function CreateKeyModal({ onClose, onSubmit, saving }) {
+  const { getToken } = useAuth();
   const [formData, setFormData] = useState({
     name: "",
     description: "",
