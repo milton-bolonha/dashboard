@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useUser, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
+import { useTheme } from "next-themes";
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowRight,
   Book,
@@ -22,21 +24,23 @@ import {
   Crown,
 } from "lucide-react";
 import "./home.css";
+import { useAuth } from "@clerk/nextjs";
 
 // Componente principal da Landing Page
 export default function LandingPage() {
   const { isSignedIn, user, isLoaded } = useUser();
+  const { isSignedIn: authIsSignedIn } = useAuth();
 
   if (!isLoaded) {
     return (
       <div className="home-page min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="home-page">
+    <div className="dark" style={{ backgroundColor: "var(--bg-primary)" }}>
       <Header isSignedIn={isSignedIn} />
       <main>
         <HeroSection isSignedIn={isSignedIn} user={user} />
@@ -44,6 +48,7 @@ export default function LandingPage() {
         <AccessControlSection />
         <EnterpriseSection />
         <UseCasesSection />
+        <PricingSection />
         <FaqSection />
       </main>
       <Footer />
@@ -52,180 +57,287 @@ export default function LandingPage() {
 }
 
 // Componente Header
-const Header = ({ isSignedIn }) => (
-  <header className="home-header sticky top-0 z-50">
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="flex justify-between items-center py-4">
-        <Link href="/" className="flex items-center space-x-2">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <Book className="w-5 h-5 text-white" />
+const Header = ({ isSignedIn }) => {
+  const { theme } = useTheme();
+
+  return (
+    <header
+      className="home-header sticky top-0 z-50"
+      style={{ backgroundColor: "var(--bg-primary)" }}
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center py-2">
+          <Link href="/" className="flex items-center space-x-2">
+            <div
+              className="flex items-center justify-center"
+              style={{ width: "256px", height: "auto" }}
+            >
+              <Image
+                src={`/images/logo-${theme === "dark" ? "dark" : "light"}.png`}
+                alt="DashMaster.PRO"
+                width={256}
+                height={59}
+                className="object-contain"
+                style={{ width: "100%", height: "auto" }}
+                priority
+                quality={100}
+              />
+            </div>
+          </Link>
+          <div className="flex items-center space-x-4">
+            {isSignedIn ? (
+              <>
+                <Link
+                  href="/dashboard"
+                  className="cta-button text-sm font-semibold rounded-md cursor-pointer px-4 py-2"
+                  style={{ color: "black" }}
+                >
+                  Acessar Dashboard
+                </Link>
+                <UserButton afterSignOutUrl="/" />
+              </>
+            ) : (
+              <>
+                <SignInButton mode="modal" fallbackRedirectUrl="/dashboard">
+                  <button className="text-sm font-semibold text-gray-300 hover:text-white cursor-pointer transition-colors font-poppins">
+                    Entrar
+                  </button>
+                </SignInButton>
+                <SignUpButton mode="modal" fallbackRedirectUrl="/dashboard">
+                  <button
+                    className="cta-button text-sm font-semibold rounded-md cursor-pointer px-4 py-2"
+                    style={{ color: "black" }}
+                  >
+                    Criar Conta
+                  </button>
+                </SignUpButton>
+              </>
+            )}
           </div>
-          <span className="text-xl font-bold text-primary">DashMaster.PRO</span>
-        </Link>
-        <div className="flex items-center space-x-4">
+        </div>
+      </div>
+    </header>
+  );
+};
+
+// Componente Hero Section
+const HeroSection = ({ isSignedIn, user }) => {
+  const words = [
+    "SaaS",
+    "CMS",
+    "WebSite",
+    "ECommerce",
+    "AiChatbot",
+    "Landing Page",
+    "Portfolio",
+    "Intranet",
+  ];
+  const [currentWord, setCurrentWord] = useState(words[0]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const randomIndex = Math.floor(Math.random() * words.length);
+      setCurrentWord(words[randomIndex]);
+    }, 2000); // Muda a cada 2 segundos
+
+    return () => clearInterval(interval); // Limpa o intervalo
+  }, []);
+
+  return (
+    <section
+      className="home-hero py-20 sm:py-32"
+      style={{ backgroundColor: "var(--bg-primary)" }}
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white tracking-tight font-geologica brutal-heading">
+          Uma Plataforma para Construir seu
+          <br />
+          <span
+            className="diagonal-word"
+            style={{ backgroundColor: "#A15DFF", color: "white" }}
+          >
+            {currentWord}
+          </span>
+        </h1>
+        <p className="mt-6 max-w-3xl mx-auto text-lg text-gray-300 font-poppins">
+          Acelere a entrega de projetos complexos. Crie painéis, CRMs e
+          plataformas SaaS personalizadas em uma fração do tempo, com a
+          flexibilidade que seu cliente precisa e a monetização que seu negócio
+          merece.
+        </p>
+        <div className="mt-8 flex justify-center gap-4">
           {isSignedIn ? (
-            <>
-              <Link
-                href="/dashboard"
-                className="btn-primary hidden sm:inline-block px-4 py-2 rounded-md text-sm font-semibold cursor-pointer"
-              >
-                Acessar Dashboard
-              </Link>
-              <UserButton afterSignOutUrl="/" />
-            </>
+            <Link
+              href="/dashboard"
+              className="cta-button inline-flex items-center justify-center rounded-md shadow-sm text-base font-medium"
+            >
+              Bem-vindo, {user?.firstName}! Ir para o Dashboard
+            </Link>
           ) : (
             <>
-              <SignInButton mode="modal" fallbackRedirectUrl="/dashboard">
-                <button className="text-sm font-semibold text-secondary hover:text-blue-600 cursor-pointer">
-                  Entrar
-                </button>
-              </SignInButton>
               <SignUpButton mode="modal" fallbackRedirectUrl="/dashboard">
-                <button className="btn-primary px-4 py-2 rounded-md text-sm font-semibold cursor-pointer">
-                  Criar Conta
+                <button className="cta-button inline-flex items-center justify-center rounded-md shadow-sm text-base font-medium cursor-pointer">
+                  Começar Grátis
+                  <ArrowRight className="ml-2 h-5 w-5" />
                 </button>
               </SignUpButton>
+              <SignInButton mode="modal" fallbackRedirectUrl="/dashboard">
+                <button className="btn-secondary inline-flex items-center justify-center px-6 py-3 rounded-md text-base font-medium cursor-pointer font-poppins">
+                  Ver Documentação
+                </button>
+              </SignInButton>
             </>
           )}
         </div>
       </div>
-    </div>
-  </header>
-);
-
-// Componente Hero Section
-const HeroSection = ({ isSignedIn, user }) => (
-  <section className="home-hero py-20 sm:py-32">
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-      <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-primary tracking-tight">
-        Uma Plataforma para Construir seu SaaS.
-      </h1>
-      <p className="mt-6 max-w-2xl mx-auto text-lg text-secondary">
-        O DashMaster.PRO é o motor para criar Workspaces, monetizar com Planos e
-        Features, e controlar tudo com um sistema de acesso de nível enterprise.
-      </p>
-      <div className="mt-8 flex justify-center gap-4">
-        {isSignedIn ? (
-          <Link
-            href="/dashboard"
-            className="btn-primary inline-flex items-center justify-center px-6 py-3 rounded-md shadow-sm text-base font-medium"
-          >
-            Bem-vindo, {user?.firstName}! Ir para o Dashboard
-          </Link>
-        ) : (
-          <>
-            <SignUpButton mode="modal" fallbackRedirectUrl="/dashboard">
-              <button className="btn-primary inline-flex items-center justify-center px-6 py-3 rounded-md shadow-sm text-base font-medium cursor-pointer">
-                Começar Grátis
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </button>
-            </SignUpButton>
-            <SignInButton mode="modal" fallbackRedirectUrl="/dashboard">
-              <button className="btn-secondary inline-flex items-center justify-center px-6 py-3 rounded-md text-base font-medium cursor-pointer">
-                Ver Documentação
-              </button>
-            </SignInButton>
-          </>
-        )}
-      </div>
-    </div>
-  </section>
-);
+    </section>
+  );
+};
 
 // Seção de Monetização
 const MonetizationSection = () => (
-  <section className="py-20 bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+  <section className="py-20" style={{ backgroundColor: "var(--bg-secondary)" }}>
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="text-center mb-16">
-        <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl mb-6">
-          <DollarSign className="w-8 h-8 text-white" />
+        <div
+          className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-6"
+          style={{ backgroundColor: "var(--cta-color)" }}
+        >
+          <DollarSign className="w-8 h-8 text-black" />
         </div>
-        <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white mb-4">
-          Engine de Monetização Completo
+        <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 font-geologica brutal-heading">
+          <span className="text-white">Engine de</span>{" "}
+          <span className="diagonal-word cta">Monetização</span>{" "}
+          <span className="text-white">Completo</span>
         </h2>
-        <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+        <p className="text-xl text-gray-200 max-w-3xl mx-auto font-poppins">
           Transforme seu projeto em uma plataforma SaaS lucrativa com nosso
           sistema avançado de billing e planos
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300">
-          <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center mb-6">
-            <CreditCard className="w-6 h-6 text-white" />
+        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-8 hover:bg-white/15 transition-all duration-300">
+          <div
+            className="w-12 h-12 rounded-xl flex items-center justify-center mb-6"
+            style={{
+              background: undefined,
+              backgroundColor: "var(--cta-color)",
+            }}
+          >
+            <CreditCard className="w-6 h-6 text-black" />
           </div>
-          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+          <h3 className="text-xl font-bold text-white mb-4 font-geologica">
             Stripe Integrado
           </h3>
-          <p className="text-gray-600 dark:text-gray-300 mb-4">
+          <p className="text-gray-200 mb-4 font-poppins">
             Customer Portal nativo, webhooks automáticos e sincronização em
             tempo real de assinaturas
           </p>
-          <ul className="space-y-2 text-sm text-gray-500 dark:text-gray-400">
+          <ul className="space-y-2 text-sm text-gray-300">
             <li className="flex items-center">
-              <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
+              <CheckCircle
+                className="w-4 h-4 mr-2"
+                style={{ color: "var(--cta-color)" }}
+              />
               Planos recorrentes e one-time
             </li>
             <li className="flex items-center">
-              <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
+              <CheckCircle
+                className="w-4 h-4 mr-2"
+                style={{ color: "var(--cta-color)" }}
+              />
               Gestão automática de billing
             </li>
             <li className="flex items-center">
-              <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
+              <CheckCircle
+                className="w-4 h-4 mr-2"
+                style={{ color: "var(--cta-color)" }}
+              />
               Webhooks configurados
             </li>
           </ul>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300">
-          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center mb-6">
+        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-8 hover:bg-white/15 transition-all duration-300">
+          <div
+            className="w-12 h-12 rounded-xl flex items-center justify-center mb-6"
+            style={{
+              background: undefined,
+              backgroundColor: "var(--accent-color-2)",
+            }}
+          >
             <TrendingUp className="w-6 h-6 text-white" />
           </div>
-          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+          <h3 className="text-xl font-bold text-white mb-4 font-geologica">
             Planos Dinâmicos
           </h3>
-          <p className="text-gray-600 dark:text-gray-300 mb-4">
+          <p className="text-gray-200 mb-4 font-poppins">
             Configure planos pelo MongoDB, não por código. Mude preços, features
             e limites sem deploy
           </p>
-          <ul className="space-y-2 text-sm text-gray-500 dark:text-gray-400">
+          <ul className="space-y-2 text-sm text-gray-300">
             <li className="flex items-center">
-              <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
+              <CheckCircle
+                className="w-4 h-4 mr-2"
+                style={{ color: "var(--accent-color-2)" }}
+              />
               Free, Business, Enterprise
             </li>
             <li className="flex items-center">
-              <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
+              <CheckCircle
+                className="w-4 h-4 mr-2"
+                style={{ color: "var(--accent-color-2)" }}
+              />
               Features por plano
             </li>
             <li className="flex items-center">
-              <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
+              <CheckCircle
+                className="w-4 h-4 mr-2"
+                style={{ color: "var(--accent-color-2)" }}
+              />
               Addons pagos separadamente
             </li>
           </ul>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300">
-          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center mb-6">
-            <Settings className="w-6 h-6 text-white" />
+        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-8 hover:bg-white/15 transition-all duration-300">
+          <div
+            className="w-12 h-12 rounded-xl flex items-center justify-center mb-6"
+            style={{
+              background: undefined,
+              backgroundColor: "var(--accent-color-1)",
+            }}
+          >
+            <Settings className="w-6 h-6 text-black" />
           </div>
-          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+          <h3 className="text-xl font-bold text-white mb-4 font-geologica">
             Controle Granular
           </h3>
-          <p className="text-gray-600 dark:text-gray-300 mb-4">
+          <p className="text-gray-300 mb-4 font-poppins">
             Limits por workspace, features condicionais e upgrade prompts
             inteligentes
           </p>
-          <ul className="space-y-2 text-sm text-gray-500 dark:text-gray-400">
+          <ul className="space-y-2 text-sm text-gray-400">
             <li className="flex items-center">
-              <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
+              <CheckCircle
+                className="w-4 h-4 mr-2"
+                style={{ color: "var(--accent-color-1)" }}
+              />
               Limites automáticos
             </li>
             <li className="flex items-center">
-              <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
+              <CheckCircle
+                className="w-4 h-4 mr-2"
+                style={{ color: "var(--accent-color-1)" }}
+              />
               Prompts de upgrade
             </li>
             <li className="flex items-center">
-              <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
+              <CheckCircle
+                className="w-4 h-4 mr-2"
+                style={{ color: "var(--accent-color-1)" }}
+              />
               Analytics de conversão
             </li>
           </ul>
@@ -233,26 +345,38 @@ const MonetizationSection = () => (
       </div>
 
       <div className="text-center">
-        <div className="inline-block bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900 dark:to-emerald-900 rounded-2xl p-8">
-          <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+        <div
+          className="rounded-2xl p-8 text-center"
+          style={{
+            backgroundColor: "var(--bg-tertiary)",
+            border: "2px solid var(--border-color)",
+          }}
+        >
+          <h3 className="text-2xl font-bold mb-4 font-geologica text-white">
             💰 Comece a Monetizar Hoje
           </h3>
-          <p className="text-gray-600 dark:text-gray-300 mb-6">
-            Nosso sistema de billing está pronto para receber pagamentos desde o
-            primeiro dia
+          <p className="text-lg mb-6 text-gray-300 font-poppins">
+            Sistema completo de billing com Stripe, planos, addons e trial. Tudo
+            pronto para usar.
           </p>
-          <div className="flex flex-wrap justify-center gap-4 text-sm font-semibold">
-            <span className="bg-green-500 text-white px-4 py-2 rounded-full">
-              🎯 Free → Paid Conversion
+          <div className="flex flex-wrap justify-center items-center gap-4 text-sm font-semibold">
+            <span className="pill-badge-dark text-white">
+              🎯 Planos Flexíveis
             </span>
-            <span className="bg-blue-500 text-white px-4 py-2 rounded-full">
-              📊 Revenue Analytics
+            <span className="pill-badge-dark text-white">
+              📊 Portal do Cliente
             </span>
-            <span className="bg-purple-500 text-white px-4 py-2 rounded-full">
-              🚀 Upsell Automation
+            <span className="pill-badge-dark text-white">
+              🔒 Webhooks Seguros
             </span>
           </div>
         </div>
+      </div>
+
+      <div className="text-center mt-12">
+        <Link href="#planos" className="cta-button">
+          Ver Planos de Monetização
+        </Link>
       </div>
     </div>
   </section>
@@ -260,141 +384,147 @@ const MonetizationSection = () => (
 
 // Seção de Controle de Acesso
 const AccessControlSection = () => (
-  <section className="py-20 bg-white dark:bg-gray-900">
+  <section className="py-20" style={{ backgroundColor: "var(--bg-primary)" }}>
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="text-center mb-16">
-        <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-orange-500 to-red-600 rounded-2xl mb-6">
-          <Key className="w-8 h-8 text-white" />
+        <div
+          className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-6"
+          style={{ backgroundColor: "var(--accent-color-1)" }}
+        >
+          <Lock className="w-8 h-8 text-black" />
         </div>
-        <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white mb-4">
-          Sistema de Chaves & Beta Testing
+        <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 font-geologica brutal-heading">
+          Acesso <span className="diagonal-word accent-1">Granular</span> e{" "}
+          <span className="diagonal-word accent-1">Seguro</span>
         </h2>
-        <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-          Gerencie beta testers, demos e campanhas promocionais com nosso
-          sistema avançado de chaves de acesso
+        <p className="text-xl text-gray-300 max-w-3xl mx-auto font-poppins">
+          Controle total sobre quem acessa o quê. Workspaces, permissões de
+          usuário e chaves de acesso para integrações.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center mb-16">
-        <div>
-          <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-            🔑 Libere Acessos sem Pagamento
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="feature-card-dark">
+          <div
+            className="w-12 h-12 rounded-xl flex items-center justify-center mb-6"
+            style={{ backgroundColor: "var(--accent-color-1)" }}
+          >
+            <Users className="w-6 h-6 text-black" />
+          </div>
+          <h3 className="text-xl font-bold text-white mb-4 font-geologica">
+            Workspaces Multi-Tenant
           </h3>
-          <div className="space-y-6">
-            <div className="flex items-start space-x-4">
-              <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900 rounded-lg flex items-center justify-center flex-shrink-0">
-                <Crown className="w-4 h-4 text-orange-600 dark:text-orange-400" />
-              </div>
-              <div>
-                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
-                  Chaves de Plano
-                </h4>
-                <p className="text-gray-600 dark:text-gray-300 text-sm">
-                  <code className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
-                    PLAN2024-ABC123
-                  </code>{" "}
-                  - Libera acesso completo ao plano Business por 30 dias
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start space-x-4">
-              <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center flex-shrink-0">
-                <Zap className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div>
-                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
-                  Chaves de Feature
-                </h4>
-                <p className="text-gray-600 dark:text-gray-300 text-sm">
-                  <code className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
-                    FEAT2024-XYZ789
-                  </code>{" "}
-                  - Ativa Analytics Premium + Export PDF
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start space-x-4">
-              <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center flex-shrink-0">
-                <Settings className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-              </div>
-              <div>
-                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
-                  Chaves Customizadas
-                </h4>
-                <p className="text-gray-600 dark:text-gray-300 text-sm">
-                  <code className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
-                    CUST2024-DEF456
-                  </code>{" "}
-                  - Permissões específicas + bonus de limites
-                </p>
-              </div>
-            </div>
-          </div>
+          <p className="text-gray-300 mb-4 font-poppins">
+            Isole dados e configurações de clientes em workspaces dedicados,
+            garantindo segurança e organização.
+          </p>
+          <ul className="space-y-2 text-sm text-gray-400">
+            <li className="flex items-center">
+              <CheckCircle
+                className="w-4 h-4 mr-2"
+                style={{ color: "var(--accent-color-1)" }}
+              />
+              Isolamento de dados por cliente
+            </li>
+            <li className="flex items-center">
+              <CheckCircle
+                className="w-4 h-4 mr-2"
+                style={{ color: "var(--accent-color-1)" }}
+              />
+              Múltiplos usuários por workspace
+            </li>
+            <li className="flex items-center">
+              <CheckCircle
+                className="w-4 h-4 mr-2"
+                style={{ color: "var(--accent-color-1)" }}
+              />
+              Fácil troca entre workspaces
+            </li>
+          </ul>
         </div>
 
-        <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-2xl p-8">
-          <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-6">
-            📋 Casos de Uso Práticos
-          </h4>
-          <div className="space-y-4">
-            <div className="bg-white dark:bg-gray-600 rounded-xl p-4">
-              <h5 className="font-semibold text-gray-900 dark:text-white mb-2">
-                🧪 Beta Testers
-              </h5>
-              <p className="text-sm text-gray-600 dark:text-gray-300">
-                50 chaves para beta testers com acesso Business por 60 dias
-              </p>
-            </div>
-
-            <div className="bg-white dark:bg-gray-600 rounded-xl p-4">
-              <h5 className="font-semibold text-gray-900 dark:text-white mb-2">
-                💼 Demos de Vendas
-              </h5>
-              <p className="text-sm text-gray-600 dark:text-gray-300">
-                Chaves específicas por email para demonstrações com prospects
-              </p>
-            </div>
-
-            <div className="bg-white dark:bg-gray-600 rounded-xl p-4">
-              <h5 className="font-semibold text-gray-900 dark:text-white mb-2">
-                🎁 Campanhas Promocionais
-              </h5>
-              <p className="text-sm text-gray-600 dark:text-gray-300">
-                Black Friday: 1000 chaves com 6 meses grátis
-              </p>
-            </div>
-
-            <div className="bg-white dark:bg-gray-600 rounded-xl p-4">
-              <h5 className="font-semibold text-gray-900 dark:text-white mb-2">
-                🎓 Programa Educacional
-              </h5>
-              <p className="text-sm text-gray-600 dark:text-gray-300">
-                Acesso gratuito para domínios .edu por 1 ano
-              </p>
-            </div>
+        <div className="feature-card-dark">
+          <div
+            className="w-12 h-12 rounded-xl flex items-center justify-center mb-6"
+            style={{ backgroundColor: "var(--accent-color-1)" }}
+          >
+            <Shield className="w-6 h-6 text-black" />
           </div>
+          <h3 className="text-xl font-bold text-white mb-4 font-geologica">
+            Permissões Configuráveis
+          </h3>
+          <p className="text-gray-300 mb-4 font-poppins">
+            Defina papéis e permissões para controlar o acesso de cada usuário
+            às funcionalidades do sistema.
+          </p>
+          <ul className="space-y-2 text-sm text-gray-400">
+            <li className="flex items-center">
+              <CheckCircle
+                className="w-4 h-4 mr-2"
+                style={{ color: "var(--accent-color-1)" }}
+              />
+              Papéis (Admin, Editor, Viewer)
+            </li>
+            <li className="flex items-center">
+              <CheckCircle
+                className="w-4 h-4 mr-2"
+                style={{ color: "var(--accent-color-1)" }}
+              />
+              Controle de acesso por feature
+            </li>
+            <li className="flex items-center">
+              <CheckCircle
+                className="w-4 h-4 mr-2"
+                style={{ color: "var(--accent-color-1)" }}
+              />
+              API de verificação de acesso
+            </li>
+          </ul>
+        </div>
+
+        <div className="feature-card-dark">
+          <div
+            className="w-12 h-12 rounded-xl flex items-center justify-center mb-6"
+            style={{ backgroundColor: "var(--accent-color-1)" }}
+          >
+            <Key className="w-6 h-6 text-black" />
+          </div>
+          <h3 className="text-xl font-bold text-white mb-4 font-geologica">
+            Chaves de Acesso de API
+          </h3>
+          <p className="text-gray-300 mb-4 font-poppins">
+            Permita que seus usuários integrem com outros sistemas de forma
+            segura através de chaves de API.
+          </p>
+          <ul className="space-y-2 text-sm text-gray-400">
+            <li className="flex items-center">
+              <CheckCircle
+                className="w-4 h-4 mr-2"
+                style={{ color: "var(--accent-color-1)" }}
+              />
+              Criação de chaves por workspace
+            </li>
+            <li className="flex items-center">
+              <CheckCircle
+                className="w-4 h-4 mr-2"
+                style={{ color: "var(--accent-color-1)" }}
+              />
+              Associação com papéis e permissões
+            </li>
+            <li className="flex items-center">
+              <CheckCircle
+                className="w-4 h-4 mr-2"
+                style={{ color: "var(--accent-color-1)" }}
+              />
+              Ativação e desativação de chaves
+            </li>
+          </ul>
         </div>
       </div>
-
-      <div className="bg-gradient-to-r from-orange-500 to-red-600 rounded-2xl p-8 text-center text-white">
-        <h3 className="text-2xl font-bold mb-4">🚀 Acelere sua Adoção</h3>
-        <p className="text-lg mb-6 opacity-90">
-          Sistema completo de chaves com restrições por email, domínio, tempo e
-          uso
-        </p>
-        <div className="flex flex-wrap justify-center gap-4 text-sm font-semibold">
-          <span className="bg-white bg-opacity-20 px-4 py-2 rounded-full">
-            🎯 Targeting Avançado
-          </span>
-          <span className="bg-white bg-opacity-20 px-4 py-2 rounded-full">
-            📊 Analytics Detalhados
-          </span>
-          <span className="bg-white bg-opacity-20 px-4 py-2 rounded-full">
-            🔒 Controle Total
-          </span>
-        </div>
+      <div className="text-center mt-12">
+        <Link href="#planos" className="cta-button dark-bg-shadow">
+          Ver Planos e Preços
+        </Link>
       </div>
     </div>
   </section>
@@ -402,155 +532,138 @@ const AccessControlSection = () => (
 
 // Seção Enterprise
 const EnterpriseSection = () => (
-  <section className="py-20 bg-gradient-to-br from-purple-50 to-pink-100 dark:from-gray-900 dark:to-gray-800">
+  <section
+    className="py-20"
+    style={{
+      backgroundColor: "var(--bg-secondary)",
+      color: "var(--text-primary)",
+      position: "relative",
+      overflow: "hidden",
+      borderTop: "2px solid var(--border-color)",
+      borderBottom: "2px solid var(--border-color)",
+    }}
+  >
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="text-center mb-16">
-        <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-600 to-pink-600 rounded-2xl mb-6">
-          <Shield className="w-8 h-8 text-white" />
+        <div
+          className="pill-badge-dark inline-flex items-center justify-center mx-auto mb-6 px-4 py-2 text-base"
+          style={{ color: "var(--highlight-yellow)" }}
+        >
+          <Crown
+            className="w-6 h-6 mr-3"
+            style={{ color: "var(--highlight-yellow)" }}
+          />
+          <span>Enterprise-Ready</span>
         </div>
-        <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white mb-4">
-          Enterprise-Ready Features
+        <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 font-geologica brutal-heading">
+          Pronto para Escalar. Seguro por Design.
         </h2>
-        <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-          Recursos de nível corporativo prontos para escalar seu negócio
+        <p className="text-xl text-gray-300 max-w-3xl mx-auto font-poppins">
+          Funcionalidades de nível enterprise para garantir que seu SaaS atenda
+          os clientes mais exigentes.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg">
-          <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center mb-6">
-            <Lock className="w-6 h-6 text-white" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+        <div className="space-y-8">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <div className="w-10 h-10 rounded-lg bg-tertiary flex items-center justify-center">
+                <Globe
+                  className="w-6 h-6"
+                  style={{ color: "var(--highlight-yellow)" }}
+                />
+              </div>
+            </div>
+            <div className="ml-4">
+              <h4 className="text-lg font-bold text-white font-geologica">
+                CMS Headless Dinâmico
+              </h4>
+              <p className="mt-1 text-gray-300 font-poppins">
+                Crie e gerencie tipos de conteúdo, seções e itens diretamente da
+                interface. Uma base flexível para qualquer projeto.
+              </p>
+            </div>
           </div>
-          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-            Controle de Acesso Granular
-          </h3>
-          <p className="text-gray-600 dark:text-gray-300 mb-6">
-            Sistema multi-dimensional de permissões por workspace, section, role
-            e plano
-          </p>
-          <ul className="space-y-3">
-            <li className="flex items-start space-x-3">
-              <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-              <span className="text-sm text-gray-600 dark:text-gray-300">
-                <strong>Role-Based Access:</strong> Owner, Admin, Editor, Viewer
-                com permissões específicas
-              </span>
-            </li>
-            <li className="flex items-start space-x-3">
-              <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-              <span className="text-sm text-gray-600 dark:text-gray-300">
-                <strong>Visibilidade Configurável:</strong> Public, Private,
-                Authenticated, Plan-based
-              </span>
-            </li>
-            <li className="flex items-start space-x-3">
-              <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-              <span className="text-sm text-gray-600 dark:text-gray-300">
-                <strong>Access Rules:</strong> Regras customizadas em JavaScript
-              </span>
-            </li>
-          </ul>
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <div className="w-10 h-10 rounded-lg bg-tertiary flex items-center justify-center">
+                <Zap
+                  className="w-6 h-6"
+                  style={{ color: "var(--highlight-yellow)" }}
+                />
+              </div>
+            </div>
+            <div className="ml-4">
+              <h4 className="text-lg font-bold text-white font-geologica">
+                Performance Otimizada
+              </h4>
+              <p className="mt-1 text-gray-300 font-poppins">
+                APIs rápidas construídas com Next.js, Vercel e MongoDB Atlas
+                para garantir a melhor performance e escalabilidade.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <div className="w-10 h-10 rounded-lg bg-tertiary flex items-center justify-center">
+                <Settings
+                  className="w-6 h-6"
+                  style={{ color: "var(--highlight-yellow)" }}
+                />
+              </div>
+            </div>
+            <div className="ml-4">
+              <h4 className="text-lg font-bold text-white font-geologica">
+                Altamente Customizável
+              </h4>
+              <p className="mt-1 text-gray-300 font-poppins">
+                O código é seu. Adapte, extenda e modifique a plataforma para
+                atender as necessidades específicas do seu negócio.
+              </p>
+            </div>
+          </div>
         </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg">
-          <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-teal-600 rounded-xl flex items-center justify-center mb-6">
-            <Globe className="w-6 h-6 text-white" />
-          </div>
-          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-            Autenticação Enterprise (Clerk)
-          </h3>
-          <p className="text-gray-600 dark:text-gray-300 mb-6">
-            Integração nativa com Clerk para autenticação profissional e Stripe
-            para pagamentos
-          </p>
-          <ul className="space-y-3">
-            <li className="flex items-start space-x-3">
-              <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-              <span className="text-sm text-gray-600 dark:text-gray-300">
-                <strong>Clerk SSO:</strong> Google, GitHub, Microsoft, SAML
-                enterprise
-              </span>
-            </li>
-            <li className="flex items-start space-x-3">
-              <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-              <span className="text-sm text-gray-600 dark:text-gray-300">
-                <strong>Stripe Portal:</strong> Webhooks automáticos, sync em
-                tempo real
-              </span>
-            </li>
-            <li className="flex items-start space-x-3">
-              <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-              <span className="text-sm text-gray-600 dark:text-gray-300">
-                <strong>Multi-Factor Auth:</strong> SMS, TOTP, backup codes
-                integrados
-              </span>
-            </li>
-          </ul>
-        </div>
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg">
-        <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-8 text-center">
-          🎯 Sistema de Monetização Flexível
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="text-center">
-            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <TrendingUp className="w-8 h-8 text-white" />
-            </div>
-            <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-3">
-              Planos Recorrentes
+        <div className="mt-10 md:mt-0">
+          <div
+            className="p-8 rounded-2xl"
+            style={{
+              backgroundColor: "var(--bg-tertiary)",
+              border: "2px solid var(--border-color)",
+            }}
+          >
+            <h4 className="text-lg font-bold text-white mb-4 font-geologica">
+              Disponível em todos os planos:
             </h4>
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              Free, Business, Enterprise com features e limites configuráveis
-            </p>
-          </div>
-
-          <div className="text-center">
-            <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Zap className="w-8 h-8 text-white" />
-            </div>
-            <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-3">
-              Addons Pagos
-            </h4>
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              Features vendidas separadamente: Analytics, Exports, Integrações
-            </p>
-          </div>
-
-          <div className="text-center">
-            <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <CreditCard className="w-8 h-8 text-white" />
-            </div>
-            <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-3">
-              Usage-Based
-            </h4>
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              Cobrança por uso: API calls, storage, export credits
-            </p>
+            <ul className="space-y-3">
+              <li className="flex items-center text-gray-300 font-poppins">
+                <CheckCircle className="w-5 h-5 mr-3 text-green-500" />
+                <span>Workspaces ilimitados</span>
+              </li>
+              <li className="flex items-center text-gray-300 font-poppins">
+                <CheckCircle className="w-5 h-5 mr-3 text-green-500" />
+                <span>Tipos de Conteúdo ilimitados</span>
+              </li>
+              <li className="flex items-center text-gray-300 font-poppins">
+                <CheckCircle className="w-5 h-5 mr-3 text-green-500" />
+                <span>Usuários ilimitados</span>
+              </li>
+              <li className="flex items-center text-gray-300 font-poppins">
+                <CheckCircle className="w-5 h-5 mr-3 text-green-500" />
+                <span>Acesso total à API</span>
+              </li>
+              <li className="flex items-center text-gray-300 font-poppins">
+                <CheckCircle className="w-5 h-5 mr-3 text-green-500" />
+                <span>Suporte da Comunidade</span>
+              </li>
+            </ul>
           </div>
         </div>
       </div>
-
-      <div className="text-center mt-12">
-        <div className="inline-block bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl p-8 text-white">
-          <h3 className="text-2xl font-bold mb-4">🚀 Pronto para Escalar</h3>
-          <p className="text-lg mb-6 opacity-90">
-            Toda a infraestrutura enterprise que você precisa, desde o primeiro
-            dia
-          </p>
-          <div className="flex flex-wrap justify-center gap-4 text-sm font-semibold">
-            <span className="bg-white bg-opacity-20 px-4 py-2 rounded-full">
-              🔒 Multi-tenant Security
-            </span>
-            <span className="bg-white bg-opacity-20 px-4 py-2 rounded-full">
-              📊 Revenue Analytics
-            </span>
-            <span className="bg-white bg-opacity-20 px-4 py-2 rounded-full">
-              ⚡ Auto-scaling
-            </span>
-          </div>
-        </div>
+      <div className="text-center mt-16">
+        <Link href="#planos" className="cta-button">
+          Explorar Planos
+        </Link>
       </div>
     </div>
   </section>
@@ -562,228 +675,400 @@ const UseCasesSection = () => {
 
   const realUseCases = {
     autores: {
-      icon: <Users className="w-6 h-6 text-pink-500" />,
       title: "Autores Apaixonados",
       subtitle: "Cliente Real em Produção",
       description:
         "Plataforma para casais criarem histórias personalizadas, transformadas em livros digitais ou físicos.",
       features: [
-        { name: "Workspace", value: '"Autores Apaixonados"' },
-        { name: "Estrutura", value: "Sections de Casais, Histórias e Pedidos" },
         {
+          icon: <Users className="w-5 h-5 text-accent-color-1" />,
+          name: "Workspace",
+          value: '"Autores Apaixonados"',
+        },
+        {
+          icon: <Book className="w-5 h-5 text-accent-color-1" />,
+          name: "Estrutura",
+          value: "Sections de Casais, Histórias e Pedidos",
+        },
+        {
+          icon: <DollarSign className="w-5 h-5 text-accent-color-1" />,
           name: "Monetização",
           value: "Formulários multi-step com campos pagos",
         },
         {
+          icon: <Zap className="w-5 h-5 text-accent-color-1" />,
           name: "Diferencial",
           value: "Geração de texto com IA para capítulos",
         },
       ],
-      bgColor: "bg-pink-50",
-      borderColor: "border-pink-200",
-      buttonColor: "bg-pink-500 hover:bg-pink-600",
     },
     blog: {
-      icon: <Code className="w-6 h-6 text-teal-500" />,
       title: "Blog com Taxonomia",
       subtitle: "Exemplo Nativo no MVP",
       description:
         "Demonstração padrão de um blog funcional com posts, categorias e tags.",
       features: [
-        { name: "Workspace", value: '"Meu Blog"' },
-        { name: "Estrutura", value: "Sections de Posts, Categorias e Tags" },
         {
+          icon: <Code className="w-5 h-5 text-accent-color-2" />,
+          name: "Workspace",
+          value: '"Meu Blog"',
+        },
+        {
+          icon: <Book className="w-5 h-5 text-accent-color-2" />,
+          name: "Estrutura",
+          value: "Sections de Posts, Categorias e Tags",
+        },
+        {
+          icon: <Key className="w-5 h-5 text-accent-color-2" />,
           name: "Lógica",
           value: "Relacionamento entre posts e suas taxonomias",
         },
-        { name: "Controle", value: "Acesso restrito à publicação via Roles" },
+        {
+          icon: <Shield className="w-5 h-5 text-accent-color-2" />,
+          name: "Controle",
+          value: "Acesso restrito à publicação via Roles",
+        },
       ],
-      bgColor: "bg-teal-50",
-      borderColor: "border-teal-200",
-      buttonColor: "bg-teal-500 hover:bg-teal-600",
+    },
+  };
+
+  const exampleUseCases = {
+    agencia: {
+      title: "Painel White-Label para Agências",
+      subtitle: "Gestão Unificada de Clientes",
+      description:
+        "Um painel central para agências gerenciarem múltiplos projetos de clientes com segurança e eficiência.",
+      features: [
+        {
+          icon: <Users className="w-5 h-5 text-cta-color" />,
+          name: "Workspace",
+          value: "Um por cliente (ex: Nike, Coca-Cola)",
+        },
+        {
+          icon: <Book className="w-5 h-5 text-cta-color" />,
+          name: "Estrutura",
+          value: "Content Types para Banners, Posts, Landing Pages",
+        },
+        {
+          icon: <Shield className="w-5 h-5 text-cta-color" />,
+          name: "Controle",
+          value: "Usuários da agência são Admins, clientes são Editores",
+        },
+        {
+          icon: <Zap className="w-5 h-5 text-cta-color" />,
+          name: "Diferencial",
+          value: "Addons pagos por cliente (ex: Relatórios Avançados)",
+        },
+      ],
+    },
+    cursos: {
+      title: "Plataforma de Cursos Online",
+      subtitle: "Monetização de Conteúdo Educacional",
+      description:
+        "Uma plataforma EAD completa para vender cursos, gerenciar alunos e acompanhar o progresso.",
+      features: [
+        {
+          icon: <Users className="w-5 h-5 text-accent-color-2" />,
+          name: "Workspace",
+          value: "Um por instrutor ou escola",
+        },
+        {
+          icon: <Book className="w-5 h-5 text-accent-color-2" />,
+          name: "Estrutura",
+          value: "Sections para Cursos, Módulos, Aulas e Alunos",
+        },
+        {
+          icon: <Key className="w-5 h-5 text-accent-color-2" />,
+          name: "Lógica",
+          value: "Relacionamento entre Alunos e progresso nas Aulas",
+        },
+        {
+          icon: <DollarSign className="w-5 h-5 text-accent-color-2" />,
+          name: "Monetização",
+          value: "Planos de acesso (Básico, Premium) via Stripe",
+        },
+      ],
     },
   };
 
   return (
-    <section id="use-cases" className="home-section py-20 sm:py-32">
+    <section className="py-20" style={{ backgroundColor: "var(--bg-primary)" }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center">
-          <h2 className="text-3xl font-extrabold text-primary sm:text-4xl">
-            Casos de Uso Reais e Práticos
+        <div className="text-center mb-16">
+          <div className="pill-badge-dark inline-flex items-center justify-center mx-auto mb-6 px-4 py-2 text-base text-white">
+            <Book className="w-6 h-6 mr-3 text-white" />
+            <span>Casos de Uso</span>
+          </div>
+          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 font-geologica brutal-heading">
+            SaaS, Plataformas, Portais e Mais
           </h2>
-          <p className="mt-4 text-lg text-secondary">
-            Veja como profissionais estão revolucionando seus negócios com o
-            DashMaster.PRO
+          <p className="text-xl text-gray-300 max-w-3xl mx-auto font-poppins">
+            DashMaster.PRO é a base flexível para uma variedade de aplicações
+            web de alta performance.
           </p>
         </div>
 
-        <div className="mt-12 max-w-lg mx-auto flex justify-center bg-accent rounded-full p-1">
-          <button
-            onClick={() => setActiveTab("reais")}
-            className={`tab-button w-full py-2 px-4 rounded-full text-sm font-semibold transition-colors ${
-              activeTab === "reais"
-                ? "bg-primary text-gray-900 shadow"
-                : "text-muted"
-            }`}
-          >
-            Clientes Reais
-          </button>
-          <button
-            onClick={() => setActiveTab("exemplos")}
-            className={`tab-button w-full py-2 px-4 rounded-full text-sm font-semibold transition-colors ${
-              activeTab === "exemplos"
-                ? "bg-primary text-gray-900 shadow"
-                : "text-muted"
-            }`}
-          >
-            Casos de Uso
-          </button>
+        <div className="max-w-md mx-auto">
+          <div className="flex justify-center bg-tertiary rounded-full p-1">
+            <button
+              onClick={() => setActiveTab("reais")}
+              className={`w-full py-2 px-4 rounded-full text-base font-semibold transition-colors ${
+                activeTab === "reais"
+                  ? "bg-secondary text-white shadow-lg"
+                  : "bg-transparent text-gray-400"
+              }`}
+            >
+              Clientes Reais
+            </button>
+            <button
+              onClick={() => setActiveTab("exemplos")}
+              className={`w-full py-2 px-4 rounded-full text-base font-semibold transition-colors ${
+                activeTab === "exemplos"
+                  ? "bg-secondary text-white shadow-lg"
+                  : "bg-transparent text-gray-400"
+              }`}
+            >
+              Exemplos
+            </button>
+          </div>
         </div>
 
-        {activeTab === "reais" && (
-          <div className="mt-12 grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {Object.values(realUseCases).map((useCase, index) => (
-              <div
-                key={index}
-                className={`use-case-card rounded-2xl ${useCase.bgColor} p-8 transition-all duration-300 hover:shadow-lg`}
-              >
-                <div className="flex flex-col sm:flex-row gap-6">
-                  <div className="flex-shrink-0 w-16 h-16 rounded-full bg-white shadow-md flex items-center justify-center">
-                    {useCase.icon}
-                  </div>
-                  <div className="flex-1">
-                    <span
-                      className={`inline-block px-3 py-1 text-xs font-semibold rounded-full ${useCase.buttonColor} text-white`}
-                    >
+        <div className="mt-12">
+          {activeTab === "reais" && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {Object.values(realUseCases).map((useCase, index) => (
+                <div key={index} className="p-8 rounded-2xl feature-card-dark">
+                  <h4 className="text-xl font-bold text-white mb-4 font-geologica">
+                    {useCase.title}
+                  </h4>
+                  <p className="text-gray-300 mb-6 font-poppins">
+                    {useCase.description}
+                  </p>
+                  <div
+                    className="p-6 rounded-lg"
+                    style={{ backgroundColor: "rgba(0, 0, 0, 0.2)" }}
+                  >
+                    <h5 className="text-lg font-bold text-white mb-2">
                       {useCase.subtitle}
-                    </span>
-                    <h3 className="mt-3 text-2xl font-bold feature-name">
-                      {useCase.title}
-                    </h3>
-                    <p className="mt-2 feature-value">{useCase.description}</p>
-
-                    <ul className="mt-6 space-y-3">
-                      {useCase.features.map((feature, idx) => (
-                        <li key={idx} className="flex items-start">
-                          <CheckCircle
-                            className={`flex-shrink-0 w-5 h-5 mt-0.5 ${useCase.buttonColor.replace(
-                              "bg-",
-                              "text-"
-                            )}`}
-                          />
-                          <div className="ml-3">
-                            <p className="font-semibold feature-name">
-                              {feature.name}:
-                            </p>
-                            <p className="feature-value">{feature.value}</p>
-                          </div>
+                    </h5>
+                    <ul className="space-y-3 text-sm text-gray-300 font-poppins">
+                      {useCase.features.map((feature, fIndex) => (
+                        <li key={fIndex} className="flex items-center">
+                          {feature.icon}
+                          <strong className="font-geologica ml-3 mr-2">
+                            {feature.name}:
+                          </strong>{" "}
+                          {feature.value}
                         </li>
                       ))}
                     </ul>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {activeTab === "exemplos" && (
-          <div className="mt-12 grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Agência Digital */}
-            <div className="home-card rounded-3xl p-8 hover:shadow-2xl transition-all duration-300">
-              <div className="flex items-center mb-6">
-                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center mr-4">
-                  <Users className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-2xl font-bold text-primary">
-                    Agência Digital
-                  </h3>
-                  <p className="text-purple-600 font-medium">
-                    Gestão Multi-Cliente
-                  </p>
-                </div>
-              </div>
-              <div className="space-y-4 text-secondary">
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
-                  <p>
-                    <strong>Cliente A - E-commerce:</strong> Produtos,
-                    Categorias, Pedidos com 3 editores
-                  </p>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
-                  <p>
-                    <strong>Cliente B - Blog:</strong> Posts, Autores, SEO com 2
-                    editores
-                  </p>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
-                  <p>
-                    <strong>Projeto Interno:</strong> Leads, Propostas,
-                    Contratos apenas admin
-                  </p>
-                </div>
-              </div>
-              <div className="mt-6 p-4 bg-purple-50 rounded-xl">
-                <p className="text-sm text-purple-700 font-medium">
-                  "Conseguimos organizar 12 clientes em workspaces separados.
-                  Cada cliente vê apenas seus dados, e faturamos 300% mais por
-                  conta da eficiência."
-                </p>
-              </div>
+              ))}
             </div>
+          )}
 
-            {/* Desenvolvedor Freelancer */}
-            <div className="home-card rounded-3xl p-8 hover:shadow-2xl transition-all duration-300">
-              <div className="flex items-center mb-6">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center mr-4">
-                  <Code className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-2xl font-bold text-primary">
-                    Freelancer
-                  </h3>
-                  <p className="text-blue-600 font-medium">Multi-Projeto</p>
-                </div>
-              </div>
-              <div className="space-y-4 text-secondary">
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                  <p>
-                    <strong>Blog Pessoal:</strong> Artigos, Tutoriais, Portfolio
+          {activeTab === "exemplos" && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {Object.values(exampleUseCases).map((useCase, index) => (
+                <div key={index} className="p-8 rounded-2xl feature-card-dark">
+                  <h4 className="text-xl font-bold text-white mb-4 font-geologica">
+                    {useCase.title}
+                  </h4>
+                  <p className="text-gray-300 mb-6 font-poppins">
+                    {useCase.description}
                   </p>
+                  <div
+                    className="p-6 rounded-lg"
+                    style={{ backgroundColor: "rgba(0, 0, 0, 0.2)" }}
+                  >
+                    <h5 className="text-lg font-bold text-white mb-2">
+                      {useCase.subtitle}
+                    </h5>
+                    <ul className="space-y-3 text-sm text-gray-300 font-poppins">
+                      {useCase.features.map((feature, fIndex) => (
+                        <li key={fIndex} className="flex items-center">
+                          {feature.icon}
+                          <strong className="font-geologica ml-3 mr-2">
+                            {feature.name}:
+                          </strong>{" "}
+                          {feature.value}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                  <p>
-                    <strong>Cliente - Restaurante:</strong> Cardápio, Pedidos,
-                    Avaliações
-                  </p>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                  <p>
-                    <strong>SaaS Side Project:</strong> Users, Features,
-                    Feedback
-                  </p>
-                </div>
-              </div>
-              <div className="mt-6 p-4 bg-blue-50 rounded-xl">
-                <p className="text-sm text-blue-700 font-medium">
-                  "Organizei todos meus projetos em um lugar só. Não preciso
-                  mais ficar alternando entre 5 ferramentas diferentes."
-                </p>
-              </div>
+              ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </section>
   );
 };
+
+// Seção de Planos
+const PricingSection = () => (
+  <section
+    id="planos"
+    className="py-20"
+    style={{ backgroundColor: "var(--bg-primary)" }}
+  >
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="text-center mb-16">
+        <h2 className="text-4xl font-extrabold text-white sm:text-5xl font-geologica brutal-heading">
+          Planos para cada Estágio do seu Negócio
+        </h2>
+        <p className="mt-4 text-xl text-gray-300 max-w-2xl mx-auto font-poppins">
+          Comece de graça e escale conforme sua necessidade. Sem surpresas.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
+        {/* Plano Starter */}
+        <div
+          className="rounded-2xl p-8 flex flex-col"
+          style={{
+            backgroundColor: "var(--bg-secondary)",
+            border: "2px solid var(--border-color)",
+          }}
+        >
+          <h3 className="text-2xl font-bold text-white font-geologica">
+            Starter
+          </h3>
+          <p className="text-gray-400 mt-2">Para começar a construir</p>
+          <div className="mt-6">
+            <span className="text-5xl font-bold text-white">$49</span>
+            <span className="text-lg text-gray-400">/mês</span>
+          </div>
+          <ul className="space-y-4 mt-8 text-gray-300 flex-grow">
+            <li className="flex items-center">
+              <CheckCircle className="w-5 h-5 text-green-500 mr-3" /> 3 Usuários
+            </li>
+            <li className="flex items-center">
+              <CheckCircle className="w-5 h-5 text-green-500 mr-3" /> 5
+              Workspaces
+            </li>
+            <li className="flex items-center">
+              <CheckCircle className="w-5 h-5 text-green-500 mr-3" /> 10 GB de
+              Armazenamento
+            </li>
+            <li className="flex items-center">
+              <CheckCircle className="w-5 h-5 text-green-500 mr-3" /> Suporte
+              via Comunidade
+            </li>
+          </ul>
+          <div className="mt-8">
+            <SignUpButton mode="modal" fallbackRedirectUrl="/dashboard">
+              <button className="w-full btn-secondary py-3">
+                Começar no Starter
+              </button>
+            </SignUpButton>
+          </div>
+        </div>
+
+        {/* Plano Business */}
+        <div
+          className="rounded-2xl p-8 flex flex-col"
+          style={{
+            backgroundColor: "var(--bg-secondary)",
+            border: "2px solid var(--highlight-yellow)",
+          }}
+        >
+          <div className="flex justify-between items-center">
+            <h3 className="text-2xl font-bold text-white font-geologica">
+              Business
+            </h3>
+            <span
+              className="px-3 py-1 text-sm font-semibold rounded-full"
+              style={{
+                backgroundColor: "var(--highlight-yellow)",
+                color: "black",
+              }}
+            >
+              MAIS POPULAR
+            </span>
+          </div>
+          <p className="text-gray-400 mt-2">Para negócios em crescimento</p>
+          <div className="mt-6">
+            <span className="text-5xl font-bold text-white">$99</span>
+            <span className="text-lg text-gray-400">/mês</span>
+          </div>
+          <ul className="space-y-4 mt-8 text-gray-300 flex-grow">
+            <li className="flex items-center">
+              <CheckCircle className="w-5 h-5 text-green-500 mr-3" /> 10
+              Usuários
+            </li>
+            <li className="flex items-center">
+              <CheckCircle className="w-5 h-5 text-green-500 mr-3" /> Workspaces
+              Ilimitados
+            </li>
+            <li className="flex items-center">
+              <CheckCircle className="w-5 h-5 text-green-500 mr-3" /> 50 GB de
+              Armazenamento
+            </li>
+            <li className="flex items-center">
+              <CheckCircle className="w-5 h-5 text-green-500 mr-3" /> Acesso a
+              Addons
+            </li>
+            <li className="flex items-center">
+              <CheckCircle className="w-5 h-5 text-green-500 mr-3" /> Suporte
+              Prioritário por Email
+            </li>
+          </ul>
+          <div className="mt-8">
+            <SignUpButton mode="modal" fallbackRedirectUrl="/dashboard">
+              <button className="w-full cta-button">Escolher Business</button>
+            </SignUpButton>
+          </div>
+        </div>
+
+        {/* Plano Enterprise */}
+        <div
+          className="rounded-2xl p-8 flex flex-col"
+          style={{ backgroundColor: "#A15DFF" }}
+        >
+          <h3 className="text-2xl font-bold text-white font-geologica">
+            Enterprise
+          </h3>
+          <p className="text-purple-200 mt-2">Para operações em escala</p>
+          <div className="mt-6">
+            <span className="text-4xl font-bold text-white">Sob Consulta</span>
+          </div>
+          <ul className="space-y-4 mt-8 text-purple-100 flex-grow">
+            <li className="flex items-center">
+              <CheckCircle className="w-5 h-5 text-white mr-3" /> Usuários
+              Ilimitados
+            </li>
+            <li className="flex items-center">
+              <CheckCircle className="w-5 h-5 text-white mr-3" /> Infraestrutura
+              Dedicada
+            </li>
+            <li className="flex items-center">
+              <CheckCircle className="w-5 h-5 text-white mr-3" /> SLAs de Uptime
+            </li>
+            <li className="flex items-center">
+              <CheckCircle className="w-5 h-5 text-white mr-3" /> Suporte
+              Dedicado e Onboarding
+            </li>
+            <li className="flex items-center">
+              <CheckCircle className="w-5 h-5 text-white mr-3" /> Customizações
+              e Integrações
+            </li>
+          </ul>
+          <div className="mt-8">
+            <button
+              className="w-full text-lg font-bold py-3 rounded-lg"
+              style={{ backgroundColor: "white", color: "black" }}
+            >
+              Falar com Vendas
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+);
 
 // Componente FAQ
 const FaqSection = () => {
@@ -827,16 +1112,16 @@ const FaqSection = () => {
       id="faq"
       className="home-section py-20 sm:py-32"
       style={{
-        background:
-          "linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-primary) 100%)",
+        backgroundColor: "var(--bg-secondary)",
       }}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-3xl font-extrabold text-primary sm:text-4xl">
-            Perguntas que Todo Profissional Faz
+          <h2 className="text-3xl font-extrabold text-white sm:text-4xl font-geologica">
+            Perguntas que Todo{" "}
+            <span className="diagonal-word accent-2">Profissional</span> Faz
           </h2>
-          <p className="mt-4 text-lg text-secondary">
+          <p className="mt-4 text-lg text-gray-300 font-poppins">
             Respostas diretas para você decidir se o DashMaster.PRO é a
             ferramenta que vai transformar seu negócio.
           </p>
@@ -852,8 +1137,8 @@ const FaqSection = () => {
                   onClick={() => setOpenFaq(openFaq === index ? null : index)}
                   className="w-full p-6 text-left flex items-center justify-between hover:bg-accent transition-colors"
                 >
-                  <dt className="faq-question text-lg font-semibold flex items-start">
-                    <HelpCircle className="w-6 h-6 mr-3 text-blue-500 flex-shrink-0 mt-0.5" />
+                  <dt className="faq-question text-lg font-semibold flex items-start font-geologica">
+                    <HelpCircle className="w-6 h-6 mr-3 text-green-500 flex-shrink-0 mt-0.5" />
                     {faq.question}
                   </dt>
                   <div className="ml-6 flex-shrink-0">
@@ -866,7 +1151,7 @@ const FaqSection = () => {
                 </button>
                 {openFaq === index && (
                   <dd className="px-6 pb-6">
-                    <div className="ml-9 text-base faq-answer leading-relaxed">
+                    <div className="ml-9 text-base faq-answer leading-relaxed font-poppins">
                       {faq.answer}
                     </div>
                   </dd>
@@ -878,26 +1163,33 @@ const FaqSection = () => {
 
         {/* CTA Section */}
         <div className="mt-16 text-center">
-          <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl p-8 text-white">
-            <h3 className="text-2xl font-bold mb-4">
+          <div
+            className="rounded-2xl p-8 text-white"
+            style={{
+              backgroundColor: "#A15DFF",
+            }}
+          >
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight font-geologica">
               Pronto para Revolucionar Seus Projetos?
-            </h3>
-            <p className="text-blue-100 mb-6 max-w-2xl mx-auto">
-              Junte-se a centenas de profissionais que já estão entregando
-              soluções mais sofisticadas em menos tempo.
+            </h2>
+            <p className="mt-6 text-xl text-purple-200 max-w-3xl mx-auto font-poppins">
+              Comece a construir seu SaaS hoje mesmo. Sem compromisso, sem
+              cartão de crédito.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="mt-8 flex justify-center gap-4">
               <SignUpButton mode="modal" fallbackRedirectUrl="/dashboard">
-                <button className="bg-white text-blue-600 px-8 py-3 rounded-full font-semibold hover:bg-blue-50 transition-colors">
-                  Começar Gratuitamente
-                </button>
+                <button className="cta-button">Começar Grátis Agora</button>
               </SignUpButton>
-              <Link
-                href="/dashboard"
-                className="border-2 border-white text-white px-8 py-3 rounded-full font-semibold hover:bg-white hover:text-blue-600 transition-colors inline-block"
+              <button
+                className="inline-flex items-center justify-center px-6 py-3 rounded-md text-base font-bold cursor-pointer transition-colors"
+                style={{
+                  backgroundColor: "#F2EFFF",
+                  color: "#374151",
+                  border: "2px solid #374151",
+                }}
               >
                 Ver Demonstração
-              </Link>
+              </button>
             </div>
           </div>
         </div>
@@ -908,26 +1200,29 @@ const FaqSection = () => {
 
 // Componente Footer
 const Footer = () => (
-  <footer className="home-header border-t border-color">
+  <footer className="border-t border-color" style={{ background: "#191919" }}>
     <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
       <div className="flex justify-center space-x-6">
         <Link
           href="#use-cases"
-          className="text-sm text-muted hover:text-primary"
+          className="text-sm text-gray-400 hover:text-white font-poppins transition-colors"
         >
           Casos de Uso
         </Link>
-        <Link href="#faq" className="text-sm text-muted hover:text-primary">
+        <Link
+          href="#faq"
+          className="text-sm text-gray-400 hover:text-white font-poppins transition-colors"
+        >
           FAQ
         </Link>
         <Link
           href="/dashboard"
-          className="text-sm text-muted hover:text-primary"
+          className="text-sm text-gray-400 hover:text-white font-poppins transition-colors"
         >
           Dashboard
         </Link>
       </div>
-      <p className="mt-8 text-center text-sm text-muted">
+      <p className="mt-8 text-center text-sm text-gray-500 font-poppins">
         &copy; {new Date().getFullYear()} DashMaster.PRO. Todos os direitos
         reservados.
       </p>

@@ -11,13 +11,12 @@ export default function RootLayout({ children }) {
   return (
     <ClerkProvider>
       <html lang="pt" className="h-full" suppressHydrationWarning>
-        <body className="h-full bg-gray-50 dark:bg-gray-900 transition-colors">
+        <body className="h-full">
           <ThemeProvider
             attribute="class"
             defaultTheme="system"
             enableSystem
-            disableTransitionOnChange={false}
-            storageKey="dashboard-theme"
+            disableTransitionOnChange
           >
             {children}
           </ThemeProvider>

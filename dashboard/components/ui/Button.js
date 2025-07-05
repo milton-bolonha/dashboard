@@ -14,7 +14,7 @@ export default function Button({
 
   const variants = {
     primary:
-      "bg-blue-600 hover:bg-blue-700 text-white focus:ring-blue-500 shadow-sm active:scale-95",
+      "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-black font-bold focus:ring-green-500 shadow-sm active:scale-95",
     secondary:
       "bg-gray-100 hover:bg-gray-200 text-gray-900 focus:ring-gray-500 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white shadow-sm active:scale-95",
     outline:

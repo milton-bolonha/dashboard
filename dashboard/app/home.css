@@ -5,47 +5,80 @@
 /* Reset e Base */
 .home-page {
   min-height: 100vh;
+  background: var(--bg-secondary);
+  position: relative;
+}
+
+/* Background Pattern */
+.home-page::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: -1;
+  background-image: url("/images/pattern-light.png");
+  background-repeat: repeat;
+  background-size: 400px 400px;
+  opacity: 0.1;
+}
+
+html.dark .home-page::before {
+  background-image: url("/images/pattern-dark.png");
 }
 
 /* Light Theme (Padrão) */
 .home-page {
   --bg-primary: #ffffff;
-  --bg-secondary: #f8fafc;
+  --bg-secondary: #e8edff;
   --bg-accent: #f1f5f9;
   --text-primary: #1f2937;
   --text-secondary: #4b5563;
   --text-muted: #6b7280;
   --border-color: #e5e7eb;
   --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+  --cta-color: #7af42b;
+  --accent-color-1: #2bedf4;
+  --accent-color-2: #a15dff;
 }
 
 /* Dark Theme */
 html.dark .home-page {
-  --bg-primary: #111827;
-  --bg-secondary: #1f2937;
-  --bg-accent: #374151;
+  --bg-primary: #191919;
+  --bg-secondary: #212121;
+  --bg-accent: #333333;
   --text-primary: #f9fafb;
   --text-secondary: #e5e7eb;
   --text-muted: #9ca3af;
-  --border-color: #374151;
+  --border-color: #444444;
   --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3);
+  --cta-color: #7af42b;
+  --accent-color-1: #2bedf4;
+  --accent-color-2: #a15dff;
 }
 
 /* Layout Components */
 .home-header {
-  background: var(--bg-primary);
-  border-bottom: 1px solid var(--border-color);
+  background: #191919;
   backdrop-filter: blur(8px);
 }
 
+/* O código abaixo foi removido pois estava forçando todo o texto do header para branco. */
+/* .home-header * {
+  color: white !important;
+} */
+
 .home-hero {
-  background: var(--bg-primary);
-  color: var(--text-primary);
+  /* background: transparent; */
+  /* color: var(--text-primary); */
+  position: relative;
+  z-index: 1;
 }
 
 .home-section {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
+  /* background: transparent; */
+  /* color: var(--text-primary); */
 }
 
 /* Cards */
@@ -92,14 +125,19 @@ html.dark .home-page {
 
 /* Buttons */
 .btn-primary {
-  background: #3b82f6;
-  color: white;
-  border: none;
+  background: var(--cta-color);
+  color: black;
+  font-weight: 700;
+  font-family: "Podkova Variable", serif;
+  border: 3px solid black;
+  padding: 12px 24px;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .btn-primary:hover {
-  background: #2563eb;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 black;
 }
 
 .btn-secondary {
@@ -131,6 +169,26 @@ html.dark .home-page {
 }
 .border-color {
   border-color: var(--border-color) !important;
+}
+
+/* Custom colors */
+.bg-accent-1 {
+  background-color: var(--accent-color-1) !important;
+}
+.bg-accent-2 {
+  background-color: var(--accent-color-2) !important;
+}
+.text-accent-1 {
+  color: var(--accent-color-1) !important;
+}
+.text-accent-2 {
+  color: var(--accent-color-2) !important;
+}
+.border-accent-1 {
+  border-color: var(--accent-color-1) !important;
+}
+.border-accent-2 {
+  border-color: var(--accent-color-2) !important;
 }
 
 /* Gradients - Sempre consistentes */
@@ -174,4 +232,30 @@ a:hover {
 
 .tab-button:hover {
   opacity: 0.8;
+}
+
+/* Modificador para sombra amarela em fundos escuros */
+.cta-button.dark-bg-shadow {
+  box-shadow: 0 4px 0 var(--highlight-yellow);
+}
+
+.cta-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 black;
+}
+
+.feature-card-light {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-radius: 1rem;
+  padding: 2rem;
+  border: 2px solid var(--border-color);
+}
+
+.feature-card-dark {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-radius: 1rem;
+  padding: 2rem;
+  border: 2px solid var(--border-color);
 }

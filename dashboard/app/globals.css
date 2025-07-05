@@ -1,22 +1,110 @@
 @import "tailwindcss";
 
+/* Importar fontes */
+@import "@fontsource-variable/podkova";
+@import "@fontsource-variable/geologica";
+@import "@fontsource/poppins";
+
 /* CSS Variables para Dark Mode */
 :root {
   --bg-primary: #ffffff;
-  --bg-secondary: #f9fafb;
+  --bg-secondary: #e8edff;
   --bg-tertiary: #f3f4f6;
   --text-primary: #111827;
   --text-secondary: #6b7280;
   --border-color: #e5e7eb;
+  --cta-color: #7af42b;
+  --accent-color-1: #2bedf4;
+  --accent-color-2: #a15dff;
+  --highlight-yellow: #ffee32;
 }
 
 .dark {
-  --bg-primary: #111827;
-  --bg-secondary: #1f2937;
-  --bg-tertiary: #374151;
+  --bg-primary: #191919;
+  --bg-secondary: #212121;
+  --bg-tertiary: #333333;
   --text-primary: #ffffff;
   --text-secondary: #d1d5db;
-  --border-color: #374151;
+  --border-color: #444444;
+  --cta-color: #7af42b;
+  --accent-color-1: #2bedf4;
+  --accent-color-2: #ff5dc4; /* Cor Dark Highlight */
+  --highlight-yellow: #ffee32;
+}
+
+/* Definir as fontes principais */
+.font-geologica {
+  font-family: "Geologica Variable", sans-serif;
+}
+
+.font-podkova {
+  font-family: "Podkova Variable", serif;
+}
+
+.font-poppins {
+  font-family: "Poppins", sans-serif;
+}
+
+/* Estilo brutalismo para headings */
+.brutal-heading {
+  font-family: "Geologica Variable", sans-serif;
+  font-weight: 900;
+  color: var(--text-primary);
+  text-shadow: none;
+}
+
+/* Estilo CTA */
+.cta-button {
+  background-color: var(--cta-color);
+  color: black !important;
+  font-weight: 700;
+  font-size: 1.1rem;
+  font-family: "Podkova Variable", serif;
+  border: 3px solid black;
+  padding: 14px 28px;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 0 black;
+}
+
+.cta-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 black;
+}
+
+/* Modificador para sombra amarela em fundos escuros */
+.cta-button.dark-bg-shadow {
+  box-shadow: 0 4px 0 var(--highlight-yellow);
+}
+
+.cta-button.dark-bg-shadow:hover {
+  box-shadow: 0 6px 0 var(--highlight-yellow);
+}
+
+/* Palavras diagonais */
+.diagonal-word {
+  display: inline-block;
+  transform: rotate(-2deg);
+  font-family: "Podkova Variable", serif;
+  font-weight: 700;
+  padding: 4px 8px;
+  margin: 0 4px;
+}
+
+.diagonal-word.accent-1 {
+  background-color: var(--accent-color-1);
+  color: black;
+}
+
+.diagonal-word.accent-2 {
+  background-color: var(--accent-color-2);
+  color: white;
+}
+
+.diagonal-word.cta {
+  background-color: var(--cta-color);
+  color: black;
 }
 
 /* Override classes específicas para dark mode */
@@ -39,9 +127,9 @@
 .text-gray-600 {
   color: var(--text-secondary) !important;
 }
-.text-white {
+/* .text-white {
   color: var(--text-primary) !important;
-}
+} */
 
 .border-gray-200 {
   border-color: var(--border-color) !important;
@@ -220,11 +308,25 @@ html.dark .dark-bg-gray-700 {
 }
 
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Poppins", sans-serif;
   scroll-behavior: smooth;
   transition: background-color 0.3s ease, color 0.3s ease;
   background-color: var(--bg-secondary);
   color: var(--text-primary);
+}
+
+/* Animações customizadas */
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 3s linear infinite;
 }
 
 /* Utilitários para dashboards modernos */
@@ -318,7 +420,7 @@ body {
 }
 
 .dashboard-input:focus {
-  @apply ring-blue-500 dark:ring-blue-400 border-blue-500 dark:border-blue-400;
+  @apply ring-green-500 dark:ring-green-400 border-green-500 dark:border-green-400;
 }
 
 .dashboard-select {
@@ -332,10 +434,5 @@ html {
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  background: rgb(var(--background-start-rgb));
 }
