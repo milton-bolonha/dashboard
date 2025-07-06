@@ -34,6 +34,7 @@
     "@fontsource/poppins": "^5.2.6",
     "@heroicons/react": "^2.2.0",
     "@netlify/edge-functions": "^2.15.5",
+    "@netlify/plugin-nextjs": "^5.11.4",
     "bcryptjs": "^2.4.3",
     "cloudinary": "^2.7.0",
     "dotenv": "^17.0.0",

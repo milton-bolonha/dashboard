@@ -6,6 +6,8 @@ publish = ".next"
 [build.environment]
 NODE_VERSION = "22.16.0"
 
+[[plugins]]
+package = "@netlify/plugin-nextjs"
 # [[plugins]]
 # package = "@netlify/plugin-local-install-core"
 
