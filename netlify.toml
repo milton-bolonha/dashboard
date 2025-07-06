@@ -1,7 +1,7 @@
 [build]
 command = "npm run dash:build"
-functions = "core/src/api"
-publish = "core/out"
+functions = "netlify/functions"
+publish = "dashboard/.next"
 
 [build.environment]
 NODE_VERSION = "22.16.0"
