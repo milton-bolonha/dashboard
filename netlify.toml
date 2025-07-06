@@ -1,5 +1,5 @@
 [build]
-command = "npm run build --workspace=dashboard"
+command = "npm run dash:build"
 functions = "core/src/api"
 publish = "core/out"
 
