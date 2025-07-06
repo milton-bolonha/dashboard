@@ -41,6 +41,7 @@ html.dark .home-page::before {
   --cta-color: #7af42b;
   --accent-color-1: #2bedf4;
   --accent-color-2: #a15dff;
+  --accent-color-3: #a15dff;
 }
 
 /* Dark Theme */
@@ -54,15 +55,12 @@ html.dark .home-page {
   --border-color: #444444;
   --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3);
   --cta-color: #7af42b;
+  --accent-color-3: #a15dff;
   --accent-color-1: #2bedf4;
   --accent-color-2: #a15dff;
 }
 
 /* Layout Components */
-.home-header {
-  background: #191919;
-  backdrop-filter: blur(8px);
-}
 
 /* O código abaixo foi removido pois estava forçando todo o texto do header para branco. */
 /* .home-header * {
@@ -72,13 +70,50 @@ html.dark .home-page {
 .home-hero {
   /* background: transparent; */
   /* color: var(--text-primary); */
+  margin-top: -75px;
   position: relative;
   z-index: 1;
+  background-image: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)),
+    url("/images/bg-hero.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
-.home-section {
-  /* background: transparent; */
-  /* color: var(--text-primary); */
+.enterprise-section,
+.faq-section,
+.access-control-section,
+.pricing-section {
+  position: relative;
+  background-image: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)),
+    url("/images/bg-5.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.use-cases-section,
+.access-control-section,
+.faq-section {
+  background-image: url("/images/pattern-dark.png");
+  background-repeat: repeat;
+  background-size: auto;
+}
+.enterprise-section {
+  background-image: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)),
+    url("/images/bg-1.jpg");
+}
+.pricing-section {
+  background-image: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)),
+    url("/images/bg-6.jpg");
+}
+
+.monetization-section {
+  position: relative;
+  background-image: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)),
+    url("/images/bg-2.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 /* Cards */
@@ -220,10 +255,6 @@ a {
   transition: color 0.2s ease;
 }
 
-a:hover {
-  opacity: 0.8;
-}
-
 /* Botões de Tab */
 .tab-button {
   cursor: pointer;
@@ -242,6 +273,8 @@ a:hover {
 .cta-button:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 0 black;
+  background-color: var(--accent-color-3);
+  color: white !important;
 }
 
 .feature-card-light {

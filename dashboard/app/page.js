@@ -62,8 +62,12 @@ const Header = ({ isSignedIn }) => {
 
   return (
     <header
-      className="home-header sticky top-0 z-50"
-      style={{ backgroundColor: "var(--bg-primary)" }}
+      className="home-header top-0 z-50"
+      style={{
+        zIndex: 9,
+        position: "relative",
+        backgroundColor: "transparent",
+      }}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-2">
@@ -145,7 +149,7 @@ const HeroSection = ({ isSignedIn, user }) => {
 
   return (
     <section
-      className="home-hero py-20 sm:py-32"
+      className="home-hero py-40 sm:py-52"
       style={{ backgroundColor: "var(--bg-primary)" }}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -196,7 +200,10 @@ const HeroSection = ({ isSignedIn, user }) => {
 
 // Seção de Monetização
 const MonetizationSection = () => (
-  <section className="py-20" style={{ backgroundColor: "var(--bg-secondary)" }}>
+  <section
+    className="monetization-section py-20"
+    style={{ backgroundColor: "var(--bg-secondary)" }}
+  >
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="text-center mb-16">
         <div
@@ -384,7 +391,10 @@ const MonetizationSection = () => (
 
 // Seção de Controle de Acesso
 const AccessControlSection = () => (
-  <section className="py-20" style={{ backgroundColor: "var(--bg-primary)" }}>
+  <section
+    className="access-control-section py-20"
+    style={{ backgroundColor: "var(--bg-primary)" }}
+  >
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="text-center mb-16">
         <div
@@ -490,11 +500,11 @@ const AccessControlSection = () => (
             <Key className="w-6 h-6 text-black" />
           </div>
           <h3 className="text-xl font-bold text-white mb-4 font-geologica">
-            Chaves de Acesso de API
+            Chaves de API Seguras
           </h3>
           <p className="text-gray-300 mb-4 font-poppins">
-            Permita que seus usuários integrem com outros sistemas de forma
-            segura através de chaves de API.
+            Crie chaves de API para integrar com sistemas externos, definindo
+            escopos e limites de uso para cada chave.
           </p>
           <ul className="space-y-2 text-sm text-gray-400">
             <li className="flex items-center">
@@ -502,21 +512,21 @@ const AccessControlSection = () => (
                 className="w-4 h-4 mr-2"
                 style={{ color: "var(--accent-color-1)" }}
               />
-              Criação de chaves por workspace
+              Chaves para leitura ou escrita
             </li>
             <li className="flex items-center">
               <CheckCircle
                 className="w-4 h-4 mr-2"
                 style={{ color: "var(--accent-color-1)" }}
               />
-              Associação com papéis e permissões
+              Expiração automática de chaves
             </li>
             <li className="flex items-center">
               <CheckCircle
                 className="w-4 h-4 mr-2"
                 style={{ color: "var(--accent-color-1)" }}
               />
-              Ativação e desativação de chaves
+              Logs de uso por chave
             </li>
           </ul>
         </div>
@@ -533,7 +543,7 @@ const AccessControlSection = () => (
 // Seção Enterprise
 const EnterpriseSection = () => (
   <section
-    className="py-20"
+    className="py-20 enterprise-section"
     style={{
       backgroundColor: "var(--bg-secondary)",
       color: "var(--text-primary)",
@@ -792,7 +802,10 @@ const UseCasesSection = () => {
   };
 
   return (
-    <section className="py-20" style={{ backgroundColor: "var(--bg-primary)" }}>
+    <section
+      className="use-cases-section py-20"
+      style={{ backgroundColor: "var(--bg-secondary)" }}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
           <div className="pill-badge-dark inline-flex items-center justify-center mx-auto mb-6 px-4 py-2 text-base text-white">
@@ -911,7 +924,7 @@ const UseCasesSection = () => {
 const PricingSection = () => (
   <section
     id="planos"
-    className="py-20"
+    className="pricing-section py-20"
     style={{ backgroundColor: "var(--bg-primary)" }}
   >
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1110,7 +1123,7 @@ const FaqSection = () => {
   return (
     <section
       id="faq"
-      className="home-section py-20 sm:py-32"
+      className="home-section py-20 sm:py-32 faq-section"
       style={{
         backgroundColor: "var(--bg-secondary)",
       }}

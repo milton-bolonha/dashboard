@@ -16,6 +16,7 @@
   --cta-color: #7af42b;
   --accent-color-1: #2bedf4;
   --accent-color-2: #a15dff;
+  --accent-color-3: #a15dff;
   --highlight-yellow: #ffee32;
 }
 
@@ -28,7 +29,8 @@
   --border-color: #444444;
   --cta-color: #7af42b;
   --accent-color-1: #2bedf4;
-  --accent-color-2: #ff5dc4; /* Cor Dark Highlight */
+  --accent-color-2: #ff5dc4;
+  --accent-color-3: #a15dff;
   --highlight-yellow: #ffee32;
 }
 
