@@ -75,6 +75,16 @@
   box-shadow: 0 6px 0 black;
 }
 
+.cta-button.cta-button-yellow-hover:hover {
+  background-color: var(--highlight-yellow) !important;
+  color: black !important;
+}
+
+.cta-button-purple {
+  background-color: var(--accent-color-3) !important;
+  color: white !important;
+}
+
 /* Modificador para sombra amarela em fundos escuros */
 .cta-button.dark-bg-shadow {
   box-shadow: 0 4px 0 var(--highlight-yellow);

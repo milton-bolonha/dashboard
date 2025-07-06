@@ -22,6 +22,8 @@ import {
   Globe,
   Settings,
   Crown,
+  Menu,
+  X,
 } from "lucide-react";
 import "./home.css";
 import { useAuth } from "@clerk/nextjs";
@@ -58,11 +60,19 @@ export default function LandingPage() {
 
 // Componente Header
 const Header = ({ isSignedIn }) => {
-  const { theme } = useTheme();
+  const { theme, systemTheme } = useTheme();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { isLoaded, user } = useUser();
+
+  const menuItems = [
+    { name: "Saiba Mais", href: "#saiba-mais" },
+    { name: "Preços", href: "#planos" },
+    { name: "FAQ", href: "#faq" },
+  ];
 
   return (
     <header
-      className="home-header top-0 z-50"
+      className="home-header sticky top-0 z-50 pb-[75px] md:pb-0"
       style={{
         zIndex: 9,
         position: "relative",
@@ -72,12 +82,13 @@ const Header = ({ isSignedIn }) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-2">
           <Link href="/" className="flex items-center space-x-2">
-            <div
-              className="flex items-center justify-center"
-              style={{ width: "256px", height: "auto" }}
-            >
+            <div className="flex items-center justify-center w-40 sm:w-64">
               <Image
-                src={`/images/logo-${theme === "dark" ? "dark" : "light"}.png`}
+                src={`/images/logo-${
+                  (theme === "system" ? systemTheme : theme) === "dark"
+                    ? "dark"
+                    : "light"
+                }.png`}
                 alt="DashMaster.PRO"
                 width={256}
                 height={59}
@@ -88,38 +99,121 @@ const Header = ({ isSignedIn }) => {
               />
             </div>
           </Link>
-          <div className="flex items-center space-x-4">
-            {isSignedIn ? (
-              <>
-                <Link
-                  href="/dashboard"
-                  className="cta-button text-sm font-semibold rounded-md cursor-pointer px-4 py-2"
-                  style={{ color: "black" }}
-                >
-                  Acessar Dashboard
-                </Link>
-                <UserButton afterSignOutUrl="/" />
-              </>
-            ) : (
-              <>
-                <SignInButton mode="modal" fallbackRedirectUrl="/dashboard">
-                  <button className="text-sm font-semibold text-gray-300 hover:text-white cursor-pointer transition-colors font-poppins">
-                    Entrar
-                  </button>
-                </SignInButton>
-                <SignUpButton mode="modal" fallbackRedirectUrl="/dashboard">
-                  <button
+
+          {/* Desktop Menu */}
+          <nav className="hidden md:flex space-x-10">
+            {menuItems.map((item) => (
+              <a
+                key={item.name}
+                href={item.href}
+                className="text-base font-medium text-gray-300 hover:text-white"
+              >
+                {item.name}
+              </a>
+            ))}
+          </nav>
+
+          {/* Desktop User Buttons */}
+          <div className="hidden md:flex items-center space-x-4">
+            {isLoaded &&
+              (isSignedIn ? (
+                <>
+                  <Link
+                    href="/dashboard"
                     className="cta-button text-sm font-semibold rounded-md cursor-pointer px-4 py-2"
                     style={{ color: "black" }}
                   >
-                    Criar Conta
-                  </button>
-                </SignUpButton>
-              </>
-            )}
+                    Acessar Dashboard
+                  </Link>
+                  <UserButton afterSignOutUrl="/" />
+                </>
+              ) : (
+                <>
+                  <SignInButton mode="modal" fallbackRedirectUrl="/dashboard">
+                    <button className="text-sm font-semibold text-gray-300 hover:text-white cursor-pointer transition-colors font-poppins">
+                      Entrar
+                    </button>
+                  </SignInButton>
+                  <SignUpButton mode="modal" fallbackRedirectUrl="/dashboard">
+                    <button
+                      className="cta-button text-sm font-semibold rounded-md cursor-pointer px-4 py-2"
+                      style={{ color: "black" }}
+                    >
+                      Criar Conta
+                    </button>
+                  </SignUpButton>
+                </>
+              ))}
+          </div>
+
+          {/* Mobile Menu Button */}
+          <div className="md:hidden flex items-center">
+            <button
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="p-2 rounded-lg text-white border border-white/30 hover:bg-white/20"
+            >
+              {isMenuOpen ? (
+                <X className="h-6 w-6" />
+              ) : (
+                <Menu className="h-6 w-6" />
+              )}
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Mobile Menu Panel */}
+      {isMenuOpen && (
+        <div className="md:hidden">
+          <nav className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+            {menuItems.map((item) => (
+              <a
+                key={item.name}
+                href={item.href}
+                onClick={() => setIsMenuOpen(false)}
+                className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:text-white hover:bg-gray-700"
+              >
+                {item.name}
+              </a>
+            ))}
+          </nav>
+          <div className="pt-4 pb-3 border-t border-gray-700">
+            <div className="px-5">
+              {isLoaded &&
+                (isSignedIn ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-base font-medium text-white">
+                        {user.firstName}
+                      </p>
+                      <UserButton afterSignOutUrl="/" />
+                    </div>
+                    <Link
+                      href="/dashboard"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="block w-full px-4 py-2 text-center text-black bg-[var(--cta-color)] rounded-md font-bold"
+                    >
+                      Acessar Dashboard
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="flex flex-col space-y-3">
+                    <SignInButton mode="modal">
+                      <button className="w-full text-white font-medium p-2 rounded-md hover:bg-gray-700 text-left">
+                        Entrar
+                      </button>
+                    </SignInButton>
+                    <SignUpButton mode="modal">
+                      <button className="w-full px-4 py-2 text-black bg-white rounded-md font-medium">
+                        Começar grátis
+                      </button>
+                    </SignUpButton>
+                  </div>
+                ))}
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 };
@@ -149,12 +243,16 @@ const HeroSection = ({ isSignedIn, user }) => {
 
   return (
     <section
-      className="home-hero py-40 sm:py-52"
+      className="home-hero py-30 sm:py-42"
       style={{ backgroundColor: "var(--bg-primary)" }}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <div className="inline-flex items-center text-white bg-white/10 border border-white/20 rounded-full px-4 py-2 mb-8">
+          <span className="font-semibold">Crie, Monetize, Escale</span>
+          <span className="ml-2 inline-block bg-green-400 w-2 h-2 rounded-full"></span>
+        </div>
         <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white tracking-tight font-geologica brutal-heading">
-          Uma Plataforma para Construir seu
+          Para Agências e Devs Desenvolverem
           <br />
           <span
             className="diagonal-word"
@@ -201,6 +299,7 @@ const HeroSection = ({ isSignedIn, user }) => {
 // Seção de Monetização
 const MonetizationSection = () => (
   <section
+    id="saiba-mais"
     className="monetization-section py-20"
     style={{ backgroundColor: "var(--bg-secondary)" }}
   >
@@ -208,13 +307,21 @@ const MonetizationSection = () => (
       <div className="text-center mb-16">
         <div
           className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-6"
-          style={{ backgroundColor: "var(--cta-color)" }}
+          style={{ backgroundColor: "var(--accent-color-3)" }}
         >
           <DollarSign className="w-8 h-8 text-black" />
         </div>
         <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 font-geologica brutal-heading">
           <span className="text-white">Engine de</span>{" "}
-          <span className="diagonal-word cta">Monetização</span>{" "}
+          <span
+            className="diagonal-word"
+            style={{
+              backgroundColor: "var(--accent-color-3)",
+              color: "white",
+            }}
+          >
+            Monetização
+          </span>{" "}
           <span className="text-white">Completo</span>
         </h2>
         <p className="text-xl text-gray-200 max-w-3xl mx-auto font-poppins">
@@ -352,15 +459,9 @@ const MonetizationSection = () => (
       </div>
 
       <div className="text-center">
-        <div
-          className="rounded-2xl p-8 text-center"
-          style={{
-            backgroundColor: "var(--bg-tertiary)",
-            border: "2px solid var(--border-color)",
-          }}
-        >
+        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-8 hover:bg-white/15 transition-all duration-300">
           <h3 className="text-2xl font-bold mb-4 font-geologica text-white">
-            💰 Comece a Monetizar Hoje
+            Comece a Monetizar Hoje
           </h3>
           <p className="text-lg mb-6 text-gray-300 font-poppins">
             Sistema completo de billing com Stripe, planos, addons e trial. Tudo
@@ -381,7 +482,10 @@ const MonetizationSection = () => (
       </div>
 
       <div className="text-center mt-12">
-        <Link href="#planos" className="cta-button">
+        <Link
+          href="#planos"
+          className="cta-button cta-button-purple cta-button-yellow-hover"
+        >
           Ver Planos de Monetização
         </Link>
       </div>
@@ -532,7 +636,10 @@ const AccessControlSection = () => (
         </div>
       </div>
       <div className="text-center mt-12">
-        <Link href="#planos" className="cta-button dark-bg-shadow">
+        <Link
+          href="#planos"
+          className="cta-button cta-button-purple cta-button-yellow-hover"
+        >
           Ver Planos e Preços
         </Link>
       </div>
@@ -671,7 +778,10 @@ const EnterpriseSection = () => (
         </div>
       </div>
       <div className="text-center mt-16">
-        <Link href="#planos" className="cta-button">
+        <Link
+          href="#planos"
+          className="cta-button cta-button-purple cta-button-yellow-hover"
+        >
           Explorar Planos
         </Link>
       </div>
@@ -762,12 +872,12 @@ const UseCasesSection = () => {
         {
           icon: <Shield className="w-5 h-5 text-cta-color" />,
           name: "Controle",
-          value: "Usuários da agência são Admins, clientes são Editores",
+          value: "Users da agência são Admins, clientes são Editores",
         },
         {
           icon: <Zap className="w-5 h-5 text-cta-color" />,
           name: "Diferencial",
-          value: "Addons pagos por cliente (ex: Relatórios Avançados)",
+          value: "Addons pagos por cliente",
         },
       ],
     },
@@ -866,12 +976,14 @@ const UseCasesSection = () => {
                     </h5>
                     <ul className="space-y-3 text-sm text-gray-300 font-poppins">
                       {useCase.features.map((feature, fIndex) => (
-                        <li key={fIndex} className="flex items-center">
+                        <li key={fIndex} className="flex items-start">
                           {feature.icon}
-                          <strong className="font-geologica ml-3 mr-2">
-                            {feature.name}:
-                          </strong>{" "}
-                          {feature.value}
+                          <div className="ml-3">
+                            <strong className="font-geologica mr-2">
+                              {feature.name}:
+                            </strong>
+                            <span>{feature.value}</span>
+                          </div>
                         </li>
                       ))}
                     </ul>
@@ -900,12 +1012,14 @@ const UseCasesSection = () => {
                     </h5>
                     <ul className="space-y-3 text-sm text-gray-300 font-poppins">
                       {useCase.features.map((feature, fIndex) => (
-                        <li key={fIndex} className="flex items-center">
+                        <li key={fIndex} className="flex items-start">
                           {feature.icon}
-                          <strong className="font-geologica ml-3 mr-2">
-                            {feature.name}:
-                          </strong>{" "}
-                          {feature.value}
+                          <div className="ml-3">
+                            <strong className="font-geologica mr-2">
+                              {feature.name}:
+                            </strong>
+                            <span>{feature.value}</span>
+                          </div>
                         </li>
                       ))}
                     </ul>
@@ -973,8 +1087,8 @@ const PricingSection = () => (
           </ul>
           <div className="mt-8">
             <SignUpButton mode="modal" fallbackRedirectUrl="/dashboard">
-              <button className="w-full btn-secondary py-3">
-                Começar no Starter
+              <button className="w-full cta-button cta-button-purple">
+                Teste Por 7 Dias Grátis
               </button>
             </SignUpButton>
           </div>
@@ -1031,7 +1145,9 @@ const PricingSection = () => (
           </ul>
           <div className="mt-8">
             <SignUpButton mode="modal" fallbackRedirectUrl="/dashboard">
-              <button className="w-full cta-button">Escolher Business</button>
+              <button className="w-full cta-button cta-button-yellow-hover">
+                Escolher Business
+              </button>
             </SignUpButton>
           </div>
         </div>
@@ -1189,9 +1305,11 @@ const FaqSection = () => {
               Comece a construir seu SaaS hoje mesmo. Sem compromisso, sem
               cartão de crédito.
             </p>
-            <div className="mt-8 flex justify-center gap-4">
+            <div className="mt-8 flex flex-col md:flex-row justify-center gap-4">
               <SignUpButton mode="modal" fallbackRedirectUrl="/dashboard">
-                <button className="cta-button">Começar Grátis Agora</button>
+                <button className="cta-button cta-button-yellow-hover">
+                  Começar Grátis Agora
+                </button>
               </SignUpButton>
               <button
                 className="inline-flex items-center justify-center px-6 py-3 rounded-md text-base font-bold cursor-pointer transition-colors"
