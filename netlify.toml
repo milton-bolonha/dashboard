@@ -1,6 +1,6 @@
 [build]
-command = "npm run dash:build"
-functions = "netlify/functions"
+base = "dashboard"
+command = "npm run build"
 publish = "dashboard/.next"
 
 [build.environment]
@@ -10,11 +10,10 @@ NODE_VERSION = "22.16.0"
 # package = "@netlify/plugin-local-install-core"
 
 [functions]
-directory = "netlify/functions"
+directory = "../netlify/functions"
 
 # [[edge_functions]]
 # path = "/netlify/functions/ai-enhance"
-# function = "ai-enhance"
 
 [[edge_functions]]
 path = "/netlify/functions/billing-create"
