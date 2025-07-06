@@ -28,6 +28,8 @@ import {
 import "./home.css";
 import { useAuth } from "@clerk/nextjs";
 
+export const dynamic = "force-dynamic";
+
 // Componente principal da Landing Page
 export default function LandingPage() {
   const { isSignedIn, user, isLoaded } = useUser();
