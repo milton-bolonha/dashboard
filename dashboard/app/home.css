@@ -56,6 +56,7 @@ html.dark .home-page {
   --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3);
   --cta-color: #7af42b;
   --accent-color-3: #a15dff;
+
   --accent-color-1: #2bedf4;
   --accent-color-2: #a15dff;
 }
@@ -103,7 +104,7 @@ html.dark .home-page {
     url("/images/bg-1.jpg");
 }
 .pricing-section {
-  background-image: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)),
+  background-image: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)),
     url("/images/bg-6.jpg");
 }
 

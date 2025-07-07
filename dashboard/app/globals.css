@@ -17,6 +17,8 @@
   --accent-color-1: #2bedf4;
   --accent-color-2: #a15dff;
   --accent-color-3: #a15dff;
+  --accent-color-4: #f4e32b;
+
   --highlight-yellow: #ffee32;
 }
 
@@ -75,12 +77,22 @@
   box-shadow: 0 6px 0 black;
 }
 
+.cta-button-yellow {
+  background-color: var(--highlight-yellow) !important;
+  color: black !important;
+}
+
 .cta-button.cta-button-yellow-hover:hover {
   background-color: var(--highlight-yellow) !important;
   color: black !important;
 }
 
 .cta-button-purple {
+  background-color: var(--accent-color-3) !important;
+  color: white !important;
+}
+
+.cta-button-purple-hover:hover {
   background-color: var(--accent-color-3) !important;
   color: white !important;
 }

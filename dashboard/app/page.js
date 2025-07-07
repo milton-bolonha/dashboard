@@ -7,6 +7,7 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   ArrowRight,
+  PlayCircle,
   Book,
   CheckCircle,
   Code,
@@ -254,7 +255,7 @@ const HeroSection = ({ isSignedIn, user }) => {
           <span className="ml-2 inline-block bg-green-400 w-2 h-2 rounded-full"></span>
         </div>
         <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white tracking-tight font-geologica brutal-heading">
-          Para Agências e Devs Desenvolverem
+          Crie e Administre o Seu
           <br />
           <span
             className="diagonal-word"
@@ -286,8 +287,9 @@ const HeroSection = ({ isSignedIn, user }) => {
                 </button>
               </SignUpButton>
               <SignInButton mode="modal" fallbackRedirectUrl="/dashboard">
-                <button className="btn-secondary inline-flex items-center justify-center px-6 py-3 rounded-md text-base font-medium cursor-pointer font-poppins">
-                  Ver Documentação
+                <button className="btn-secondary inline-flex items-center justify-center px-6 py-3 rounded-md text-base font-medium cursor-pointer font-poppins text-white">
+                  <PlayCircle className="w-6 h-6 mr-2" />
+                  Ver Demonstração
                 </button>
               </SignInButton>
             </>
@@ -309,7 +311,7 @@ const MonetizationSection = () => (
       <div className="text-center mb-16">
         <div
           className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-6"
-          style={{ backgroundColor: "var(--accent-color-3)" }}
+          style={{ backgroundColor: "var(--accent-color-4)" }}
         >
           <DollarSign className="w-8 h-8 text-black" />
         </div>
@@ -318,8 +320,8 @@ const MonetizationSection = () => (
           <span
             className="diagonal-word"
             style={{
-              backgroundColor: "var(--accent-color-3)",
-              color: "white",
+              backgroundColor: "var(--accent-color-4)",
+              color: "black",
             }}
           >
             Monetização
@@ -486,9 +488,9 @@ const MonetizationSection = () => (
       <div className="text-center mt-12">
         <Link
           href="#planos"
-          className="cta-button cta-button-purple cta-button-yellow-hover"
+          className="cta-button cta-button-yellow cta-button-purple-hover"
         >
-          Ver Planos de Monetização
+          Ver Planos e Preços
         </Link>
       </div>
     </div>
@@ -640,9 +642,9 @@ const AccessControlSection = () => (
       <div className="text-center mt-12">
         <Link
           href="#planos"
-          className="cta-button cta-button-purple cta-button-yellow-hover"
+          className="cta-button cta-button-yellow cta-button-purple-hover"
         >
-          Ver Planos e Preços
+          Saiba Mais
         </Link>
       </div>
     </div>
@@ -782,7 +784,7 @@ const EnterpriseSection = () => (
       <div className="text-center mt-16">
         <Link
           href="#planos"
-          className="cta-button cta-button-purple cta-button-yellow-hover"
+          className="cta-button cta-button-yellow cta-button-purple-hover"
         >
           Explorar Planos
         </Link>
@@ -1048,7 +1050,7 @@ const PricingSection = () => (
         <h2 className="text-4xl font-extrabold text-white sm:text-5xl font-geologica brutal-heading">
           Planos para cada Estágio do seu Negócio
         </h2>
-        <p className="mt-4 text-xl text-gray-300 max-w-2xl mx-auto font-poppins">
+        <p className="mt-4 text-xl text-gray-300 text-shadow-2xs max-w-2xl mx-auto font-poppins">
           Comece de graça e escale conforme sua necessidade. Sem surpresas.
         </p>
       </div>
@@ -1067,20 +1069,20 @@ const PricingSection = () => (
           </h3>
           <p className="text-gray-400 mt-2">Para começar a construir</p>
           <div className="mt-6">
-            <span className="text-5xl font-bold text-white">$49</span>
+            <span className="text-5xl font-bold text-white">R$49</span>
             <span className="text-lg text-gray-400">/mês</span>
           </div>
           <ul className="space-y-4 mt-8 text-gray-300 flex-grow">
             <li className="flex items-center">
-              <CheckCircle className="w-5 h-5 text-green-500 mr-3" /> 3 Usuários
+              <CheckCircle className="w-5 h-5 text-green-500 mr-3" /> 1 Usuário
             </li>
             <li className="flex items-center">
-              <CheckCircle className="w-5 h-5 text-green-500 mr-3" /> 5
+              <CheckCircle className="w-5 h-5 text-green-500 mr-3" /> 2
               Workspaces
             </li>
             <li className="flex items-center">
-              <CheckCircle className="w-5 h-5 text-green-500 mr-3" /> 10 GB de
-              Armazenamento
+              <CheckCircle className="w-5 h-5 text-green-500 mr-3" /> Acesso a
+              Addons Básicos
             </li>
             <li className="flex items-center">
               <CheckCircle className="w-5 h-5 text-green-500 mr-3" /> Suporte
@@ -1125,20 +1127,15 @@ const PricingSection = () => (
           </div>
           <ul className="space-y-4 mt-8 text-gray-300 flex-grow">
             <li className="flex items-center">
+              <CheckCircle className="w-5 h-5 text-green-500 mr-3" /> 5 Usuários
+            </li>
+            <li className="flex items-center">
               <CheckCircle className="w-5 h-5 text-green-500 mr-3" /> 10
-              Usuários
-            </li>
-            <li className="flex items-center">
-              <CheckCircle className="w-5 h-5 text-green-500 mr-3" /> Workspaces
-              Ilimitados
-            </li>
-            <li className="flex items-center">
-              <CheckCircle className="w-5 h-5 text-green-500 mr-3" /> 50 GB de
-              Armazenamento
+              Workspaces
             </li>
             <li className="flex items-center">
               <CheckCircle className="w-5 h-5 text-green-500 mr-3" /> Acesso a
-              Addons
+              Addons Avançados
             </li>
             <li className="flex items-center">
               <CheckCircle className="w-5 h-5 text-green-500 mr-3" /> Suporte
@@ -1321,6 +1318,7 @@ const FaqSection = () => {
                   border: "2px solid #374151",
                 }}
               >
+                <PlayCircle className="w-6 h-6 mr-2" />
                 Ver Demonstração
               </button>
             </div>
