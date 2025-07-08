@@ -28,6 +28,20 @@ async function handleSuperAdminSetup(key, userId) {
       };
     }
 
+    // --- MELHORIA DE SEGURANÇA ---
+    // Verificar se a chave foi gerada para este usuário específico
+    if (setupKeyDoc.intendedUserId && setupKeyDoc.intendedUserId !== userId) {
+      logError(
+        `Tentativa de uso indevido da chave de Super Admin. Esperado: ${setupKeyDoc.intendedUserId}, Recebido: ${userId}`
+      );
+      return {
+        success: false,
+        error:
+          "Esta chave de ativação não foi gerada para o seu usuário. Contate o administrador.",
+      };
+    }
+    // --- FIM DA MELHORIA ---
+
     const isValid = await bcrypt.compare(key, setupKeyDoc.hash);
     logDebug(`Validação da chave: ${isValid}`);
 

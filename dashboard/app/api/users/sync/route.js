@@ -155,9 +155,19 @@ async function syncUserToMongo(clerkUser) {
   await collection.createIndex({ clerkId: 1 }, { unique: true });
   await collection.createIndex({ email: 1 }, { unique: true });
 
+  const primaryEmail = clerkUser.emailAddresses[0]?.emailAddress;
+
+  // Não sincronizar se o usuário não tiver um e-mail principal, pois é a chave para a lógica robusta
+  if (!primaryEmail) {
+    console.warn(
+      `Usuário ${clerkUser.id} não possui um e-mail principal. Sincronização pulada.`
+    );
+    return null;
+  }
+
   const userData = {
     clerkId: clerkUser.id,
-    email: clerkUser.emailAddresses[0]?.emailAddress,
+    email: primaryEmail,
     firstName: clerkUser.firstName,
     lastName: clerkUser.lastName,
     profileImageUrl: clerkUser.profileImageUrl,
@@ -181,8 +191,10 @@ async function syncUserToMongo(clerkUser) {
   };
 
   try {
+    // Lógica de UPSERT robusta: Encontra pelo e-mail (que é estável) e atualiza
+    // todos os dados, incluindo o clerkId que pode ter mudado.
     const result = await collection.updateOne(
-      { clerkId: clerkUser.id },
+      { email: primaryEmail },
       {
         $set: userData,
         $setOnInsert: { createdAt: new Date() },
@@ -191,14 +203,28 @@ async function syncUserToMongo(clerkUser) {
     );
 
     if (result.upsertedCount > 0) {
-      console.log("✅ Usuário criado no MongoDB:", clerkUser.id);
+      console.log("✅ Usuário criado no MongoDB (via e-mail):", clerkUser.id);
+    } else if (result.modifiedCount > 0) {
+      console.log(
+        "🔄 Usuário atualizado no MongoDB (via e-mail):",
+        clerkUser.id
+      );
     } else {
-      console.log("🔄 Usuário atualizado no MongoDB:", clerkUser.id);
+      console.log(
+        "ℹ️ Dados do usuário no MongoDB já estão atualizados:",
+        clerkUser.id
+      );
     }
 
     return await getUserFromMongo(clerkUser.id);
   } catch (error) {
     console.error("❌ Erro ao sincronizar usuário:", error);
+    // Tenta fornecer um erro mais detalhado se for um conflito de clerkId
+    if (error.code === 11000 && error.keyPattern?.clerkId) {
+      throw new Error(
+        `Conflito de Clerk ID. O ID ${userData.clerkId} já pode existir com um e-mail diferente.`
+      );
+    }
     throw error;
   }
 }

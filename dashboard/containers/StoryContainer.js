@@ -35,12 +35,12 @@ export function StoryContainer() {
 
       // Atualiza Clerk metadata
       const updatedStories = [...stories, story];
-      await user.update({
-        unsafeMetadata: {
-          ...user.unsafeMetadata,
-          stories: updatedStories,
-        },
-      });
+      // await user.update({
+      //   unsafeMetadata: {
+      //     ...user.unsafeMetadata,
+      //     stories: updatedStories,
+      //   },
+      // });
 
       setStories(updatedStories);
       setCurrentStory(null);
@@ -70,12 +70,12 @@ export function StoryContainer() {
       setStories(updatedStories);
 
       // Sync com Clerk
-      await user.update({
-        unsafeMetadata: {
-          ...user.unsafeMetadata,
-          stories: updatedStories,
-        },
-      });
+      // await user.update({
+      //   unsafeMetadata: {
+      //     ...user.unsafeMetadata,
+      //     stories: updatedStories,
+      //   },
+      // });
     } catch (error) {
       console.error("Erro ao atualizar história:", error);
     } finally {

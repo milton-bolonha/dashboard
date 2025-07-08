@@ -32,8 +32,20 @@ export function WorkspaceProvider({ children }) {
       setError(null);
 
       const response = await fetch("/api/workspaces");
+
+      // Tratar 404 (usuário sem workspaces) como um estado válido, não um erro.
+      if (response.status === 404) {
+        console.log("✅ Nenhum workspace encontrado para o usuário (404).");
+        setWorkspaces([]);
+        setCurrentWorkspace(null);
+        setLoading(false);
+        return;
+      }
+
       if (!response.ok) {
-        throw new Error("Falha ao carregar workspaces");
+        throw new Error(
+          `Falha ao carregar workspaces: ${response.status} ${response.statusText}`
+        );
       }
 
       const data = await response.json();

@@ -15,14 +15,15 @@ export function Sidebar({
   setIsHovered,
 }) {
   const pathname = usePathname();
-  const { user } = useUser();
+  const { user, isSignedIn } = useUser();
   const { sections, loading: sectionsLoading } = useSections();
   const { currentWorkspace } = useWorkspace();
 
   const [showConfig, setShowConfig] = useState(false);
   const [showAccessControl, setShowAccessControl] = useState(false);
 
-  const isSuperAdmin = user?.publicMetadata?.role === "superadmin";
+  const isSuperAdmin =
+    isSignedIn && user?.privateMetadata?.role === "superadmin";
 
   const orderedSections = useMemo(() => {
     return [...sections].sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -214,6 +215,16 @@ export function Sidebar({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
+      {/* Bloco de Depuração Temporário */}
+      <div className="p-2 bg-yellow-200 text-black text-xs font-mono">
+        <p className="font-bold">[DEBUG-UI]</p>
+        <p>isSignedIn: {isSignedIn ? "true" : "false"}</p>
+        <p>user loaded: {user ? "true" : "false"}</p>
+        <p>role: {user?.privateMetadata?.role || "N/A"}</p>
+        <p>isSuperAdmin: {isSuperAdmin ? "true" : "false"}</p>
+      </div>
+      {/* Fim do Bloco de Depuração */}
+
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800">
         <div

@@ -128,11 +128,16 @@ export async function GET(request) {
       lastVerified: new Date().toISOString(),
     };
 
+    // Preservar os metadados privados (como a role de superadmin) ao atualizar os metadados públicos.
+    // Sem isso, a permissão de superadmin era apagada a cada verificação de plano.
+    const privateMetadata = user.privateMetadata || {};
+
     await clerkClient.users.updateUserMetadata(userId, {
-      unsafeMetadata: {
+      publicMetadata: {
         ...metadata,
         plans: timestampUpdatedPlans,
       },
+      privateMetadata, // Garante que os metadados privados não sejam apagados
     });
 
     return NextResponse.json({

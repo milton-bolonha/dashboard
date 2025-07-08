@@ -54,10 +54,25 @@ export default function ActivateKeyModal({ isOpen, onClose, onSuccess }) {
         tokenLength: token ? token.length : 0,
       });
 
+      const trimmedCode = code.trim().toLowerCase();
+      const isSuperAdminKey =
+        trimmedCode.startsWith("ds-sa-key-") ||
+        trimmedCode === "dev-superadmin-key-12345";
+
       const requestBody = {
-        code: code.trim().toLowerCase(),
-        workspaceId: currentWorkspace._id,
+        code: trimmedCode,
       };
+
+      if (!isSuperAdminKey) {
+        if (!currentWorkspace?._id) {
+          setError(
+            "Nenhum workspace selecionado. Chaves que não são de super-admin precisam de um workspace ativo."
+          );
+          setLoading(false);
+          return;
+        }
+        requestBody.workspaceId = currentWorkspace._id;
+      }
 
       console.log("[CLIENT DEBUG] Preparando requisição:", {
         url: "/api/access-keys/activate",

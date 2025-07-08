@@ -36,14 +36,40 @@ export function useUserPlanVerification() {
           },
         });
 
-        if (!planResponse.ok) {
+        // Tratar 404 (usuário sem billing) como um estado válido, não um erro
+        if (planResponse.status === 404) {
+          console.log(
+            "✅ Nenhum plano ou billing encontrado para o usuário (404)."
+          );
+          // Prosseguir para a sincronização do usuário com dados de plano vazios
+          setVerificationStatus((prev) => ({
+            ...prev,
+            plans: { active: [], expired: [] },
+            source: "no_billing_history",
+          }));
+        } else if (!planResponse.ok) {
           throw new Error(
             `Erro na verificação de planos: ${planResponse.status}`
           );
-        }
+        } else {
+          const planData = await planResponse.json();
+          console.log("✅ Planos verificados:", planData);
 
-        const planData = await planResponse.json();
-        console.log("✅ Planos verificados:", planData);
+          setVerificationStatus((prev) => ({
+            ...prev,
+            lastVerified: planData.lastVerified,
+            plans: planData.plans,
+            source: planData.source,
+          }));
+
+          // Se houve atualização significativa, pode forçar reload
+          if (planData.needsUpdate && planData.source === "stripe_sync") {
+            console.log(
+              "🔄 Dados atualizados do Stripe, recarregando contexto..."
+            );
+            setTimeout(() => window.location.reload(), 1000);
+          }
+        }
 
         // 2. Sincronizar usuário com MongoDB
         const userResponse = await fetch("/api/users/sync", {
@@ -63,24 +89,13 @@ export function useUserPlanVerification() {
           console.warn("⚠️ Falha na sincronização com MongoDB");
         }
 
-        setVerificationStatus({
+        setVerificationStatus((prev) => ({
+          ...prev,
           isVerifying: false,
           isInitialized: true,
-          lastVerified: planData.lastVerified,
-          plans: planData.plans,
-          source: planData.source,
           error: null,
           mongoUser,
-        });
-
-        // Se houve atualização significativa, pode forçar reload
-        if (planData.needsUpdate && planData.source === "stripe_sync") {
-          console.log(
-            "🔄 Dados atualizados do Stripe, recarregando contexto..."
-          );
-          // Opcional: recarregar dados do Clerk
-          setTimeout(() => window.location.reload(), 1000);
-        }
+        }));
       } catch (error) {
         console.error("❌ Erro na verificação completa:", error);
         setVerificationStatus((prev) => ({

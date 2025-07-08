@@ -23,22 +23,36 @@ O processo foi centralizado em um único comando para simplificar o setup. Ele i
     npm run dash:superadmin
     ```
 
-3.  O terminal exibirá um guia passo a passo. Siga as instruções cuidadosamente.
+3.  O terminal exibirá um guia passo a passo. Primeiro, ele pedirá o **User ID** do usuário do Clerk que você deseja promover.
+
+    - **Como encontrar o User ID:** Vá para o seu [Clerk Dashboard](https://dashboard.clerk.com/), navegue até a seção "Users", clique no usuário desejado e copie o ID da URL. Ele se parecerá com `user_2abc...`.
+
+4.  Após inserir o User ID, o terminal exibirá as chaves. Siga as instruções cuidadosamente.
 
     **Exemplo da Saída do Terminal:**
 
     ```
     --- Configuração de Super Administrador ---
 
-    Passo 1: Adicione as seguintes chaves ao seu arquivo `dashboard/.env.local`
+    Este script irá gerar uma chave de uso único para promover um usuário a Super Admin.
+    Você precisará do User ID do Clerk para o usuário que deseja promover.
+    Você pode encontrá-lo na URL ao visualizar um usuário no Clerk Dashboard:
+    Ex: https://dashboard.clerk.com/apps/.../users/user_2abcd...
+
+    Por favor, insira o User ID do Clerk: user_2zABC...
+
+    ✅ Chaves geradas com sucesso para o usuário: user_2zABC...
+
+    Passo 1: Adicione a seguinte chave ao seu arquivo `dashboard/.env.local`
     --------------------------------------------------------------------
     CLERK_ENCRYPTION_KEY=
     clerk-enc-key-e5a3... (exemplo)
     --------------------------------------------------------------------
 
     Passo 2: Guarde esta chave de uso único. Você precisará dela no navegador.
+    A chave é válida apenas para o usuário informado e expira em 10 minutos.
     --------------------------------------------------------------------
-    Chave de Super Admin (expira em 10 minutos):
+    Chave de Super Admin:
     ds-sa-key-f9b1... (exemplo)
     --------------------------------------------------------------------
 
@@ -59,7 +73,7 @@ O processo foi centralizado em um único comando para simplificar o setup. Ele i
 
 3.  **Reinicie o servidor de desenvolvimento** (`npm run dash:dev`) para que a nova variável de ambiente seja carregada.
 
-4.  Com o servidor rodando, **siga as instruções do Passo 3** exibidas no terminal: faça login, visite a URL fornecida e use a chave no modal para se promover a super admin.
+4.  Com o servidor rodando, **siga as instruções do Passo 3** exibidas no terminal: faça login com o usuário que você especificou, visite a URL fornecida e use a chave no modal para se promover a super admin. A chave não funcionará para nenhum outro usuário.
 
 ### Conclusão do Processo
 
