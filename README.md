@@ -2,7 +2,7 @@
 
 ## 🧱 Introdução Geral
 
-O **DashMaster.PRO** é uma plataforma modular de gestão de conteúdo e experiências digitais. Como "um CMS dos CMSs", ele permite a construção de Workspaces altamente personalizados com Seções, Tipos de Conteúdo, Lógicas de Acesso, Addons e Serviços. Este documento descreve a estrutura técnica do MVP e apresenta um caso real com um cliente ativo: o projeto **Autores Apaixonados**.
+O **DashMaster.PRO** é uma plataforma modular de gestão de conteúdo e experiências digitais. Como "um CMS dos CMSs", ele permite a construção de Workspaces altamente personalizados com Seções, Tipos de Conteúdo, Lógicas de Acesso, Addons e Serviços.
 
 ## 🌌 Visão Geral da Arquitetura
 
@@ -74,12 +74,6 @@ O **DashMaster.PRO** é uma plataforma modular de gestão de conteúdo e experi�
 > 🧠 Observação: campos dentro de Steps podem ser restringidos individualmente ou como conjunto, considerando a hierarquia do form como addon aninhado. Essa complexidade será refinada após o MVP.
 
 ---
-
-## 🧪 Caso Real: Cliente — Autores Apaixonados
-
-### Descrição
-
-O **Autores Apaixonados** é uma plataforma para casais criarem histórias personalizadas que podem ser transformadas em livros digitais ou físicos. É um cliente real do DashMaster.PRO e utiliza os seguintes recursos do MVP:
 
 #### Estrutura no DashMaster
 

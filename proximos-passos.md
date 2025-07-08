@@ -48,7 +48,13 @@ O foco total aqui é no que é **essencial** para lançar o produto com sua lóg
   - **Objetivo:** Ter um site de marketing e a aplicação em domínios separados.
   - **Diretriz:** Planejar a estratégia de autenticação compartilhada com o Clerk e executar a separação.
 - **Ação: Integração nos Domínios Oficiais**
+
   - **Diretriz:** Publicar e testar a aplicação nos domínios finais de produção.
+
+- **✅ Critérios de Conclusão da Fase:**
+  - O MVP está no ar nos domínios oficiais.
+  - O sistema de roles, planos e o form multi-step estão funcionais e validados.
+  - A lógica de negócio principal foi testada manualmente e aprovada.
 
 ---
 
@@ -65,6 +71,7 @@ Com as funcionalidades críticas no lugar, o foco muda para garantir que a aplic
 - **Ação: Puxar Infos de API na Home de Outro Site**
   - **Objetivo:** Criar um caso de uso real para a API, como prova de conceito.
 - **Ação: Auditoria Completa das Rotas de API**
+
   - **Objetivo:** Garantir que todas as rotas seguem os novos padrões de segurança e arquitetura.
 
 ---
@@ -76,4 +83,9 @@ Manter a documentação atualizada é crucial para a escalabilidade da equipe e 
 - **Ação: Criar Guia de Testes para QA (Manual)**
   - **Objetivo:** Fornecer um roteiro claro para validar manualmente as principais funcionalidades.
 - **Ação: Manter o `DEBUGGING-GUIDE.md` Atualizado**
+
   - **Cultura:** Sempre que um novo bug significativo for resolvido, adicionar a solução à base de conhecimento.
+
+- **✅ Critérios de Conclusão da Fase:**
+  - O projeto possui documentação clara para novos desenvolvedores e para testes manuais.
+  - A cultura de documentar aprendizados está estabelecida.

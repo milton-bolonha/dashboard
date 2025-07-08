@@ -255,7 +255,7 @@ const HeroSection = ({ isSignedIn, user }) => {
           <span className="ml-2 inline-block bg-green-400 w-2 h-2 rounded-full"></span>
         </div>
         <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white tracking-tight font-geologica brutal-heading">
-          Crie e Administre o Seu
+          Em Minutos Crie o Seu Próprio
           <br />
           <span
             className="diagonal-word"
