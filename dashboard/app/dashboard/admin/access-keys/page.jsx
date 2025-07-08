@@ -147,8 +147,32 @@ export default function AccessKeysAdminPage() {
   const [deleting, setDeleting] = useState({});
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [checkingRole, setCheckingRole] = useState(true);
 
-  const isSuperAdmin = user?.publicMetadata?.role === "superadmin";
+  // Verificar role via API segura
+  useEffect(() => {
+    const checkSuperAdmin = async () => {
+      try {
+        const response = await fetch("/api/auth/check-role");
+        if (response.ok) {
+          const data = await response.json();
+          setIsSuperAdmin(data.isSuperAdmin);
+        }
+      } catch (error) {
+        console.error("Erro ao verificar role:", error);
+        setIsSuperAdmin(false);
+      } finally {
+        setCheckingRole(false);
+      }
+    };
+
+    if (user) {
+      checkSuperAdmin();
+    } else {
+      setCheckingRole(false);
+    }
+  }, [user]);
 
   useEffect(() => {
     if (isSuperAdmin) {
@@ -234,6 +258,19 @@ export default function AccessKeysAdminPage() {
       setDeleting((prev) => ({ ...prev, [keyId]: false }));
     }
   };
+
+  if (checkingRole) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center p-8">
+          <IconSpinner />
+          <p className="mt-2 text-gray-600 dark:text-gray-400">
+            Verificando permissões...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (!isSuperAdmin) {
     return (

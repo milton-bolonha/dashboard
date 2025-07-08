@@ -15,15 +15,36 @@ export function Sidebar({
   setIsHovered,
 }) {
   const pathname = usePathname();
-  const { user, isSignedIn } = useUser();
+  const { isSignedIn, user } = useUser();
   const { sections, loading: sectionsLoading } = useSections();
   const { currentWorkspace } = useWorkspace();
 
   const [showConfig, setShowConfig] = useState(false);
   const [showAccessControl, setShowAccessControl] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
-  const isSuperAdmin =
-    isSignedIn && user?.privateMetadata?.role === "superadmin";
+  useEffect(() => {
+    // Verificar se o usuário é super admin via API segura
+    // privateMetadata não é acessível no frontend por segurança
+    const checkSuperAdmin = async () => {
+      if (isSignedIn) {
+        try {
+          const response = await fetch("/api/auth/check-role");
+          if (response.ok) {
+            const data = await response.json();
+            setIsSuperAdmin(data.isSuperAdmin);
+          }
+        } catch (error) {
+          console.error("Erro ao verificar role:", error);
+          setIsSuperAdmin(false);
+        }
+      } else {
+        setIsSuperAdmin(false);
+      }
+    };
+
+    checkSuperAdmin();
+  }, [isSignedIn]);
 
   const orderedSections = useMemo(() => {
     return [...sections].sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -215,16 +236,6 @@ export function Sidebar({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Bloco de Depuração Temporário */}
-      <div className="p-2 bg-yellow-200 text-black text-xs font-mono">
-        <p className="font-bold">[DEBUG-UI]</p>
-        <p>isSignedIn: {isSignedIn ? "true" : "false"}</p>
-        <p>user loaded: {user ? "true" : "false"}</p>
-        <p>role: {user?.privateMetadata?.role || "N/A"}</p>
-        <p>isSuperAdmin: {isSuperAdmin ? "true" : "false"}</p>
-      </div>
-      {/* Fim do Bloco de Depuração */}
-
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800">
         <div

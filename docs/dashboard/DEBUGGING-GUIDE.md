@@ -156,4 +156,119 @@ Este documento é um registro vivo dos desafios de depuração que enfrentamos, 
 
 ---
 
+## Problema Recorrente 9: Menus de Super Admin Não Aparecem Mesmo com Role Correta
+
+- **Sintomas:**
+
+  - O painel do Clerk confirma que o usuário tem `privateMetadata: {role: "superadmin"}`
+  - A rota `/api/debug/auth-check` retorna `401 Unauthorized` mesmo com usuário logado
+  - Os menus de administração (controle de acesso, planos, keys, features) não aparecem no Sidebar
+  - O processo de ativação de chave de super admin já foi executado anteriormente
+
+- **Sequência de Correções Já Implementadas:**
+
+  1. ✅ **Correção de Script Super Admin**: Script `generate-superadmin-key.js` foi corrigido para gerar chaves dinâmicas e solicitar `userId` do Clerk
+  2. ✅ **Correção de Backend**: `access-keys/activate/route.js` foi modificado para validar `intendedUserId`
+  3. ✅ **Correção de Modal**: `ActivateKeyModal.jsx` foi corrigido para omitir `workspaceId` em chaves de super admin
+  4. ✅ **Correção de Crashes**: `WorkspaceContext.jsx` e `useUserPlanVerification.js` foram modificados para tratar 404 como estado normal
+  5. ✅ **Correção de Sync**: `users/sync/route.js` foi alterado para usar email como chave primária
+  6. ✅ **Correção de Preservação**: `billing/verify-user/route.js` foi modificado para preservar `privateMetadata`
+  7. ✅ **Correção de Sidebar**: Import de `user` foi adicionado ao hook `useUser()` no `Sidebar.jsx`
+  8. ✅ **Correção de API**: Rota `/api/debug/auth-check` foi atualizada para usar `getAuthenticatedUser()` centralizada
+
+- **Status Atual da Investigação:**
+
+  - ✅ Todas as variáveis de ambiente estão configuradas corretamente (confirmado pelo usuário)
+  - ✅ **Usuário está logado** - Logs do servidor confirmam:
+    - `'x-clerk-auth-status': 'signed-in'`
+    - `userId = user_2zZNqqf3OlYsi0AB7KbyyqqpzpB`
+    - Tokens de sessão válidos sendo enviados
+    - Outras rotas funcionam normalmente (`/api/sections`, `/api/content-types`)
+  - ❌ A rota `/api/debug/auth-check` ainda retorna `401 Unauthorized`
+  - ❌ Menus de super admin não aparecem no Sidebar
+
+- **Descoberta Crítica (via Logs):**
+
+  - **O problema NÃO é autenticação** - usuário está claramente logado
+  - **Outras rotas funcionam** - `/api/sections` e `/api/content-types` reconhecem o userId
+  - **Problema específico** na rota `/api/debug/auth-check` que não está usando `getAuthenticatedUser()`
+
+- **Causa Raiz Confirmada:**
+
+  - A rota de debug ainda usa `auth()` diretamente em vez da função centralizada `getAuthenticatedUser()`
+  - Outras rotas já foram migradas para o sistema correto
+
+- **Descoberta Crítica de Segurança:**
+
+  - ❌ **privateMetadata NÃO é acessível no frontend** - isto é por design de segurança do Clerk
+  - ❌ **Sidebar tentava acessar** `user?.privateMetadata?.role` que sempre retorna `undefined` no frontend
+  - ❌ **Páginas admin usavam** incorretamente `publicMetadata` em vez de `privateMetadata`
+
+- **Solução Final Implementada:**
+
+  - ✅ **Criada rota segura** `/api/auth/check-role` para verificar role do usuário
+  - ✅ **Sidebar atualizado** para buscar role via API em vez de tentar acessar privateMetadata
+  - ✅ **Corrigida rota** `/api/debug/auth-check` para usar `getCurrentAuth()`
+  - ✅ **Corrigido clerkClient** - agora usa `ClerkServer.createClerkClient()` como no auth.js
+  - ✅ **Sistema agora segue** arquitetura de segurança documentada
+
+- **Status Esperado Agora:**
+
+  - ✅ **Menus de super admin devem aparecer** após chamada à API retornar
+  - ✅ **Rota `/api/auth/check-role`** deve retornar `{"isSuperAdmin": true}`
+  - ✅ **Sistema seguro** - privateMetadata permanece protegido no backend
+
+- **✅ PROBLEMA RESOLVIDO COM SUCESSO!**
+
+  - 🎉 **Usuário confirmou:** "deu certo cachorro!"
+  - ✅ **Menus de super admin apareceram** no Sidebar
+  - ✅ **Sistema funcionando** com arquitetura de segurança correta
+  - ✅ **privateMetadata protegido** no backend como esperado
+
+- **Observações Importantes:**
+  - ❌ **NÃO refazer** o processo de chave de super admin, pois o Clerk já confirma `role: "superadmin"`
+  - ✅ **Problema era inconsistência** entre métodos de autenticação das rotas
+  - ✅ **Todas as rotas agora usam** `getCurrentAuth()` consistentemente
+
+---
+
+## Problema Recorrente 11: Páginas Admin Mostram "Acesso Restrito" Mesmo para Super Admin
+
+- **Sintomas:**
+
+  - Páginas `/dashboard/admin/plans` e `/dashboard/admin/access-keys` mostram "Acesso Restrito"
+  - Mensagem: "Esta área é restrita apenas para super administradores"
+  - Usuário tem role "superadmin" confirmada no Clerk
+
+- **Causa Raiz:**
+
+  - Páginas admin usavam incorretamente `user?.publicMetadata?.role` no frontend
+  - `publicMetadata` não contém a role (ela está em `privateMetadata`)
+  - Mesmo problema de segurança identificado no Sidebar
+
+- **Solução Implementada:**
+
+  - ✅ **Páginas admin atualizadas** para usar `/api/auth/check-role` em vez de `publicMetadata`
+  - ✅ **Estado de loading** adicionado durante verificação de role
+  - ✅ **Mesma arquitetura segura** usada no Sidebar
+  - ✅ **privateMetadata protegido** no backend
+
+- **Status:**
+  - ✅ **Corrigidas páginas:** `/dashboard/admin/plans` e `/dashboard/admin/access-keys`
+  - ✅ **Sistema padronizado** - todas as verificações de role usam API segura
+  - ✅ **Arquitetura de segurança** seguida consistentemente
+
+---
+
+## Problema Recorrente 10: Seleção de Ícones em Content Types
+
+- **Sintomas:**
+
+  - Ao criar/editar Content Type, não aparece opção para escolher ícones
+  - Feature de IconPicker pode estar faltando ou com bug
+
+- **Status:** Aguardando investigação da implementação atual do `IconPicker.jsx`
+
+---
+
 _Este documento será atualizado à medida que novos desafios surgirem._
