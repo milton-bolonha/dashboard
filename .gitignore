@@ -3,6 +3,7 @@
 /.next/
 /dashboard/.clerk/
 /dashboard/.next/
+/dashboard/dashboard/
 /dashboard/node_modules/
 # dependencies
 /node_modules

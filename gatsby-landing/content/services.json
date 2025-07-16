@@ -1,0 +1,87 @@
+{
+  "heading": "Services Offered",
+  "services": [
+    {
+      "name": "Awning Windows Caulking",
+      "slug": "awning-windows-caulking",
+      "description": "We expertly seal around awning windows to stop unwanted air infiltration and boost your home's insulation."
+    },
+    {
+      "name": "Bay Window Caulking",
+      "slug": "bay-window-caulking",
+      "description": "Our professional bay window caulking prevents moisture, drafts, and structural damage by sealing every edge thoroughly."
+    },
+    {
+      "name": "Casement Window Caulking",
+      "slug": "casement-window-caulking",
+      "description": "Sealing casement windows reduces energy loss and keeps indoor temperatures consistent year-round."
+    },
+    {
+      "name": "Horizontal & Vertical Slider Caulking",
+      "slug": "horizontal-vertical-slider-caulking",
+      "description": "Proper caulking for slider windows blocks outdoor air, ensuring smooth operation and improved energy efficiency."
+    },
+    {
+      "name": "Patio Doors Caulking",
+      "slug": "patio-doors-caulking",
+      "description": "We seal around patio doors to eliminate drafts, enhance comfort, and prevent heat or cooling loss."
+    },
+    {
+      "name": "Specialty Windows Caulking",
+      "slug": "specialty-windows-caulking",
+      "description": "No matter the shape or size, we provide precision caulking for specialty windows to ensure full protection and a perfect finish."
+    },
+    {
+      "name": "Exterior Openings",
+      "slug": "exterior-openings",
+      "description": ""
+    },
+    {
+      "name": "Hardie Board Siding",
+      "slug": "hardie-board-siding",
+      "description": ""
+    },
+    {
+      "name": "Granite, Marble, Precast & Tile",
+      "slug": "granite-marble-precast-tile",
+      "description": ""
+    },
+    {
+      "name": "Expansion & Control Joints",
+      "slug": "expansion-control-joints",
+      "description": ""
+    },
+    {
+      "name": "Solariums & Sun Rooms",
+      "slug": "solariums-sun-rooms",
+      "description": ""
+    },
+    {
+      "name": "Bathrooms and Showers",
+      "slug": "bathrooms-showers",
+      "description": ""
+    },
+    { "name": "Mortar Repair", "slug": "mortar-repair", "description": "" },
+    { "name": "Stucco", "slug": "stucco", "description": "" },
+    {
+      "name": "Walkways & Patios",
+      "slug": "walkways-patios",
+      "description": ""
+    },
+    {
+      "name": "Firestop Caulking Services",
+      "slug": "firestop-caulking-services",
+      "description": ""
+    },
+    {
+      "name": "Pools (Coping & Liner)",
+      "slug": "pools-coping-liner",
+      "description": ""
+    },
+    {
+      "name": "Glass Curtain Wall Systems",
+      "slug": "glass-curtain-wall-systems",
+      "description": ""
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "about": {
+    "heading": "About Window Caulking Toronto",
+    "text": "We have over 15 years experience in the window caulking services industry. We have worked on many projects, both commercial and residential. Learn more about our experience here.",
+    "readMore": {
+      "text": "read more about Window Caulking Toronto ...",
+      "link": "/about-us"
+    }
+  },
+  "social": {
+    "heading": "Get in touch",
+    "links": [
+      { "name": "Facebook", "link": "#" },
+      { "name": "Twitter", "link": "#" },
+      { "name": "Instagram", "link": "#" }
+    ]
+  },
+  "copyright": "© 2024 Window Caulking Toronto. All Rights Reserved.",
+  "developedBy": {
+    "text": "Design and Developed by",
+    "name": "Buzzinternet.ca",
+    "link": "https://buzzinternet.ca"
+  }
+}

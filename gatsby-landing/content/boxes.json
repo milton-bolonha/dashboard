@@ -1,0 +1,28 @@
+{
+  "boxes": [
+    {
+      "order": 1,
+      "title": "Buildings of all sizes",
+      "text": "We have experience in handling high rise and low rise full building caulking.",
+      "icon": "building"
+    },
+    {
+      "order": 2,
+      "title": "Commercial/Industrial",
+      "text": "Owners of industrial and commercial properties can count on us for high quality caulking.",
+      "icon": "industrial"
+    },
+    {
+      "order": 3,
+      "title": "Homes",
+      "text": "We can make your home both more comfortable and more energy efficient.",
+      "icon": "home"
+    },
+    {
+      "order": 4,
+      "title": "Landscaping",
+      "text": "We are fully prepared to handle outdoor caulking, such as driveway projects, as well as indoor.",
+      "icon": "landscaping"
+    }
+  ]
+}

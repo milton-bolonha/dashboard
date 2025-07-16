@@ -1,0 +1,37 @@
+{
+  "settings": {
+    "layout": "two-columns",
+    "imageSide": "left",
+    "imageWidth": "full",
+    "backgroundColor": null,
+    "textAlignment": "left"
+  },
+  "content": [
+    {
+      "type": "image",
+      "order": 1,
+      "src": "images/section-2.jpg",
+      "alt": "Team collaborating around a table."
+    },
+    {
+      "type": "preHeading",
+      "order": 2,
+      "text": "Call Us Today"
+    },
+    {
+      "type": "heading",
+      "order": 3,
+      "text": "We offer free quotes"
+    },
+    {
+      "type": "form",
+      "order": 4,
+      "heading": "Get a Quote",
+      "subheading": "Fill out the form and we'll be in touch.",
+      "formType": "jotform",
+      "formData": {
+        "formId": "1234567890"
+      }
+    }
+  ]
+}

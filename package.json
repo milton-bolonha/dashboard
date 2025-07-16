@@ -5,7 +5,8 @@
   "type": "module",
   "workspaces": [
     "ai",
-    "dashboard"
+    "dashboard",
+    "gatsby-landing"
   ],
   "scripts": {
     "ai:setup": "ai-workspace setup",
@@ -17,7 +18,10 @@
     "dash:dev": "npm --workspace=dashboard run dev",
     "dash:build": "npm --workspace=dashboard run build",
     "dash:start": "npm --workspace=dashboard run start",
-    "dash:superadmin": "npm --workspace=dashboard run setup:superadmin"
+    "dash:superadmin": "npm --workspace=dashboard run setup:superadmin",
+    "landing:dev": "npm --workspace=gatsby-landing run develop",
+    "landing:build": "npm --workspace=gatsby-landing run build",
+    "landing:start": "npm --workspace=gatsby-landing run start"
   },
   "dependencies": {
     "@netlify/functions": "^2.0.0",

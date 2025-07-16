@@ -1,0 +1,47 @@
+{
+  "background": {
+    "data": {
+      "image": "/images/hero-bg.webp",
+      "overlay": true
+    },
+    "order": 1
+  },
+  "heading": {
+    "data": {
+      "text": "Professional Window Caulking Company In Toronto",
+      "level": 1
+    },
+    "order": 2
+  },
+  "subHeading": {
+    "data": {
+      "text": "Proper Window Caulking Stops Water Condensation, Leaking Windows and Air From Blowing In"
+    },
+    "order": 3
+  },
+  "textSlider": {
+    "data": {
+      "heading": "Affordable, High Quality Caulking",
+      "content": "<p>Residential Homes <strong>Window Caulking</strong> Experts, Servicing The Greater Toronto Area</p>",
+      "button": {
+        "label": "Read More",
+        "link": "/about"
+      }
+    },
+    "order": 4
+  },
+  "form": {
+    "data": {
+      "id": "quote-form",
+      "heading": "Request a Quote",
+      "subheading": "Receive a personalized proposal within 24 hours",
+      "postFormContent": "We will be in touch soon!",
+      "formType": "jotform",
+      "formData": {
+        "formId": "123456789",
+        "fields": ["name", "email", "phone", "message"]
+      }
+    },
+    "order": 5
+  }
+}

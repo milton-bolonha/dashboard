@@ -1,0 +1,44 @@
+{
+  "columns": ["1/2", "2/1"],
+  "logo": {
+    "data": {
+      "src": "/images/logo.png",
+      "alt": "Window Caulking Toronto Logo",
+      "badges": []
+    },
+    "position": {
+      "horizontal": "left",
+      "vertical": "top"
+    },
+    "order": 1
+  },
+  "menu": {
+    "data": {
+      "items": [
+        { "label": "Home", "link": "/" },
+        { "label": "About", "link": "/about-us" },
+        { "label": "Services", "link": "/services" },
+        { "label": "Promotions", "link": "/promotions" },
+        { "label": "Online Quote", "link": "/contact-us#online-quote" },
+        { "label": "Contact Us", "link": "/contact-us" }
+      ]
+    },
+    "position": {
+      "horizontal": "right",
+      "vertical": "same"
+    },
+    "order": 2
+  },
+  "contact": {
+    "data": [
+      { "icon": "phone", "text": "Phone: 647-557-1116" },
+      { "icon": "email", "text": "info@windowcaulking.ca" },
+      { "icon": "clock", "text": "Mon - Sat : 9am to 7pm" }
+    ],
+    "position": {
+      "horizontal": "center",
+      "vertical": "bottom"
+    },
+    "order": 3
+  }
+}

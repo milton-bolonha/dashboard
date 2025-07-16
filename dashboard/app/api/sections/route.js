@@ -4,6 +4,11 @@ import { SectionSchema, validateSchema } from "@/schemas/index.js";
 import { getCurrentAuth } from "@/lib/auth";
 import { ObjectId } from "mongodb";
 import { checkPlan } from "#lib/plan-check.js";
+import {
+  validateSlug,
+  generateSlug,
+  isSlugUnique,
+} from "@/lib/slug-validation.js";
 
 /**
  * Helper para obter workspace atual do usuário
@@ -188,13 +193,18 @@ export async function POST(request) {
     }
     // --- Fim da Verificação de Plano ---
 
-    // ✅ CORREÇÃO: Gerar slug ANTES da validação
-    const slug =
-      data.slug ||
-      data.name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)/g, "");
+    // ✅ MELHORIA: Usar validação robusta de slug
+    const baseSlug = data.slug || generateSlug(data.name);
+    const slugValidation = validateSlug(baseSlug);
+
+    if (!slugValidation.isValid) {
+      return NextResponse.json(
+        { error: "Invalid slug", details: slugValidation.errors },
+        { status: 400 }
+      );
+    }
+
+    const slug = slugValidation.slug;
 
     // 🐛 DEBUG: Logs detalhados
     console.log("🔍 === DEBUG SECTION ===");
@@ -225,16 +235,12 @@ export async function POST(request) {
       );
     }
 
-    // Verificar se slug já existe no workspace
-    const existing = await db.find("sections", {
-      slug,
-      userId: userId,
-      workspaceId: workspace._id, // ← WORKSPACE: verificar no escopo do workspace
-    });
+    // ✅ MELHORIA: Verificar slug único usando função otimizada
+    const isUnique = await isSlugUnique(slug, workspace._id, "sections");
 
-    if (existing.length > 0) {
+    if (!isUnique) {
       return NextResponse.json(
-        { error: "Section with this slug already exists" },
+        { error: "Section with this slug already exists in this workspace" },
         { status: 409 }
       );
     }

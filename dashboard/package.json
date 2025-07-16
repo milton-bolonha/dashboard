@@ -25,7 +25,9 @@
     "setup": "node scripts/setup-env.js",
     "setup:superadmin": "node scripts/generate-superadmin-key.js",
     "migrate:workspaces": "node scripts/run-migration.js",
-    "sync:clerk": "node scripts/sync-clerk-users.js"
+    "sync:clerk": "node scripts/sync-clerk-users.js",
+    "optimize:indexes": "node scripts/optimize-indexes.js",
+    "verify:data": "node scripts/verify-workspace-data.js"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.23.0",

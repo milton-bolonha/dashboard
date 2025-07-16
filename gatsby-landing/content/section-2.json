@@ -1,0 +1,47 @@
+{
+  "settings": {
+    "layout": "two-columns",
+    "imageSide": "right",
+    "backgroundColor": "#f9fafb",
+    "textAlignment": "left"
+  },
+  "content": [
+    {
+      "type": "preHeading",
+      "order": 1,
+      "text": "Our Process"
+    },
+    {
+      "type": "heading",
+      "order": 2,
+      "text": "A Foundation of Quality"
+    },
+    {
+      "type": "paragraph",
+      "order": 3,
+      "text": "Our methodology is built on a rigorous process that guarantees results. We start with a detailed assessment, followed by meticulous surface preparation and the application of industry-leading sealants. The final step is a thorough quality check to ensure a perfect, lasting finish."
+    },
+    {
+      "type": "image",
+      "order": 4,
+      "src": "images/section-2.jpg",
+      "alt": "Detailed view of a construction worker applying caulking with precision."
+    },
+    {
+      "type": "ctaButton",
+      "order": 5,
+      "buttons": [
+        {
+          "label": "Get a Free Quote",
+          "link": "#quote-form",
+          "color": "cta"
+        },
+        {
+          "label": "Our Services",
+          "link": "/services/",
+          "color": "contrast"
+        }
+      ]
+    }
+  ]
+}

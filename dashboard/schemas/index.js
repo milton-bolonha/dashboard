@@ -139,99 +139,128 @@ export const ContentTypeSchema = {
 };
 
 export const SectionSchema = {
-  name: "sections",
-  fields: {
-    name: { type: "string", required: true },
-    slug: { type: "string", required: true },
-    contentTypeId: { type: "objectId", ref: "contentTypes", required: true },
-    userId: { type: "string", required: true }, // ← TRIANGULAÇÃO: Clerk User ID
-    workspaceId: { type: "objectId", ref: "workspaces", required: true }, // ← WORKSPACE
-    description: { type: "string" },
-    icon: { type: "string", default: "folder" }, // ← NOVO: ícone customizado da section
-    order: { type: "number", default: 0 }, // ← NOVO: Ordem no menu
+  _id: { type: "string", default: () => new ObjectId().toString() },
+  name: { type: "string", required: true },
+  slug: { type: "string", required: true, unique: true },
+  description: { type: "string" },
+  contentTypeId: { type: "string", ref: "content_types" },
+  userId: { type: "string", required: true },
+  workspaceId: { type: "string", ref: "workspaces", required: true },
 
-    // Controles de Acesso
-    access: {
-      visibility: {
-        type: "string",
-        enum: [
-          "public",
-          "authenticated",
-          "workspace_member",
-          "role_based",
-          "plan_based",
-          "custom",
-        ],
-        default: "workspace_member",
-      },
-
-      // Para visibility = "public"
-      publicSettings: {
-        allowAnonymousView: { type: "boolean", default: false },
-        allowAnonymousCreate: { type: "boolean", default: false },
-        requireEmail: { type: "boolean", default: false },
-        requireCaptcha: { type: "boolean", default: true },
-      },
-
-      // Para visibility = "role_based"
-      allowedRoles: [
-        {
-          type: "string",
-          enum: ["owner", "admin", "editor", "author", "viewer", "guest"],
-        },
-      ],
-
-      // Para visibility = "plan_based"
-      allowedPlans: [{ type: "string" }], // IDs dos planos
-      minimumPlan: { type: "string" }, // ID do plano mínimo
-
-      // Para visibility = "custom"
-      customRuleId: { type: "string", ref: "access_rules" },
-
-      // Mensagens customizadas
-      deniedMessage: { type: "string" },
-      upgradePrompt: { type: "string" },
-      upgradeUrl: { type: "string" },
+  // Configurações de visualização
+  settings: {
+    defaultView: {
+      type: "string",
+      enum: ["list", "grid", "table", "kanban", "calendar"],
+      default: "list",
     },
-
-    // Monetização
-    monetization: {
-      isPaid: { type: "boolean", default: false },
-      price: { type: "number" }, // Preço one-time
-      stripePriceId: { type: "string" }, // Para cobrança
-      purchaseType: {
-        type: "string",
-        enum: ["one_time", "subscription", "usage_based"],
-        default: "one_time",
-      },
-      usageCreditsRequired: { type: "number" }, // Créditos por uso
-    },
-
-    // Limites específicos da section
-    limits: {
-      maxItems: { type: "number" }, // Override do limite do plano
-      maxItemSize: { type: "number" }, // Tamanho máximo por item em bytes
-      customLimits: { type: "object" },
-    },
-
-    settings: {
-      defaultView: { type: "string", enum: ["list", "grid"], default: "list" },
-      itemsPerPage: { type: "number", default: 20 },
-      sortBy: { type: "string", default: "createdAt" },
-      sortOrder: { type: "string", enum: ["asc", "desc"], default: "desc" },
-    },
-
-    createdBy: { type: "objectId", ref: "users" },
-    isActive: { type: "boolean", default: true },
+    itemsPerPage: { type: "number", default: 20 },
+    sortBy: { type: "string", default: "createdAt" },
+    sortOrder: { type: "string", enum: ["asc", "desc"], default: "desc" },
   },
-  indexes: [
-    // Índice composto para garantir slug único por usuário
-    { fields: { userId: 1, slug: 1 }, unique: true },
-    // ← NOVO: Índice para ordenação
-    { fields: { workspaceId: 1, order: 1 } },
-    // Índice para visibilidade
-    { fields: { "access.visibility": 1, isActive: 1 } },
-  ],
+
+  // NOVO: Controles de acesso público
+  publicAccess: {
+    isPublic: { type: "boolean", default: false },
+    requireApiKey: { type: "boolean", default: true },
+    allowedFields: [{ type: "string" }], // ["title", "description", "items"]
+    rateLimit: { type: "number", default: 100 }, // requests per hour
+    allowAnonymous: { type: "boolean", default: false },
+    customDomain: { type: "string" }, // para white label
+    deniedMessage: { type: "string" },
+    upgradeUrl: { type: "string" },
+  },
+
+  // NOVO: Configurações de API
+  apiConfig: {
+    enabled: { type: "boolean", default: false },
+    keys: [
+      {
+        key: "string",
+        name: "string",
+        permissions: ["read", "write"],
+        rateLimit: "number",
+        expiresAt: "date",
+      },
+    ],
+    webhooks: [
+      {
+        url: "string",
+        events: ["item.created", "item.updated"],
+        secret: "string",
+      },
+    ],
+  },
+
+  icon: { type: "string", default: "folder" }, // ← NOVO: ícone customizado da section
+  order: { type: "number", default: 0 }, // ← NOVO: Ordem no menu
+
+  // Controles de Acesso
+  access: {
+    visibility: {
+      type: "string",
+      enum: [
+        "public",
+        "authenticated",
+        "workspace_member",
+        "role_based",
+        "plan_based",
+        "custom",
+      ],
+      default: "workspace_member",
+    },
+
+    // Para visibility = "public"
+    publicSettings: {
+      allowAnonymousView: { type: "boolean", default: false },
+      allowAnonymousCreate: { type: "boolean", default: false },
+      requireEmail: { type: "boolean", default: false },
+      requireCaptcha: { type: "boolean", default: true },
+    },
+
+    // Para visibility = "role_based"
+    allowedRoles: [
+      {
+        type: "string",
+        enum: ["owner", "admin", "editor", "author", "viewer", "guest"],
+      },
+    ],
+
+    // Para visibility = "plan_based"
+    allowedPlans: [{ type: "string" }], // IDs dos planos
+    minimumPlan: { type: "string" }, // ID do plano mínimo
+
+    // Para visibility = "custom"
+    customRuleId: { type: "string", ref: "access_rules" },
+
+    // Mensagens customizadas
+    deniedMessage: { type: "string" },
+    upgradePrompt: { type: "string" },
+    upgradeUrl: { type: "string" },
+  },
+
+  // Monetização
+  monetization: {
+    isPaid: { type: "boolean", default: false },
+    price: { type: "number" }, // Preço one-time
+    stripePriceId: { type: "string" }, // Para cobrança
+    purchaseType: {
+      type: "string",
+      enum: ["one_time", "subscription", "usage_based"],
+      default: "one_time",
+    },
+    usageCreditsRequired: { type: "number" }, // Créditos por uso
+  },
+
+  // Limites específicos da section
+  limits: {
+    maxItems: { type: "number" }, // Override do limite do plano
+    maxItemSize: { type: "number" }, // Tamanho máximo por item em bytes
+    customLimits: { type: "object" },
+  },
+
+  createdBy: { type: "objectId", ref: "users" },
+  isActive: { type: "boolean", default: true },
 };
 
 export const ItemSchema = {

@@ -1,0 +1,25 @@
+{
+  "settings": {
+    "layout": "boxed",
+    "backgroundColor": null,
+    "backgroundImage": null,
+    "textAlignment": "center"
+  },
+  "content": [
+    {
+      "type": "preHeading",
+      "order": 1,
+      "text": "Precision. Protection. Performance."
+    },
+    {
+      "type": "heading",
+      "order": 2,
+      "text": "Reliable Caulking Solutions in Toronto"
+    },
+    {
+      "type": "paragraph",
+      "order": 3,
+      "text": "From single-family homes to commercial sites, we deliver airtight results with premium caulking services. Our approach combines skilled craftsmanship with quality materials, ensuring protection, energy efficiency, and aesthetic appeal. Explore why our clients trust us—and enjoy peace of mind with a decade-long warranty."
+    }
+  ]
+}

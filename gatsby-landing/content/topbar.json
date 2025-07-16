@@ -1,0 +1,15 @@
+{
+  "marquee": {
+    "data": {
+      "active": true,
+      "speed": 30
+    },
+    "order": 1
+  },
+  "content": {
+    "data": {
+      "texto": "<strong>🎉 Special Promotion!</strong> Window Caulking Something"
+    },
+    "order": 2
+  }
+}

@@ -3,6 +3,11 @@ import { db } from "@/lib/db";
 import { ContentTypeSchema, validateSchema } from "@/schemas/index.js";
 import { ObjectId } from "mongodb";
 import { getCurrentAuth } from "@/lib/auth";
+import {
+  validateSlug,
+  generateSlug,
+  isSlugUnique,
+} from "@/lib/slug-validation.js";
 
 /**
  * Helper para obter workspace do usuário (cria se não existir)
@@ -174,15 +179,18 @@ export async function POST(request) {
       `🏢 Content-types: Usando workspace: ${workspace.name} (${workspace._id})`
     );
 
-    // ✅ CORREÇÃO: Gerar slug ANTES da validação
-    const slug =
-      contentTypeData.slug ||
-      (contentTypeData.name
-        ? contentTypeData.name
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, "-")
-            .replace(/(^-|-$)/g, "")
-        : "");
+    // ✅ MELHORIA: Usar validação robusta de slug
+    const baseSlug = contentTypeData.slug || generateSlug(contentTypeData.name);
+    const slugValidation = validateSlug(baseSlug);
+
+    if (!slugValidation.isValid) {
+      return NextResponse.json(
+        { error: "Invalid slug", details: slugValidation.errors },
+        { status: 400 }
+      );
+    }
+
+    const slug = slugValidation.slug;
 
     // 🐛 DEBUG: Logs detalhados
     console.log("🔍 === DEBUG CONTENT TYPE ===");
@@ -213,16 +221,14 @@ export async function POST(request) {
       );
     }
 
-    // Verificar se slug já existe no workspace
-    const existing = await db.findOne("contentTypes", {
-      slug,
-      userId: userId,
-      workspaceId: workspace._id,
-    });
+    // ✅ MELHORIA: Verificar slug único usando função otimizada
+    const isUnique = await isSlugUnique(slug, workspace._id, "contentTypes");
 
-    if (existing) {
+    if (!isUnique) {
       return NextResponse.json(
-        { error: "Content type with this slug already exists" },
+        {
+          error: "Content type with this slug already exists in this workspace",
+        },
         { status: 409 }
       );
     }
