@@ -1,12 +1,12 @@
 import React from "react";
 import SimpleSectionContainer from "./SimpleSectionContainer";
+import SectionContainer from "./SectionContainer";
 import BoxesContainer from "./BoxesContainer";
 import MapContainer from "./MapContainer";
 import HeroBuilderContainer from "./HeroBuilderContainer";
 import TestimonialsBuilderContainer from "./TestimonialsBuilderContainer";
 
 const componentMap = {
-  section: SimpleSectionContainer,
   boxes: BoxesContainer,
   map: MapContainer,
   hero: HeroBuilderContainer,
@@ -22,11 +22,6 @@ const PageBuilderContainer = ({ pageBuilderData }) => {
   return (
     <>
       {pageBuilderData.map((item, index) => {
-        const Component = componentMap[item.type];
-        if (!Component) {
-          return null;
-        }
-
         let isAlternate = false;
         if (
           item.type === "section" ||
@@ -37,6 +32,44 @@ const PageBuilderContainer = ({ pageBuilderData }) => {
           sectionLikeIndex++;
         }
 
+        if (item.type === "section") {
+          // Se for o layout especial com imagem de fundo, usa o SectionContainer
+          if (item.settings?.layout === "two-columns-bg-image") {
+            const { title, subtitle, text, imageUrl, settings, ...rest } = item;
+            const content = [];
+            if (subtitle)
+              content.push({ type: "preHeading", text: subtitle, order: 1 });
+            if (title) content.push({ type: "heading", text: title, order: 2 });
+            if (text) content.push({ type: "paragraph", text: text, order: 3 });
+            if (imageUrl)
+              content.push({
+                type: "image",
+                src: imageUrl,
+                alt: title,
+                order: 4,
+              });
+
+            const adaptedProps = {
+              settings: { ...settings, backgroundColor: undefined },
+              content,
+              ...rest,
+            };
+            return <SectionContainer key={index} {...adaptedProps} />;
+          }
+          // Para todas as outras seções, usa o SimpleSectionContainer que já funcionava
+          return (
+            <SimpleSectionContainer
+              key={index}
+              {...item}
+              isAlternate={isAlternate}
+            />
+          );
+        }
+
+        const Component = componentMap[item.type];
+        if (!Component) {
+          return null;
+        }
         return <Component key={index} {...item} isAlternate={isAlternate} />;
       })}
     </>

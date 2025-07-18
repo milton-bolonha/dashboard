@@ -1,0 +1,9 @@
+/* Team */
+  Name: Milton Bolonha
+  Role: Developer
+  Upwork: https://www.upwork.com/freelancers/miltonbolonha
+
+/* Team */
+  Name: Buzzinternet.ca
+  Role: Marketing
+  Website: https://www.bimg.ca

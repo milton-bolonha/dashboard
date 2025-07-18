@@ -5,6 +5,11 @@ import PageBuilderContainer from "../containers/PageBuilderContainer";
 import MarkdownContentContainer from "../containers/MarkdownContentContainer";
 import Seo from "../components/Seo";
 
+// Importar dados do site para SEO
+import siteData from "../../content/site.json";
+import headerData from "../../content/header.json";
+import servicesData from "../../content/services.json";
+
 const CustomPage = ({ data }) => {
   const { markdownRemark } = data;
   const { frontmatter, html } = markdownRemark;
@@ -26,9 +31,12 @@ const CustomPage = ({ data }) => {
 
 export const Head = ({ location, data }) => (
   <Seo
+    site={siteData}
     title={data.markdownRemark.frontmatter.title}
     description={data.markdownRemark.frontmatter.description}
     path={location.pathname}
+    navigationItems={headerData.menu.data.items}
+    services={servicesData.services}
   />
 );
 

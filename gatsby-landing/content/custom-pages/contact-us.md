@@ -10,13 +10,13 @@ page_builder:
   - type: "section"
     title: "Get a Free Quote"
     text: "Please provide as much detail as possible so we can give you an accurate estimate. Our team will get back to you within 24 hours."
-    imageUrl: "/images/contact-us.jpg" # Imagem para o lado do texto
+    imageUrl: "/images/contact-us.jpg"
     textPosition: "left"
-    sectionId: "online-quote" # Adicionando a âncora aqui
+    sectionId: "online-quote"
     form:
       formType: "jotform"
       formData:
-        formId: "YOUR_JOTFORM_ID_HERE"
+        formId: "210911653803450"
 
   - type: "map"
     map:

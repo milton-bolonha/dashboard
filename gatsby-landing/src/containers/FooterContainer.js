@@ -8,7 +8,7 @@ import footerData from "../../content/footer.json";
 const FooterContainer = () => {
   const citiesData = {
     heading: "Service Areas", // You can customize this heading
-    cities: rawCitiesData.map(city => city.name)
+    cities: rawCitiesData.map((city) => city.name),
   };
 
   return (
@@ -19,6 +19,5 @@ const FooterContainer = () => {
     />
   );
 };
-
 
 export default FooterContainer;

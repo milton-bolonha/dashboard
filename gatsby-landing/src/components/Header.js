@@ -17,7 +17,8 @@ const Header = ({ menu = {}, contact = {}, logo = {} }) => {
   // Fecha o menu se a janela for redimensionada para uma largura maior
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth >= 768) {
+      if (window.innerWidth >= 1280) {
+        // xl breakpoint
         setIsMenuOpen(false);
       }
     };
@@ -27,10 +28,10 @@ const Header = ({ menu = {}, contact = {}, logo = {} }) => {
 
   const renderContactInfo = (isMobile = false) => (
     <div
-      className={`flex ${
+      className={`flex w-full ${
         isMobile
           ? "flex-col space-y-4 text-left"
-          : "flex-wrap justify-end gap-5"
+          : "flex-wrap-reverse justify-end gap-5"
       }`}
     >
       {contactData.map((item, index) => {
@@ -41,9 +42,9 @@ const Header = ({ menu = {}, contact = {}, logo = {} }) => {
         return (
           <div key={index} className="flex items-center space-x-2 text-sm">
             <IconComponent
-              className={`h-5 w-5 ${
+              className={`h-5 w-5 flex-shrink-0 ${
                 isMobile ? "text-white" : "text-blue-500"
-              } flex-shrink-0`}
+              }`}
             />
             <span className={isMobile ? "text-white" : "text-gray-600"}>
               {item.text}
@@ -56,7 +57,7 @@ const Header = ({ menu = {}, contact = {}, logo = {} }) => {
 
   return (
     <header className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-50">
-      <div className="w-full max-w-8xl mx-auto px-4">
+      <div className="w-full max-w-7xl mx-auto px-4">
         <div className="flex justify-between items-center py-3">
           {/* Logo */}
           <div className="flex-shrink-0">
@@ -72,7 +73,7 @@ const Header = ({ menu = {}, contact = {}, logo = {} }) => {
           </div>
 
           {/* Menu Desktop */}
-          <nav className="hidden md:flex justify-center">
+          <nav className="hidden xl:flex justify-center">
             {menuData.items && (
               <ul className="flex items-center gap-x-6">
                 {menuData.items.map((item, index) => (
@@ -90,12 +91,15 @@ const Header = ({ menu = {}, contact = {}, logo = {} }) => {
           </nav>
 
           {/* Contato Desktop */}
-          <div className="hidden md:flex justify-end">
+          <div
+            className="hidden xl:flex justify-end"
+            style={{ maxWidth: "500px" }}
+          >
             {renderContactInfo()}
           </div>
 
           {/* Botão Hambúrguer */}
-          <div className="md:hidden flex items-center">
+          <div className="xl:hidden flex items-center">
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               aria-label="Abrir menu"
@@ -114,7 +118,7 @@ const Header = ({ menu = {}, contact = {}, logo = {} }) => {
       {/* Menu Móvel */}
       {isMenuOpen && (
         <div
-          className="md:hidden bg-blue-600 text-white p-4 animate-fade-in-down overflow-y-auto"
+          className="xl:hidden bg-blue-600 text-white p-4 animate-fade-in-down overflow-y-auto"
           style={{ maxHeight: "calc(100vh - 80px)" }} // 80px é uma estimativa da altura do header
         >
           <nav className="mb-4">

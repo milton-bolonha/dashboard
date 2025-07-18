@@ -1,6 +1,6 @@
 ---
 title: "Component Library"
-image: "/images/about-us.jpg" # Imagem de banner para a página
+image: "/images/about-us.jpg"
 page_builder:
   - type: "section"
     title: "Page Builder Component Library"
@@ -8,9 +8,6 @@ page_builder:
     text: "This page showcases the various components available through the Page Builder. Each section below is a different component type that can be configured and arranged to build custom pages."
     textPosition: "center"
 
-  # --- Demonstração do Hero ---
-
-  # HERO 1: Com imagem, sem formulário.
   - type: "hero"
     hero:
       heading:
@@ -27,7 +24,6 @@ page_builder:
           label: "Learn More"
           link: "#"
 
-  # HERO 2: Com imagem e formulário em duas colunas.
   - type: "hero"
     hero:
       heading:
@@ -42,7 +38,6 @@ page_builder:
         formData:
           formId: "TWO_COLUMN_JOTFORM_ID"
 
-  # HERO 3: Com imagem e formulário centralizado.
   - type: "hero"
     hero:
       heading:
@@ -58,7 +53,6 @@ page_builder:
         formData:
           formId: "CENTERED_JOTFORM_ID"
 
-  # HERO 4: Apenas com gradiente, sem imagem ou formulário.
   - type: "hero"
     hero:
       heading:
@@ -67,7 +61,6 @@ page_builder:
       subHeading:
         text: "This is the simple hero version that uses the default gradient background."
 
-  # --- Demonstração de Seções ---
   - type: "section"
     title: "Section: Boxed Layout"
     subtitle: "STANDARD CENTERED SECTION"
@@ -90,7 +83,28 @@ page_builder:
     textPosition: "right"
     sectionId: "section-demo-2"
 
-  # --- Demonstração de Boxes ---
+  - type: "section"
+    title: "Section: Two-Column with BG Image (Right)"
+    subtitle: "FULL WIDTH BACKGROUND IMAGE"
+    text: "This is the new section type. The image on the right is a full-height background for its column. Mussum Ipsum, cacilds vidis litro abertis."
+    imageUrl: "/images/about-us.jpg"
+    textPosition: "left"
+    settings:
+      layout: "two-columns"
+      imageWidth: "full"
+      imageSide: "right"
+
+  - type: "section"
+    title: "Section: Two-Column with BG Image (Left)"
+    subtitle: "FULL WIDTH BACKGROUND IMAGE"
+    text: "This is the same new section type, but with the image on the left. A ordem dos tratores não altera o pão duris."
+    imageUrl: "/images/about-us.jpg"
+    textPosition: "right"
+    settings:
+      layout: "two-columns"
+      imageWidth: "full"
+      imageSide: "left"
+
   - type: "boxes"
     title: "Boxes Component"
     subtitle: "SHOWCASING A 3-COLUMN GRID"
@@ -105,13 +119,11 @@ page_builder:
         text: "Manduma pindureta quium dia nois paga."
         icon: "home"
 
-  # --- Demonstração do Mapa ---
   - type: "map"
     map:
       src: "https://maps.google.com/maps?q=Toronto&t=&z=13&ie=UTF8&iwloc=&output=embed"
       title: "Map Component Demonstration"
 
-  # --- Demonstração dos Testemunhos ---
   - type: "testimonials"
     testimonials:
       title: "Testimonials Carousel (from Page Builder)"

@@ -10,12 +10,12 @@
   "social": {
     "heading": "Get in touch",
     "links": [
-      { "name": "Facebook", "link": "#" },
-      { "name": "Twitter", "link": "#" },
-      { "name": "Instagram", "link": "#" }
+      { "name": "Facebook", "link": null },
+      { "name": "Twitter", "link": null },
+      { "name": "Instagram", "link": null }
     ]
   },
-  "copyright": "© 2024 Window Caulking Toronto. All Rights Reserved.",
+  "copyright": "© 2025 Window Caulking Toronto. All Rights Reserved.",
   "developedBy": {
     "text": "Design and Developed by",
     "name": "Buzzinternet.ca",

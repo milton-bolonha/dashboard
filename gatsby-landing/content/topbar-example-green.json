@@ -2,13 +2,13 @@
   "marquee": {
     "data": {
       "active": true,
-      "speed": 30
+      "speed": 20
     },
     "order": 1
   },
   "content": {
     "data": {
-      "texto": "🎉 We Beat <strong>Any Written Quote By 5%</strong>"
+      "texto": "<strong>✅</strong> Success! You've unlocked premium access to exclusive content."
     },
     "order": 2
   }

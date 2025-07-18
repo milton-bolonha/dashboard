@@ -18,6 +18,12 @@ exports.createPages = async ({ graphql, actions }) => {
     "utf8"
   );
 
+  // Encontrar a URL da cidade padrão primeiro
+  const defaultCity = cities.find((city) => city.isDefault);
+  const defaultCityUrl = defaultCity
+    ? `/service-areas/${defaultCity.slug}`
+    : null;
+
   cities.forEach((city) => {
     const isDefault = city.isDefault || false;
     const rawContent = isDefault ? defaultCityContent : cityTemplateContent;
@@ -42,9 +48,39 @@ exports.createPages = async ({ graphql, actions }) => {
         page_builder: pageBuilderData,
         bgImage: fmData.attributes.image, // Pega a imagem do frontmatter
         isDefault: isDefault, // Adicionando a flag aqui
+        defaultCityUrl: !isDefault ? defaultCityUrl : null,
       },
     });
   });
+
+  /*
+  // Create pages for each service
+  const services = await graphql(`
+    {
+      allMarkdownRemark(
+        filter: { fileAbsolutePath: { regex: "/content/services/" } }
+      ) {
+        edges {
+          node {
+            fields {
+              slug
+            }
+          }
+        }
+      }
+    }
+  `);
+
+  services.data.allMarkdownRemark.edges.forEach(({ node }) => {
+    createPage({
+      path: `/services/${node.fields.slug}`,
+      component: path.resolve("./src/templates/ServicePage.js"),
+      context: {
+        slug: node.fields.slug,
+      },
+    });
+  });
+  */
 
   // Create pages for each simple page
   const simplePages = await graphql(`
@@ -77,7 +113,10 @@ exports.createPages = async ({ graphql, actions }) => {
   const customPages = await graphql(`
     {
       allMarkdownRemark(
-        filter: { fileAbsolutePath: { regex: "/content/custom-pages/" } }
+        filter: {
+          fileAbsolutePath: { regex: "/content/custom-pages/" }
+          fields: { slug: { ne: "library" } }
+        }
       ) {
         edges {
           node {
@@ -110,7 +149,7 @@ exports.createPages = async ({ graphql, actions }) => {
   const libraryPage = await graphql(`
     {
       markdownRemark(
-        fileAbsolutePath: { regex: "/content/custom-pages/library.md/" }
+        fileAbsolutePath: { regex: "/content/custom-pages/library.md$/" }
       ) {
         fields {
           slug
@@ -156,6 +195,44 @@ exports.createSchemaCustomization = ({ actions }) => {
       description: String
       page_builder: [PageBuilderSections]
     }
+    type SiteSiteMetadata {
+      title: String
+      description: String
+      author: String
+      siteUrl: String
+      keywords: [String]
+      business: SiteBusiness
+      tracking: SiteTracking
+      integrations: SiteIntegrations
+    }
+    type SiteBusiness {
+      name: String
+      address: SiteBusinessAddress
+      phone: String
+      email: String
+      openingHours: String
+      social: SiteBusinessSocial
+      logo: String
+    }
+    type SiteBusinessAddress {
+      street: String
+      city: String
+      region: String
+      postalCode: String
+      country: String
+    }
+    type SiteBusinessSocial {
+      facebook: String
+      instagram: String
+    }
+    type SiteTracking {
+      googleSiteVerification: String
+      gtag: String
+    }
+    type SiteIntegrations {
+      googleAds: String
+      microsoftAds: String
+    }
     type PageBuilderSections {
       type: String
       title: String
@@ -169,10 +246,12 @@ exports.createSchemaCustomization = ({ actions }) => {
       sectionId: String
       hero: PageBuilderHero
       testimonials: PageBuilderTestimonials
+      settings: PageBuilderSettings
     }
     type PageBuilderBox {
       title: String
       text: String
+      icon: String
     }
     type PageBuilderForm {
       formType: String
@@ -211,6 +290,10 @@ exports.createSchemaCustomization = ({ actions }) => {
     }
     type PageBuilderTestimonials {
       title: String
+    }
+    type PageBuilderSettings {
+      layout: String
+      imageSide: String
     }
   `;
   createTypes(typeDefs);

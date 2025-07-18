@@ -6,6 +6,11 @@ import BoxesContainer from "../containers/BoxesContainer";
 import Seo from "../components/Seo";
 import ServicesContainer from "../containers/ServicesContainer";
 
+// Importar dados do site para SEO
+import siteData from "../../content/site.json";
+import headerData from "../../content/header.json";
+import servicesData from "../../content/services.json";
+
 // Importar dados dos JSONs
 import heroData from "../../content/hero.json";
 import section1Data from "../../content/section-1.json";
@@ -31,5 +36,12 @@ const IndexPage = () => {
 export default IndexPage;
 
 export const Head = ({ location }) => (
-  <Seo title="Home" path={location.pathname} />
+  <Seo
+    site={siteData}
+    title="Home"
+    description="Your trusted partner for window caulking in Toronto. We serve residential and commercial clients with top-quality materials and professional service. Contact us for a free estimate."
+    path={location.pathname}
+    navigationItems={headerData.menu.data.items}
+    services={servicesData.services}
+  />
 );

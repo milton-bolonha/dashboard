@@ -2,13 +2,16 @@ import React from "react";
 import TopBar from "../components/TopBar";
 
 const TopBarContainer = (props) => {
+  // Pega a prop de cor e remove das props que serão ordenadas
+  const { bgColor, ...restProps } = props;
+
   // Fallback para props vazias
-  if (!props || Object.keys(props).length === 0) {
+  if (!restProps || Object.keys(restProps).length === 0) {
     return null;
   }
 
   // Extrai e ordena os elementos baseado na prop order
-  const elements = Object.entries(props)
+  const elements = Object.entries(restProps)
     .filter(([key, value]) => value && typeof value === "object")
     .map(([key, value]) => ({
       key,
@@ -29,7 +32,7 @@ const TopBarContainer = (props) => {
     };
   });
 
-  return <TopBar {...orderedProps} />;
+  return <TopBar {...orderedProps} bgColor={bgColor} />;
 };
 
 export default TopBarContainer;

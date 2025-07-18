@@ -3,6 +3,11 @@ import { Link } from "gatsby";
 import LayoutContainer from "../containers/LayoutContainer";
 import Seo from "../components/Seo";
 
+// Importar dados do site para SEO
+import siteData from "../../content/site.json";
+import headerData from "../../content/header.json";
+import servicesData from "../../content/services.json";
+
 const NotFoundPage = () => {
   return (
     <LayoutContainer>
@@ -23,8 +28,10 @@ export default NotFoundPage;
 
 export const Head = ({ location }) => (
   <Seo
+    site={siteData}
     title="404: Not Found"
     path={location.pathname}
-    meta={[{ name: "robots", content: "noindex, nofollow" }]}
+    navigationItems={headerData.menu.data.items}
+    services={servicesData.services}
   />
 );

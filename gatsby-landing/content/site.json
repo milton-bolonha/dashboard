@@ -1,0 +1,39 @@
+{
+  "title": "Window Caulking Toronto",
+  "description": "Professional window caulking services in Toronto and GTA. We offer residential and commercial caulking for windows, doors, and more. Get a free quote!",
+  "author": "Window Caulking Toronto",
+  "siteUrl": "https://windowcaulkingtoronto.ca",
+  "keywords": [
+    "window caulking",
+    "caulking services",
+    "toronto",
+    "commercial caulking",
+    "residential caulking"
+  ],
+  "business": {
+    "name": "Window Caulking Toronto",
+    "address": {
+      "street": "75 Rowntree Dairy Rd",
+      "city": "Woodbridge",
+      "region": "ON",
+      "postalCode": "L4L 6C8",
+      "country": "Canada"
+    },
+    "phone": "+1-647-557-1116",
+    "email": "info@windowcaulkingtoronto.ca",
+    "openingHours": "Mo-Fr 09:00-20:00",
+    "social": {
+      "facebook": null,
+      "instagram": null
+    },
+    "logo": "/images/cover.jpg"
+  },
+  "tracking": {
+    "googleSiteVerification": "",
+    "gtag": ""
+  },
+  "integrations": {
+    "googleAds": "",
+    "microsoftAds": ""
+  }
+}

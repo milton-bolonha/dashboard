@@ -57,6 +57,8 @@ const Footer = ({
     developedBy = {},
   } = footerData;
 
+  const validSocialLinks = social.links.filter((s) => s.link);
+
   const slugify = (text) =>
     text
       .toLowerCase()
@@ -120,21 +122,25 @@ const Footer = ({
           </div>
 
           {/* Coluna Contato */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">{social.heading}</h3>
-            <div className="flex space-x-4">
-              {social.links.map((s) => (
-                <a
-                  key={s.name}
-                  href={s.link}
-                  className="text-gray-400 hover:text-white"
-                >
-                  <span className="sr-only">{s.name}</span>
-                  <SocialIcon name={s.name} />
-                </a>
-              ))}
+          {validSocialLinks.length > 0 && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">{social.heading}</h3>
+              <div className="flex space-x-4">
+                {validSocialLinks.map((s) => (
+                  <a
+                    key={s.name}
+                    href={s.link}
+                    className="text-gray-400 hover:text-white"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <span className="sr-only">{s.name}</span>
+                    <SocialIcon name={s.name} />
+                  </a>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Barra Inferior */}

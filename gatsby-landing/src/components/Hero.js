@@ -1,4 +1,5 @@
 import React from "react";
+import JotformEmbed from "react-jotform-embed";
 
 const Hero = ({
   background = {},
@@ -39,6 +40,15 @@ const Hero = ({
 
   const renderForm = () => {
     if (!formData || !formData.formType) return null;
+
+    // Adiciona verificação para garantir que formData.formData existe
+    if (!formData.formData) {
+      console.warn(
+        "Hero Component: 'form.formData' is missing for form placeholder."
+      );
+      return null;
+    }
+
     return (
       <div
         id={formData.id}
@@ -51,17 +61,11 @@ const Hero = ({
             </h3>
           )}
           {formData.subheading && (
-            <p className="text-gray-600 text-base leading-relaxed">
+            <p className="text-gray-600 text-base leading-relaxed mb-0">
               {formData.subheading}
             </p>
           )}
-          <div className="text-center p-6 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-            <div className="text-3xl mb-3">📋</div>
-            <p className="text-sm text-gray-600">
-              <strong>JotForm ID:</strong> {formData.formData?.formId}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">JotForm here</p>
-          </div>
+          <JotformEmbed src="https://form.jotformeu.com/210911653803450" />
         </div>
       </div>
     );

@@ -21,7 +21,6 @@ const Map = ({ src, title = "Location Map" }) => {
             style={{ border: 0 }}
             allowFullScreen=""
             aria-hidden="false"
-            tabIndex="0"
           ></iframe>
         </div>
       </div>

@@ -1,46 +1,44 @@
 ---
-title: "Página de Teste - Sem Page Builder"
+title: "Test Page - No Page Builder"
 image: "/images/about-us.jpg"
-address: "456 Normal Street, Toronto, ON"
-phone: "(416) 555-0456"
 ---
 
-## Conteúdo Markdown Normal
+## Normal Markdown Content
 
-Este é o conteúdo markdown que será renderizado com o estilo padrão, sem o page_builder. Ele deve aparecer com o estilo normal do site.
+This is the markdown content that will be rendered with the default style, without the page_builder. It should appear with the normal site styling.
 
-### Características do Estilo Normal
+### Normal Style Features
 
-- **Fundo**: Branco padrão
-- **Bordas**: Sem bordas especiais
-- **Texto**: Alinhamento normal
-- **Espaçamento**: Padrão do sistema
+- **Background**: Standard white
+- **Borders**: No special borders
+- **Text**: Normal alignment
+- **Spacing**: System default
 
-### Lista de Teste
+### Test List
 
-1. Primeiro item da lista
-2. Segundo item da lista
-3. Terceiro item da lista
+1. First list item
+2. Second list item
+3. Third list item
 
-### Links de Teste
+### Test Links
 
-- [Link para página inicial](/)
-- [Link para serviços](/services)
-- [Link para contato](/contact-us)
+- [Link to homepage](/)
+- [Link to services](/services)
+- [Link to contact](/contact-us)
 
-### Código de Teste
+### Test Code
 
 ```javascript
-// Exemplo de código
+// Code example
 function testNormalPage() {
-  console.log("Página normal funcionando!");
+  console.log("Normal page working!");
 }
 ```
 
-### Citação de Teste
+### Test Quote
 
-> Esta é uma citação de teste que demonstra como o conteúdo markdown é estilizado quando não há page_builder.
+> This is a test quote that demonstrates how markdown content is styled when there is no page_builder.
 
 ---
 
-**Nota**: Esta página demonstra como o conteúdo markdown é estilizado de forma normal quando o `page_builder` não está populado no frontmatter.
+**Note**: This page demonstrates how markdown content is styled normally when the `page_builder` is not populated in the frontmatter.

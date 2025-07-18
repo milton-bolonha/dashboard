@@ -1,6 +1,10 @@
 import React from "react";
 
-const TopBar = ({ marquee = {}, content = {} }) => {
+const TopBar = ({
+  marquee = {},
+  content = {},
+  bgColor = "bg-gradient-to-r from-blue-600 to-blue-700",
+}) => {
   const { data: marqueeData = {} } = marquee;
   const { data: contentData = {} } = content;
   const { active = false, speed = 30 } = marqueeData;
@@ -9,7 +13,7 @@ const TopBar = ({ marquee = {}, content = {} }) => {
   if (!texto) return null;
 
   return (
-    <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white overflow-hidden overflow-x-hidden">
+    <div className={`${bgColor} text-white overflow-hidden overflow-x-hidden`}>
       <div className="w-full mx-auto">
         {active ? (
           <div className="overflow-hidden">

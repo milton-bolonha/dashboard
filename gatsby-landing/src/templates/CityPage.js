@@ -4,6 +4,11 @@ import Seo from "../components/Seo";
 import PageBuilderContainer from "../containers/PageBuilderContainer";
 import MapContainer from "../containers/MapContainer";
 
+// Importar dados do site para SEO
+import siteData from "../../content/site.json";
+import headerData from "../../content/header.json";
+import servicesData from "../../content/services.json";
+
 const CityPage = ({ pageContext, location }) => {
   const { city, title, page_builder, bgImage } = pageContext;
 
@@ -23,20 +28,19 @@ const CityPage = ({ pageContext, location }) => {
 };
 
 export const Head = ({ location, pageContext }) => {
-  const { title, isDefault } = pageContext;
+  const { title, bgImage, defaultCityUrl } = pageContext;
   const description = `Find the best window caulking services in ${title}. We offer professional sealing and weatherproofing for residential and commercial properties.`;
-
-  const meta = [];
-  if (!isDefault) {
-    meta.push({ name: "robots", content: "noindex" });
-  }
 
   return (
     <Seo
+      site={siteData}
       title={title}
       description={description}
       path={location.pathname}
-      meta={meta}
+      canonicalUrlOverride={defaultCityUrl}
+      image={bgImage}
+      navigationItems={headerData.menu.data.items}
+      services={servicesData.services}
     />
   );
 };

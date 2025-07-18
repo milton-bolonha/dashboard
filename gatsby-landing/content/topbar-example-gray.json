@@ -2,13 +2,13 @@
   "marquee": {
     "data": {
       "active": true,
-      "speed": 30
+      "speed": 50
     },
     "order": 1
   },
   "content": {
     "data": {
-      "texto": "🎉 We Beat <strong>Any Written Quote By 5%</strong>"
+      "texto": "<strong>📚</strong> Welcome to our examples! Discover exclusive resources here."
     },
     "order": 2
   }

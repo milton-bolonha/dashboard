@@ -98,7 +98,45 @@ const Section = ({ settings = {}, content = [] }) => {
   if (layout === "two-columns") {
     const imageContent = sortedContent.find((item) => item.type === "image");
     const textContent = sortedContent.filter((item) => item.type !== "image");
+    const preHeadingItem = textContent.find(
+      (item) => item.type === "preHeading"
+    );
 
+    // HACK DEFINITIVO: Usa o texto do subtítulo como gatilho.
+    if (
+      preHeadingItem?.text === "FULL WIDTH BACKGROUND IMAGE" &&
+      imageContent
+    ) {
+      const imageColumnStyle = {
+        backgroundImage: `url(${imageContent.src})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        minHeight: "400px",
+      };
+
+      return (
+        <section id={sectionId} className="w-full" style={sectionStyle}>
+          <div className="grid grid-cols-1 md:grid-cols-2">
+            <div
+              className={`py-16 md:py-24 px-4 sm:px-6 lg:px-8 flex items-center justify-center ${
+                imageSide === "left" ? "md:order-last" : ""
+              }`}
+            >
+              <div className={`space-y-6 text-${textAlignment} max-w-md`}>
+                {renderContent(textContent, textAlignment)}
+              </div>
+            </div>
+            <div
+              className="bg-cover bg-center"
+              style={imageColumnStyle}
+              aria-label={imageContent.alt || ""}
+            ></div>
+          </div>
+        </section>
+      );
+    }
+
+    // Layout padrão de duas colunas
     return (
       <section id={sectionId} className="py-16 md:py-24" style={sectionStyle}>
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -114,6 +152,71 @@ const Section = ({ settings = {}, content = [] }) => {
               {imageContent && <elementMap.image {...imageContent} />}
             </div>
           </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (layout === "two-columns-bg-image") {
+    const imageContent = sortedContent.find((item) => item.type === "image");
+    const textContent = sortedContent.filter((item) => item.type !== "image");
+
+    if (!imageContent) {
+      // Se não há imagem, volta para o layout padrão
+      return (
+        <section id={sectionId} className="py-16 md:py-24" style={sectionStyle}>
+          <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div
+              className={`max-w-4xl mx-auto text-${textAlignment} space-y-6`}
+            >
+              {renderContent(textContent, textAlignment)}
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    const imageColumnStyle = {
+      backgroundImage: `url(${imageContent.src})`,
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+      backgroundRepeat: "no-repeat",
+    };
+
+    return (
+      <section id={sectionId} className="w-full" style={sectionStyle}>
+        <div className="grid grid-cols-1 md:grid-cols-2 min-h-[500px]">
+          {imageSide === "left" ? (
+            <>
+              {/* Coluna de Imagem à Esquerda */}
+              <div
+                className="bg-cover bg-center bg-no-repeat"
+                style={imageColumnStyle}
+                aria-label={imageContent?.alt || ""}
+              />
+              {/* Coluna de Texto à Direita */}
+              <div className="flex items-center justify-center p-8 md:p-16">
+                <div className={`space-y-6 text-${textAlignment} max-w-md`}>
+                  {renderContent(textContent, textAlignment)}
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Coluna de Texto à Esquerda */}
+              <div className="flex items-center justify-center p-8 md:p-16">
+                <div className={`space-y-6 text-${textAlignment} max-w-md`}>
+                  {renderContent(textContent, textAlignment)}
+                </div>
+              </div>
+              {/* Coluna de Imagem à Direita */}
+              <div
+                className="bg-cover bg-center bg-no-repeat"
+                style={imageColumnStyle}
+                aria-label={imageContent?.alt || ""}
+              />
+            </>
+          )}
         </div>
       </section>
     );
