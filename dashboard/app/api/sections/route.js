@@ -3,7 +3,7 @@ import { db } from "@/lib/db.js";
 import { SectionSchema, validateSchema } from "@/schemas/index.js";
 import { getCurrentAuth } from "@/lib/auth";
 import { ObjectId } from "mongodb";
-import { checkPlan } from "#lib/plan-check.js";
+import { checkPlan } from "@/lib/plan-check";
 import {
   validateSlug,
   generateSlug,
@@ -81,80 +81,31 @@ async function getCurrentWorkspace(userId, requestedWorkspaceId = null) {
  * Lista todas as sections do workspace atual
  */
 export async function GET(request) {
-  const authData = await getCurrentAuth();
-  const userId = authData.userId || "temp_user_dev";
-
-  // Obter workspace ID do header (enviado pelo frontend)
-  const workspaceId = request.headers.get("x-workspace-id");
-
-  console.log("🔐 Sections GET: userId =", userId);
-  console.log("🏢 Workspace solicitado:", workspaceId);
-  console.log(
-    "📋 Headers recebidos:",
-    Object.fromEntries(request.headers.entries())
-  );
-
   try {
-    // Obter workspace atual (específico ou fallback)
-    const workspace = await getCurrentWorkspace(userId, workspaceId);
-    console.log(`🎯 Workspace em uso: ${workspace.name} (${workspace._id})`);
+    const { userId } = await getCurrentAuth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const workspace = await getCurrentWorkspace(userId);
+    if (!workspace) {
+      return NextResponse.json({ sections: [] }); // Retorna array vazio se não houver workspace
+    }
 
     const sections = await db.find("sections", {
-      userId: userId,
-      workspaceId: workspace._id, // ← WORKSPACE: filtrar por workspace específico
+      workspaceId: workspace._id.toString(),
     });
 
-    console.log(
-      `✅ Query executada: { userId: "${userId}", workspaceId: "${workspace._id}" }`
-    );
     console.log(
       `✅ Encontradas ${sections.length} sections para workspace ${workspace.name}`
     );
-
-    // Debug: Mostrar workspaceId de cada section
-    sections.forEach((section, index) => {
-      console.log(
-        `  ${index + 1}. ${section.name} - workspaceId: ${section.workspaceId}`
-      );
-    });
-
     return NextResponse.json({ sections });
   } catch (error) {
-    console.warn(
-      "⚠️ Could not connect to DB for sections, using fallback data.",
-      error.message
+    console.error("Erro ao listar sections:", error);
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 }
     );
-
-    // FALLBACK: Dados mock para teste (com userId já obtido)
-    const mockSections = [
-      {
-        _id: "mock1",
-        name: "Seção Teste 1",
-        slug: "secao-teste-1",
-        contentTypeId: "ct1",
-        userId: userId, // ← TRIANGULAÇÃO: associar ao usuário atual
-        description: "Seção criada para teste",
-        settings: { defaultView: "list", itemsPerPage: 20 },
-        isActive: true,
-        createdAt: new Date(),
-      },
-      {
-        _id: "mock2",
-        name: "Seção Teste 2",
-        slug: "secao-teste-2",
-        contentTypeId: "ct1",
-        userId: userId, // ← TRIANGULAÇÃO: associar ao usuário atual
-        description: "Segunda seção de teste",
-        settings: { defaultView: "grid", itemsPerPage: 10 },
-        isActive: true,
-        createdAt: new Date(),
-      },
-    ];
-
-    console.log(
-      `🔄 Retornando ${mockSections.length} sections mock para usuário ${userId}`
-    );
-    return NextResponse.json({ sections: mockSections });
   }
 }
 
@@ -165,19 +116,25 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const data = await request.json();
+    const { userId } = await getCurrentAuth();
 
-    const authData = await getCurrentAuth();
-    const userId = authData.userId || "temp_user_dev";
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    const workspaceId = request.headers.get("x-workspace-id");
-    const workspace = await getCurrentWorkspace(userId, workspaceId);
+    const workspace = await getCurrentWorkspace(userId); // ✅ CORREÇÃO: Definir workspace
+    if (!workspace) {
+      return NextResponse.json(
+        { error: "No workspace found for this user." },
+        { status: 403 }
+      );
+    }
 
     // --- Verificação de Plano ---
-    const isPro = await checkPlan("pro"); // Verifica se o plano é 'pro' ou superior
+    const isPro = await checkPlan(userId, "pro");
     if (!isPro) {
-      // Lógica para plano 'free'
       const sectionCount = await db.count("sections", {
-        workspaceId: workspace._id,
+        workspaceId: workspace._id.toString(),
       });
       const FREE_PLAN_LIMIT = 3;
 
@@ -193,18 +150,14 @@ export async function POST(request) {
     }
     // --- Fim da Verificação de Plano ---
 
-    // ✅ MELHORIA: Usar validação robusta de slug
-    const baseSlug = data.slug || generateSlug(data.name);
-    const slugValidation = validateSlug(baseSlug);
+    const slug = await validateSlug(data, "sections", workspace._id.toString());
 
-    if (!slugValidation.isValid) {
-      return NextResponse.json(
-        { error: "Invalid slug", details: slugValidation.errors },
-        { status: 400 }
-      );
-    }
-
-    const slug = slugValidation.slug;
+    const dataWithAuth = {
+      ...data,
+      userId,
+      workspaceId: workspace._id.toString(),
+      slug,
+    };
 
     // 🐛 DEBUG: Logs detalhados
     console.log("🔍 === DEBUG SECTION ===");
@@ -215,10 +168,14 @@ export async function POST(request) {
 
     // Adicionar userId, workspaceId e slug aos dados
     const dataWithWorkspace = {
-      ...data,
-      userId,
-      workspaceId: workspace._id,
-      slug,
+      ...dataWithAuth, // slug já está incluído
+      settings: {
+        defaultView: "list",
+        itemsPerPage: 20,
+        sortBy: "createdAt",
+        sortOrder: "desc",
+        ...data.settings,
+      },
     };
 
     console.log(

@@ -21,12 +21,26 @@ export default function SectionForm({
       section?.contentTypeId ||
       (contentTypes.length > 0 ? contentTypes[0]._id : ""),
     isActive: section?.isActive !== undefined ? section.isActive : true,
+    publicAccess: {
+      isPublic: section?.publicAccess?.isPublic || false,
+    },
   });
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+
+    if (name === "publicAccess.isPublic") {
+      setFormData((prev) => ({
+        ...prev,
+        publicAccess: { ...prev.publicAccess, isPublic: checked },
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: type === "checkbox" ? checked : value,
+      }));
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -106,6 +120,23 @@ export default function SectionForm({
               </option>
             ))}
           </select>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="isPublic"
+            name="publicAccess.isPublic"
+            checked={formData.publicAccess.isPublic}
+            onChange={handleChange}
+            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+          />
+          <label
+            htmlFor="isPublic"
+            className="text-sm text-gray-700 dark:text-gray-300"
+          >
+            Tornar esta seção pública
+          </label>
         </div>
 
         <div>

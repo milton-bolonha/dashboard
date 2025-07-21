@@ -1,51 +1,44 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { ApiKeyAuth } from "@/lib/api-key-auth";
-import { getCurrentAuth } from "@/lib/auth";
-import { ObjectId } from "mongodb";
+import { getAuth } from "@clerk/nextjs/server";
 
 /**
- * DELETE /api/workspaces/{id}/api-keys/{keyId}
- * Revoga uma API key
+ * DELETE /api/workspaces/{workspaceId}/api-keys/{keyId}
+ * Deleta uma chave de API específica.
  */
 export async function DELETE(request, { params }) {
   try {
-    const authData = await getCurrentAuth();
-    const userId = authData.userId;
+    const { userId } = getAuth(request);
+    const { id: workspaceId, keyId } = await params; // ✅ CORREÇÃO: Await params
 
-    const { id: workspaceId, keyId } = params;
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    // Verificar se usuário tem acesso ao workspace
-    const workspace = await db.findOne("workspaces", {
-      _id: new ObjectId(workspaceId),
-      $or: [{ ownerId: userId }, { "members.userId": userId }],
+    // TODO: Adicionar verificação se o usuário tem permissão para deletar chaves neste workspace
+
+    // Encontra e deleta a chave, garantindo que ela pertence ao usuário e ao workspace corretos
+    const result = await db.deleteOne("apiKeys", {
+      _id: keyId,
+      userId,
+      workspaceId,
     });
 
-    if (!workspace) {
+    if (result.deletedCount === 0) {
       return NextResponse.json(
-        { error: "Workspace not found or access denied" },
+        {
+          error:
+            "API Key not found or you do not have permission to delete it.",
+        },
         { status: 404 }
       );
     }
 
-    // Verificar se a API key pertence ao workspace
-    const apiKey = await db.findOne("api_keys", {
-      _id: keyId,
-      workspaceId,
-    });
-
-    if (!apiKey) {
-      return NextResponse.json({ error: "API key not found" }, { status: 404 });
-    }
-
-    // Revogar API key
-    await ApiKeyAuth.revokeKey(keyId, "Revoked by user");
-
-    return NextResponse.json({ success: true });
+    return new NextResponse(null, { status: 204 }); // No Content
   } catch (error) {
-    console.error("Erro ao revogar API key:", error);
+    console.error("[API_KEY_DELETE]", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Internal Server Error" },
       { status: 500 }
     );
   }

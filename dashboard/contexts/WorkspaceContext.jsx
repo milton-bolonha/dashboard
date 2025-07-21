@@ -30,8 +30,12 @@ export function WorkspaceProvider({ children }) {
     try {
       setLoading(true);
       setError(null);
+      console.log("WorkspaceContext: Iniciando loadWorkspaces...");
 
       const response = await fetch("/api/workspaces");
+      console.log(
+        `WorkspaceContext: Resposta da API /api/workspaces - Status: ${response.status}`
+      );
 
       // Tratar 404 (usuário sem workspaces) como um estado válido, não um erro.
       if (response.status === 404) {
@@ -43,6 +47,10 @@ export function WorkspaceProvider({ children }) {
       }
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error(
+          `WorkspaceContext: Erro na resposta da API. Status: ${response.status}, Texto: ${errorText}`
+        );
         throw new Error(
           `Falha ao carregar workspaces: ${response.status} ${response.statusText}`
         );
@@ -51,6 +59,9 @@ export function WorkspaceProvider({ children }) {
       const data = await response.json();
       const workspacesList = data.workspaces || [];
       setWorkspaces(workspacesList);
+      console.log(
+        `WorkspaceContext: ${workspacesList.length} workspaces carregados.`
+      );
 
       // Se não há workspaces, não bloquear o sistema
       if (workspacesList.length === 0) {
@@ -67,15 +78,23 @@ export function WorkspaceProvider({ children }) {
             : workspacesList[0]; // Primeiro workspace como padrão
 
           setCurrentWorkspace(workspace || workspacesList[0]);
+          console.log(
+            "WorkspaceContext: Workspace atual definido:",
+            workspace || workspacesList[0]
+          );
         }
       }
     } catch (err) {
-      console.error("Erro ao carregar workspaces:", err);
+      console.error(
+        "WorkspaceContext: Erro CRÍTICO no bloco catch do loadWorkspaces:",
+        err
+      );
       setError(err.message);
       // Em caso de erro, não bloquear o sistema
       setCurrentWorkspace(null);
     } finally {
       setLoading(false);
+      console.log("WorkspaceContext: loadWorkspaces finalizado.");
     }
   };
 
@@ -257,6 +276,11 @@ export function WorkspaceProvider({ children }) {
     isAdmin: hasRole("admin") || hasRole("owner"),
     limits: currentWorkspace?.limits || {},
   };
+
+  console.log(
+    "WorkspaceContext: Renderizando provider. Loading:",
+    loading || switching
+  );
 
   return (
     <WorkspaceContext.Provider value={value}>

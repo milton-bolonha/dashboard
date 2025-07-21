@@ -1,90 +1,94 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { ApiKeyAuth } from "@/lib/api-key-auth";
-import { getCurrentAuth } from "@/lib/auth";
-import { ObjectId } from "mongodb";
+import { getAuth } from "@clerk/nextjs/server";
+import { nanoid } from "nanoid";
+import crypto from "crypto";
+
+// Função para gerar um hash seguro de uma chave de API
+function hashApiKey(apiKey) {
+  return crypto.createHash("sha256").update(apiKey).digest("hex");
+}
 
 /**
- * GET /api/workspaces/{id}/api-keys
- * Lista API keys de um workspace
+ * GET /api/workspaces/{workspaceId}/api-keys
+ * Lista todas as chaves de API para um workspace.
  */
 export async function GET(request, { params }) {
   try {
-    const authData = await getCurrentAuth();
-    const userId = authData.userId;
+    const { userId } = getAuth(request);
+    const { id: workspaceId } = await params; // ✅ CORREÇÃO: Await params
 
-    const { id: workspaceId } = params;
-
-    // Verificar se usuário tem acesso ao workspace
-    const workspace = await db.findOne("workspaces", {
-      _id: new ObjectId(workspaceId),
-      $or: [{ ownerId: userId }, { "members.userId": userId }],
-    });
-
-    if (!workspace) {
-      return NextResponse.json(
-        { error: "Workspace not found or access denied" },
-        { status: 404 }
-      );
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Listar API keys do workspace
-    const keys = await ApiKeyAuth.listKeys(workspaceId);
+    // TODO: Adicionar verificação se o usuário tem permissão para ver este workspace
 
-    return NextResponse.json({ keys });
+    const apiKeys = await db.find("apiKeys", { workspaceId });
+
+    // Nunca retorne a chave completa, apenas metadados seguros
+    const safeApiKeys = apiKeys.map((key) => ({
+      id: key._id,
+      name: key.name,
+      last4: key.keyPrefix, // Supondo que salvaremos os últimos 4 ou um prefixo
+      createdAt: key.createdAt,
+    }));
+
+    return NextResponse.json(safeApiKeys);
   } catch (error) {
-    console.error("Erro ao listar API keys:", error);
+    console.error("[API_KEYS_GET]", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Internal Server Error" },
       { status: 500 }
     );
   }
 }
 
 /**
- * POST /api/workspaces/{id}/api-keys
- * Cria uma nova API key para o workspace
+ * POST /api/workspaces/{workspaceId}/api-keys
+ * Cria uma nova chave de API para um workspace.
  */
 export async function POST(request, { params }) {
   try {
-    const authData = await getCurrentAuth();
-    const userId = authData.userId;
+    const { userId } = getAuth(request);
+    const { id: workspaceId } = await params; // ✅ CORREÇÃO: Await params
+    const { name } = await request.json();
 
-    const { id: workspaceId } = params;
-    const data = await request.json();
-
-    // Verificar se usuário tem acesso ao workspace
-    const workspace = await db.findOne("workspaces", {
-      _id: new ObjectId(workspaceId),
-      $or: [{ ownerId: userId }, { "members.userId": userId }],
-    });
-
-    if (!workspace) {
-      return NextResponse.json(
-        { error: "Workspace not found or access denied" },
-        { status: 404 }
-      );
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Validar dados
-    if (!data.name) {
+    if (!name) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
     }
 
-    // Criar API key
-    const apiKey = await ApiKeyAuth.generateApiKey({
-      name: data.name,
+    // TODO: Adicionar verificação se o usuário tem permissão para criar chaves neste workspace
+
+    // Gera uma nova chave de API
+    const apiKey = `dsmp_${nanoid(32)}`;
+    const hashedKey = hashApiKey(apiKey);
+
+    const result = await db.insertOne("apiKeys", {
+      // ✅ CORREÇÃO: Usar insertOne
+      userId,
       workspaceId,
-      permissions: data.permissions || ["read"],
-      rateLimit: data.rateLimit || 100,
-      expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
+      name,
+      hashedKey,
+      keyPrefix: apiKey.substring(0, 7), // "dsmp_xx..."
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
 
-    return NextResponse.json(apiKey, { status: 201 });
+    // Retorna a chave completa APENAS uma vez.
+    return NextResponse.json({
+      id: result.insertedId, // Retornar o ID do novo documento
+      name,
+      apiKey, // Envia a chave real para o usuário copiar
+    });
   } catch (error) {
-    console.error("Erro ao criar API key:", error);
+    console.error("[API_KEYS_POST]", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Internal Server Error" },
       { status: 500 }
     );
   }

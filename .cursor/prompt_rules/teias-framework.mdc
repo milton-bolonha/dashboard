@@ -1,0 +1,120 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+@title: TE[i]As Framework Mental
+@tags: teias, framework, arquitetura, modelo-mental
+
+# TE[i]As - Framework Mental para Sistemas Complexos
+
+## Definição
+
+TE[i]As é um modelo mental para organizar o raciocínio sobre sistemas de software, permitindo análise estruturada de qualquer código ou arquitetura.
+
+## Os 5 Elementos
+
+### T - Topologia
+**"A forma do sistema"**
+- Onde está cada coisa?
+- Como elas se conectam?
+- O que está dentro e o que está fora?
+- Estrutura de pastas, módulos, componentes
+
+### E - Estado
+**"O status atual de cada parte"**
+- Está pronto? Em construção? Em transição?
+- Estados de componentes, variáveis, processos
+- Ciclo de vida e transições
+
+### [i] - Iterabilidade
+**"O que pode ser repetido/evoluído"**
+- Loops, testes, processos automatizados
+- Padrões reutilizáveis
+- Escalabilidade e extensibilidade
+
+### A - Agente
+**"Quem executa as ações principais"**
+- Funções principais, controladores
+- Usuário, sistema, eventos
+- Responsabilidade central
+
+### s - Subagente
+**"Quem apoia o agente principal"**
+- Helpers, utilities, middlewares
+- Funções auxiliares
+- Suporte e infraestrutura
+
+## Aplicação Prática
+
+### Para Análise de Código
+```
+T: Qual a estrutura? Como as partes se conectam?
+E: Qual o estado atual? O que pode mudar?
+[i]: O que se repete? O que pode ser testado?
+A: Quem coordena? Qual a função principal?
+s: Quais são os helpers? O que dá suporte?
+```
+
+### Para Debugging
+```
+T: A estrutura está correta?
+E: Todos os componentes estão no status esperado?
+[i]: Os loops e repetições funcionam?
+A: Quem deveria estar fazendo o que?
+s: Os helpers estão disponíveis?
+```
+
+### Para Arquitetura
+```
+T: Como organizar módulos e conexões?
+E: Quais estados precisamos gerenciar?
+[i]: O que pode ser automatizado/reutilizado?
+A: Quais são os componentes principais?
+s: Que infraestrutura precisamos?
+```
+
+## Metáfora Central
+
+> "Pensar com TE[i]As é como desenhar um mapa da sua aplicação. Tudo tem forma, estado, fluxo e papéis."
+
+## Exemplo Prático: Blog Simples
+
+**T - Topologia:**
+- `index.html` (home)
+- `post.html` (conteúdo)  
+- `contato.html`
+
+**E - Estado:**
+- `formStatus = 'enviado' | 'erro' | 'aguardando'`
+- Post pode estar publicado ou rascunho
+
+**[i] - Iterabilidade:**
+- Função de envio funciona em qualquer navegador
+- Lista de posts pode crescer
+
+**A - Agente:**
+- Botão "Publicar Post"
+- Formulário de contato
+
+**s - Subagente:**
+- `limparCampos()`
+- `mostrarMensagem()`
+
+## Benefícios
+
+1. **Clareza mental** - organiza o pensamento
+2. **Debugging sistemático** - metodologia de investigação
+3. **Comunicação** - vocabulário comum para equipe
+4. **Arquitetura** - decisões estruturadas
+
+## Quando Usar
+
+- Análise de sistemas complexos
+- Debugging de problemas difíceis
+- Planejamento de arquitetura
+- Code review estruturado
+- Comunicação técnica em equipe
+
+*"Mapeie primeiro, programe depois"*
+

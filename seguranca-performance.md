@@ -51,7 +51,15 @@ Esta análise cruza as melhores práticas de segurança e performance com o esta
 - **Recomendações e Prioridades:**
   - **Nenhuma.** A prática atual parece estar correta. Manter a centralização do acesso ao banco de dados no `lib/db.js` é a melhor abordagem.
 
-### 2.5. Segurança de Sessão e Permissões
+### 2.5. Autenticação no Backend (Padrão Oficial)
+
+- **O que é?** Garantir uma forma única e segura de obter a identidade do usuário (`userId`) em todas as rotas de API do backend.
+- **Status no Projeto:**
+  - **✅ Implementado e Padronizado:** O projeto utiliza um helper customizado em `dashboard/lib/auth.js`, que exporta a função `getCurrentAuth()`. Este helper é um wrapper sobre a autenticação do Clerk e contém a lógica específica necessária para o ambiente de desenvolvimento e produção do projeto.
+- **Recomendações e Prioridades:**
+  - **🥇 Prioridade Crítica (Regra de Ouro):** **TODA** rota de API que necessita de autenticação **DEVE** usar o helper `getCurrentAuth()` de `lib/auth.js`. O uso direto de funções do Clerk (como `getAuth`) no backend deve ser evitado para manter a consistência e a centralização da lógica de autenticação. Esta regra previne a introdução de bugs e garante que o sistema se comporte de maneira previsível.
+
+### 2.6. Segurança de Sessão e Permissões
 
 - **O que é?** Garantir que os dados de sessão e permissões sejam gerenciados de forma segura.
 - **Status no Projeto:**
@@ -68,14 +76,15 @@ Esta análise cruza as melhores práticas de segurança e performance com o esta
 
 ## 3. Tabela de Recomendações e Prioridades
 
-| Tópico | Status Atual | Prioridade | Ação Recomendada |
-| :--- | :--- | :--- | :--- |
-| **Indexação de DB** | ✅ Implementado (Parcial) | 🥇 Alta | Continuar adicionando índices para queries frequentes, especialmente em filtros da UI. |
-| **Cache de Dados** | ✅ Implementado (Triangulação)<br>❌ Não Implementado (API Pública) | 🥇 Alta | Implementar cache com **Upstash Redis** para a API pública. |
-| **Serialização JSON** | ✅ Implementado (Implícito) | 🥈 Média | Criar um helper `lib/serialization.js` para padronizar a conversão de `_id` e `Date`. |
-| **Connection Pooling** | ✅ Implementado | N/A | Manter a prática atual de usar um helper centralizado (`lib/db.js`). |
-| **Segurança de Sessão** | ✅ Implementado (Clerk)<br>❌ Não Implementado (Access Engine) | 🥇 Alta | **Implementar o `Access Engine`** conforme a arquitetura planejada. É a tarefa mais crítica. |
-| **Cache de Permissões** | ❌ Não Implementado | 🥈 Média | Após o `Access Engine` estar funcional, usar Redis para cachear as permissões compiladas. |
+| Tópico                   | Status Atual                                                        | Prioridade | Ação Recomendada                                                                                           |
+| :----------------------- | :------------------------------------------------------------------ | :--------- | :--------------------------------------------------------------------------------------------------------- |
+| **Indexação de DB**      | ✅ Implementado (Parcial)                                           | 🥇 Alta    | Continuar adicionando índices para queries frequentes, especialmente em filtros da UI.                     |
+| **Cache de Dados**       | ✅ Implementado (Triangulação)<br>❌ Não Implementado (API Pública) | 🥇 Alta    | Implementar cache com **Upstash Redis** para a API pública.                                                |
+| **Serialização JSON**    | ✅ Implementado (Implícito)                                         | 🥈 Média   | Criar um helper `lib/serialization.js` para padronizar a conversão de `_id` e `Date`.                      |
+| **Connection Pooling**   | ✅ Implementado                                                     | N/A        | Manter a prática atual de usar um helper centralizado (`lib/db.js`).                                       |
+| **Autenticação Backend** | ✅ Implementado                                                     | 🥇 Crítica | **Regra de Ouro:** Usar exclusivamente o helper `lib/auth.js` (`getCurrentAuth`) em todas as rotas de API. |
+| **Segurança de Sessão**  | ✅ Implementado (Clerk)<br>❌ Não Implementado (Access Engine)      | 🥇 Alta    | **Implementar o `Access Engine`** conforme a arquitetura planejada. É a tarefa mais crítica.               |
+| **Cache de Permissões**  | ❌ Não Implementado                                                 | 🥈 Média   | Após o `Access Engine` estar funcional, usar Redis para cachear as permissões compiladas.                  |
 
 ## 4. Conclusão
 

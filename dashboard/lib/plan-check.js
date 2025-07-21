@@ -11,22 +11,14 @@ const PLAN_HIERARCHY = {
 
 /**
  * Verifica se o plano do usuário atual atende a um requisito mínimo.
+ * @param {string} userId - O ID do usuário obtido via getCurrentAuth.
  * @param {string} requiredPlan - O slug do plano mínimo necessário (ex: 'pro').
  * @returns {Promise<boolean>} - Retorna true se o usuário atender ao requisito, false caso contrário.
  */
-export async function checkPlan(requiredPlan) {
+export async function checkPlan(userId, requiredPlan) {
   try {
-    const { userId, plan: devPlan } = await getCurrentAuth();
-
     if (!userId) {
       return false; // Não autenticado
-    }
-
-    // Em modo de desenvolvimento, o plano pode vir direto do auth.js
-    if (devPlan) {
-      const currentUserLevel = PLAN_HIERARCHY[devPlan.plan] ?? -1;
-      const requiredLevel = PLAN_HIERARCHY[requiredPlan] ?? -1;
-      return currentUserLevel >= requiredLevel;
     }
 
     // Em produção, buscar do Clerk
@@ -48,9 +40,8 @@ export async function checkPlan(requiredPlan) {
  */
 export async function getUserPlan() {
   try {
-    const { userId, plan: devPlan } = await getCurrentAuth();
+    const { userId } = await getCurrentAuth();
     if (!userId) return null;
-    if (devPlan) return devPlan;
 
     const user = await clerkClient.users.getUser(userId);
     return user.publicMetadata?.plan || "free";

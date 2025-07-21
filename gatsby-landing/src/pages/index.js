@@ -13,8 +13,8 @@ import servicesData from "../../content/services.json";
 
 // Importar dados dos JSONs
 import heroData from "../../content/hero.json";
-import section1Data from "../../content/section-1.json";
-import section2Data from "../../content/section-2.json";
+import section1Data from "../../content/helpers/section-1.json";
+import section2Data from "../../content/helpers/section-2.json";
 // import section3Data from "../../content/section-3.json";
 import boxesData from "../../content/boxes.json";
 import TestimonialsContainer from "../containers/TestimonialsContainer";

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { SectionSchema, validateSchema } from "@/schemas/index.js";
 import { ObjectId } from "mongodb";
-import { getCurrentAuth } from "@/lib/auth";
+import { getAuth } from "@clerk/nextjs/server";
 
 /**
  * Helper para obter workspace do usuário
@@ -90,20 +90,23 @@ export async function GET(request, { params }) {
  */
 export async function PUT(request, { params }) {
   try {
-    const { id } = await params;
-    if (!ObjectId.isValid(id)) {
+    const { userId } = getAuth(request);
+    const { id: sectionId } = await params; // ✅ CORREÇÃO: Await params
+    const data = await request.json();
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!sectionId || !ObjectId.isValid(sectionId)) {
       return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
     }
 
-    const data = await request.json();
+    // Remover _id dos dados para evitar erro de imutabilidade
+    delete data._id;
 
     // ✅ CORREÇÃO: Obter autenticação e workspace (igual ao POST)
-    const authData = await getCurrentAuth();
-    const userId = authData.userId || "temp_user_dev";
-    const workspaceId = request.headers.get("x-workspace-id");
-
-    // Obter workspace atual
-    const workspace = await getCurrentWorkspace(userId, workspaceId);
+    const workspace = await getCurrentWorkspace(userId);
 
     // ✅ CORREÇÃO: Gerar slug ANTES da validação se necessário
     const slug =
@@ -117,7 +120,7 @@ export async function PUT(request, { params }) {
 
     // 🐛 DEBUG: Logs detalhados para edição
     console.log("🔍 === DEBUG SECTION EDIT ===");
-    console.log("🔍 ID:", id);
+    console.log("🔍 ID:", sectionId);
     console.log("🔍 userId:", userId);
     console.log("🔍 workspaceId:", workspace._id);
     console.log("🔍 Dados recebidos:", JSON.stringify(data, null, 2));
@@ -127,7 +130,7 @@ export async function PUT(request, { params }) {
     const dataWithAuth = {
       ...data,
       userId,
-      workspaceId: workspace._id,
+      workspaceId: workspace._id.toString(),
       slug,
     };
 
@@ -147,21 +150,26 @@ export async function PUT(request, { params }) {
       );
     }
 
-    const result = await db.updateOne(
+    const updatedSection = await db.updateOne(
       "sections",
-      { _id: new ObjectId(id) },
+      {
+        _id: new ObjectId(sectionId),
+        userId, // Garantir que o usuário só possa editar suas próprias seções
+      },
       dataWithAuth // ✅ Usar dados com userId, workspaceId e slug incluídos
     );
-    if (result.matchedCount === 0) {
+
+    if (updatedSection.matchedCount === 0) {
       return NextResponse.json({ error: "Section not found" }, { status: 404 });
     }
 
-    const updatedSection = await db.findOne("sections", {
-      _id: new ObjectId(id),
+    const finalUpdatedSection = await db.findOne("sections", {
+      _id: new ObjectId(sectionId),
     });
-    return NextResponse.json({ section: updatedSection });
+    return NextResponse.json({ section: finalUpdatedSection });
   } catch (error) {
-    console.error(`Error updating section ${params.id}:`, error);
+    const { id } = await params; // Adicionando await aqui também
+    console.error(`Error updating section ${id}:`, error);
     return NextResponse.json(
       { error: "Failed to update section" },
       { status: 500 }
@@ -176,7 +184,7 @@ export async function PUT(request, { params }) {
 export async function DELETE(request, { params }) {
   try {
     const { id } = params;
-    const { userId } = await getCurrentAuth();
+    const { userId } = getAuth(request);
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
