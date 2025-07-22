@@ -36,14 +36,38 @@ Após análise, foi confirmado que a estrutura de API ideal, centrada em workspa
 
 ---
 
-### Passo 3: Integração com o Gatsby (Landing Page)
+## Parte 2: A Jornada para a Publicação Automatizada
 
-- **Objetivo:** Fazer a landing page (`gatsby-landing`) consumir os dados da API pública que acabamos de criar.
-- **Local da Tarefa:** O trabalho agora se concentrará principalmente no projeto `gatsby-landing`.
+Com a API de conteúdo pronta, iniciamos a jornada para transformar o DashMaster em uma plataforma completa de Conteúdo como Serviço (CaaS) com publicação automatizada.
+
+### Fase 1: Prova de Conceito - Conexão Manual com Gatsby
+
+- **Objetivo:** Provar que um site estático externo (`gatsby-landing`) pode ser totalmente alimentado pela nossa API de Conteúdo. Esta fase é o pré-requisito fundamental para toda a automação futura.
+- **Local da Tarefa:** O trabalho se concentrará principalmente no projeto `gatsby-landing`.
 - **Plano de Ação:**
-  1.  **Configuração do Ambiente:** No `gatsby-landing`, criar um arquivo de ambiente (ex: `.env.development`) para armazenar a URL da API (`http://localhost:3000`) e a chave de API gerada no Passo 1.
-  2.  **Lógica de Fetching:** Na página principal (`src/pages/index.js`), usar `useEffect` ou uma função de data-fetching do Gatsby (como `getServerData`) para chamar a nossa API `http://localhost:3000/api/public/content` com o header de autorização correto.
-  3.  **Renderização Dinâmica:** Mapear os dados recebidos da API para renderizar os componentes da página dinamicamente. Por exemplo, a seção `hero` será populada com o título e subtítulo vindos da API, e outras seções serão criadas com base no array `content`.
-  4.  **Estilização e Componentes:** Garantir que os componentes existentes (ou novos, se necessário) possam receber os dados via `props` e renderizá-los corretamente.
+  1.  **Configuração do Ambiente:** No `gatsby-landing`, criar um arquivo de ambiente (`.env.development`) para armazenar a URL da API (`http://localhost:3000`) e a chave de API gerada no Passo 1.
+  2.  **Lógica de Fetching:** Na página principal (`src/pages/index.js`), usar `useEffect` (para desenvolvimento) ou uma função de data-fetching do Gatsby (como `getServerData` ou `sourceNodes` em `gatsby-node.js` para o build) para chamar a nossa API `http://localhost:3000/api/public/content` com o header de autorização correto.
+  3.  **Renderização Dinâmica:** Mapear os dados recebidos da API para renderizar os componentes da página dinamicamente. Por exemplo, a seção `hero` será populada com o título e subtítulo vindos da API.
+
+### Fase 2: O Importador de Conteúdo Estático
+
+- **Objetivo:** Implementar a arquitetura descrita em `docs/plano-importer.md` para permitir a migração de conteúdo de estruturas de arquivos para o DashMaster.
+- **Plano de Ação (Resumido):**
+  1.  **Desenvolver a UI do Importador:** Criar a interface no Dashboard para o usuário iniciar o processo.
+  2.  **Backend (Fase de Análise):** Implementar a lógica para ler a estrutura de arquivos e gerar o `import-plan.json`.
+  3.  **Backend (Fase de Execução):** Implementar o endpoint que recebe o plano e cria os `ContentTypes`, `Sections` e `Items` no banco de dados.
+
+### Fase 3: Visão de Futuro - O Publicador Automatizado
+
+- **Objetivo:** Implementar a arquitetura descrita em `docs/plano-caas.md` para permitir a publicação de sites com um clique.
+- **Plano de Ação (Resumido):**
+  1.  **Criar API de Publicação:** Desenvolver o endpoint `POST /api/workspaces/[id]/publish` no `dashboard`.
+  2.  **Desenvolver o GitHub Action:** Criar o workflow (`.github/workflows/publish-site.yml`) que:
+      - É acionado pela API de Publicação.
+      - Busca os dados da API de Conteúdo.
+      - Executa o `gatsby build`.
+      - Commita os arquivos gerados em uma pasta (`/sites/[workspaceId]`) em um repositório de destino.
+  3.  **Integrar com Netlify:** Configurar sites no Netlify para monitorar o repositório de destino e fazer deploy automático a partir das pastas corretas.
+  4.  **Desenvolver a UI no Dashboard:** Criar a interface para o usuário configurar e acionar o processo de publicação.
 
 ---
