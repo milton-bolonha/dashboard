@@ -49,9 +49,10 @@ export function SectionsProvider({ children }) {
           response.status,
           errorText
         );
-        throw new Error(
-          `Failed to fetch sections (status: ${response.status}): ${errorText}`
-        );
+        // Em caso de erro, mostrar erro, mas nunca propagar erro para o contexto global
+        setSections([]);
+        setLoading(false);
+        return;
       }
 
       const data = await response.json();
@@ -64,6 +65,8 @@ export function SectionsProvider({ children }) {
     } catch (error) {
       console.error("❌ SectionsContext: Erro ao carregar sections:", error);
       setSections([]);
+      setLoading(false);
+      return;
     } finally {
       setLoading(false);
     }

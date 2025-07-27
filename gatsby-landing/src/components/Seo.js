@@ -66,6 +66,7 @@ function Seo({
   canonicalUrlOverride,
   navigationItems = [],
   services = [],
+  noindex = false,
 }) {
   // Se os dados do site não forem passados, retorna um fallback mínimo
   if (!site) {
@@ -223,6 +224,7 @@ function Seo({
   return (
     <>
       <html lang={lang} />
+      <link rel="preload" as="image" href="/images/hero-bg.webp" />
       <title>{pageTitle}</title>
       <meta name="author" content={business.name} />
       <meta name="description" content={metaDescription} />
@@ -244,6 +246,11 @@ function Seo({
       <meta name="twitter:title" content={pageTitle} />
       <meta name="twitter:description" content={metaDescription} />
       <meta name="twitter:image" content={imageUrl} />
+      {noindex ? (
+        <meta name="robots" content="noindex" />
+      ) : (
+        <meta name="robots" content="index, follow" />
+      )}
       {meta.map((m, i) => (
         <meta key={i} {...m} />
       ))}

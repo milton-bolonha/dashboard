@@ -6,15 +6,13 @@ exports.createPages = async ({ graphql, actions }) => {
   const { createPage } = actions;
 
   // Create pages for each city
-  const cities = JSON.parse(
-    fs.readFileSync("./content/cities/cities.json", "utf8")
-  );
+  const cities = JSON.parse(fs.readFileSync("./content/cities.json", "utf8"));
   const defaultCityContent = fs.readFileSync(
-    "./content/cities/default-city.md",
+    "./content/cities-pages/default-city.md",
     "utf8"
   );
   const cityTemplateContent = fs.readFileSync(
-    "./content/cities/city-template.md",
+    "./content/cities-pages/city-template.md",
     "utf8"
   );
 
@@ -113,15 +111,15 @@ exports.createPages = async ({ graphql, actions }) => {
   const customPages = await graphql(`
     {
       allMarkdownRemark(
-        filter: {
-          fileAbsolutePath: { regex: "/content/custom-pages/" }
-          fields: { slug: { ne: "library" } }
-        }
+        filter: { fileAbsolutePath: { regex: "/content/custom-pages/" } }
       ) {
         edges {
           node {
             fields {
               slug
+            }
+            frontmatter {
+              template
             }
           }
         }
@@ -135,38 +133,21 @@ exports.createPages = async ({ graphql, actions }) => {
   );
 
   customPages.data.allMarkdownRemark.edges.forEach(({ node }) => {
-    console.log(`Creating page for: ${node.fields.slug}`);
+    const templateName = node.frontmatter.template || "CustomPage";
+    console.log(
+      `Creating page for: ${node.fields.slug} using template: ${templateName}`
+    );
+
+    const component = path.resolve(`./src/templates/${templateName}.js`);
+
     createPage({
       path: `/${node.fields.slug}`,
-      component: path.resolve("./src/templates/CustomPage.js"),
+      component: component,
       context: {
         slug: node.fields.slug,
       },
     });
   });
-
-  // Create the Library page
-  const libraryPage = await graphql(`
-    {
-      markdownRemark(
-        fileAbsolutePath: { regex: "/content/custom-pages/library.md$/" }
-      ) {
-        fields {
-          slug
-        }
-      }
-    }
-  `);
-
-  if (libraryPage.data.markdownRemark) {
-    createPage({
-      path: `/${libraryPage.data.markdownRemark.fields.slug}`,
-      component: path.resolve("./src/templates/LibraryPage.js"),
-      context: {
-        slug: libraryPage.data.markdownRemark.fields.slug,
-      },
-    });
-  }
 };
 
 exports.onCreateNode = ({ node, actions }) => {
@@ -189,7 +170,7 @@ exports.createSchemaCustomization = ({ actions }) => {
     }
     type MarkdownRemarkFrontmatter {
       title: String
-      image: String
+      template: String
       address: String
       phone: String
       description: String

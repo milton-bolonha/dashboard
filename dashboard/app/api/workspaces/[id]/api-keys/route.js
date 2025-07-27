@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuth } from "@clerk/nextjs/server";
+import { getCurrentAuth } from "@/lib/auth";
 import { nanoid } from "nanoid";
 import crypto from "crypto";
 
@@ -15,7 +15,8 @@ function hashApiKey(apiKey) {
  */
 export async function GET(request, { params }) {
   try {
-    const { userId } = getAuth(request);
+    const auth = await getCurrentAuth();
+    const { userId } = auth;
     const { id: workspaceId } = await params; // ✅ CORREÇÃO: Await params
 
     if (!userId) {
@@ -50,7 +51,8 @@ export async function GET(request, { params }) {
  */
 export async function POST(request, { params }) {
   try {
-    const { userId } = getAuth(request);
+    const auth = await getCurrentAuth();
+    const { userId } = auth;
     const { id: workspaceId } = await params; // ✅ CORREÇÃO: Await params
     const { name } = await request.json();
 

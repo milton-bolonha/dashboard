@@ -163,6 +163,13 @@ export function Sidebar({
           clipRule="evenodd"
         />
       ),
+      "arrow-down-tray": (
+        <path
+          fillRule="evenodd"
+          d="M10 2a1 1 0 011 1v7.586l2.293-2.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 10.586V3a1 1 0 011-1z"
+          clipRule="evenodd"
+        />
+      ),
       cog: (
         <path
           fillRule="evenodd"
@@ -244,7 +251,7 @@ export function Sidebar({
           }`}
         >
           <h1 className="text-lg font-bold text-gray-900 dark:text-white whitespace-nowrap">
-            Dashboard Engine
+            DashMaster v0.1.0
           </h1>
         </div>
         <button
@@ -459,6 +466,36 @@ export function Sidebar({
                   }`}
                 >
                   <span className="whitespace-nowrap">Content Types</span>
+                </div>
+              </Link>
+              <Link
+                href="/dashboard/importer"
+                className={`group w-full flex items-center px-2 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
+                  isActive("/dashboard/importer")
+                    ? "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white shadow-lg border-l-4 border-blue-500"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+                }`}
+                title={isCollapsed && !isHovered ? "Importer" : ""}
+              >
+                <div
+                  className={`flex-shrink-0 w-5 h-5 ${
+                    isActive("/dashboard/importer")
+                      ? "text-blue-500 dark:text-blue-400"
+                      : ""
+                  }`}
+                >
+                  <svg fill="currentColor" viewBox="0 0 20 20">
+                    {getIconSvg("arrow-down-tray")}
+                  </svg>
+                </div>
+                <div
+                  className={`ml-3 overflow-hidden transition-all duration-300 ${
+                    isCollapsed && !isHovered
+                      ? "opacity-0 w-0"
+                      : "opacity-100 w-auto"
+                  }`}
+                >
+                  <span className="whitespace-nowrap">Importer</span>
                 </div>
               </Link>
             </div>

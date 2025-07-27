@@ -51,9 +51,12 @@ export function WorkspaceProvider({ children }) {
         console.error(
           `WorkspaceContext: Erro na resposta da API. Status: ${response.status}, Texto: ${errorText}`
         );
-        throw new Error(
+        // Em caso de erro, NÃO setar currentWorkspace como null, apenas mostrar erro
+        setError(
           `Falha ao carregar workspaces: ${response.status} ${response.statusText}`
         );
+        setLoading(false);
+        return;
       }
 
       const data = await response.json();
@@ -90,8 +93,9 @@ export function WorkspaceProvider({ children }) {
         err
       );
       setError(err.message);
-      // Em caso de erro, não bloquear o sistema
-      setCurrentWorkspace(null);
+      // Em caso de erro, NÃO setar currentWorkspace como null, apenas mostrar erro
+      setLoading(false);
+      return;
     } finally {
       setLoading(false);
       console.log("WorkspaceContext: loadWorkspaces finalizado.");

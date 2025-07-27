@@ -108,7 +108,7 @@ export async function GET(request) {
 
     const contentTypes = await db.find("contentTypes", {
       userId: userId,
-      workspaceId: workspace._id, // ← WORKSPACE: filtrar por workspace
+      workspaceId: workspace._id.toString(), // ← CORRIGIDO: Comparar string com string
     });
 
     console.log(

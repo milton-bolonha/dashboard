@@ -1,5 +1,6 @@
 ---
 title: "Component Library"
+template: LibraryPage
 image: "/images/about-us.jpg"
 page_builder:
   - type: "section"

@@ -87,7 +87,10 @@ export async function GET(request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const workspace = await getCurrentWorkspace(userId);
+    // Verificar se há um workspace específico no header
+    const workspaceId = request.headers.get("x-workspace-id");
+
+    const workspace = await getCurrentWorkspace(userId, workspaceId);
     if (!workspace) {
       return NextResponse.json({ sections: [] }); // Retorna array vazio se não houver workspace
     }

@@ -12,6 +12,13 @@ module.exports = {
     "gatsby-plugin-image",
     "gatsby-plugin-sitemap",
     {
+      resolve: "gatsby-source-filesystem",
+      options: {
+        name: "images",
+        path: `${__dirname}/src/images/`,
+      },
+    },
+    {
       resolve: "gatsby-plugin-manifest",
       options: {
         icon: "static/images/android-chrome-512x512.png",
@@ -40,6 +47,12 @@ module.exports = {
       options: {
         name: "custom-pages",
         path: `${__dirname}/content/custom-pages`,
+      },
+    },
+    {
+      resolve: `gatsby-plugin-preconnect`,
+      options: {
+        domains: [`https://cdn.jotfor.ms`],
       },
     },
     `gatsby-plugin-netlify`,

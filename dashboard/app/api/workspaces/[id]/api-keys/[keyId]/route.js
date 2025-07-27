@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuth } from "@clerk/nextjs/server";
+import { getCurrentAuth } from "@/lib/auth";
 
 /**
  * DELETE /api/workspaces/{workspaceId}/api-keys/{keyId}
@@ -8,7 +8,8 @@ import { getAuth } from "@clerk/nextjs/server";
  */
 export async function DELETE(request, { params }) {
   try {
-    const { userId } = getAuth(request);
+    const auth = await getCurrentAuth();
+    const { userId } = auth;
     const { id: workspaceId, keyId } = await params; // ✅ CORREÇÃO: Await params
 
     if (!userId) {

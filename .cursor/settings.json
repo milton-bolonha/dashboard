@@ -16,5 +16,14 @@
     "cursorTab": true,
     "autoImport": true,
     "iterateOnLints": true
+  },
+  "experimental": {
+    "aiProvider": "openai",
+    "customOpenAIConfig": {
+      "apiKey": "55bcfad5c5684c1dbc33829aacb90d5f",
+      "apiBase": "https://queimouai.openai.azure.com/",
+      "apiVersion": "2025-01-01-preview",
+      "model": "o1"
+    }
   }
 }

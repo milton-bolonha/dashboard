@@ -13,13 +13,13 @@
   "business": {
     "name": "Window Caulking Toronto",
     "address": {
-      "street": "75 Rowntree Dairy Rd",
-      "city": "Woodbridge",
+      "street": "8171 Yonge St #321",
+      "city": "Thornhill",
       "region": "ON",
-      "postalCode": "L4L 6C8",
+      "postalCode": "L3T 2C6",
       "country": "Canada"
     },
-    "phone": "+1-647-557-1116",
+    "phone": "+1-647-695-6966",
     "email": "info@windowcaulkingtoronto.ca",
     "openingHours": "Mo-Fr 09:00-20:00",
     "social": {
@@ -30,10 +30,10 @@
   },
   "tracking": {
     "googleSiteVerification": "",
-    "gtag": ""
+    "gtag": "AW-755844797"
   },
   "integrations": {
-    "googleAds": "",
+    "googleAds": "AW-755844797",
     "microsoftAds": ""
   }
 }

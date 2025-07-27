@@ -281,6 +281,19 @@ export function ModernItemsTable({
     ),
   };
 
+  if (loading) {
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+        <div className="p-12 text-center">
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600"></div>
+          <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+            Carregando itens...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (!items.length) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
@@ -366,9 +379,9 @@ export function ModernItemsTable({
                 </th>
 
                 {/* ✅ NOVO: Colunas dos addons (apenas visíveis) */}
-                {getVisibleColumns().map((addon) => (
+                {getVisibleColumns().map((addon, index) => (
                   <th
-                    key={addon.id}
+                    key={`${addon.name}-${index}`}
                     scope="col"
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                     onClick={() => requestSort(addon.name)}
@@ -410,9 +423,9 @@ export function ModernItemsTable({
                   </td>
 
                   {/* ✅ NOVO: Colunas dos addons (apenas visíveis) */}
-                  {getVisibleColumns().map((addon) => (
+                  {getVisibleColumns().map((addon, index) => (
                     <td
-                      key={addon.id}
+                      key={`${addon.name}-${index}`}
                       className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white"
                     >
                       {renderFieldValue(item, addon)}

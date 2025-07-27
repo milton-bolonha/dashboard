@@ -1,7 +1,7 @@
 import React from "react";
 import Footer from "../components/Footer";
 
-import rawCitiesData from "../../content/cities/cities.json";
+import rawCitiesData from "../../content/cities.json";
 import servicesData from "../../content/services.json";
 import footerData from "../../content/footer.json";
 

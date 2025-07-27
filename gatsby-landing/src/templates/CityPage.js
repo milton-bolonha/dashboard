@@ -28,7 +28,7 @@ const CityPage = ({ pageContext, location }) => {
 };
 
 export const Head = ({ location, pageContext }) => {
-  const { title, bgImage, defaultCityUrl } = pageContext;
+  const { title, bgImage, defaultCityUrl, isDefault } = pageContext;
   const description = `Find the best window caulking services in ${title}. We offer professional sealing and weatherproofing for residential and commercial properties.`;
 
   return (
@@ -41,6 +41,7 @@ export const Head = ({ location, pageContext }) => {
       image={bgImage}
       navigationItems={headerData.menu.data.items}
       services={servicesData.services}
+      noindex={!isDefault}
     />
   );
 };

@@ -12,11 +12,11 @@ import headerData from "../../content/header.json";
 import servicesData from "../../content/services.json";
 
 // Importar dados dos JSONs
-import heroData from "../../content/hero.json";
-import section1Data from "../../content/helpers/section-1.json";
-import section2Data from "../../content/helpers/section-2.json";
-// import section3Data from "../../content/section-3.json";
-import boxesData from "../../content/boxes.json";
+import heroData from "../../content/landing-page/hero.json";
+import section1Data from "../../content/landing-page/section-1.json";
+import section2Data from "../../content/landing-page/section-2.json";
+// import section3Data from "../../content/landing-page/section-3.json";
+import boxesData from "../../content/landing-page/boxes.json";
 import TestimonialsContainer from "../containers/TestimonialsContainer";
 
 const IndexPage = () => {

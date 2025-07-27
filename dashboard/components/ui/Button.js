@@ -14,15 +14,14 @@ export default function Button({
 
   const variants = {
     primary:
-      "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-black font-bold focus:ring-green-500 shadow-sm active:scale-95",
+      "bg-blue-600 hover:bg-blue-700 text-white focus:ring-blue-500 shadow-sm active:scale-95",
     secondary:
       "bg-gray-100 hover:bg-gray-200 text-gray-900 focus:ring-gray-500 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white shadow-sm active:scale-95",
     outline:
       "border border-gray-300 hover:bg-gray-50 text-gray-700 focus:ring-blue-500 dark:border-gray-630 dark:hover:bg-gray-700 dark:text-gray-300 shadow-sm active:scale-95",
     danger:
       "bg-red-600 hover:bg-red-700 text-white focus:ring-red-500 shadow-sm active:scale-95",
-    success:
-      "bg-green-600 hover:bg-green-700 text-white focus:ring-green-500 shadow-sm active:scale-95",
+    success: "bg-green-600 hover:bg-green-700 text-white focus:ring-green-500",
   };
 
   const sizes = {

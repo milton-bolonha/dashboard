@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "gatsby";
+import { GatsbyImage, getImage } from "gatsby-plugin-image";
 import {
   PhoneIcon,
   EnvelopeIcon,
@@ -61,15 +62,22 @@ const Header = ({ menu = {}, contact = {}, logo = {} }) => {
         <div className="flex justify-between items-center py-3">
           {/* Logo */}
           <div className="flex-shrink-0">
-            {logoData.src && (
-              <Link to="/" aria-label="Voltar para a página inicial">
-                <img
-                  src={logoData.src}
-                  alt={logoData.alt || "Logo"}
-                  className="h-16 w-auto"
+            <Link to="/" aria-label="Voltar para a página inicial">
+              {logoData?.childImageSharp ? (
+                <GatsbyImage
+                  image={getImage(logoData)}
+                  alt={logoData?.alt || "Company Logo"}
+                  style={{ height: 64, width: "auto" }}
+                  quality={100}
                 />
-              </Link>
-            )}
+              ) : (
+                <img
+                  src="/images/logo.png"
+                  alt="Default Company Logo"
+                  style={{ height: 64 }}
+                />
+              )}
+            </Link>
           </div>
 
           {/* Menu Desktop */}

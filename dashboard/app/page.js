@@ -255,20 +255,21 @@ const HeroSection = ({ isSignedIn, user }) => {
           <span className="ml-2 inline-block bg-green-400 w-2 h-2 rounded-full"></span>
         </div>
         <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white tracking-tight font-geologica brutal-heading">
-          Em Minutos Crie o Seu Próprio
+          Construa seu
           <br />
           <span
             className="diagonal-word"
             style={{ backgroundColor: "#A15DFF", color: "white" }}
           >
             {currentWord}
-          </span>
+          </span>{" "}
+          em minutos
         </h1>
         <p className="mt-6 max-w-3xl mx-auto text-lg text-gray-300 font-poppins">
-          Acelere a entrega de projetos complexos. Crie painéis, CRMs e
-          plataformas SaaS personalizadas em uma fração do tempo, com a
-          flexibilidade que seu cliente precisa e a monetização que seu negócio
-          merece.
+          Você ainda depende de devs pra lançar seu MVP? DashMaster.PRO é o
+          criador mais rápido do mundo. É como ter uma agência inteira dentro de
+          um botão. <br />
+          Teste agora grátis e crie seu primeiro produto ainda hoje.
         </p>
         <div className="mt-8 flex justify-center gap-4">
           {isSignedIn ? (
@@ -329,8 +330,9 @@ const MonetizationSection = () => (
           <span className="text-white">Completo</span>
         </h2>
         <p className="text-xl text-gray-200 max-w-3xl mx-auto font-poppins">
-          Transforme seu projeto em uma plataforma SaaS lucrativa com nosso
-          sistema avançado de billing e planos
+          O DashMaster.PRO transforma suas ideias em estrutura profissional
+          completa e sem complicações. Transforme seu projeto em uma plataforma
+          SaaS lucrativa com nosso sistema avançado de billing e planos
         </p>
       </div>
 

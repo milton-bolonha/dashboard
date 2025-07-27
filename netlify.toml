@@ -12,7 +12,7 @@ package = "@netlify/plugin-nextjs"
 # package = "@netlify/plugin-local-install-core"
 
 [functions]
-directory = "../netlify/functions"
+directory = "./netlify/functions"
 
 # [[edge_functions]]
 # path = "/netlify/functions/ai-enhance"

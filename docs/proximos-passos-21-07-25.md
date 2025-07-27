@@ -49,13 +49,15 @@ Com a API de conteúdo pronta, iniciamos a jornada para transformar o DashMaster
   2.  **Lógica de Fetching:** Na página principal (`src/pages/index.js`), usar `useEffect` (para desenvolvimento) ou uma função de data-fetching do Gatsby (como `getServerData` ou `sourceNodes` em `gatsby-node.js` para o build) para chamar a nossa API `http://localhost:3000/api/public/content` com o header de autorização correto.
   3.  **Renderização Dinâmica:** Mapear os dados recebidos da API para renderizar os componentes da página dinamicamente. Por exemplo, a seção `hero` será populada com o título e subtítulo vindos da API.
 
-### Fase 2: O Importador de Conteúdo Estático
+### Fase 2: O Importador de Conteúdo Estático - ✅ CONCLUÍDO
 
 - **Objetivo:** Implementar a arquitetura descrita em `docs/plano-importer.md` para permitir a migração de conteúdo de estruturas de arquivos para o DashMaster.
-- **Plano de Ação (Resumido):**
-  1.  **Desenvolver a UI do Importador:** Criar a interface no Dashboard para o usuário iniciar o processo.
-  2.  **Backend (Fase de Análise):** Implementar a lógica para ler a estrutura de arquivos e gerar o `import-plan.json`.
-  3.  **Backend (Fase de Execução):** Implementar o endpoint que recebe o plano e cria os `ContentTypes`, `Sections` e `Items` no banco de dados.
+- **O que foi feito:**
+  1.  **✅ UI do Importador:** Criada página `/dashboard/importer` com interface para fornecer caminho de arquivos estáticos e executar o processo.
+  2.  **✅ Backend (Fase de Análise):** Implementado `/api/importer/analyze` que lê estrutura de arquivos e gera plano de importação.
+  3.  **✅ Backend (Fase de Execução):** Implementado `/api/importer/execute` que cria `ContentTypes`, `Sections` e `Items` no banco.
+  4.  **✅ Navegação:** Adicionado link "Importador" no sidebar do dashboard.
+- **Status:** **Funcional e pronto para uso.**
 
 ### Fase 3: Visão de Futuro - O Publicador Automatizado
 
@@ -69,5 +71,6 @@ Com a API de conteúdo pronta, iniciamos a jornada para transformar o DashMaster
       - Commita os arquivos gerados em uma pasta (`/sites/[workspaceId]`) em um repositório de destino.
   3.  **Integrar com Netlify:** Configurar sites no Netlify para monitorar o repositório de destino e fazer deploy automático a partir das pastas corretas.
   4.  **Desenvolver a UI no Dashboard:** Criar a interface para o usuário configurar e acionar o processo de publicação.
+  5.  **Implementar Cache Redis:** Adicionar cache serverless com Upstash Redis para melhorar performance da API pública e reduzir carga no banco de dados.
 
 ---

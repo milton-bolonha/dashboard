@@ -38,11 +38,10 @@ export async function POST(request) {
       );
     }
 
-    // 1. Migrar Content Types órfãos
+    // 1. Migrar Content Types órfãos (sem workspaceId)
     const contentTypesResult = await db.updateMany(
       "contentTypes",
       {
-        userId: userId,
         workspaceId: { $exists: false }, // Sem workspaceId
       },
       {
@@ -54,11 +53,10 @@ export async function POST(request) {
       `✅ Content Types migrados: ${contentTypesResult.modifiedCount}`
     );
 
-    // 2. Migrar Sections órfãs
+    // 2. Migrar Sections órfãs (sem workspaceId)
     const sectionsResult = await db.updateMany(
       "sections",
       {
-        userId: userId,
         workspaceId: { $exists: false }, // Sem workspaceId
       },
       {
@@ -68,11 +66,10 @@ export async function POST(request) {
 
     console.log(`✅ Sections migradas: ${sectionsResult.modifiedCount}`);
 
-    // 3. Migrar Items órfãos
+    // 3. Migrar Items órfãos (sem workspaceId)
     const itemsResult = await db.updateMany(
       "items",
       {
-        userId: userId,
         workspaceId: { $exists: false }, // Sem workspaceId
       },
       {
@@ -84,11 +81,13 @@ export async function POST(request) {
 
     // 4. Limpar relacionamentos quebrados
     // Deletar sections que referenciam content types inexistentes
-    const allContentTypes = await db.find("contentTypes", { userId: userId });
+    const allContentTypes = await db.find("contentTypes", {
+      workspaceId: new ObjectId(targetWorkspaceId),
+    });
     const validContentTypeIds = allContentTypes.map((ct) => ct._id.toString());
 
     const sectionsToDelete = await db.find("sections", {
-      userId: userId,
+      workspaceId: new ObjectId(targetWorkspaceId),
       contentTypeId: { $nin: validContentTypeIds },
     });
 
