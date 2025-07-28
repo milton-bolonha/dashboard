@@ -144,9 +144,14 @@ export const SectionSchema = {
     name: { type: "string", required: true },
     slug: { type: "string", required: true },
     description: { type: "string" },
+    strategy: {
+      type: "string",
+      enum: ["collection", "singleton", "grouping"],
+      default: "collection",
+    },
     contentTypeId: { type: "string", ref: "content_types" },
     userId: { type: "string", required: true },
-    workspaceId: { type: "string", ref: "workspaces", required: true },
+    workspaceId: { type: "objectId", ref: "workspaces", required: true },
     settings: { type: "object" },
     publicAccess: { type: "object" },
     icon: { type: "string", default: "folder" },
@@ -638,6 +643,14 @@ export function validateSchema(data, schema) {
     if (value !== undefined && value !== null) {
       if (fieldConfig.type === "string" && typeof value !== "string") {
         errors.push(`${fieldName} deve ser uma string`);
+      }
+      // Adicionada validação para ObjectId
+      if (
+        fieldConfig.type === "objectId" &&
+        (typeof value !== "object" ||
+          !value.constructor.name.includes("ObjectId"))
+      ) {
+        errors.push(`${fieldName} deve ser um ObjectId válido`);
       }
       if (fieldConfig.type === "number" && typeof value !== "number") {
         errors.push(`${fieldName} deve ser um número`);

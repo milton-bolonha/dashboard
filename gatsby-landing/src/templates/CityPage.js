@@ -1,47 +1,43 @@
 import React from "react";
 import LayoutContainer from "../containers/LayoutContainer";
-import Seo from "../components/Seo";
 import PageBuilderContainer from "../containers/PageBuilderContainer";
-import MapContainer from "../containers/MapContainer";
+import Seo from "../components/Seo";
 
-// Importar dados do site para SEO
-import siteData from "../../content/site.json";
-import headerData from "../../content/header.json";
-import servicesData from "../../content/services.json";
+const CityPage = ({ pageContext }) => {
+  const { city, templateData, globalData } = pageContext;
 
-const CityPage = ({ pageContext, location }) => {
-  const { city, title, page_builder, bgImage } = pageContext;
+  const title = templateData.data.title.replace(/\[city\]/g, city.name);
+  let pageBuilderData = templateData.data.page_builder || [];
 
-  const mapData = {
-    map: {
-      src: `https://maps.google.com/maps?q=${city}&t=&z=13&ie=UTF8&iwloc=&output=embed`,
-      title: `${city} Service Area`,
-    },
-  };
+  if (pageBuilderData) {
+    pageBuilderData = JSON.parse(
+      JSON.stringify(pageBuilderData).replace(/\[city\]/g, city.name)
+    );
+  }
 
   return (
-    <LayoutContainer bgImage={bgImage} pageTitle={title}>
-      <PageBuilderContainer pageBuilderData={page_builder} />
-      <MapContainer {...mapData} />
+    <LayoutContainer
+      bgImage={templateData.data.image}
+      pageTitle={title}
+      globalData={globalData}
+    >
+      <PageBuilderContainer pageBuilderData={pageBuilderData} />
     </LayoutContainer>
   );
 };
 
 export const Head = ({ location, pageContext }) => {
-  const { title, bgImage, defaultCityUrl, isDefault } = pageContext;
-  const description = `Find the best window caulking services in ${title}. We offer professional sealing and weatherproofing for residential and commercial properties.`;
+  const { city, templateData, globalData } = pageContext;
+  const title = templateData.data.title.replace(/\[city\]/g, city.name);
 
   return (
     <Seo
-      site={siteData}
+      site={globalData.site}
       title={title}
-      description={description}
+      description={`Find the best ${title} in your area.`}
       path={location.pathname}
-      canonicalUrlOverride={defaultCityUrl}
-      image={bgImage}
-      navigationItems={headerData.menu.data.items}
-      services={servicesData.services}
-      noindex={!isDefault}
+      navigationItems={globalData.header.menu.data.items}
+      services={globalData.services.services}
     />
   );
 };

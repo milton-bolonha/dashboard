@@ -8,6 +8,7 @@ import {
   generateSlug,
   isSlugUnique,
 } from "@/lib/slug-validation.js";
+import { createSectionAndInitialItem } from "@/lib/section-operations";
 
 /**
  * Helper para obter workspace do usuário (cria se não existir)
@@ -108,7 +109,7 @@ export async function GET(request) {
 
     const contentTypes = await db.find("contentTypes", {
       userId: userId,
-      workspaceId: workspace._id.toString(), // ← CORRIGIDO: Comparar string com string
+      workspaceId: workspace._id,
     });
 
     console.log(
@@ -157,29 +158,34 @@ export async function GET(request) {
 
 /**
  * POST /api/content-types
- * Cria um novo content type e section correspondente
+ * Cria um novo content type e, opcionalmente, uma section correspondente.
  */
 export async function POST(request) {
   try {
     const data = await request.json();
-    const { createDefaultSection = true, ...contentTypeData } = data;
+    const {
+      createDefaultSection = true,
+      sectionStrategy = "collection",
+      ...contentTypeData
+    } = data;
 
     const authData = await getCurrentAuth();
-    const userId = authData.userId || "temp_user_dev";
+    if (!authData.userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const { userId } = authData;
 
-    // Obter workspace ID do header (enviado pelo frontend)
     const workspaceId = request.headers.get("x-workspace-id");
-
-    console.log("🔐 Content-types POST: userId =", userId);
-    console.log("🏢 Content-types: Workspace solicitado:", workspaceId);
-
-    // Obter workspace atual (específico ou fallback)
     const workspace = await getCurrentWorkspace(userId, workspaceId);
-    console.log(
-      `🏢 Content-types: Usando workspace: ${workspace.name} (${workspace._id})`
-    );
 
-    // ✅ MELHORIA: Usar validação robusta de slug
+    if (!workspace) {
+      return NextResponse.json(
+        { error: "Workspace não encontrado." },
+        { status: 404 }
+      );
+    }
+
+    // 1. Validar e preparar dados do Content Type
     const baseSlug = contentTypeData.slug || generateSlug(contentTypeData.name);
     const slugValidation = validateSlug(baseSlug);
 
@@ -189,95 +195,54 @@ export async function POST(request) {
         { status: 400 }
       );
     }
-
     const slug = slugValidation.slug;
 
-    // 🐛 DEBUG: Logs detalhados
-    console.log("🔍 === DEBUG CONTENT TYPE ===");
-    console.log("🔍 Dados recebidos:", JSON.stringify(data, null, 2));
-    console.log("🔍 userId:", userId);
-    console.log("🔍 workspaceId:", workspace._id);
-    console.log("🔍 slug gerado:", slug);
+    if (!(await isSlugUnique(slug, workspace._id, "contentTypes"))) {
+      return NextResponse.json(
+        { error: "Content type with this slug already exists" },
+        { status: 409 }
+      );
+    }
 
-    // Adicionar userId, workspaceId e slug aos dados
-    const dataWithWorkspace = {
+    const contentTypeToInsert = {
       ...contentTypeData,
       userId,
       workspaceId: workspace._id,
       slug,
     };
 
-    console.log(
-      "🔍 Dados para validação:",
-      JSON.stringify(dataWithWorkspace, null, 2)
-    );
-
-    const validation = validateSchema(dataWithWorkspace, ContentTypeSchema);
+    const validation = validateSchema(contentTypeToInsert, ContentTypeSchema);
     if (!validation.isValid) {
-      console.error("❌ Falha na validação:", validation.errors);
       return NextResponse.json(
         { error: "Validation failed", details: validation.errors },
         { status: 400 }
       );
     }
 
-    // ✅ MELHORIA: Verificar slug único usando função otimizada
-    const isUnique = await isSlugUnique(slug, workspace._id, "contentTypes");
-
-    if (!isUnique) {
-      return NextResponse.json(
-        {
-          error: "Content type with this slug already exists in this workspace",
-        },
-        { status: 409 }
-      );
-    }
-
-    // 1. Criar o Content Type usando o objeto já validado
-    const contentTypeToInsert = dataWithWorkspace; // slug já está incluído
-
+    // 2. Criar o Content Type
     const result = await db.insertOne("contentTypes", contentTypeToInsert);
-
     const newContentType = await db.findOne("contentTypes", {
       _id: result.insertedId,
     });
 
-    // 2. Se solicitado, criar uma Section padrão para este Content Type
+    // 3. Se solicitado, criar a Section e seu Item (se singleton)
     let newSection = null;
     if (createDefaultSection) {
       try {
-        const sectionSlug =
-          contentTypeData.slug ||
-          contentTypeData.name
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, "-")
-            .replace(/(^-|-$)/g, "");
-
-        const sectionResult = await db.insertOne("sections", {
-          name: contentTypeData.name,
-          slug: sectionSlug,
-          contentTypeId: result.insertedId.toString(),
-          userId: userId,
-          workspaceId: workspace._id, // <-- GARANTIA EXPLÍCITA
-          description: `Section criada automaticamente para ${contentTypeData.name}`,
-          settings: {
-            defaultView: "list",
-            itemsPerPage: 20,
-            sortBy: "createdAt",
-            sortOrder: "desc",
-          },
+        newSection = await createSectionAndInitialItem({
+          name: newContentType.name, // Usa o mesmo nome por padrão
+          slug: newContentType.slug, // E o mesmo slug
+          strategy: sectionStrategy,
+          contentTypeId: newContentType._id.toString(),
+          userId,
+          workspaceId: workspace._id,
         });
-
-        newSection = await db.findOne("sections", {
-          _id: sectionResult.insertedId,
-        });
-
-        console.log(
-          `✅ Section padrão criada: "${contentTypeData.name}" → /${sectionSlug}`
-        );
       } catch (sectionError) {
-        console.warn("⚠️ Erro ao criar section padrão:", sectionError.message);
-        // Não falhar a operação se a section não for criada
+        console.warn(
+          "⚠️ Erro ao criar section padrão (operação continuou):",
+          sectionError.message
+        );
+        // Não falhar a operação inteira se a criação da seção opcional falhar
       }
     }
 

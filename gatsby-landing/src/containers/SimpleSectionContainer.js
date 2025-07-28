@@ -1,6 +1,6 @@
 import React from "react";
 import Section from "../components/Section";
-import JotformEmbed from "../components/JotformEmbed";
+// import JotformEmbed from "../components/JotformEmbed";
 
 const SimpleSectionContainer = ({
   title,
@@ -24,9 +24,9 @@ const SimpleSectionContainer = ({
       type: "custom",
       component: () => (
         <div className="pt-8 w-full">
-          <JotformEmbed
+          {/* <JotformEmbed
             src={`https://form.jotform.com/${form.formData.formId}`}
-          />
+          /> */}
         </div>
       ),
     });

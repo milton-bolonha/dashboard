@@ -40,6 +40,7 @@ Esta análise cruza as melhores práticas de segurança e performance com o esta
 - **Status no Projeto:**
   - **✅ Implementado (Implicitamente):** O problema de `ObjectId` vs. `String` foi identificado e corrigido, como visto em `docs/legacy/CORREÇÃO-OBJECTID.md`. Isso indica que a conversão `.toString()` já está sendo feita onde é necessário.
 - **Recomendações e Prioridades:**
+  - **🥇 Prioridade Alta (Confirmada na Prática):** Durante a depuração do fluxo de listagem de `Items`, confirmamos que a inconsistência entre `ObjectId` e `String` era a causa raiz de bugs críticos. A correção manual da consulta para usar `section._id.toString()` foi a solução. Isso reforça a necessidade de padronizar essa conversão para evitar erros futuros.
   - **🥈 Prioridade Média:** Padronizar a serialização. Criar uma função utilitária, por exemplo `lib/serialization.js`, que receba um objeto ou um array de objetos do MongoDB e garanta que todos os `_id` sejam convertidos para `id` (string) e que as datas sejam formatadas em ISO string. Isso evita a duplicação de código.
   - **💡 Adicional:** Para projetos futuros com estruturas de dados mais complexas, bibliotecas como `superjson` podem ser consideradas, mas para o estado atual, uma função utilitária é suficiente.
 
@@ -76,22 +77,29 @@ Esta análise cruza as melhores práticas de segurança e performance com o esta
 
 ## 3. Tabela de Recomendações e Prioridades
 
-| Tópico                   | Status Atual                                                        | Prioridade | Ação Recomendada                                                                                           |
-| :----------------------- | :------------------------------------------------------------------ | :--------- | :--------------------------------------------------------------------------------------------------------- |
-| **Indexação de DB**      | ✅ Implementado (Parcial)                                           | 🥇 Alta    | Continuar adicionando índices para queries frequentes, especialmente em filtros da UI.                     |
-| **Cache de Dados**       | ✅ Implementado (Triangulação)<br>❌ Não Implementado (API Pública) | 🥇 Alta    | Implementar cache com **Upstash Redis** para a API pública.                                                |
-| **Serialização JSON**    | ✅ Implementado (Implícito)                                         | 🥈 Média   | Criar um helper `lib/serialization.js` para padronizar a conversão de `_id` e `Date`.                      |
-| **Connection Pooling**   | ✅ Implementado                                                     | N/A        | Manter a prática atual de usar um helper centralizado (`lib/db.js`).                                       |
-| **Autenticação Backend** | ✅ Implementado                                                     | 🥇 Crítica | **Regra de Ouro:** Usar exclusivamente o helper `lib/auth.js` (`getCurrentAuth`) em todas as rotas de API. |
-| **Segurança de Sessão**  | ✅ Implementado (Clerk)<br>❌ Não Implementado (Access Engine)      | 🥇 Alta    | **Implementar o `Access Engine`** conforme a arquitetura planejada. É a tarefa mais crítica.               |
-| **Cache de Permissões**  | ❌ Não Implementado                                                 | 🥈 Média   | Após o `Access Engine` estar funcional, usar Redis para cachear as permissões compiladas.                  |
+| Tópico                   | Status Atual                                                    | Prioridade | Ação Recomendada                                                                                           |
+| :----------------------- | :-------------------------------------------------------------- | :--------- | :--------------------------------------------------------------------------------------------------------- |
+| **Indexação de DB**      | ✅ Implementado (Parcial)                                       | 🥇 Alta    | Continuar adicionando índices para queries frequentes, especialmente em filtros da UI.                     |
+| **Cache de Dados**       | ✅ Implementado (Triangulação)<br>✅ Implementado (API Pública) | 🥈 Média   | Cache básico implementado na API pública. Considerar **Upstash Redis** para cache distribuído em produção. |
+| **Serialização JSON**    | ✅ Implementado (Implícito)                                     | 🥈 Média   | Criar um helper `lib/serialization.js` para padronizar a conversão de `_id` e `Date`.                      |
+| **Connection Pooling**   | ✅ Implementado                                                 | N/A        | Manter a prática atual de usar um helper centralizado (`lib/db.js`).                                       |
+| **Autenticação Backend** | ✅ Implementado                                                 | 🥇 Crítica | **Regra de Ouro:** Usar exclusivamente o helper `lib/auth.js` (`getCurrentAuth`) em todas as rotas de API. |
+| **Segurança de Sessão**  | ✅ Implementado (Clerk)<br>❌ Não Implementado (Access Engine)  | 🥇 Alta    | **Implementar o `Access Engine`** conforme a arquitetura planejada. É a tarefa mais crítica.               |
+| **Cache de Permissões**  | ❌ Não Implementado                                             | 🥈 Média   | Após o `Access Engine` estar funcional, usar Redis para cachear as permissões compiladas.                  |
 
 ## 4. Conclusão
 
-O DashMaster.PRO está em uma excelente posição. As decisões de arquitetura e os planos documentados são de alto nível. O foco agora deve ser em traduzir esses planos em código, com uma prioridade clara:
+O DashMaster.PRO está em uma excelente posição. As decisões de arquitetura e os planos documentados são de alto nível.
+
+### ✅ **Atualização (Janeiro 2025):**
+
+A **migração do Gatsby Landing Page para Headless CMS foi concluída com sucesso**, demonstrando a solidez da API pública implementada. O site agora consome dados dinamicamente através da rota `/api/public/content`, validando a arquitetura headless da plataforma.
+
+### Prioridades Atualizadas:
 
 1.  **Implementar o `Access Engine`:** Esta é a base para todo o controle de acesso e monetização granular.
-2.  **Adicionar Cache à API Pública:** Essencial para a performance e escalabilidade do produto.
+2.  ~~**Adicionar Cache à API Pública:**~~ ✅ **Implementado** - Cache básico funcional, considerar Redis para produção.
 3.  **Continuar com Boas Práticas de Banco de Dados:** A indexação já iniciada deve ser uma prática contínua.
+4.  **Expandir Ecosystem Headless:** Com a migração bem-sucedida, o sistema está pronto para integrar múltiplos frontends.
 
 Ao seguir estas recomendações, o DashMaster.PRO não será apenas uma plataforma rica em funcionalidades, mas também segura, performática e pronta para escalar.

@@ -101,130 +101,103 @@ async function executeImportPlan(importPlan, workspaceId, userId) {
     itemsCreated: 0,
     errors: [],
   };
+  const contentTypeCache = new Map();
+  const sectionCache = new Map();
 
-  // 1. Criar ContentTypes primeiro
-  const contentTypeMap = new Map(); // name -> ObjectId
-
-  for (const contentType of importPlan.contentTypes) {
+  for (const filePlan of importPlan.files) {
     try {
-      // Verificar se já existe um ContentType com o mesmo nome
-      const existing = await db.find("contentTypes", {
-        workspaceId,
-        name: contentType.name,
-      });
-
-      if (existing.length > 0) {
-        contentTypeMap.set(contentType.name, existing[0]._id.toString());
-        continue;
-      }
-
-      const newContentType = await db.insertOne("contentTypes", {
-        ...contentType,
-        workspaceId,
-        userId, // Adicionar userId
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-
-      contentTypeMap.set(
-        contentType.name,
-        newContentType.insertedId.toString()
-      );
-      results.contentTypesCreated++;
-    } catch (error) {
-      console.error(`Erro ao criar ContentType ${contentType.name}:`, error);
-      results.errors.push(`ContentType ${contentType.name}: ${error.message}`);
-    }
-  }
-
-  // 2. Criar Sections
-  const sectionMap = new Map(); // slug -> ObjectId
-
-  for (const section of importPlan.sections) {
-    try {
-      // Verificar se já existe uma Section com o mesmo slug
-      const existing = await db.find("sections", {
-        workspaceId,
-        slug: section.slug,
-      });
-
-      if (existing.length > 0) {
-        sectionMap.set(section.slug, existing[0]._id.toString());
-        continue;
-      }
-
-      // Mapear o contentTypeId para o ID real
-      const contentTypeId = contentTypeMap.get(section.contentTypeId);
+      // 1. Garantir que o ContentType existe
+      let contentTypeId = contentTypeCache.get(filePlan.contentType.slug);
       if (!contentTypeId) {
-        console.error(`Section ${section.name}: ContentType não encontrado`);
-        results.errors.push(
-          `Section ${section.name}: ContentType não encontrado`
-        );
-        continue;
-      }
+        const existingCt = await db.findOne("contentTypes", {
+          workspaceId,
+          slug: filePlan.contentType.slug,
+        });
 
-      const newSection = await db.insertOne("sections", {
-        ...section,
-        workspaceId,
-        userId, // Adicionar userId
-        contentTypeId, // Usar o ID real do content type
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-
-      sectionMap.set(section.slug, newSection.insertedId.toString());
-      results.sectionsCreated++;
-    } catch (error) {
-      console.error(`Erro ao criar Section ${section.name}:`, error);
-      results.errors.push(`Section ${section.name}: ${error.message}`);
-    }
-  }
-
-  // 3. Criar Items
-  for (const item of importPlan.items) {
-    try {
-      // Obter o ContentTypeId correto
-      const contentTypeId = contentTypeMap.get(item.contentTypeId);
-      if (!contentTypeId) {
-        results.errors.push(`Item ${item.name}: ContentType não encontrado`);
-        continue;
-      }
-
-      // Obter o SectionId correto (se aplicável)
-      let sectionId = null;
-      if (item.sectionId) {
-        sectionId = sectionMap.get(item.sectionId);
-        if (!sectionId) {
-          results.errors.push(`Item ${item.name}: Section não encontrada`);
-          continue;
+        if (existingCt) {
+          contentTypeId = existingCt._id.toString();
+        } else {
+          const newContentType = await db.insertOne("contentTypes", {
+            ...filePlan.contentType,
+            workspaceId,
+            userId,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+          contentTypeId = newContentType.insertedId.toString();
+          results.contentTypesCreated++;
         }
+        contentTypeCache.set(filePlan.contentType.slug, contentTypeId);
       }
 
-      // Verificar se já existe um Item com o mesmo slug na mesma seção
-      const existing = await db.find("items", {
-        workspaceId,
-        slug: item.slug,
-        sectionId: sectionId,
-      });
+      // 2. Garantir que a Seção existe
+      let sectionId = sectionCache.get(filePlan.section.slug);
+      if (!sectionId) {
+        const existingSection = await db.findOne("sections", {
+          workspaceId,
+          slug: filePlan.section.slug,
+        });
 
-      if (existing.length > 0) {
-        continue; // Item já existe
+        if (existingSection) {
+          sectionId = existingSection._id.toString();
+        } else {
+          const newSection = await db.insertOne("sections", {
+            ...filePlan.section,
+            contentTypeId,
+            workspaceId,
+            userId,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+          sectionId = newSection.insertedId.toString();
+          results.sectionsCreated++;
+        }
+        sectionCache.set(filePlan.section.slug, sectionId);
       }
 
-      await db.insertOne("items", {
-        ...item,
-        workspaceId,
-        userId, // Adicionar userId
-        contentTypeId,
-        sectionId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+      // 3. Criar Itens com base na estratégia
+      for (const itemData of filePlan.itemsData) {
+        // Usar o nome do arquivo como slug para singletons, ou um campo 'slug'/'name'/'title' para coleções
+        const itemSlug =
+          filePlan.importStrategy === "singleton"
+            ? filePlan.fileName
+            : itemData.slug || itemData.name || filePlan.fileName;
 
-      results.itemsCreated++;
+        const itemTitle =
+          itemData.name ||
+          itemData.title ||
+          capitalize(itemSlug.replace(/-/g, " "));
+
+        const existingItem = await db.findOne("items", {
+          workspaceId,
+          sectionId,
+          slug: itemSlug,
+        });
+
+        if (existingItem) {
+          continue; // Pular se o item já existe
+        }
+
+        await db.insertOne("items", {
+          title: itemTitle,
+          slug: itemSlug,
+          data: itemData,
+          sectionId,
+          contentTypeId,
+          workspaceId,
+          userId,
+          status: "published",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+        results.itemsCreated++;
+      }
     } catch (error) {
-      console.error(`Erro ao criar Item ${item.name}:`, error);
-      results.errors.push(`Item ${item.name}: ${error.message}`);
+      console.error(
+        `Erro ao processar o arquivo ${filePlan.relativePath}:`,
+        error
+      );
+      results.errors.push(`Arquivo ${filePlan.relativePath}: ${error.message}`);
     }
   }
 

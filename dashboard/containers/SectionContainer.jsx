@@ -13,46 +13,36 @@ import { fetchWithWorkspace } from "@/lib/api";
 export default function SectionContainer() {
   const { user } = useUser();
   const { currentWorkspace } = useWorkspace();
-  const { sections, refreshSections } = useSections(); // ← Usar contexto
-  const [contentTypes, setContentTypes] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { sections, refreshSections, loading, error } = useSections(); // ← Usar contexto
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSection, setEditingSection] = useState(null);
+  const [contentTypes, setContentTypes] = useState([]); // Será usado pelo SectionForm
 
+  // Busca os content types para o formulário de criação/edição
   const fetchContentTypes = useCallback(async () => {
     try {
-      setLoading(true);
-      console.log("🔍 SectionContainer: Tentando buscar content types...");
-
-      // API principal com autenticação flexível e workspace
+      console.log(
+        "🔍 SectionContainer: Buscando content types para o formulário..."
+      );
       const contentTypesRes = await fetchWithWorkspace("/api/content-types");
-
       if (!contentTypesRes.ok) {
         throw new Error(
           `Failed to fetch content types (status: ${contentTypesRes.status})`
         );
       }
-
       const contentTypesData = await contentTypesRes.json();
-      console.log(
-        "✅ SectionContainer: Content types carregados:",
-        contentTypesData
-      );
-
       setContentTypes(contentTypesData.contentTypes);
-      setError(null);
     } catch (err) {
       console.error("❌ SectionContainer: Erro ao buscar content types:", err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
+      // Não vamos setar um erro fatal aqui, o form pode lidar com a ausência
     }
   }, []);
 
   useEffect(() => {
-    fetchContentTypes();
-  }, [fetchContentTypes]);
+    if (isModalOpen) {
+      fetchContentTypes();
+    }
+  }, [isModalOpen, fetchContentTypes]);
 
   const handleOpenModal = (section = null) => {
     setEditingSection(section);
@@ -148,7 +138,6 @@ export default function SectionContainer() {
       {!loading && !error && (
         <ModernSectionsTable
           sections={sections}
-          contentTypes={contentTypes}
           onEdit={handleOpenModal}
           onDelete={handleDelete}
           onReorder={handleReorder} // ✅ NOVO: Passar callback

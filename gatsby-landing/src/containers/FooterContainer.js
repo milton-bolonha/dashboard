@@ -1,21 +1,23 @@
 import React from "react";
 import Footer from "../components/Footer";
 
-import rawCitiesData from "../../content/cities.json";
-import servicesData from "../../content/services.json";
-import footerData from "../../content/footer.json";
+const FooterContainer = ({ footer, cities, services }) => {
+  if (!footer) {
+    return null;
+  }
 
-const FooterContainer = () => {
   const citiesData = {
-    heading: "Service Areas", // You can customize this heading
-    cities: rawCitiesData.map((city) => city.name),
+    heading: "Service Areas",
+    cities: cities ? Object.values(cities).map((city) => city.name) : [],
   };
+
+  const servicesData = services || {};
 
   return (
     <Footer
       citiesData={citiesData}
       servicesData={servicesData}
-      footerData={footerData}
+      footerData={footer}
     />
   );
 };

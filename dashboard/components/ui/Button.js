@@ -19,6 +19,8 @@ export default function Button({
       "bg-gray-100 hover:bg-gray-200 text-gray-900 focus:ring-gray-500 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white shadow-sm active:scale-95",
     outline:
       "border border-gray-300 hover:bg-gray-50 text-gray-700 focus:ring-blue-500 dark:border-gray-630 dark:hover:bg-gray-700 dark:text-gray-300 shadow-sm active:scale-95",
+    "destructive-outline":
+      "border border-red-300 text-red-600 hover:bg-red-50 focus:ring-red-500 dark:border-red-500 dark:text-red-400 dark:hover:bg-red-900/20 shadow-sm active:scale-95",
     danger:
       "bg-red-600 hover:bg-red-700 text-white focus:ring-red-500 shadow-sm active:scale-95",
     success: "bg-green-600 hover:bg-green-700 text-white focus:ring-green-500",

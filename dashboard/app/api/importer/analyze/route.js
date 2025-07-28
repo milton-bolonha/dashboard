@@ -1,373 +1,319 @@
-import { NextResponse } from "next/server";
-import { getCurrentAuth } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { ObjectId } from "mongodb";
 import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
+import { generateSlug, isReservedWord } from "@/lib/slug-validation";
+import pluralize from "pluralize";
+import { ObjectId } from "mongodb";
+import { getCurrentAuth } from "@/lib/auth";
+import { db } from "@/lib/db";
 
-async function getCurrentWorkspace(userId, requestedWorkspaceId = null) {
-  try {
-    let workspace;
+// Helper para capitalizar a primeira letra
+function capitalize(s) {
+  if (typeof s !== "string" || !s) return "";
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
-    // Se foi especificado um workspace, usar esse
-    if (requestedWorkspaceId) {
-      // ✅ CORREÇÃO: Converter string para ObjectId
-      const workspaceObjectId = new ObjectId(requestedWorkspaceId);
+// Função recursiva para inferir os tipos de campos
+function inferFieldsRecursive(data) {
+  const addons = [];
+  if (!data || typeof data !== "object") return addons;
 
-      workspace = await db.findOne("workspaces", {
-        _id: workspaceObjectId, // ← FIX: Usar ObjectId ao invés de string
-        $or: [{ ownerId: userId }, { "members.userId": userId }],
-      });
+  for (const key in data) {
+    const value = data[key];
+    let field = {
+      id: generateSlug(key),
+      name: key,
+      label: capitalize(key.replace(/_/g, " ")),
+      type: "textInput", // default
+    };
 
-      if (workspace) {
-        console.log(
-          `🎯 Usando workspace específico: ${workspace.name} (${workspace._id})`
-        );
-        return workspace;
-      } else {
-        console.log(
-          `⚠️ Workspace ${requestedWorkspaceId} não encontrado ou sem permissão`
-        );
+    if (Array.isArray(value)) {
+      if (value.length > 0 && typeof value[0] === "object") {
+        field.type = "repeater";
+        field.fields = inferFieldsRecursive(value[0]);
       }
+    } else if (typeof value === "object" && value !== null) {
+      field.type = "group";
+      field.fields = inferFieldsRecursive(value);
+    } else if (typeof value === "boolean") {
+      field.type = "checkboxInput";
+    } else if (typeof value === "number") {
+      field.type = "numberInput";
+    } else if (
+      typeof value === "string" &&
+      (value.includes("\n") || value.length > 255)
+    ) {
+      field.type = "textarea";
     }
+    addons.push(field);
+  }
+  return addons;
+}
 
-    // Fallback: buscar qualquer workspace do usuário
-    workspace = await db.findOne("workspaces", {
-      $or: [{ ownerId: userId }, { "members.userId": userId }],
-    });
+// Analisa um único arquivo e retorna sua estrutura de dados e addons.
+function analyzeFile(filePath) {
+  const fileBuffer = fs.readFileSync(filePath);
+  const fileType = path.extname(filePath).slice(1).toLowerCase();
+  const fileContent = fileBuffer.toString("utf-8");
 
-    if (!workspace) {
-      console.log(`🔧 Nenhum workspace encontrado para usuário: ${userId}`);
-      return null;
+  let data;
+  let addons;
+
+  if (fileType === "json") {
+    data = JSON.parse(fileContent);
+    // Para inferir addons de uma coleção em JSON, usamos o primeiro item.
+    const inferenceData = Array.isArray(data) ? data[0] || {} : data;
+    addons = inferFieldsRecursive(inferenceData);
+  } else {
+    // md, markdown, etc.
+    const { data: frontmatter, content } = matter(fileContent);
+    data = { ...frontmatter, content };
+    // O conteúdo do markdown não deve influenciar a inferência de tipo de campo.
+    const inferenceData = { ...frontmatter, content: "" };
+    addons = inferFieldsRecursive(inferenceData);
+  }
+
+  return { data, addons };
+}
+
+// Processa um diretório de seção para determinar a estratégia de importação
+async function processSectionDirectory(
+  sectionPath,
+  baseImportPath,
+  importPlan
+) {
+  const sectionName = capitalize(path.basename(sectionPath));
+  const sectionSlug = generateSlug(sectionName);
+
+  const section = {
+    _id: new ObjectId().toString(),
+    slug: sectionSlug,
+    name: sectionName,
+    publicAccess: { isPublic: false },
+    order: 0,
+    icon: "folder-open",
+  };
+
+  const entries = fs.readdirSync(sectionPath, { withFileTypes: true });
+  const contentFiles = entries.filter(
+    (e) => e.isFile() && !e.name.startsWith(".")
+  );
+
+  if (contentFiles.length === 0) return;
+
+  const firstFilePath = path.join(sectionPath, contentFiles[0].name);
+
+  // Estratégia 1: Singleton (Diretório com um único arquivo de objeto)
+  if (contentFiles.length === 1) {
+    const fileAnalysis = analyzeFile(firstFilePath);
+    // Um JSON que é um array é uma coleção, não um singleton.
+    if (!Array.isArray(fileAnalysis.data)) {
+      const baseName = path.basename(
+        firstFilePath,
+        path.extname(firstFilePath)
+      );
+      let contentTypeSlug = generateSlug(`${section.slug}-ct`);
+      if (isReservedWord(contentTypeSlug))
+        contentTypeSlug = `${contentTypeSlug}-type`;
+
+      const contentType = {
+        _id: new ObjectId().toString(),
+        slug: contentTypeSlug,
+        name: capitalize(baseName),
+        addons: fileAnalysis.addons,
+      };
+
+      importPlan.files.push({
+        section,
+        contentType,
+        itemsData: [{ data: fileAnalysis.data }],
+        relativePath: path.relative(baseImportPath, firstFilePath),
+        strategy: "singleton",
+      });
+      return;
     }
+  }
 
-    console.log(
-      `🏢 Workspace selecionado: ${workspace.name} (${workspace._id})`
-    );
-    return workspace;
-  } catch (error) {
-    console.error("❌ Erro ao obter workspace:", error);
-    return null;
+  // Estratégia 2: Coleção (Múltiplos arquivos do mesmo tipo OU um único arquivo JSON de array)
+  const firstExtension = path.extname(contentFiles[0].name);
+  const allSameType = contentFiles.every(
+    (file) => path.extname(file.name) === firstExtension
+  );
+  const isJsonArray =
+    contentFiles.length === 1 &&
+    firstExtension === ".json" &&
+    Array.isArray(analyzeFile(firstFilePath).data);
+
+  if (allSameType || isJsonArray) {
+    const firstFileAnalysis = analyzeFile(firstFilePath);
+    let contentTypeSlug = generateSlug(`${section.slug}-ct`);
+    if (isReservedWord(contentTypeSlug))
+      contentTypeSlug = `${contentTypeSlug}-type`;
+
+    const sharedContentType = {
+      _id: new ObjectId().toString(),
+      slug: contentTypeSlug,
+      name: pluralize.singular(section.name),
+      addons: firstFileAnalysis.addons,
+    };
+
+    let itemsData = [];
+    if (isJsonArray) {
+      itemsData = firstFileAnalysis.data.map((item) => ({ data: item }));
+      importPlan.files.push({
+        section,
+        contentType: sharedContentType,
+        itemsData,
+        relativePath: path.relative(baseImportPath, firstFilePath),
+        strategy: "collection",
+      });
+    } else {
+      for (const file of contentFiles) {
+        const filePath = path.join(sectionPath, file.name);
+        const { data } = analyzeFile(filePath);
+        itemsData.push({ data });
+      }
+      importPlan.files.push({
+        section,
+        contentType: sharedContentType,
+        itemsData,
+        // Para múltiplos arquivos, a "relativePath" é a do diretório.
+        relativePath: path.relative(baseImportPath, sectionPath),
+        strategy: "collection",
+      });
+    }
+    return;
+  }
+
+  // Estratégia 3: Agrupamento (Múltiplos arquivos de tipos diferentes)
+  if (contentFiles.length > 1 && !allSameType) {
+    for (const file of contentFiles) {
+      const filePath = path.join(sectionPath, file.name);
+      const { data, addons } = analyzeFile(filePath);
+      const baseName = path.basename(filePath, path.extname(filePath));
+
+      let contentTypeSlug = generateSlug(`${section.slug}-${baseName}-ct`);
+      if (isReservedWord(contentTypeSlug))
+        contentTypeSlug = `${contentTypeSlug}-type`;
+
+      const contentType = {
+        _id: new ObjectId().toString(),
+        slug: contentTypeSlug,
+        name: capitalize(baseName),
+        addons,
+      };
+
+      importPlan.files.push({
+        section,
+        contentType,
+        itemsData: [{ data }],
+        relativePath: path.relative(baseImportPath, filePath),
+        strategy: "grouping",
+      });
+    }
   }
 }
 
-export async function POST(request) {
+// Consolida o plano de importação e marca entidades como novas ou existentes
+async function consolidateAndIdentifyNew(importPlan, workspace) {
+  const workspaceId = workspace._id.toString();
+  const [existingSections, existingContentTypes] = await Promise.all([
+    db.find("sections", { workspaceId }),
+    db.find("contentTypes", { workspaceId }),
+  ]);
+  const existingSectionSlugs = new Set(existingSections.map((s) => s.slug));
+  const existingContentTypeSlugs = new Set(
+    existingContentTypes.map((ct) => ct.slug)
+  );
+
+  const consolidatedSections = new Map();
+  const consolidatedContentTypes = new Map();
+
+  for (const file of importPlan.files) {
+    const { section, contentType } = file;
+    if (!consolidatedSections.has(section.slug)) {
+      const isNew = !existingSectionSlugs.has(section.slug);
+      let finalSection = { ...section, isNew };
+      if (!isNew) {
+        finalSection._id = existingSections
+          .find((s) => s.slug === section.slug)
+          ._id.toString();
+      }
+      consolidatedSections.set(section.slug, finalSection);
+    }
+    if (!consolidatedContentTypes.has(contentType.slug)) {
+      const isNew = !existingContentTypeSlugs.has(contentType.slug);
+      let finalContentType = { ...contentType, isNew };
+      if (!isNew) {
+        finalContentType._id = existingContentTypes
+          .find((ct) => ct.slug === contentType.slug)
+          ._id.toString();
+      }
+      consolidatedContentTypes.set(contentType.slug, finalContentType);
+    }
+  }
+
+  return {
+    workspaceId: importPlan.workspaceId,
+    sections: Array.from(consolidatedSections.values()),
+    contentTypes: Array.from(consolidatedContentTypes.values()),
+    files: importPlan.files,
+  };
+}
+
+export async function POST(req) {
   try {
-    const { userId } = await getCurrentAuth(request);
+    const { userId } = await getCurrentAuth();
     if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return Response.json({ error: "Não autorizado" }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { importPath, workspaceId } = body;
-
-    console.log("DEBUG - Backend recebeu importPath:", importPath);
-    console.log("DEBUG - Backend recebeu workspaceId:", workspaceId);
-    console.log("DEBUG - Tipo do importPath:", typeof importPath);
-
-    if (!importPath) {
-      return NextResponse.json(
-        { error: "Caminho de importação é obrigatório" },
+    const { importPath, workspaceId } = await req.json();
+    if (!importPath || !workspaceId) {
+      return Response.json(
+        { error: "Caminho de importação e ID do workspace são obrigatórios" },
         { status: 400 }
       );
     }
 
-    // Verificar se o caminho existe
-    console.log("DEBUG - Verificando se caminho existe:", importPath);
-    const pathExists = fs.existsSync(importPath);
-    console.log("DEBUG - fs.existsSync result:", pathExists);
-
-    if (!pathExists) {
-      console.log("DEBUG - Caminho não encontrado!");
-      console.log("DEBUG - Tentando normalizar o caminho...");
-
-      // Tentar normalizar o caminho (remover barras duplas, etc.)
-      const normalizedPath = importPath
-        .replace(/\\/g, "/")
-        .replace(/\/\//g, "/");
-      console.log("DEBUG - Caminho normalizado:", normalizedPath);
-      console.log(
-        "DEBUG - Caminho normalizado existe:",
-        fs.existsSync(normalizedPath)
-      );
-
-      return NextResponse.json(
+    if (!fs.existsSync(importPath)) {
+      return Response.json(
         { error: `Caminho não encontrado: ${importPath}` },
-        { status: 400 }
+        { status: 404 }
       );
     }
 
-    const workspace = await getCurrentWorkspace(userId, workspaceId);
+    const workspace = await db.findOne("workspaces", {
+      _id: new ObjectId(workspaceId),
+    });
     if (!workspace) {
-      return NextResponse.json(
+      return Response.json(
         { error: "Workspace não encontrado" },
         { status: 404 }
       );
     }
 
-    console.log("DEBUG - Workspace encontrado:", workspace.name);
+    const importPlan = { workspaceId, files: [] };
+    const topLevelDirs = fs
+      .readdirSync(importPath, { withFileTypes: true })
+      .filter((e) => e.isDirectory() && !e.name.startsWith("."));
 
-    // Analisar a estrutura de arquivos
-    const importPlan = await analyzeFileStructure(
-      importPath,
-      workspace._id.toString()
+    for (const dir of topLevelDirs) {
+      const sectionPath = path.join(importPath, dir.name);
+      await processSectionDirectory(sectionPath, importPath, importPlan);
+    }
+
+    const consolidatedPlan = await consolidateAndIdentifyNew(
+      importPlan,
+      workspace
     );
 
-    return NextResponse.json({
-      success: true,
-      sectionsCount: importPlan.sections.length,
-      itemsCount: importPlan.items.length,
-      importPlan,
-    });
+    return Response.json(consolidatedPlan);
   } catch (error) {
     console.error("Erro na análise:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
+    return Response.json(
+      { error: "Falha na análise dos arquivos", details: error.message },
       { status: 500 }
     );
   }
-}
-
-async function analyzeFileStructure(rootPath, workspaceId) {
-  const sections = [];
-  const items = [];
-  const contentTypeMap = new Map();
-
-  function processDirectory(dirPath, relativePath = "") {
-    const files = fs.readdirSync(dirPath);
-
-    // Cria section para toda pasta exceto a raiz
-    if (relativePath) {
-      const sectionName = path.basename(dirPath);
-      const sectionSlug = sectionName.toLowerCase().replace(/[^a-z0-9]/g, "-");
-
-      // Inferir contentType baseado no nome da pasta
-      const inferredType = inferContentTypeFromName(sectionName);
-      const contentTypeName = inferredType.name;
-
-      // Adicionar contentType se não existir
-      if (!contentTypeMap.has(contentTypeName)) {
-        contentTypeMap.set(contentTypeName, inferredType);
-      }
-
-      sections.push({
-        name: sectionName.charAt(0).toUpperCase() + sectionName.slice(1),
-        slug: sectionSlug,
-        description: `Section importada de ${relativePath}`,
-        workspaceId,
-        contentTypeId: contentTypeName,
-        isActive: true,
-        publicAccess: { isPublic: true },
-        order: sections.length,
-      });
-    }
-
-    for (const file of files) {
-      const fullPath = path.join(dirPath, file);
-      const stat = fs.statSync(fullPath);
-      if (stat.isDirectory()) {
-        processDirectory(fullPath, path.join(relativePath, file));
-      } else if (stat.isFile() && isContentFile(file)) {
-        const itemName = path.basename(file, path.extname(file));
-        const itemSlug = itemName.toLowerCase().replace(/[^a-z0-9]/g, "-");
-
-        // Ler o conteúdo do arquivo para inferir o tipo
-        const fileContent = readContentFile(fullPath);
-
-        // Separa o title do resto dos dados
-        const { title, ...customData } = fileContent;
-
-        const inferredType = inferContentType(customData); // Sempre inferir addons
-
-        if (!relativePath) {
-          // Para arquivos na raiz, sobrescrever nome e slug do ContentType
-          inferredType.name =
-            itemName.charAt(0).toUpperCase() + itemName.slice(1);
-          inferredType.slug = itemName.toLowerCase().replace(/[^a-z0-9]/g, "-");
-        }
-
-        if (!contentTypeMap.has(inferredType.name)) {
-          contentTypeMap.set(inferredType.name, inferredType);
-        }
-
-        // Se está na raiz, criar uma section para o arquivo também
-        if (!relativePath) {
-          const sectionName =
-            itemName.charAt(0).toUpperCase() + itemName.slice(1);
-          const sectionSlug = itemSlug;
-          sections.push({
-            name: sectionName,
-            slug: sectionSlug,
-            description: `Section importada de ${file}`,
-            workspaceId,
-            contentTypeId: inferredType.name,
-            isActive: true,
-            publicAccess: { isPublic: true },
-            order: sections.length,
-          });
-        }
-
-        items.push({
-          name: title || itemName, // Usa o title do frontmatter, ou o nome do arquivo como fallback
-          slug: itemSlug,
-          description: `Item importado de ${path.join(relativePath, file)}`,
-          workspaceId,
-          contentTypeId: inferredType.name,
-          sectionId: relativePath ? path.basename(dirPath) : itemSlug,
-          data: customData, // Salva apenas os dados customizados, sem o title
-          status: "published",
-          isActive: true,
-          order: items.length,
-        });
-      }
-    }
-  }
-
-  // Começa processando a raiz (não cria section para raiz)
-  processDirectory(rootPath, "");
-
-  // Converter o Map de contentTypes para array
-  const contentTypes = Array.from(contentTypeMap.values());
-
-  return {
-    sections,
-    items,
-    contentTypes,
-  };
-}
-
-function isContentFile(filename) {
-  const contentExtensions = [".json", ".md", ".txt", ".yaml", ".yml"];
-  const ext = path.extname(filename).toLowerCase();
-  return contentExtensions.includes(ext);
-}
-
-function readContentFile(filePath) {
-  const ext = path.extname(filePath).toLowerCase();
-  const fileContent = fs.readFileSync(filePath, "utf8");
-
-  try {
-    if (ext === ".json") {
-      return JSON.parse(fileContent);
-    } else if (ext === ".md") {
-      const { data, content } = matter(fileContent);
-      return { ...data, content }; // Retorna o frontmatter como campos e o resto como 'content'
-    } else {
-      return { content: fileContent, type: "text" };
-    }
-  } catch (error) {
-    console.error(`Erro ao ler arquivo ${filePath}:`, error);
-    return { error: `Erro ao ler arquivo: ${error.message}` };
-  }
-}
-
-function inferContentTypeFromName(name) {
-  const lowerName = name.toLowerCase();
-
-  if (lowerName.includes("hero")) {
-    return {
-      name: "Hero Section",
-      slug: "hero-section",
-      addons: [
-        { type: "textInput", name: "title", label: "Título" },
-        { type: "textInput", name: "description", label: "Descrição" },
-        { type: "textInput", name: "buttonText", label: "Texto do Botão" },
-        { type: "textInput", name: "buttonUrl", label: "URL do Botão" },
-      ],
-    };
-  } else if (lowerName.includes("service")) {
-    return {
-      name: "Services Section",
-      slug: "services-section",
-      addons: [
-        { type: "textInput", name: "title", label: "Título" },
-        { type: "textArea", name: "description", label: "Descrição" },
-        { type: "textInput", name: "icon", label: "Ícone" },
-      ],
-    };
-  } else if (lowerName.includes("testimonial")) {
-    return {
-      name: "Testimonials Section",
-      slug: "testimonials-section",
-      addons: [
-        { type: "textInput", name: "name", label: "Nome" },
-        { type: "textArea", name: "content", label: "Depoimento" },
-        { type: "textInput", name: "company", label: "Empresa" },
-      ],
-    };
-  } else if (lowerName.includes("page")) {
-    return {
-      name: "Page Content",
-      slug: "page-content",
-      addons: [
-        { type: "textInput", name: "title", label: "Título" },
-        { type: "textArea", name: "content", label: "Conteúdo" },
-        { type: "textInput", name: "metaDescription", label: "Meta Descrição" },
-      ],
-    };
-  } else if (lowerName.includes("city")) {
-    return {
-      name: "City Content",
-      slug: "city-content",
-      addons: [
-        { type: "textInput", name: "name", label: "Nome da Cidade" },
-        { type: "textArea", name: "description", label: "Descrição" },
-        { type: "textInput", name: "state", label: "Estado" },
-      ],
-    };
-  } else {
-    return {
-      name: "Generic Content",
-      slug: "generic-content",
-      addons: [
-        { type: "textInput", name: "title", label: "Título" },
-        { type: "textArea", name: "content", label: "Conteúdo" },
-      ],
-    };
-  }
-}
-
-function inferContentType(content) {
-  const addons = [];
-  const keys = Object.keys(content);
-
-  for (const key of keys) {
-    // Não criar addon para o campo 'content' que é o corpo do markdown
-    if (key === "content") continue;
-
-    let fieldType;
-    const value = content[key];
-
-    if (typeof value === "boolean") {
-      fieldType = "checkbox";
-    } else if (typeof value === "number") {
-      fieldType = "numberInput";
-    } else if (Array.isArray(value)) {
-      fieldType = "repeater";
-    } else {
-      fieldType = "textInput";
-    }
-
-    addons.push({
-      type: fieldType,
-      name: key,
-      label: key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, " "),
-    });
-  }
-
-  // Lógica para nomear o ContentType
-  let name = "Generic Content";
-  if (keys.includes("page_builder")) {
-    name = "Page with Builder";
-  } else if (keys.includes("description")) {
-    // Alterado para não depender de title
-    name = "Standard Page";
-  }
-
-  return {
-    name,
-    slug: name.toLowerCase().replace(/ /g, "-"),
-    addons,
-  };
 }

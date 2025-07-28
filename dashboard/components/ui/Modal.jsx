@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback } from "react";
 
-export default function Modal({ children, onClose, title }) {
+export default function Modal({ children, onClose, title, footer }) {
   const handleKeyDown = useCallback(
     (e) => {
       if (e.key === "Escape") {
@@ -53,6 +53,11 @@ export default function Modal({ children, onClose, title }) {
           </button>
         </div>
         <div className="p-6 overflow-y-auto max-h-[80vh]">{children}</div>
+        {footer && (
+          <div className="p-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-b-lg">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );

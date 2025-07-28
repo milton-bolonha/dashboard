@@ -4,6 +4,38 @@ import { ObjectId } from "mongodb";
 import { getCurrentUserId, withAuth } from "@/lib/auth";
 
 /**
+ * GET /api/sections/[id]/items/[itemId]
+ * Busca um item específico (com triangulação por userId)
+ */
+export const GET = withAuth(async (request, { params }, { userId }) => {
+  try {
+    const { id, itemId } = await params;
+
+    if (!ObjectId.isValid(id) || !ObjectId.isValid(itemId)) {
+      return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
+    }
+
+    const item = await db.findOne("items", {
+      _id: new ObjectId(itemId),
+      sectionId: id,
+      userId: userId,
+    });
+
+    if (!item) {
+      return NextResponse.json({ error: "Item not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ item });
+  } catch (error) {
+    console.error("Error fetching item:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch item" },
+      { status: 500 }
+    );
+  }
+});
+
+/**
  * PUT /api/sections/[id]/items/[itemId]
  * Atualiza um item específico (com triangulação por userId)
  */

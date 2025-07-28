@@ -1,11 +1,14 @@
-const siteConfig = require("./content/site.json");
+require("dotenv").config({
+  path: `.env.${process.env.NODE_ENV}`,
+});
 
 /**
  * @type {import('gatsby').GatsbyConfig}
  */
 module.exports = {
   siteMetadata: {
-    siteUrl: siteConfig.siteUrl,
+    // Este valor pode vir do .env ou ser fixo, já que os dados de site vêm da API
+    siteUrl: process.env.GATSBY_SITE_URL || "https://www.seusite.com",
   },
   plugins: [
     "gatsby-plugin-postcss",
@@ -34,20 +37,6 @@ module.exports = {
         path: "./src/pages/",
       },
       __key: "pages",
-    },
-    {
-      resolve: "gatsby-source-filesystem",
-      options: {
-        name: "simple-pages",
-        path: `${__dirname}/content/pages`,
-      },
-    },
-    {
-      resolve: "gatsby-source-filesystem",
-      options: {
-        name: "custom-pages",
-        path: `${__dirname}/content/custom-pages`,
-      },
     },
     {
       resolve: `gatsby-plugin-preconnect`,

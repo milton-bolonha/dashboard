@@ -232,6 +232,52 @@ Este documento é um registro vivo dos desafios de depuração que enfrentamos, 
 
 ---
 
+## Problema Recorrente 12: Erros de Verificação de Plano em Ambiente de Desenvolvimento
+
+- **Sintomas:**
+
+  - Ao tentar criar um recurso (ex: Seção), a operação falha com um erro `500 Internal Server Error`.
+  - O log do servidor mostra um `TypeError: Cannot read properties of undefined (reading 'getUser')` originado em `lib/plan-check.js`.
+  - O erro acontece porque a função `checkPlan` tenta usar `clerkClient.users.getUser(userId)`, que não funciona de forma confiável no ambiente de desenvolvimento local.
+
+- **Tentativa de Correção Incorreta (Anti-Padrão):**
+
+  - A primeira sugestão foi adicionar uma verificação por `process.env.NODE_ENV === "development"` para simplesmente pular a verificação de plano em ambiente de desenvolvimento.
+  - **Por que isso estava errado:** Esta abordagem cria uma divergência perigosa entre o ambiente de desenvolvimento e o de produção. Ela ignora nossa arquitetura de segurança já estabelecida, que se baseia em roles (`superadmin`), e introduz uma "solução mágica" que esconde problemas em vez de resolvê-los de forma consistente. Nós **não** criamos exceções para ambientes; nós criamos regras que funcionam em todos eles.
+
+- **Solução Definitiva: Reforçar a Arquitetura de Roles**
+
+  - **Causa Raiz Correta:** A verificação de plano não estava ciente da nossa regra de negócio mais importante: "Super Admins ignoram todas as restrições de plano".
+  - **Ação:** A função `checkPlan` em `lib/plan-check.js` foi refatorada para, antes de mais nada, chamar a função `checkSuperAdmin()`.
+  - **Lógica Final:**
+    1.  O sistema verifica se o usuário é um Super Admin.
+    2.  Se for, `checkPlan` retorna `true` imediatamente, concedendo acesso sem precisar chamar a API do Clerk.
+    3.  Se não for, a lógica normal de verificação de plano (que funcionará em produção) continua.
+  - **Resultado:** O erro em desenvolvimento foi eliminado **sem criar uma exceção de ambiente**. A solução fortalece nossa arquitetura, é mais segura e funciona de forma consistente tanto localmente quanto em produção.
+
+---
+
+## Problema Recorrente 13: Erro `405 Method Not Allowed` em Páginas de Edição
+
+- **Sintomas:**
+
+  - Após um redirecionamento bem-sucedido para uma página de edição (ex: `/dashboard/sections/.../items/.../edit`), a página falha ao carregar os dados.
+  - O console do navegador mostra um erro `405 Method Not Allowed` para a chamada de API que deveria buscar os dados do item.
+  - O console do servidor não mostra erros, apenas o log da requisição `GET ... 405`.
+
+- **Causa Raiz:**
+
+  - O erro `405` é extremamente específico e significa que a rota da API existe, mas não foi programada para aceitar o método HTTP que foi usado (neste caso, `GET`).
+  - A página de edição precisa fazer uma requisição `GET` para buscar os dados do item e preencher o formulário.
+  - A investigação do arquivo da rota da API (ex: `app/api/sections/[id]/items/[itemId]/route.js`) revelou que as funções para `PUT` (atualizar) e `DELETE` (deletar) foram implementadas, mas a função `GET` (buscar) foi esquecida.
+
+- **Solução Definitiva: Implementar o Método HTTP Faltante**
+  - **Ação:** A função `export const GET = withAuth(async (...) => { ... });` foi adicionada ao arquivo da rota da API correspondente.
+  - **Lógica:** A nova função implementa a lógica de busca segura, usando `userId` e outros parâmetros da URL para garantir que o usuário só possa buscar itens que lhe pertencem.
+  - **Resultado:** Com o método `GET` implementado, a página de edição passou a conseguir buscar os dados necessários, carregar o formulário e completar o fluxo de usuário.
+
+---
+
 ## Problema Recorrente 11: Páginas Admin Mostram "Acesso Restrito" Mesmo para Super Admin
 
 - **Sintomas:**

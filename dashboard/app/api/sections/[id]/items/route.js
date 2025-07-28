@@ -37,8 +37,14 @@ export const GET = withAuth(async (request, { params }, { userId }) => {
       userId: userId, // ← TRIANGULAÇÃO: só items do usuário
     });
 
+    const contentType = await db.findOne("contentTypes", {
+      _id: new ObjectId(section.contentTypeId),
+      userId: userId,
+    });
+
     return NextResponse.json({
       items,
+      contentType,
       section: {
         _id: section._id,
         name: section.name,

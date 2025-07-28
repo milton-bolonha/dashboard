@@ -14,6 +14,7 @@ export default function ContentTypeForm({ contentType, onSubmit, onCancel }) {
     addons: contentType?.addons || [],
     // ✅ CORREÇÃO: Só usar createDefaultSection se estiver criando (não editando)
     createDefaultSection: contentType ? false : true, // Se contentType existe = editando, então false
+    sectionStrategy: "collection", // Padrão para a nova seção
   });
   const [loading, setLoading] = useState(false);
 
@@ -95,6 +96,53 @@ export default function ContentTypeForm({ contentType, onSubmit, onCancel }) {
               Recomendado. Desmarque apenas se for usar este Content Type em
               múltiplas Sections customizadas.
             </p>
+
+            {/* Opções de Estratégia, visíveis apenas se a checkbox estiver marcada */}
+            {formData.createDefaultSection && (
+              <div className="pl-7 pt-4 space-y-3">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Como esta Seção irá se comportar?
+                </label>
+                <div className="space-y-2">
+                  <label className="flex items-center p-3 border rounded-md cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 dark:border-gray-600">
+                    <input
+                      type="radio"
+                      name="sectionStrategy"
+                      value="collection"
+                      checked={formData.sectionStrategy === "collection"}
+                      onChange={handleChange}
+                      className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                    />
+                    <span className="ml-3 text-sm">
+                      <strong className="font-medium text-gray-900 dark:text-white">
+                        Coleção de Múltiplos Itens
+                      </strong>
+                      <p className="text-gray-500 dark:text-gray-400">
+                        Ideal para posts de blog, produtos, etc.
+                      </p>
+                    </span>
+                  </label>
+                  <label className="flex items-center p-3 border rounded-md cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 dark:border-gray-600">
+                    <input
+                      type="radio"
+                      name="sectionStrategy"
+                      value="singleton"
+                      checked={formData.sectionStrategy === "singleton"}
+                      onChange={handleChange}
+                      className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                    />
+                    <span className="ml-3 text-sm">
+                      <strong className="font-medium text-gray-900 dark:text-white">
+                        Item Único
+                      </strong>
+                      <p className="text-gray-500 dark:text-gray-400">
+                        Perfeito para configurações como 'Header' ou 'Footer'.
+                      </p>
+                    </span>
+                  </label>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

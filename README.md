@@ -129,6 +129,41 @@ Para demonstrar o uso padrão do DashMaster.PRO, o MVP inclui um exemplo nativo 
 
 ---
 
+## 🌐 Arquitetura Headless
+
+### ✅ **API Pública Implementada (Janeiro 2025)**
+
+O DashMaster.PRO agora oferece uma API pública robusta que permite consumo de conteúdo por aplicações externas:
+
+- **Endpoint Principal:** `/api/public/content`
+- **Autenticação:** API Keys com Bearer token
+- **Funcionalidades:**
+  - Rate limiting por chave
+  - Cache inteligente
+  - Controle de acesso granular por seção
+  - Suporte a múltiplos workspaces
+
+### 🎯 **Caso de Uso Validado: Gatsby Landing Page**
+
+A migração bem-sucedida do site Gatsby demonstra a maturidade da API:
+
+- ✅ **100% headless:** Eliminação completa de conteúdo estático
+- ✅ **Performance:** Cache implementado e otimizações de query
+- ✅ **Escalabilidade:** Pronto para múltiplos sites/aplicações
+- ✅ **Flexibilidade:** Atualização de conteúdo sem rebuild
+
+### 🧠 **Arquitetura de Conteúdo Inteligente (Julho 2025)**
+
+Para aprimorar a experiência de desenvolvimento e a automação, o DashMaster.PRO implementou uma arquitetura que entende a **intenção** por trás da estrutura do conteúdo. Cada "Seção" agora possui uma "Estratégia" que define seu comportamento:
+
+- **Coleção (`collection`):** O comportamento padrão. Ideal para múltiplos itens do mesmo tipo, como posts de blog, produtos ou depoimentos. A interface renderiza uma tabela para gerenciamento.
+- **Item Único (`singleton`):** Perfeito para conteúdo de configuração que só existe uma vez, como o "Header", "Footer" ou "Configurações do Site". A interface redireciona o usuário diretamente para a página de edição do único item, eliminando cliques desnecessários.
+- **Agrupamento (`grouping`):** Um caso de uso avançado onde uma única Seção pode conter itens de diferentes Tipos de Conteúdo.
+
+Esta arquitetura é suportada por um **Importador Inteligente** que analisa a estrutura de diretórios e arquivos (`.json`, `.md`) e atribui automaticamente a estratégia correta, criando Seções, Content Types e Itens em massa, e preservando a intenção original do conteúdo.
+
+---
+
 ## 🔧 Roadmap Pós-MVP (Resumo)
 
 - Interface visual para construção de Pipelines
@@ -136,6 +171,7 @@ Para demonstrar o uso padrão do DashMaster.PRO, o MVP inclui um exemplo nativo 
 - Addons do tipo `Analytics`, `Scheduling` e `Notification`
 - Marketplace de Templates e Addons
 - Versão offline e app do DashMaster.Tablet
+- **Expansão do Ecosystem Headless:** Integração com frameworks adicionais
 
 ---
 

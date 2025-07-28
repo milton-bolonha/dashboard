@@ -4,11 +4,7 @@ import { SectionSchema, validateSchema } from "@/schemas/index.js";
 import { getCurrentAuth } from "@/lib/auth";
 import { ObjectId } from "mongodb";
 import { checkPlan } from "@/lib/plan-check";
-import {
-  validateSlug,
-  generateSlug,
-  isSlugUnique,
-} from "@/lib/slug-validation.js";
+import { createSectionAndInitialItem } from "@/lib/section-operations";
 
 /**
  * Helper para obter workspace atual do usuário
@@ -96,13 +92,27 @@ export async function GET(request) {
     }
 
     const sections = await db.find("sections", {
-      workspaceId: workspace._id.toString(),
+      workspaceId: workspace._id,
     });
+
+    // Adicionar o `contentTypeName` em cada section
+    const contentTypes = await db.find("contentTypes", {
+      workspaceId: workspace._id,
+    });
+    const contentTypeMap = contentTypes.reduce((acc, ct) => {
+      acc[ct._id.toString()] = ct.name;
+      return acc;
+    }, {});
+
+    const sectionsWithContentType = sections.map((section) => ({
+      ...section,
+      contentTypeName: contentTypeMap[section.contentTypeId] || "N/A",
+    }));
 
     console.log(
       `✅ Encontradas ${sections.length} sections para workspace ${workspace.name}`
     );
-    return NextResponse.json({ sections });
+    return NextResponse.json({ sections: sectionsWithContentType });
   } catch (error) {
     console.error("Erro ao listar sections:", error);
     return NextResponse.json(
@@ -125,7 +135,10 @@ export async function POST(request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const workspace = await getCurrentWorkspace(userId); // ✅ CORREÇÃO: Definir workspace
+    // A função getCurrentWorkspace já tem um fallback, então podemos passar o header diretamente.
+    const requestedWorkspaceId = request.headers.get("x-workspace-id");
+    const workspace = await getCurrentWorkspace(userId, requestedWorkspaceId);
+
     if (!workspace) {
       return NextResponse.json(
         { error: "No workspace found for this user." },
@@ -134,17 +147,19 @@ export async function POST(request) {
     }
 
     // --- Verificação de Plano ---
+    // A verificação agora é feita dentro da função auxiliar se necessário,
+    // mas por enquanto vamos manter a lógica de negócio aqui.
     const isPro = await checkPlan(userId, "pro");
     if (!isPro) {
       const sectionCount = await db.count("sections", {
-        workspaceId: workspace._id.toString(),
+        workspaceId: workspace._id,
       });
-      const FREE_PLAN_LIMIT = 3;
+      const FREE_PLAN_LIMIT = 5; // Aumentado o limite como discutido
 
       if (sectionCount >= FREE_PLAN_LIMIT) {
         return NextResponse.json(
           {
-            error: "Limite de seções atingido para o plano gratuito.",
+            error: `Limite de ${FREE_PLAN_LIMIT} seções atingido para o plano gratuito.`,
             code: "PLAN_LIMIT_REACHED",
           },
           { status: 403 }
@@ -153,81 +168,23 @@ export async function POST(request) {
     }
     // --- Fim da Verificação de Plano ---
 
-    const slug = await validateSlug(data, "sections", workspace._id.toString());
-
-    const dataWithAuth = {
+    // Prepara os dados para a função de criação
+    const sectionData = {
       ...data,
       userId,
-      workspaceId: workspace._id.toString(),
-      slug,
+      workspaceId: workspace._id,
     };
 
-    // 🐛 DEBUG: Logs detalhados
-    console.log("🔍 === DEBUG SECTION ===");
-    console.log("🔍 Dados recebidos:", JSON.stringify(data, null, 2));
-    console.log("🔍 userId:", userId);
-    console.log("🔍 workspaceId:", workspace._id);
-    console.log("🔍 slug gerado:", slug);
-
-    // Adicionar userId, workspaceId e slug aos dados
-    const dataWithWorkspace = {
-      ...dataWithAuth, // slug já está incluído
-      settings: {
-        defaultView: "list",
-        itemsPerPage: 20,
-        sortBy: "createdAt",
-        sortOrder: "desc",
-        ...data.settings,
-      },
-    };
-
-    console.log(
-      "🔍 Dados para validação:",
-      JSON.stringify(dataWithWorkspace, null, 2)
-    );
-
-    const validation = validateSchema(dataWithWorkspace, SectionSchema);
-    if (!validation.isValid) {
-      console.error("❌ Falha na validação:", validation.errors);
-      return NextResponse.json(
-        { error: "Validation failed", details: validation.errors },
-        { status: 400 }
-      );
-    }
-
-    // ✅ MELHORIA: Verificar slug único usando função otimizada
-    const isUnique = await isSlugUnique(slug, workspace._id, "sections");
-
-    if (!isUnique) {
-      return NextResponse.json(
-        { error: "Section with this slug already exists in this workspace" },
-        { status: 409 }
-      );
-    }
-
-    // Usar o objeto já validado que contém o workspaceId e slug
-    const sectionData = {
-      ...dataWithWorkspace, // slug já está incluído
-      settings: {
-        defaultView: "list",
-        itemsPerPage: 20,
-        sortBy: "createdAt",
-        sortOrder: "desc",
-        ...data.settings,
-      },
-    };
-
-    const result = await db.insertOne("sections", sectionData);
-
-    // Buscar section criada
-    const newSection = await db.findOne("sections", { _id: result.insertedId });
+    // Delega toda a lógica de criação para a função centralizada
+    const newSection = await createSectionAndInitialItem(sectionData);
 
     return NextResponse.json({ section: newSection });
   } catch (error) {
     console.error("Error creating section:", error);
+    // Retorna a mensagem de erro específica da nossa função auxiliar
     return NextResponse.json(
-      { error: "Failed to create section" },
-      { status: 500 }
+      { error: error.message || "Failed to create section" },
+      { status: 400 } // Usa 400 para erros de validação/lógica
     );
   }
 }

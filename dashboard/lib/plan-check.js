@@ -1,5 +1,5 @@
 import { clerkClient } from "@clerk/nextjs/server";
-import { getCurrentAuth } from "./auth.js";
+import { getCurrentAuth, checkSuperAdmin } from "./auth.js";
 
 // Hierarquia de planos para permitir comparações
 const PLAN_HIERARCHY = {
@@ -17,6 +17,13 @@ const PLAN_HIERARCHY = {
  */
 export async function checkPlan(userId, requiredPlan) {
   try {
+    // Super Admins sempre têm acesso, ignorando qualquer outra verificação.
+    const superAdminCheck = await checkSuperAdmin();
+    if (!superAdminCheck.error) {
+      console.log("SUPER ADMIN bypass: Acesso concedido.");
+      return true;
+    }
+
     if (!userId) {
       return false; // Não autenticado
     }
@@ -40,6 +47,13 @@ export async function checkPlan(userId, requiredPlan) {
  */
 export async function getUserPlan() {
   try {
+    // Super Admins podem ter um plano diferente para teste
+    const superAdminCheck = await checkSuperAdmin();
+    if (!superAdminCheck.error) {
+      console.log("SUPER ADMIN bypass: Retornando plano 'zeus' mock.");
+      return "zeus";
+    }
+
     const { userId } = await getCurrentAuth();
     if (!userId) return null;
 

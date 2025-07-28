@@ -1,109 +1,41 @@
 import React from "react";
-import { graphql } from "gatsby";
 import LayoutContainer from "../containers/LayoutContainer";
 import PageBuilderContainer from "../containers/PageBuilderContainer";
 import MarkdownContentContainer from "../containers/MarkdownContentContainer";
 import Seo from "../components/Seo";
 
-// Importar dados do site para SEO
-import siteData from "../../content/site.json";
-import headerData from "../../content/header.json";
-import servicesData from "../../content/services.json";
-
-const CustomPage = ({ data }) => {
-  const { markdownRemark } = data;
-  const { frontmatter, html } = markdownRemark;
+const CustomPage = ({ pageContext }) => {
+  const { pageData } = pageContext;
+  const { data, html } = pageData; // 'data' contém o frontmatter, 'html' o conteúdo markdown
 
   return (
-    <LayoutContainer bgImage={frontmatter.image} pageTitle={frontmatter.title}>
-      <PageBuilderContainer pageBuilderData={frontmatter.page_builder} />
+    <LayoutContainer
+      bgImage={data.image}
+      pageTitle={data.name}
+      // Dados globais agora vêm do pageContext e são passados para o Layout
+      globalData={pageContext.globalData}
+    >
+      <PageBuilderContainer pageBuilderData={data.page_builder} />
 
       <div className="container mx-auto px-4 py-8">
-        <MarkdownContentContainer frontmatter={frontmatter} html={html} />
-        {frontmatter.address && (
-          <p className="text-lg mb-2">{frontmatter.address}</p>
-        )}
-        {frontmatter.phone && <p className="text-lg">{frontmatter.phone}</p>}
+        <MarkdownContentContainer frontmatter={data} html={html} />
+        {data.address && <p className="text-lg mb-2">{data.address}</p>}
+        {data.phone && <p className="text-lg">{data.phone}</p>}
       </div>
     </LayoutContainer>
   );
 };
 
-export const Head = ({ location, data }) => (
+export const Head = ({ location, pageContext }) => (
   <Seo
-    site={siteData}
-    title={data.markdownRemark.frontmatter.title}
-    description={data.markdownRemark.frontmatter.description}
+    // O componente SEO também receberá os dados globais via props
+    site={pageContext.globalData.site}
+    title={pageContext.pageData.name}
+    description={pageContext.pageData.description}
     path={location.pathname}
-    navigationItems={headerData.menu.data.items}
-    services={servicesData.services}
+    navigationItems={pageContext.globalData.header.menu.data.items}
+    services={pageContext.globalData.services.services}
   />
 );
-
-export const pageQuery = graphql`
-  query ($slug: String!) {
-    markdownRemark(fields: { slug: { eq: $slug } }) {
-      html
-      frontmatter {
-        title
-        description
-        image
-        address
-        phone
-        page_builder {
-          type
-          title
-          subtitle
-          text
-          imageUrl
-          textPosition
-          boxes {
-            title
-            text
-          }
-          form {
-            formType
-            formData {
-              formId
-            }
-          }
-          map {
-            src
-            title
-          }
-          sectionId
-          hero {
-            background {
-              image
-            }
-            heading {
-              level
-              text
-            }
-            subHeading {
-              level
-              text
-            }
-            textSlider {
-              heading
-              content
-              button {
-                label
-                link
-              }
-            }
-            form {
-              formType
-              formData {
-                formId
-              }
-            }
-            textPosition
-          }
-        }
-      }
-    }
-  }
-`;
 
 export default CustomPage;

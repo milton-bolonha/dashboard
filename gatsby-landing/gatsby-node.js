@@ -1,155 +1,117 @@
 const path = require("path");
-const fs = require("fs");
-const fm = require("front-matter");
+const fetch = require("node-fetch"); // Adicionar esta linha
+
+async function getSourceData() {
+  const apiUrl = `${process.env.GATSBY_API_URL}/api/public/content`;
+  const apiKey = process.env.GATSBY_API_KEY;
+
+  try {
+    const response = await fetch(apiUrl, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`API call failed with status: ${response.status}`);
+    }
+    const data = await response.json();
+    return data.content;
+  } catch (error) {
+    console.error("Failed to fetch source data:", error);
+    process.exit(1); // Interrompe o build se a API falhar
+  }
+}
 
 exports.createPages = async ({ graphql, actions }) => {
   const { createPage } = actions;
 
-  // Create pages for each city
-  const cities = JSON.parse(fs.readFileSync("./content/cities.json", "utf8"));
-  const defaultCityContent = fs.readFileSync(
-    "./content/cities-pages/default-city.md",
-    "utf8"
+  const allContent = await getSourceData();
+
+  // Helper para encontrar seções facilmente
+  const getContentBySlug = (slug) => allContent.find((c) => c.slug === slug);
+
+  // Extrair dados globais para injetar em todas as páginas
+  const globalData = {
+    header: getContentBySlug("header")?.items[0]?.data,
+    footer: getContentBySlug("footer")?.items[0]?.data,
+    site: getContentBySlug("site")?.items[0]?.data,
+    services: getContentBySlug("services")?.items[0]?.data,
+    topbar: getContentBySlug("topbar")?.items[0]?.data,
+    cities: getContentBySlug("cities")?.items[0]?.data, // A LINHA QUE FALTAVA
+  };
+
+  // 1. Gerar Páginas Customizadas e de Conteúdo (About, Services, etc.)
+  const pages = (getContentBySlug("pages")?.items || []).concat(
+    getContentBySlug("custom-pages")?.items || []
   );
-  const cityTemplateContent = fs.readFileSync(
-    "./content/cities-pages/city-template.md",
-    "utf8"
-  );
 
-  // Encontrar a URL da cidade padrão primeiro
-  const defaultCity = cities.find((city) => city.isDefault);
-  const defaultCityUrl = defaultCity
-    ? `/service-areas/${defaultCity.slug}`
-    : null;
-
-  cities.forEach((city) => {
-    const isDefault = city.isDefault || false;
-    const rawContent = isDefault ? defaultCityContent : cityTemplateContent;
-    const fmData = fm(rawContent);
-
-    const title = fmData.attributes.title.replace(/\[city\]/g, city.name);
-
-    // Substitui [city] no corpo do page_builder (se existir)
-    let pageBuilderData = fmData.attributes.page_builder || [];
-    if (pageBuilderData) {
-      pageBuilderData = JSON.parse(
-        JSON.stringify(pageBuilderData).replace(/\[city\]/g, city.name)
-      );
-    }
-
+  pages.forEach((page) => {
+    const pageTemplate = page.data.template || "CustomPage"; // ex: CustomPage, LibraryPage
     createPage({
-      path: `/service-areas/${city.slug}`,
-      component: path.resolve("./src/templates/CityPage.js"),
+      path: `/${page.slug}`,
+      component: path.resolve(`./src/templates/${pageTemplate}.js`),
       context: {
-        city: city.name,
-        title: title,
-        page_builder: pageBuilderData,
-        bgImage: fmData.attributes.image, // Pega a imagem do frontmatter
-        isDefault: isDefault, // Adicionando a flag aqui
-        defaultCityUrl: !isDefault ? defaultCityUrl : null,
+        pageData: page,
+        globalData: globalData,
       },
     });
   });
 
-  /*
-  // Create pages for each service
-  const services = await graphql(`
-    {
-      allMarkdownRemark(
-        filter: { fileAbsolutePath: { regex: "/content/services/" } }
-      ) {
-        edges {
-          node {
-            fields {
-              slug
-            }
-          }
-        }
-      }
-    }
-  `);
-
-  services.data.allMarkdownRemark.edges.forEach(({ node }) => {
-    createPage({
-      path: `/services/${node.fields.slug}`,
-      component: path.resolve("./src/templates/ServicePage.js"),
-      context: {
-        slug: node.fields.slug,
-      },
-    });
-  });
-  */
-
-  // Create pages for each simple page
-  const simplePages = await graphql(`
-    {
-      allMarkdownRemark(
-        filter: { fileAbsolutePath: { regex: "/content/pages/" } }
-      ) {
-        edges {
-          node {
-            fields {
-              slug
-            }
-          }
-        }
-      }
-    }
-  `);
-
-  simplePages.data.allMarkdownRemark.edges.forEach(({ node }) => {
-    createPage({
-      path: `/${node.fields.slug}`,
-      component: path.resolve("./src/templates/SimplePage.js"),
-      context: {
-        slug: node.fields.slug,
-      },
-    });
-  });
-
-  // Create pages for each custom page
-  const customPages = await graphql(`
-    {
-      allMarkdownRemark(
-        filter: { fileAbsolutePath: { regex: "/content/custom-pages/" } }
-      ) {
-        edges {
-          node {
-            fields {
-              slug
-            }
-            frontmatter {
-              template
-            }
-          }
-        }
-      }
-    }
-  `);
-
-  console.log(
-    "Custom Pages Query Result:",
-    JSON.stringify(customPages, null, 2)
+  // 2. Gerar Páginas de Cidades
+  const citiesList = getContentBySlug("cities")?.items[0]?.data || {};
+  const cityTemplate = getContentBySlug("cities-pages")?.items.find(
+    (t) => t.slug === "city-template"
   );
 
-  customPages.data.allMarkdownRemark.edges.forEach(({ node }) => {
-    const templateName = node.frontmatter.template || "CustomPage";
-    console.log(
-      `Creating page for: ${node.fields.slug} using template: ${templateName}`
+  if (Object.keys(citiesList).length > 0 && cityTemplate) {
+    Object.values(citiesList).forEach((city) => {
+      createPage({
+        path: `/service-areas/${city.slug}`,
+        component: path.resolve("./src/templates/CityPage.js"),
+        context: {
+          city,
+          templateData: cityTemplate,
+          globalData: globalData,
+        },
+      });
+    });
+  }
+
+  // 3. Gerar a Página Inicial (index)
+  const landingPageSection =
+    getContentBySlug("landing-page") ||
+    allContent.find(
+      (s) =>
+        s.slug === "" &&
+        s.items &&
+        s.items.some((item) => ["hero", "boxes"].includes(item.slug))
     );
 
-    const component = path.resolve(`./src/templates/${templateName}.js`);
+  const testimonialsSection = getContentBySlug("testimonials");
+
+  if (landingPageSection) {
+    const pageData = [landingPageSection];
+    if (testimonialsSection) {
+      pageData.push(testimonialsSection);
+    }
 
     createPage({
-      path: `/${node.fields.slug}`,
-      component: component,
+      path: "/",
+      component: path.resolve("./src/templates/HomePage.js"),
       context: {
-        slug: node.fields.slug,
+        pageData: pageData, // Passa landing-page e testimonials
+        globalData: globalData,
       },
     });
-  });
+  } else {
+    console.warn(
+      "Seção 'landing-page' não encontrada. Página inicial não será criada."
+    );
+  }
 };
 
+// As funções abaixo não são mais necessárias pois não estamos mais processando arquivos Markdown locais.
+/*
 exports.onCreateNode = ({ node, actions }) => {
   const { createNodeField } = actions;
   if (node.internal.type === `MarkdownRemark`) {
@@ -279,3 +241,4 @@ exports.createSchemaCustomization = ({ actions }) => {
   `;
   createTypes(typeDefs);
 };
+*/

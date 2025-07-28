@@ -8,6 +8,7 @@ const Layout = ({
   showTopBar,
   topbarData,
   headerData,
+  footerProps,
   bgImage,
   pageTitle,
 }) => {
@@ -31,7 +32,7 @@ const Layout = ({
       )}
 
       <main className="flex-grow">{children}</main>
-      <FooterContainer />
+      <FooterContainer {...footerProps} />
     </div>
   );
 };

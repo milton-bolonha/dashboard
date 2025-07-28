@@ -60,7 +60,7 @@ async function getCurrentWorkspace(userId, requestedWorkspaceId = null) {
 
 /**
  * GET /api/sections/[id]
- * Pega uma section específica
+ * Pega uma section específica e determina a estratégia de visualização.
  */
 export async function GET(request, { params }) {
   try {
@@ -74,7 +74,20 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: "Section not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ section });
+    // Após encontrar a seção, determinar a estratégia de visualização
+    const items = await db.find("items", { sectionId: id });
+
+    let strategy = "singleton"; // Default
+    if (items.length > 1) {
+      const firstContentTypeId = items[0].contentTypeId;
+      const allSameContentType = items.every(
+        (item) => item.contentTypeId === firstContentTypeId
+      );
+      strategy = allSameContentType ? "collection" : "grouping";
+    }
+    // Se houver apenas 1 item, a estratégia permanece 'singleton'.
+
+    return NextResponse.json({ section: { ...section, strategy } });
   } catch (error) {
     console.error(`Error loading section ${params.id}:`, error);
     return NextResponse.json(

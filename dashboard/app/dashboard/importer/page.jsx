@@ -8,6 +8,7 @@ import Button from "@/components/ui/Button";
 import FileSelectionInterface from "@/components/importer/FileSelectionInterface";
 import Card from "@/components/ui/Card";
 import Modal from "@/components/ui/Modal";
+import path from "path";
 
 const ImporterPage = () => {
   const { isSignedIn, user } = useAuth();
@@ -140,43 +141,54 @@ const ImporterPage = () => {
       }
 
       const data = await response.json();
-      console.log("Plano de importação:", data.importPlan);
 
-      setImportPlan(data.importPlan);
+      if (!response.ok) {
+        console.error("Erro na análise:", data);
+        throw new Error(data.error || "Falha na análise dos arquivos");
+      }
 
-      // Preparar arquivos para seleção
-      const files = [];
+      setImportPlan(data); // O plano de importação agora é a própria resposta da API
 
-      // Adicionar sections primeiro (pastas e arquivos da raiz)
-      data.importPlan.sections.forEach((section, index) => {
-        files.push({
-          id: `section-${section.slug}-${index}`,
+      // Reestruturar os dados para a visualização em árvore
+      const tree = [];
+      const sectionsMap = new Map();
+
+      // Primeiro, criar as "pastas" das seções
+      data.sections.forEach((section) => {
+        const sectionNode = {
+          id: `section-${section.slug}`,
           name: section.name,
           type: "section",
-          path: section.description.replace("Section importada de ", ""),
           data: section,
-        });
+          children: [],
+        };
+        tree.push(sectionNode);
+        sectionsMap.set(section.slug, sectionNode);
       });
 
-      // Adicionar items depois (arquivos dentro das pastas)
-      data.importPlan.items.forEach((item, index) => {
-        files.push({
-          id: `item-${item.slug}-${index}`, // Tornar único com índice
-          name: item.name,
-          type: "item",
-          path: item.description.replace("Item importado de ", ""),
-          data: item,
-        });
+      // Agora, popular as seções com os arquivos analisados
+      data.files.forEach((fileAnalysis) => {
+        const sectionNode = sectionsMap.get(fileAnalysis.section.slug);
+        if (sectionNode) {
+          sectionNode.children.push({
+            id: `file-${fileAnalysis.relativePath}`,
+            name: path.basename(fileAnalysis.relativePath),
+            type: "file",
+            path: fileAnalysis.relativePath,
+            data: fileAnalysis,
+          });
+        }
       });
 
-      setAvailableFiles(files);
-      setSelectedFiles([]); // Começar com nenhum selecionado
+      // Reset e preenchimento dos arquivos selecionados
+      setAvailableFiles(tree);
+      setSelectedFiles([]); // Correção: O estado deve ser um array, não um Set.
       setShowSelection(true);
       setShowPreview(false);
       setShowExecute(false);
 
       setMessage(
-        `✅ Análise concluída! ${data.sectionsCount} seções e ${data.itemsCount} itens encontrados.\n\nSelecione o que deseja importar:`
+        `✅ Análise concluída! ${data.sections.length} seções e ${data.files.length} arquivos encontrados. Selecione o que deseja importar:`
       );
     } catch (error) {
       console.error("Erro na análise:", error);
@@ -207,42 +219,43 @@ const ImporterPage = () => {
   };
 
   const handleConfirmSelection = () => {
-    if (selectedFiles.length === 0) {
-      setMessage("Por favor, selecione pelo menos um arquivo para importar.");
-      return;
-    }
+    // 1. Obter os caminhos relativos dos arquivos selecionados
+    const selectedPaths = new Set(selectedFiles.map((file) => file.path));
 
-    // Reconstruir o plano de importação com apenas os arquivos selecionados
-    const selectedSections = selectedFiles
-      .filter((f) => f.type === "section")
-      .map((f) => f.data);
-
-    const selectedItems = selectedFiles
-      .filter((f) => f.type === "item")
-      .map((f) => f.data);
-
-    // Manter apenas os content types necessários
-    const usedContentTypeNames = new Set([
-      ...selectedSections.map((s) => s.contentTypeId),
-      ...selectedItems.map((i) => i.contentTypeId),
-    ]);
-
-    const filteredContentTypes = importPlan.contentTypes.filter((ct) =>
-      usedContentTypeNames.has(ct.name)
+    // 2. Filtrar a lista de arquivos do plano original
+    const filteredFiles = importPlan.files.filter((file) =>
+      selectedPaths.has(file.relativePath)
     );
 
-    const filteredImportPlan = {
-      sections: selectedSections,
-      items: selectedItems,
+    // 3. A partir dos arquivos filtrados, deduzir as seções e content types necessários
+    const requiredSectionSlugs = new Set(
+      filteredFiles.map((file) => file.section.slug)
+    );
+    const requiredContentTypeSlugs = new Set(
+      filteredFiles.map((file) => file.contentType.slug)
+    );
+
+    // 4. Filtrar as seções e content types do plano original
+    const filteredSections = importPlan.sections.filter((section) =>
+      requiredSectionSlugs.has(section.slug)
+    );
+    const filteredContentTypes = importPlan.contentTypes.filter((ct) =>
+      requiredContentTypeSlugs.has(ct.slug)
+    );
+
+    // 5. Construir o plano final e definitivo
+    const finalPlan = {
+      ...importPlan,
+      files: filteredFiles,
+      sections: filteredSections,
       contentTypes: filteredContentTypes,
     };
 
-    setImportPlan(filteredImportPlan);
+    // 6. Atualizar o estado para mostrar o preview correto
+    setImportPlan(finalPlan);
     setShowSelection(false);
     setShowPreview(true);
-    setMessage(
-      `✅ ${selectedFiles.length} arquivos selecionados para importação.`
-    );
+    setMessage(null); // Limpar a mensagem de análise
   };
 
   const handleExecute = async () => {
@@ -330,10 +343,10 @@ const ImporterPage = () => {
                   Slug: {section.slug}
                 </div>
                 <div className="text-sm text-gray-600">
-                  Pública: {section.publicAccess.isPublic ? "Sim" : "Não"}
+                  Pública: {section.publicAccess?.isPublic ? "Sim" : "Não"}
                 </div>
                 <div className="text-sm text-gray-600">
-                  Ordem: {section.order}
+                  Ordem: {section.order ?? 0}
                 </div>
               </div>
             ))}
@@ -346,20 +359,23 @@ const ImporterPage = () => {
             Items que serão criados:
           </h4>
           <div className="space-y-2 max-h-60 overflow-y-auto">
-            {importPlan.items.map((item, index) => (
-              <div key={index} className="p-3 bg-green-50 rounded-md">
-                <div className="font-medium">{item.name}</div>
-                <div className="text-sm text-gray-600">Slug: {item.slug}</div>
-                <div className="text-sm text-gray-600">
-                  Status: {item.status}
+            {importPlan.files.flatMap((file, fileIndex) =>
+              file.itemsData.map((item, itemIndex) => (
+                <div
+                  key={`${fileIndex}-${itemIndex}`}
+                  className="p-3 bg-green-50 rounded-md"
+                >
+                  <div className="font-medium">
+                    {item.data.name ||
+                      item.data.title ||
+                      `Item de ${file.contentType.name}`}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    Seção: {file.section.name}
+                  </div>
                 </div>
-                <div className="text-sm text-gray-600">Ordem: {item.order}</div>
-                <div className="text-xs text-gray-500 mt-1">
-                  <strong>Dados:</strong>{" "}
-                  {JSON.stringify(item.data).substring(0, 100)}...
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 
@@ -512,26 +528,26 @@ const ImporterPage = () => {
                 {showSelection && (
                   <Modal
                     isOpen={showSelection}
-                    onClose={() => {
-                      setShowSelection(false);
-                      setAvailableFiles([]);
-                      setSelectedFiles([]);
-                    }}
+                    onClose={() => setShowSelection(false)}
                     title="Selecionar Arquivos para Importar"
+                    footer={
+                      <div className="flex justify-end space-x-4">
+                        <Button
+                          variant="ghost"
+                          onClick={() => setShowSelection(false)}
+                        >
+                          Cancelar
+                        </Button>
+                        <Button onClick={handleConfirmSelection}>
+                          Confirmar Seleção ({selectedFiles.length})
+                        </Button>
+                      </div>
+                    }
                   >
                     <FileSelectionInterface
                       availableFiles={availableFiles}
                       selectedFiles={selectedFiles}
-                      onSelectFile={handleSelectFile}
-                      onDeselectFile={handleDeselectFile}
-                      onSelectAll={handleSelectAll}
-                      onDeselectAll={handleDeselectAll}
-                      onConfirmSelection={handleConfirmSelection}
-                      onCancel={() => {
-                        setShowSelection(false);
-                        setAvailableFiles([]);
-                        setSelectedFiles([]);
-                      }}
+                      onSelectionChange={setSelectedFiles}
                     />
                   </Modal>
                 )}

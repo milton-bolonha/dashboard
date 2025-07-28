@@ -1,0 +1,75 @@
+[
+  { "name": "Ajax, ON", "slug": "ajax-on", "isDefault": false },
+  { "name": "Aurora, ON", "slug": "aurora-on", "isDefault": false },
+  { "name": "Bradford, ON", "slug": "bradford-on", "isDefault": false },
+  { "name": "Bolton, ON", "slug": "bolton-on", "isDefault": false },
+  {
+    "name": "Brampton Toronto",
+    "slug": "brampton-toronto",
+    "isDefault": false
+  },
+  { "name": "Brock ON", "slug": "brock-on", "isDefault": false },
+  { "name": "Burlington, ON", "slug": "burlington-on", "isDefault": false },
+  { "name": "Caledon, ON", "slug": "caledon-on", "isDefault": false },
+  { "name": "Clarington, ON", "slug": "clarington-on", "isDefault": false },
+  { "name": "East York, ON", "slug": "east-york-on", "isDefault": false },
+  { "name": "Downsview, ON", "slug": "downsview-on", "isDefault": false },
+  { "name": "Etobicoke, ON", "slug": "etobicoke-on", "isDefault": false },
+  { "name": "Georgina, ON", "slug": "georgina-on", "isDefault": false },
+  { "name": "Halton Hills", "slug": "halton-hills", "isDefault": false },
+  { "name": "King, ON", "slug": "king-on", "isDefault": false },
+  { "name": "Hamilton, ON", "slug": "hamilton-on", "isDefault": false },
+  { "name": "Kitchener, ON", "slug": "kitchener-on", "isDefault": false },
+  { "name": "Kleinburg, ON", "slug": "kleinburg-on", "isDefault": false },
+  { "name": "Markham, ON", "slug": "markham-on", "isDefault": false },
+  { "name": "Milton, ON", "slug": "milton-on", "isDefault": false },
+  { "name": "Mississauga, ON", "slug": "mississauga-on", "isDefault": false },
+  { "name": "Newmarket, ON", "slug": "newmarket-on", "isDefault": false },
+  { "name": "Nobleton, ON", "slug": "nobleton-on", "isDefault": false },
+  { "name": "North York, ON", "slug": "north-york-on", "isDefault": false },
+  { "name": "Old Toronto, ON", "slug": "old-toronto-on", "isDefault": false },
+  { "name": "Orangeville, ON", "slug": "orangeville-on", "isDefault": false },
+  { "name": "Oakville, ON", "slug": "oakville-on", "isDefault": false },
+  { "name": "Oshawa, ON", "slug": "oshawa-on", "isDefault": false },
+  {
+    "name": "Peel Region Toronto",
+    "slug": "peel-region-toronto",
+    "isDefault": false
+  },
+  { "name": "Pickering, ON", "slug": "pickering-on", "isDefault": false },
+  { "name": "Scarborough, ON", "slug": "scarborough-on", "isDefault": false },
+  {
+    "name": "Richmond Hill, ON",
+    "slug": "richmond-hill-on",
+    "isDefault": false
+  },
+  { "name": "Scugog, ON", "slug": "scugog-on", "isDefault": false },
+  { "name": "Stouffville, ON", "slug": "stouffville-on", "isDefault": false },
+  { "name": "Thornhill, ON", "slug": "thornhill-on", "isDefault": true },
+  { "name": "Toronto, ON", "slug": "toronto-on", "isDefault": false },
+  {
+    "name": "Toronto East Toronto, ON",
+    "slug": "toronto-east-toronto-on",
+    "isDefault": false
+  },
+  { "name": "Uxbridge, ON", "slug": "uxbridge-on", "isDefault": false },
+  { "name": "Vaughan, ON", "slug": "vaughan-on", "isDefault": false },
+  { "name": "Whitby, ON", "slug": "whitby-on", "isDefault": false },
+  {
+    "name": "Whitchurch Stouffville, ON",
+    "slug": "whitchurch-stouffville-on",
+    "isDefault": false
+  },
+  { "name": "Woodbridge, ON", "slug": "woodbridge-on", "isDefault": false },
+  {
+    "name": "York East Toronto, ON",
+    "slug": "york-east-toronto-on",
+    "isDefault": false
+  },
+  {
+    "name": "York Region, Toronto, ON",
+    "slug": "york-region-toronto-on",
+    "isDefault": false
+  },
+  { "name": "York, Toronto, ON", "slug": "york-toronto-on", "isDefault": false }
+]

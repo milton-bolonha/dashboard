@@ -9,7 +9,6 @@ import { useWorkspace } from "@/contexts/WorkspaceContext";
 
 export function ModernSectionsTable({
   sections = [],
-  contentTypes = [],
   onEdit,
   onDelete,
   onReorder,
@@ -34,14 +33,8 @@ export function ModernSectionsTable({
         let bValue = b[sortConfig.key] || "";
 
         if (sortConfig.key === "contentType") {
-          const aContentType = contentTypes.find(
-            (ct) => ct._id === a.contentTypeId
-          );
-          const bContentType = contentTypes.find(
-            (ct) => ct._id === b.contentTypeId
-          );
-          aValue = aContentType?.name || "";
-          bValue = bContentType?.name || "";
+          aValue = a.contentTypeName || "";
+          bValue = b.contentTypeName || "";
         }
 
         if (aValue < bValue) {
@@ -54,7 +47,7 @@ export function ModernSectionsTable({
       });
     }
     return sortableSections;
-  }, [orderedSections, contentTypes, sortConfig, reorderMode]);
+  }, [orderedSections, sortConfig, reorderMode]);
 
   const requestSort = (key) => {
     let direction = "asc";
@@ -108,13 +101,6 @@ export function ModernSectionsTable({
     );
   };
 
-  const contentTypeMap = React.useMemo(() => {
-    return contentTypes.reduce((acc, ct) => {
-      acc[ct._id] = ct;
-      return acc;
-    }, {});
-  }, [contentTypes]);
-
   const renderSectionRow = (section, index) => (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
       <div className="flex items-center justify-between">
@@ -134,9 +120,9 @@ export function ModernSectionsTable({
                 <span className="text-xs text-gray-500 dark:text-gray-400">
                   /{section.slug}
                 </span>
-                {contentTypeMap[section.contentTypeId] && (
+                {section.contentTypeName && (
                   <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300">
-                    {contentTypeMap[section.contentTypeId].name}
+                    {section.contentTypeName}
                   </span>
                 )}
                 {getStatusBadge(section.isActive)}
@@ -469,9 +455,9 @@ export function ModernSectionsTable({
                     </td>
 
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {contentTypeMap[section.contentTypeId] ? (
+                      {section.contentTypeName ? (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300">
-                          {contentTypeMap[section.contentTypeId].name}
+                          {section.contentTypeName}
                         </span>
                       ) : (
                         <span className="text-sm text-gray-500 dark:text-gray-400">

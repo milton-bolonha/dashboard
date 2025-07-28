@@ -1,5 +1,5 @@
 import React from "react";
-import JotformEmbed from "react-jotform-embed";
+// import JotformEmbed from "react-jotform-embed";
 
 const Hero = ({
   background = {},
@@ -65,7 +65,7 @@ const Hero = ({
               {formData.subheading}
             </p>
           )}
-          <JotformEmbed src="https://form.jotformeu.com/210911653803450" />
+          {/* <JotformEmbed src="https://form.jotformeu.com/210911653803450" /> */}
         </div>
       </div>
     );

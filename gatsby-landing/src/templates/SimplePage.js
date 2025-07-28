@@ -1,104 +1,42 @@
 import React from "react";
-import { graphql } from "gatsby";
 import LayoutContainer from "../containers/LayoutContainer";
 import PageBuilderContainer from "../containers/PageBuilderContainer";
 import MarkdownContentContainer from "../containers/MarkdownContentContainer";
 import Seo from "../components/Seo";
 
-// Importar dados do site para SEO
-import siteData from "../../content/site.json";
-import headerData from "../../content/header.json";
-import servicesData from "../../content/services.json";
-
-const SimplePage = ({ data }) => {
-  const { markdownRemark } = data;
-  const { frontmatter, html } = markdownRemark;
+const SimplePage = ({ pageContext }) => {
+  const { pageData, globalData } = pageContext;
+  const { data, html } = pageData;
 
   return (
-    <LayoutContainer bgImage={frontmatter.image} pageTitle={frontmatter.title}>
-      <PageBuilderContainer pageBuilderData={frontmatter.page_builder} />
+    <LayoutContainer
+      bgImage={data.image}
+      pageTitle={data.name}
+      globalData={globalData}
+    >
+      <PageBuilderContainer pageBuilderData={data.page_builder} />
       {html && (
         <div className="container mx-auto px-4 py-8">
-          <MarkdownContentContainer frontmatter={frontmatter} html={html} />
+          <MarkdownContentContainer frontmatter={data} html={html} />
         </div>
       )}
     </LayoutContainer>
   );
 };
 
-export const Head = ({ location, data }) => (
-  <Seo
-    site={siteData}
-    title={data.markdownRemark.frontmatter.title}
-    description={data.markdownRemark.frontmatter.description}
-    path={location.pathname}
-    navigationItems={headerData.menu.data.items}
-    services={servicesData.services}
-  />
-);
+export const Head = ({ location, pageContext }) => {
+  const { pageData, globalData } = pageContext;
 
-export const pageQuery = graphql`
-  query ($slug: String!) {
-    markdownRemark(fields: { slug: { eq: $slug } }) {
-      html
-      frontmatter {
-        title
-        description
-        image
-        page_builder {
-          type
-          title
-          subtitle
-          text
-          imageUrl
-          textPosition
-          boxes {
-            title
-            text
-          }
-          form {
-            formType
-            formData {
-              formId
-            }
-          }
-          map {
-            src
-            title
-          }
-          sectionId
-          hero {
-            background {
-              image
-            }
-            heading {
-              level
-              text
-            }
-            subHeading {
-              level
-              text
-            }
-            textSlider {
-              heading
-              content
-              button {
-                label
-                link
-              }
-            }
-            form {
-              formType
-              formData {
-                formId
-              }
-            }
-            textPosition
-          }
-        }
-      }
-    }
-  }
-`;
+  return (
+    <Seo
+      site={globalData.site}
+      title={pageData.name}
+      description={pageData.description}
+      path={location.pathname}
+      navigationItems={globalData.header.menu.data.items}
+      services={globalData.services.services}
+    />
+  );
+};
 
 export default SimplePage;
