@@ -297,7 +297,7 @@ Após iniciar a implementação do alinhamento do importador, encontramos uma s�
 
 - **Status:** ✅ **Identificado**
 - **Sintoma:** A importação cria o Content Type e a Seção, mas falha em criar os Itens, resultando em "0 Items criados/atualizados".
-- **Análise da Causa:** É uma repetição do Diagnóstico 6, mas em um campo diferente. O `ItemSchema` requer que o campo `sectionId` seja um `ObjectId`. No entanto, ao criar os itens, a API de execução estava usando o `sectionId` como uma `string`, recuperada do `sectionCache`. A operação de "upsert" dos itens falhava silenciosamente devido a essa inconsistência de tipo de dado.
+- **Análise da Causa:** É uma repetição do Diagnóstico 6, mas em um campo diferente. O `ItemSchema` requer que o campo `sectionId` seja um `ObjectId`. No entanto, ao criar os itens, a API de execução estava usando o `sectionId` como uma `string`, recuperado do `sectionCache`. A operação de "upsert" dos itens falhava silenciosamente devido a essa inconsistência de tipo de dado.
 
 ### **Plano de Conclusão da Saga do Importador**
 
@@ -345,9 +345,14 @@ Após iniciar a implementação do alinhamento do importador, encontramos uma s�
 
 ### **Plano de Ação Definitivo: Visibilidade Total e Controle do Ambiente**
 
+- **Status:** ✅ **Identificado**
+- **Sintoma:** A importação cria o Content Type e a Seção, mas falha em criar os Itens, resultando em "0 Items criados/atualizados".
+- **Análise da Causa:** É uma repetição do Diagnóstico 6, mas em um campo diferente. O `ItemSchema` requer que o campo `sectionId` seja um `ObjectId`. No entanto, ao criar os itens, a API de execução estava usando o `sectionId` como uma `string`, recuperada do `sectionCache`. A operação de "upsert" dos itens falhava silenciosamente devido a essa inconsistência de tipo de dado.
+
+### **Plano de Conclusão da Saga do Importador**
+
 - **Status:** ⏳ **Pendente**
-- **Objetivo:** Obter visibilidade completa sobre os erros e garantir um ambiente de teste limpo para cada execução, eliminando todas as variáveis desconhecidas.
-- **Ações-Chave:**
+- **Ação-Chave:**
   1.  **Instrumentação Final (`execute/route.js`):** Adicionar um `console.error` detalhado dentro do bloco `catch` do loop de criação de itens. Isso forçará o log do servidor a revelar o erro exato do MongoDB.
   2.  **Criar Ferramenta de Depuração (`/api/debug/nuclear-reset/route.js`):** Implementar um novo endpoint de API que deleta todos os `contentTypes`, `sections`, e `items` associados ao workspace atual. Isso nos permitirá começar cada teste a partir de uma base de dados completamente limpa e previsível.
   3.  **Execução Metódica:**
@@ -466,3 +471,64 @@ Com a conclusão desta fase, todas as três estratégias de seção (Singleton, 
   1.  **Fase 1 (Backend - A Ferramenta):** Criar uma função de utilidade no backend (`lib/cloudinary.js` ou similar) capaz de receber um caminho de arquivo local e fazer o upload para o Cloudinary, retornando a URL segura.
   2.  **Fase 2 (Frontend - O Contexto):** Adicionar os dois novos campos de caminho ("Caminho Raiz" e "Pasta de Imagens") à UI do importador em `dashboard/app/dashboard/importer/page.jsx`.
   3.  **Fase 3 (Backend - A Lógica):** Integrar o fluxo completo no `/api/importer/execute/route.js`. A rota receberá os caminhos, e para cada item, irá percorrer seus dados, detectar campos de imagem, localizar os arquivos, chamar a função de upload e substituir os valores.
+
+---
+
+## 10. Missão Final: Deploy Automatizado para Netlify
+
+**Status:** ⏳ **Planejamento**
+
+- **Visão:** Transformar o DashMaster.PRO em uma "fábrica" de sites estáticos. Permitir que cada workspace, com um clique, possa gerar um site estático completo, versioná-lo em um repositório Git dedicado e publicá-lo na Netlify de forma totalmente programática.
+
+- **Proposta de Arquitetura: O Orquestrador de Deploy**
+
+  A solução será um novo módulo no backend que orquestra três processos distintos: a geração dos arquivos estáticos, o versionamento via Git e a publicação via API da Netlify.
+
+- **Plano de Ação:**
+
+  ### **Fase 1: Backend - Geração de Código-Fonte e Workflow de CI/CD**
+
+  - **Status:** ⏳ **Pendente**
+  - **Ação:** Criar um novo endpoint de API, `POST /api/workspaces/[id]/setup-deployment`.
+  - **Responsabilidades:**
+    1.  Receber o ID do workspace e as credenciais necessárias (tokens de API do GitHub e Netlify) de forma segura.
+    2.  **Gerar o Arquivo de Configuração do Ambiente:** Criar um arquivo de ambiente (ex: `.env.production`) para o template Gatsby. Este arquivo conterá a URL da API pública específica deste workspace (ex: `GATSBY_API_ENDPOINT=https://dashmaster.pro/api/public/content/[workspaceId]`), para que o processo de build saiba de onde buscar os dados.
+    3.  **Gerar o Workflow da GitHub Action:** Criar dinamicamente o arquivo `.github/workflows/publish-to-netlify.yml`. Este workflow conterá os passos para:
+        - Fazer o checkout do código.
+        - Instalar as dependências (`npm install`).
+        - Executar o build (`npm run build`), que por sua vez fará a chamada à API pública para buscar os dados e gerar os arquivos estáticos.
+        - Publicar o diretório de build (ex: `public/`) na Netlify.
+    4.  **Importante:** Nesta fase, o servidor **não** executa `npm install` nem `npm run build`. Ele apenas gera os arquivos-fonte do template, a configuração do ambiente e o script de automação para o Git.
+
+  ### **Fase 2: Integração Git - A Ponte para a Automação**
+
+  - **Status:** ⏳ **Pendente**
+  - **Ação:** Integrar uma biblioteca de controle Git no backend (ex: `simple-git`).
+  - **Responsabilidades:**
+    1.  Usar a API do provedor Git (ex: GitHub) para criar um novo repositório privado para o workspace.
+    2.  Clonar o novo repositório em uma área temporária no servidor.
+    3.  Copiar os artefatos gerados na Fase 1 para dentro do repositório clonado.
+    4.  Executar os comandos Git programaticamente: `git add .`, `git commit -m "Deploy inicial do workspace [nome]"`, e `git push`.
+
+  ### **Fase 3: Orquestração Netlify - O Gatilho de Publicação**
+
+  - **Status:** ⏳ **Pendente**
+  - **Ação:** Interagir com a API da Netlify.
+  - **Responsabilidades:**
+    1.  Usar a API da Netlify para criar um novo site.
+    2.  Configurar o novo site para usar o repositório Git criado na Fase 2 como fonte.
+    3.  Definir o comando de build (que pode ser um simples `echo "Site já gerado"`, já que os arquivos estão prontos) e o diretório de publicação.
+    4.  Acionar o primeiro deploy.
+    5.  Armazenar a URL do site publicado (ex: `exemplo-123.netlify.app`) no registro do workspace no DashMaster.PRO.
+
+  ### **Fase 4: Frontend - O Botão Mágico**
+
+  - **Status:** ⏳ **Pendente**
+  - **Ação:** Modificar a UI de gerenciamento de workspaces no dashboard.
+  - **Responsabilidades:**
+    1.  Adicionar uma nova seção ou um botão "Publicar no Netlify".
+    2.  Criar um formulário seguro para que o usuário possa inserir seus tokens de API (GitHub, Netlify). Estes tokens devem ser gerenciados de forma segura (ex: criptografados no banco de dados).
+    3.  Chamar a API de deploy da Fase 1, fornecendo os dados necessários.
+    4.  Exibir o status do processo de deploy (ex: "Gerando arquivos...", "Publicando...") e, ao final, a URL do site publicado.
+
+Este plano modulariza a complexidade, permitindo que cada etapa seja desenvolvida e testada de forma independente, culminando em uma poderosa funcionalidade de publicação automatizada.
