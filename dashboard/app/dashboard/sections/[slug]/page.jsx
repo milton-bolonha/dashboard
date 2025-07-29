@@ -8,8 +8,8 @@ import Modal from "@/components/ui/Modal";
 import Link from "next/link";
 import DynamicItemForm from "@/components/sections/DynamicItemForm";
 import { ModernItemsTablePro } from "@/components/sections/ModernItemsTablePro";
+import ItemCard from "@/components/sections/ItemCard";
 
-// (Os componentes Breadcrumbs e a definição de ícones podem ser mantidos como estão)
 function Breadcrumbs({ section }) {
   if (!section) return null;
   return (
@@ -134,6 +134,7 @@ export default function SectionDetailPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [allContentTypes, setAllContentTypes] = useState([]);
 
   const getWorkspaceHeaders = useCallback(() => {
     if (!currentWorkspace) return {};
@@ -151,21 +152,20 @@ export default function SectionDetailPage() {
       setError(null);
 
       try {
-        // 1. Encontrar a section pelo slug para obter o ID
         const sectionsResponse = await fetch("/api/sections", {
           headers: getWorkspaceHeaders(),
         });
         if (!sectionsResponse.ok)
           throw new Error("Failed to fetch sections list.");
-        const { sections } = await sectionsResponse.json();
+        const { sections, contentTypes } = await sectionsResponse.json();
         const currentSection = sections.find((s) => s.slug === slug);
 
         if (!currentSection) {
           throw new Error(`Section with slug "${slug}" not found.`);
         }
         setSection(currentSection);
+        setAllContentTypes(contentTypes || []);
 
-        // 3. Carregar items e decidir a renderização baseado na ESTRATÉGIA
         const itemsResponse = await fetch(
           `/api/sections/${currentSection._id}/items`,
           {
@@ -180,15 +180,17 @@ export default function SectionDetailPage() {
               `/dashboard/sections/${slug}/items/${sectionItems[0]._id}/edit`
             );
           } else {
-            // Este caso agora é um erro real, pois o backend deveria ter criado o item.
-            // Isso pode indicar uma inconsistência de dados que o usuário pode corrigir.
             setError(
-              "Erro de Consistência: A Seção Singleton não tem um item associado. Por favor, contate o suporte ou tente recriar a seção."
+              "Erro de Consistência: A Seção Singleton não tem um item associado."
             );
           }
         } else {
-          // Para 'collection' e 'grouping', apenas setamos os items para renderização
-          setItems(sectionItems || []);
+          if (
+            currentSection.strategy === "collection" ||
+            currentSection.strategy === "grouping"
+          ) {
+            setItems(sectionItems || []);
+          }
         }
       } catch (err) {
         setError(err.message);
@@ -238,8 +240,6 @@ export default function SectionDetailPage() {
 
     if (!section) return null;
 
-    // O redirecionamento do Singleton é tratado no useEffect.
-    // Se chegarmos aqui com um singleton, é um estado de transição, então mostramos o loading.
     if (section.strategy === "singleton") {
       return (
         <div className="flex items-center justify-center min-h-96">
@@ -264,7 +264,14 @@ export default function SectionDetailPage() {
     }
 
     if (section.strategy === "grouping") {
-      return <GroupingView section={section} items={items} />;
+      return (
+        <GroupingView
+          section={section}
+          items={items}
+          allContentTypes={allContentTypes}
+          headers={getWorkspaceHeaders()}
+        />
+      );
     }
 
     return <p>Estratégia de visualização desconhecida.</p>;
@@ -272,8 +279,6 @@ export default function SectionDetailPage() {
 
   return <div>{renderContent()}</div>;
 }
-
-// --- Sub-componentes para cada view ---
 
 function CollectionView({ section, items, headers }) {
   const [localItems, setLocalItems] = useState(items);
@@ -285,10 +290,8 @@ function CollectionView({ section, items, headers }) {
   const [editingItem, setEditingItem] = useState(null);
 
   useEffect(() => {
-    // A lógica de carregamento do content type será movida para o refreshItems
-    // para garantir que ele seja carregado junto com os itens.
     refreshItems();
-  }, [section._id]); // Dependência inicial
+  }, [section._id]);
 
   const refreshItems = async () => {
     if (!section._id) return;
@@ -300,7 +303,7 @@ function CollectionView({ section, items, headers }) {
       if (response.ok) {
         const data = await response.json();
         setLocalItems(data.items || []);
-        setContentType(data.contentType || null); // <- Pega o CT da resposta
+        setContentType(data.contentType || null);
       }
     } finally {
       setItemsLoading(false);
@@ -409,7 +412,53 @@ function CollectionView({ section, items, headers }) {
   );
 }
 
-function GroupingView({ section, items }) {
+function GroupingView({ section, items, allContentTypes, headers }) {
+  const [localItems, setLocalItems] = useState(items);
+  const [isEditItemModalOpen, setIsEditItemModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
+
+  const refreshItems = async () => {
+    window.location.reload();
+  };
+
+  const getContentTypeForItem = (item) => {
+    return allContentTypes.find((ct) => ct._id === item.contentTypeId);
+  };
+
+  const handleEditItem = (item) => {
+    const contentType = getContentTypeForItem(item);
+    console.log("🔍 DEBUG: Editando Item", {
+      itemTitle: item.title,
+      itemId: item._id,
+      contentTypeName: contentType?.name,
+      contentTypeId: contentType?._id,
+      itemData: item.data,
+    });
+    setEditingItem(item);
+    setIsEditItemModalOpen(true);
+  };
+
+  const handleDeleteItem = async (itemId) => {
+    if (!window.confirm(`Tem certeza que deseja deletar este item?`)) return;
+    await fetch(`/api/sections/${section._id}/items/${itemId}`, {
+      method: "DELETE",
+      headers,
+    });
+    refreshItems();
+  };
+
+  const handleUpdateItem = async (itemData) => {
+    if (!editingItem) return;
+    await fetch(`/api/sections/${section._id}/items/${editingItem._id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...headers },
+      body: JSON.stringify(itemData),
+    });
+    refreshItems();
+    setIsEditItemModalOpen(false);
+    setEditingItem(null);
+  };
+
   return (
     <div>
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg mb-6">
@@ -418,18 +467,46 @@ function GroupingView({ section, items }) {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
             {section.name}
           </h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Gerencie os itens de configuração desta seção. Cada card representa
+            um item com seu próprio Content Type.
+          </p>
         </div>
       </div>
-      <div
-        className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-md shadow"
-        role="alert"
-      >
-        <p className="font-bold">Visualização de Agrupamento</p>
-        <p>
-          Esta visualização ainda será implementada. Ela mostrará cards para
-          cada item de configuração.
-        </p>
-      </div>
+
+      {localItems.length > 0 ? (
+        <div className="space-y-4">
+          {localItems.map((item) => (
+            <ItemCard
+              key={item._id}
+              item={item}
+              section={section}
+              onEdit={handleEditItem}
+              onDelete={handleDeleteItem}
+              contentTypeName={getContentTypeForItem(item)?.name}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg shadow">
+          <p>Nenhum item de configuração encontrado para esta seção.</p>
+        </div>
+      )}
+
+      {isEditItemModalOpen && editingItem && (
+        <Modal
+          onClose={() => setIsEditItemModalOpen(false)}
+          title={`Editar Item: ${editingItem.title}`}
+        >
+          <DynamicItemForm
+            item={editingItem}
+            section={section}
+            contentType={getContentTypeForItem(editingItem)}
+            onSubmit={handleUpdateItem}
+            onCancel={() => setIsEditItemModalOpen(false)}
+          />
+        </Modal>
+      )}
     </div>
   );
 }

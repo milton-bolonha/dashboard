@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { getCurrentAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { ObjectId } from "mongodb";
+import { createSectionAndInitialItem } from "@/lib/section-operations";
+import {
+  generateSlug,
+  isSlugUnique,
+  validateSlug,
+} from "@/lib/slug-validation";
 
 async function getCurrentWorkspace(userId, requestedWorkspaceId = null) {
   try {
@@ -82,7 +88,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
-      message: `Importação concluída! ${results.contentTypesCreated} ContentTypes, ${results.sectionsCreated} Sections e ${results.itemsCreated} Items criados.`,
+      message: `Importação concluída! ${results.contentTypesCreated} ContentTypes, ${results.sectionsCreated} Seções e ${results.itemsCreated} Items criados/atualizados.`,
       results,
     });
   } catch (error) {
@@ -99,105 +105,103 @@ async function executeImportPlan(importPlan, workspaceId, userId) {
     contentTypesCreated: 0,
     sectionsCreated: 0,
     itemsCreated: 0,
+    itemsUpdated: 0,
     errors: [],
   };
-  const contentTypeCache = new Map();
-  const sectionCache = new Map();
+  const workspaceObjectId = new ObjectId(workspaceId);
 
-  for (const filePlan of importPlan.files) {
+  // Loop principal unificado
+  for (const node of importPlan.plan) {
     try {
-      // 1. Garantir que o ContentType existe
-      let contentTypeId = contentTypeCache.get(filePlan.contentType.slug);
-      if (!contentTypeId) {
-        const existingCt = await db.findOne("contentTypes", {
-          workspaceId,
-          slug: filePlan.contentType.slug,
-        });
+      // 1. Get-or-Create ContentType(s) para este nó
+      const contentTypeIds = new Map();
+      for (const file of node.files) {
+        if (contentTypeIds.has(file.contentType.slug)) continue;
 
-        if (existingCt) {
-          contentTypeId = existingCt._id.toString();
-        } else {
-          const newContentType = await db.insertOne("contentTypes", {
-            ...filePlan.contentType,
-            workspaceId,
+        const filter = {
+          workspaceId: workspaceObjectId,
+          slug: file.contentType.slug,
+        };
+
+        let ct = await db.findOne("contentTypes", filter);
+        if (!ct) {
+          const newCt = await db.insertOne("contentTypes", {
+            ...file.contentType,
+            workspaceId: workspaceObjectId,
             userId,
             createdAt: new Date(),
             updatedAt: new Date(),
           });
-          contentTypeId = newContentType.insertedId.toString();
           results.contentTypesCreated++;
+          ct = { _id: newCt.insertedId }; // Apenas o ID é necessário
         }
-        contentTypeCache.set(filePlan.contentType.slug, contentTypeId);
+        contentTypeIds.set(file.contentType.slug, ct._id);
       }
 
-      // 2. Garantir que a Seção existe
-      let sectionId = sectionCache.get(filePlan.section.slug);
-      if (!sectionId) {
-        const existingSection = await db.findOne("sections", {
-          workspaceId,
-          slug: filePlan.section.slug,
-        });
+      // 2. Get-or-Create a Seção
+      let sectionId;
+      const sectionFilter = {
+        workspaceId: workspaceObjectId,
+        slug: node.section.slug,
+      };
 
-        if (existingSection) {
-          sectionId = existingSection._id.toString();
-        } else {
-          const newSection = await db.insertOne("sections", {
-            ...filePlan.section,
-            contentTypeId,
-            workspaceId,
-            userId,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          });
-          sectionId = newSection.insertedId.toString();
-          results.sectionsCreated++;
-        }
-        sectionCache.set(filePlan.section.slug, sectionId);
-      }
-
-      // 3. Criar Itens com base na estratégia
-      for (const itemData of filePlan.itemsData) {
-        // Usar o nome do arquivo como slug para singletons, ou um campo 'slug'/'name'/'title' para coleções
-        const itemSlug =
-          filePlan.importStrategy === "singleton"
-            ? filePlan.fileName
-            : itemData.slug || itemData.name || filePlan.fileName;
-
-        const itemTitle =
-          itemData.name ||
-          itemData.title ||
-          capitalize(itemSlug.replace(/-/g, " "));
-
-        const existingItem = await db.findOne("items", {
-          workspaceId,
-          sectionId,
-          slug: itemSlug,
-        });
-
-        if (existingItem) {
-          continue; // Pular se o item já existe
-        }
-
-        await db.insertOne("items", {
-          title: itemTitle,
-          slug: itemSlug,
-          data: itemData,
-          sectionId,
-          contentTypeId,
-          workspaceId,
+      let section = await db.findOne("sections", sectionFilter);
+      if (!section) {
+        // O contentTypeId para seções singleton/collection é o primeiro que encontramos
+        const mainContentTypeId = contentTypeIds.values().next().value;
+        const newSectionResult = await createSectionAndInitialItem({
+          ...node.section,
+          contentTypeId: mainContentTypeId?.toString(),
+          workspaceId: workspaceObjectId,
           userId,
-          status: "published",
-          createdAt: new Date(),
-          updatedAt: new Date(),
         });
-        results.itemsCreated++;
+        results.sectionsCreated++;
+        sectionId = newSectionResult._id;
+
+        if (newSectionResult.strategy === "singleton") {
+          results.itemsCreated++;
+        }
+      } else {
+        sectionId = section._id;
+      }
+
+      // 3. Upsert Itens (apenas para coleções e agrupamentos)
+      if (node.section.strategy !== "singleton") {
+        for (const file of node.files) {
+          const contentTypeId = contentTypeIds.get(file.contentType.slug);
+          for (const item of file.itemsData) {
+            const itemFilter = {
+              workspaceId: workspaceObjectId,
+              sectionId,
+              slug: item.slug,
+            };
+
+            const existingItem = await db.findOne("items", itemFilter);
+            if (existingItem) {
+              // Atualizar
+              await db.updateOne(itemFilter, {
+                $set: { ...item, updatedAt: new Date() },
+              });
+              results.itemsUpdated++;
+            } else {
+              // Criar
+              await db.insertOne("items", {
+                ...item,
+                sectionId,
+                contentTypeId,
+                workspaceId: workspaceObjectId,
+                userId,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              });
+              results.itemsCreated++;
+            }
+          }
+        }
       }
     } catch (error) {
-      console.error(
-        `Erro ao processar o arquivo ${filePlan.relativePath}:`,
-        error
-      );
-      results.errors.push(`Arquivo ${filePlan.relativePath}: ${error.message}`);
+      console.error(`ERRO AO PROCESSAR NÓ ${node.section.slug}:`, error);
+      results.errors.push(`Seção ${node.section.slug}: ${error.message}`);
     }
   }
 

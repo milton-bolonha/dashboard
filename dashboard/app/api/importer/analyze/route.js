@@ -3,7 +3,7 @@ import path from "path";
 import matter from "gray-matter";
 import { generateSlug, isReservedWord } from "@/lib/slug-validation";
 import pluralize from "pluralize";
-import { ObjectId } from "mongodb";
+import { ObjectId } from "mongodb"; // RESTAURADO
 import { getCurrentAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
 
@@ -76,6 +76,18 @@ function analyzeFile(filePath) {
   return { data, addons };
 }
 
+// Função auxiliar para comparar as estruturas dos addons (campos)
+function compareAddonStructures(addonsA, addonsB) {
+  if (addonsA.length !== addonsB.length) return false;
+  const idsA = new Set(addonsA.map((a) => a.id).sort());
+  const idsB = new Set(addonsB.map((b) => b.id).sort());
+  if (idsA.size !== idsB.size) return false;
+  for (const id of idsA) {
+    if (!idsB.has(id)) return false;
+  }
+  return true;
+}
+
 // Processa um diretório de seção para determinar a estratégia de importação
 async function processSectionDirectory(
   sectionPath,
@@ -86,12 +98,14 @@ async function processSectionDirectory(
   const sectionSlug = generateSlug(sectionName);
 
   const section = {
-    _id: new ObjectId().toString(),
+    // _id: new ObjectId().toString(), // REMOVIDO
     slug: sectionSlug,
     name: sectionName,
     publicAccess: { isPublic: false },
     order: 0,
     icon: "folder-open",
+    // ADICIONADO: A estratégia será definida abaixo
+    strategy: "",
   };
 
   const entries = fs.readdirSync(sectionPath, { withFileTypes: true });
@@ -103,113 +117,124 @@ async function processSectionDirectory(
 
   const firstFilePath = path.join(sectionPath, contentFiles[0].name);
 
-  // Estratégia 1: Singleton (Diretório com um único arquivo de objeto)
-  if (contentFiles.length === 1) {
-    const fileAnalysis = analyzeFile(firstFilePath);
-    // Um JSON que é um array é uma coleção, não um singleton.
-    if (!Array.isArray(fileAnalysis.data)) {
-      const baseName = path.basename(
-        firstFilePath,
-        path.extname(firstFilePath)
-      );
-      let contentTypeSlug = generateSlug(`${section.slug}-ct`);
-      if (isReservedWord(contentTypeSlug))
-        contentTypeSlug = `${contentTypeSlug}-type`;
-
-      const contentType = {
-        _id: new ObjectId().toString(),
-        slug: contentTypeSlug,
-        name: capitalize(baseName),
-        addons: fileAnalysis.addons,
-      };
-
-      importPlan.files.push({
-        section,
-        contentType,
-        itemsData: [{ data: fileAnalysis.data }],
-        relativePath: path.relative(baseImportPath, firstFilePath),
-        strategy: "singleton",
-      });
-      return;
-    }
-  }
-
-  // Estratégia 2: Coleção (Múltiplos arquivos do mesmo tipo OU um único arquivo JSON de array)
-  const firstExtension = path.extname(contentFiles[0].name);
-  const allSameType = contentFiles.every(
-    (file) => path.extname(file.name) === firstExtension
-  );
-  const isJsonArray =
-    contentFiles.length === 1 &&
-    firstExtension === ".json" &&
-    Array.isArray(analyzeFile(firstFilePath).data);
-
-  if (allSameType || isJsonArray) {
+  // Se houver múltiplos arquivos, precisamos decidir entre Coleção e Agrupamento
+  if (contentFiles.length > 1) {
     const firstFileAnalysis = analyzeFile(firstFilePath);
-    let contentTypeSlug = generateSlug(`${section.slug}-ct`);
-    if (isReservedWord(contentTypeSlug))
-      contentTypeSlug = `${contentTypeSlug}-type`;
+    let allSameStructure = true;
 
-    const sharedContentType = {
-      _id: new ObjectId().toString(),
-      slug: contentTypeSlug,
-      name: pluralize.singular(section.name),
-      addons: firstFileAnalysis.addons,
-    };
-
-    let itemsData = [];
-    if (isJsonArray) {
-      itemsData = firstFileAnalysis.data.map((item) => ({ data: item }));
-      importPlan.files.push({
-        section,
-        contentType: sharedContentType,
-        itemsData,
-        relativePath: path.relative(baseImportPath, firstFilePath),
-        strategy: "collection",
-      });
-    } else {
-      for (const file of contentFiles) {
-        const filePath = path.join(sectionPath, file.name);
-        const { data } = analyzeFile(filePath);
-        itemsData.push({ data });
+    for (let i = 1; i < contentFiles.length; i++) {
+      const otherFilePath = path.join(sectionPath, contentFiles[i].name);
+      const otherFileAnalysis = analyzeFile(otherFilePath);
+      if (
+        !compareAddonStructures(
+          firstFileAnalysis.addons,
+          otherFileAnalysis.addons
+        )
+      ) {
+        allSameStructure = false;
+        break;
       }
-      importPlan.files.push({
-        section,
-        contentType: sharedContentType,
-        itemsData,
-        // Para múltiplos arquivos, a "relativePath" é a do diretório.
-        relativePath: path.relative(baseImportPath, sectionPath),
-        strategy: "collection",
-      });
     }
-    return;
+
+    if (allSameStructure) {
+      section.strategy = "collection";
+    } else {
+      section.strategy = "grouping";
+    }
+  } else if (contentFiles.length === 1) {
+    // Se for um único arquivo, pode ser um Singleton ou uma Coleção (se for um array JSON)
+    const fileAnalysis = analyzeFile(firstFilePath);
+    if (Array.isArray(fileAnalysis.data)) {
+      section.strategy = "collection";
+    } else {
+      section.strategy = "singleton";
+    }
+  } else {
+    return; // Nenhum arquivo de conteúdo, não faz nada
   }
 
-  // Estratégia 3: Agrupamento (Múltiplos arquivos de tipos diferentes)
-  if (contentFiles.length > 1 && !allSameType) {
+  // --- LÓGICA DE PROCESSAMENTO UNIFICADA COM BASE NA ESTRATÉGIA DECIDIDA ---
+
+  if (section.strategy === "singleton" || section.strategy === "grouping") {
+    // Processamento para Singleton e Agrupamento (um item por arquivo)
     for (const file of contentFiles) {
       const filePath = path.join(sectionPath, file.name);
       const { data, addons } = analyzeFile(filePath);
       const baseName = path.basename(filePath, path.extname(filePath));
 
-      let contentTypeSlug = generateSlug(`${section.slug}-${baseName}-ct`);
-      if (isReservedWord(contentTypeSlug))
+      let contentTypeSlug = generateSlug(`${sectionSlug}-${baseName}-ct`);
+      if (section.strategy === "singleton") {
+        contentTypeSlug = generateSlug(`${sectionSlug}-ct`);
+      }
+      if (isReservedWord(contentTypeSlug)) {
         contentTypeSlug = `${contentTypeSlug}-type`;
+      }
 
       const contentType = {
-        _id: new ObjectId().toString(),
         slug: contentTypeSlug,
         name: capitalize(baseName),
         addons,
       };
 
+      const itemSlug = generateSlug(baseName);
+      const itemData = {
+        data,
+        title: capitalize(baseName.replace(/-/g, " ")),
+        slug: itemSlug,
+        status: "published",
+      };
+
       importPlan.files.push({
         section,
         contentType,
-        itemsData: [{ data }],
+        itemsData: [itemData],
         relativePath: path.relative(baseImportPath, filePath),
-        strategy: "grouping",
       });
+    }
+  } else if (section.strategy === "collection") {
+    // Processamento para Coleção
+    const firstFileAnalysis = analyzeFile(firstFilePath);
+    let contentTypeSlug = generateSlug(`${sectionSlug}-ct`);
+    if (isReservedWord(contentTypeSlug)) {
+      contentTypeSlug = `${contentTypeSlug}-type`;
+    }
+
+    const sharedContentType = {
+      slug: contentTypeSlug,
+      name: pluralize.singular(sectionName),
+      addons: firstFileAnalysis.addons,
+    };
+
+    if (contentFiles.length === 1 && Array.isArray(firstFileAnalysis.data)) {
+      // Caso de um único arquivo JSON que é um array
+      const itemsData = firstFileAnalysis.data.map((item) => {
+        const title = item.title || item.name || "Untitled";
+        const slug = item.slug || generateSlug(title);
+        return { data: item, title, slug, status: "published" };
+      });
+      importPlan.files.push({
+        section,
+        contentType: sharedContentType,
+        itemsData,
+        relativePath: path.relative(baseImportPath, firstFilePath),
+      });
+    } else {
+      // Caso de múltiplos arquivos com a mesma estrutura
+      for (const file of contentFiles) {
+        const filePath = path.join(sectionPath, file.name);
+        const { data } = analyzeFile(filePath);
+        const baseName = path.basename(filePath, path.extname(filePath));
+        const title = capitalize(baseName.replace(/-/g, " "));
+        const slug = generateSlug(baseName);
+        const itemData = { data, title, slug, status: "published" };
+
+        importPlan.files.push({
+          section,
+          contentType: sharedContentType,
+          itemsData: [itemData],
+          relativePath: path.relative(baseImportPath, filePath),
+        });
+      }
     }
   }
 }
@@ -228,19 +253,26 @@ async function consolidateAndIdentifyNew(importPlan, workspace) {
 
   const consolidatedSections = new Map();
   const consolidatedContentTypes = new Map();
+  const tree = new Map();
 
   for (const file of importPlan.files) {
-    const { section, contentType } = file;
+    const { section, contentType, itemsData, relativePath } = file;
+
+    // Consolidar Seção
     if (!consolidatedSections.has(section.slug)) {
       const isNew = !existingSectionSlugs.has(section.slug);
       let finalSection = { ...section, isNew };
       if (!isNew) {
-        finalSection._id = existingSections
-          .find((s) => s.slug === section.slug)
-          ._id.toString();
+        const existingSection = existingSections.find(
+          (s) => s.slug === section.slug
+        );
+        finalSection._id = existingSection._id.toString();
+        finalSection.strategy = existingSection.strategy;
       }
       consolidatedSections.set(section.slug, finalSection);
     }
+
+    // Consolidar Content Type
     if (!consolidatedContentTypes.has(contentType.slug)) {
       const isNew = !existingContentTypeSlugs.has(contentType.slug);
       let finalContentType = { ...contentType, isNew };
@@ -251,13 +283,30 @@ async function consolidateAndIdentifyNew(importPlan, workspace) {
       }
       consolidatedContentTypes.set(contentType.slug, finalContentType);
     }
+
+    // Construir a árvore hierárquica
+    if (!tree.has(section.slug)) {
+      tree.set(section.slug, {
+        section: consolidatedSections.get(section.slug),
+        files: [],
+      });
+    }
+
+    const treeNode = tree.get(section.slug);
+    treeNode.files.push({
+      relativePath,
+      contentType: consolidatedContentTypes.get(contentType.slug),
+      itemsData,
+    });
   }
 
+  // A resposta final para o frontend não precisa mais de 'files' separados
   return {
     workspaceId: importPlan.workspaceId,
     sections: Array.from(consolidatedSections.values()),
     contentTypes: Array.from(consolidatedContentTypes.values()),
-    files: importPlan.files,
+    // O 'plan' agora é a árvore, mais fácil para o UI processar
+    plan: Array.from(tree.values()),
   };
 }
 

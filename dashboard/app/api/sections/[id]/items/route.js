@@ -33,7 +33,7 @@ export const GET = withAuth(async (request, { params }, { userId }) => {
 
     // Buscar items da section E userId (dupla triangulação)
     const items = await db.find("items", {
-      sectionId: section._id.toString(),
+      sectionId: section._id, // <-- CORREÇÃO: Usar ObjectId, não string
       userId: userId, // ← TRIANGULAÇÃO: só items do usuário
     });
 

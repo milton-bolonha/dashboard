@@ -32,6 +32,13 @@ const ImporterPage = () => {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [showSelection, setShowSelection] = useState(false);
 
+  useEffect(() => {
+    console.log(
+      "--- DEBUG: SELECTED FILES UPDATED ---",
+      JSON.stringify(selectedFiles, null, 2)
+    );
+  }, [selectedFiles]);
+
   if (!isSignedIn) {
     router.push("/sign-in");
     return null;
@@ -141,44 +148,33 @@ const ImporterPage = () => {
       }
 
       const data = await response.json();
-
-      if (!response.ok) {
-        console.error("Erro na análise:", data);
-        throw new Error(data.error || "Falha na análise dos arquivos");
-      }
+      console.log(
+        "--- DEBUG: RAW API RESPONSE (set as importPlan) ---",
+        JSON.stringify(data, null, 2)
+      );
 
       setImportPlan(data); // O plano de importação agora é a própria resposta da API
 
       // Reestruturar os dados para a visualização em árvore
-      const tree = [];
-      const sectionsMap = new Map();
-
-      // Primeiro, criar as "pastas" das seções
-      data.sections.forEach((section) => {
-        const sectionNode = {
-          id: `section-${section.slug}`,
-          name: section.name,
+      const tree = data.plan.map((node) => {
+        return {
+          id: `section-${node.section.slug}`,
+          name: node.section.name,
           type: "section",
-          data: section,
-          children: [],
-        };
-        tree.push(sectionNode);
-        sectionsMap.set(section.slug, sectionNode);
-      });
-
-      // Agora, popular as seções com os arquivos analisados
-      data.files.forEach((fileAnalysis) => {
-        const sectionNode = sectionsMap.get(fileAnalysis.section.slug);
-        if (sectionNode) {
-          sectionNode.children.push({
-            id: `file-${fileAnalysis.relativePath}`,
-            name: path.basename(fileAnalysis.relativePath),
+          data: node.section,
+          children: node.files.map((file) => ({
+            id: `file-${file.relativePath}`,
+            name: path.basename(file.relativePath),
             type: "file",
-            path: fileAnalysis.relativePath,
-            data: fileAnalysis,
-          });
-        }
+            path: file.relativePath,
+            data: file, // Contém contentType e itemsData
+          })),
+        };
       });
+      console.log(
+        "--- DEBUG: DATA FOR UI TREE (set as availableFiles) ---",
+        JSON.stringify(tree, null, 2)
+      );
 
       // Reset e preenchimento dos arquivos selecionados
       setAvailableFiles(tree);
@@ -188,7 +184,12 @@ const ImporterPage = () => {
       setShowExecute(false);
 
       setMessage(
-        `✅ Análise concluída! ${data.sections.length} seções e ${data.files.length} arquivos encontrados. Selecione o que deseja importar:`
+        `✅ Análise concluída! ${
+          data.sections.length
+        } seções e ${data.plan.reduce(
+          (acc, node) => acc + node.files.length,
+          0
+        )} arquivos encontrados. Selecione o que deseja importar:`
       );
     } catch (error) {
       console.error("Erro na análise:", error);
@@ -198,44 +199,38 @@ const ImporterPage = () => {
     }
   };
 
-  // Funções para seleção interativa - CORRIGIDAS
-  const handleSelectFile = (fileId) => {
-    const file = availableFiles.find((f) => f.id === fileId);
-    if (file && !selectedFiles.find((f) => f.id === fileId)) {
-      setSelectedFiles((prev) => [...prev, file]);
-    }
-  };
-
-  const handleDeselectFile = (fileId) => {
-    setSelectedFiles((prev) => prev.filter((f) => f.id !== fileId));
-  };
-
-  const handleSelectAll = () => {
-    setSelectedFiles([...availableFiles]);
-  };
-
-  const handleDeselectAll = () => {
-    setSelectedFiles([]);
-  };
-
   const handleConfirmSelection = () => {
-    // 1. Obter os caminhos relativos dos arquivos selecionados
+    // 1. Obter os caminhos relativos dos arquivos selecionados (que já é uma lista plana)
     const selectedPaths = new Set(selectedFiles.map((file) => file.path));
 
-    // 2. Filtrar a lista de arquivos do plano original
-    const filteredFiles = importPlan.files.filter((file) =>
-      selectedPaths.has(file.relativePath)
-    );
+    // 2. Filtrar a estrutura 'plan' original para manter apenas os arquivos e seções selecionados
+    const filteredPlan = importPlan.plan
+      .map((node) => {
+        const filteredFiles = node.files.filter((file) =>
+          selectedPaths.has(file.relativePath)
+        );
 
-    // 3. A partir dos arquivos filtrados, deduzir as seções e content types necessários
+        if (filteredFiles.length > 0) {
+          return {
+            ...node,
+            files: filteredFiles,
+          };
+        }
+        return null;
+      })
+      .filter(Boolean); // Remover seções que ficaram sem arquivos
+
+    // 3. A partir da nova estrutura 'plan' filtrada, deduzir os IDs de seção e CT
     const requiredSectionSlugs = new Set(
-      filteredFiles.map((file) => file.section.slug)
+      filteredPlan.map((node) => node.section.slug)
     );
     const requiredContentTypeSlugs = new Set(
-      filteredFiles.map((file) => file.contentType.slug)
+      filteredPlan.flatMap((node) =>
+        node.files.map((file) => file.contentType.slug)
+      )
     );
 
-    // 4. Filtrar as seções e content types do plano original
+    // 4. Filtrar as listas originais de seções e CTs
     const filteredSections = importPlan.sections.filter((section) =>
       requiredSectionSlugs.has(section.slug)
     );
@@ -246,7 +241,7 @@ const ImporterPage = () => {
     // 5. Construir o plano final e definitivo
     const finalPlan = {
       ...importPlan,
-      files: filteredFiles,
+      plan: filteredPlan, // A nova árvore filtrada
       sections: filteredSections,
       contentTypes: filteredContentTypes,
     };
@@ -297,6 +292,19 @@ const ImporterPage = () => {
       setImportPlan(null);
       setAvailableFiles([]);
       setSelectedFiles([]);
+
+      // Adicionado para exibir erros que possam ter ocorrido silenciosamente
+      if (
+        data.results &&
+        data.results.errors &&
+        data.results.errors.length > 0
+      ) {
+        const errorMessages = data.results.errors.join("\n");
+        setMessage(
+          (prev) =>
+            `${prev}\n\n⚠️ Ocorreram alguns erros durante a importação:\n${errorMessages}`
+        );
+      }
     } catch (error) {
       console.error("Erro na execução:", error);
       setMessage(`Erro: ${error.message}`);
@@ -305,8 +313,45 @@ const ImporterPage = () => {
     }
   };
 
+  const handleNuclearReset = async () => {
+    if (
+      !confirm(
+        "Tem certeza que deseja deletar TODOS os ContentTypes, Seções e Itens deste workspace? Esta ação não pode ser desfeita."
+      )
+    ) {
+      return;
+    }
+
+    setIsLoading(true);
+    setMessage("Executando reset nuclear...");
+    try {
+      const response = await fetch("/api/debug/nuclear-reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workspaceId: currentWorkspace._id }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Falha no reset nuclear.");
+      }
+
+      setMessage(data.message);
+    } catch (error) {
+      setMessage(`Erro no reset: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const renderPreview = () => {
     if (!importPlan) return null;
+
+    console.log(
+      "--- DEBUG: DATA FOR PREVIEW (importPlan) ---",
+      JSON.stringify(importPlan, null, 2)
+    );
 
     return (
       <Card className="mt-6">
@@ -359,22 +404,22 @@ const ImporterPage = () => {
             Items que serão criados:
           </h4>
           <div className="space-y-2 max-h-60 overflow-y-auto">
-            {importPlan.files.flatMap((file, fileIndex) =>
-              file.itemsData.map((item, itemIndex) => (
-                <div
-                  key={`${fileIndex}-${itemIndex}`}
-                  className="p-3 bg-green-50 rounded-md"
-                >
-                  <div className="font-medium">
-                    {item.data.name ||
-                      item.data.title ||
-                      `Item de ${file.contentType.name}`}
+            {importPlan.plan.flatMap((node, nodeIndex) =>
+              node.files.flatMap((file, fileIndex) =>
+                file.itemsData.map((item, itemIndex) => (
+                  <div
+                    key={`${nodeIndex}-${fileIndex}-${itemIndex}`}
+                    className="p-3 bg-green-50 rounded-md"
+                  >
+                    <div className="font-medium">
+                      {item.title || `Item de ${file.contentType.name}`}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      Seção: {node.section.name}
+                    </div>
                   </div>
-                  <div className="text-sm text-gray-600">
-                    Seção: {file.section.name}
-                  </div>
-                </div>
-              ))
+                ))
+              )
             )}
           </div>
         </div>
@@ -505,17 +550,41 @@ const ImporterPage = () => {
                   </p>
                 </div>
 
-                <Button
-                  onClick={handleAnalyze}
-                  disabled={isLoading || !importPath.trim()}
-                  className="w-full"
-                >
-                  {isLoading ? "Analisando..." : "🔍 Analisar e Selecionar"}
-                </Button>
+                <div className="flex gap-4">
+                  <Button
+                    onClick={handleAnalyze}
+                    disabled={isLoading || !importPath.trim()}
+                    className="w-full"
+                  >
+                    {isLoading ? "Analisando..." : "🔍 Analisar e Selecionar"}
+                  </Button>
+
+                  {/* Botões de Debug apenas em Desenvolvimento */}
+                  {process.env.NODE_ENV === "development" && (
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={handleNuclearReset}
+                        disabled={isLoading}
+                        className="bg-red-600 hover:bg-red-700 text-white px-3"
+                        title="Limpa todos os ContentTypes, Seções e Itens do workspace atual."
+                      >
+                        ☢️
+                      </Button>
+                      <Button
+                        onClick={() => console.clear()}
+                        className="bg-gray-600 hover:bg-gray-700 text-white px-3"
+                        title="Limpar o console do navegador"
+                      >
+                        🧹
+                      </Button>
+                    </div>
+                  )}
+                </div>
 
                 {message && (
                   <div
-                    className={`p-4 rounded-md ${
+                    className={`p-4 rounded-md whitespace-pre-wrap ${
+                      // Adicionado whitespace-pre-wrap
                       message.startsWith("Erro")
                         ? "bg-red-50 text-red-700 border border-red-200"
                         : "bg-green-50 text-green-700 border border-green-200"
@@ -546,8 +615,8 @@ const ImporterPage = () => {
                   >
                     <FileSelectionInterface
                       availableFiles={availableFiles}
-                      selectedFiles={selectedFiles}
-                      onSelectionChange={setSelectedFiles}
+                      selectedFiles={selectedFiles} // Passado como lista plana
+                      onSelectionChange={setSelectedFiles} // Recebe lista plana
                     />
                   </Modal>
                 )}

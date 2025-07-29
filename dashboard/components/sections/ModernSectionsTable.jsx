@@ -87,16 +87,17 @@ export function ModernSectionsTable({
     }
   };
 
-  const getStatusBadge = (isActive) => {
+  const getStatusBadge = (status) => {
+    const isPublished = status === "published";
     return (
       <span
         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-          isActive
+          isPublished
             ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300"
             : "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300"
         }`}
       >
-        {isActive ? "Ativo" : "Inativo"}
+        {isPublished ? "Published" : "Draft"}
       </span>
     );
   };
@@ -125,7 +126,7 @@ export function ModernSectionsTable({
                     {section.contentTypeName}
                   </span>
                 )}
-                {getStatusBadge(section.isActive)}
+                {getStatusBadge(section.status)}
               </div>
               {section.description && (
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -412,7 +413,7 @@ export function ModernSectionsTable({
                   <th
                     scope="col"
                     className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-100 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
-                    onClick={() => requestSort("isActive")}
+                    onClick={() => requestSort("status")}
                   >
                     <div className="flex items-center space-x-1">
                       <span>Status</span>
@@ -467,7 +468,7 @@ export function ModernSectionsTable({
                     </td>
 
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {getStatusBadge(section.isActive)}
+                      {getStatusBadge(section.status)}
                     </td>
 
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

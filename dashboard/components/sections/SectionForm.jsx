@@ -19,7 +19,7 @@ export default function SectionForm({
     icon: section?.icon || "folder",
     order: section?.order || 0,
     contentTypeId: section?.contentTypeId || "", // Começar vazio
-    isActive: section?.isActive !== undefined ? section.isActive : true,
+    status: section?.status || "draft", // ✅ CORREÇÃO: Usar status
     publicAccess: {
       isPublic: section?.publicAccess?.isPublic || false,
     },
@@ -203,31 +203,27 @@ export default function SectionForm({
             <label className="flex items-center">
               <input
                 type="radio"
-                name="isActive"
-                value="true"
-                checked={formData.isActive === true}
-                onChange={() =>
-                  setFormData((prev) => ({ ...prev, isActive: true }))
-                }
+                name="status"
+                value="published"
+                checked={formData.status === "published"}
+                onChange={handleChange}
                 className="mr-2"
               />
               <span className="text-sm text-gray-700 dark:text-gray-300">
-                Active
+                Published
               </span>
             </label>
             <label className="flex items-center">
               <input
                 type="radio"
-                name="isActive"
-                value="false"
-                checked={formData.isActive === false}
-                onChange={() =>
-                  setFormData((prev) => ({ ...prev, isActive: false }))
-                }
+                name="status"
+                value="draft"
+                checked={formData.status === "draft"}
+                onChange={handleChange}
                 className="mr-2"
               />
               <span className="text-sm text-gray-700 dark:text-gray-300">
-                Inactive
+                Draft
               </span>
             </label>
           </div>

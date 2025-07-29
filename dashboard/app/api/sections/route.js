@@ -112,7 +112,11 @@ export async function GET(request) {
     console.log(
       `✅ Encontradas ${sections.length} sections para workspace ${workspace.name}`
     );
-    return NextResponse.json({ sections: sectionsWithContentType });
+    // ✅ CORREÇÃO: Retornar a lista completa de contentTypes junto com as seções
+    return NextResponse.json({
+      sections: sectionsWithContentType,
+      contentTypes: contentTypes,
+    });
   } catch (error) {
     console.error("Erro ao listar sections:", error);
     return NextResponse.json(

@@ -130,7 +130,11 @@ export const ContentTypeSchema = {
       },
     },
     createdBy: { type: "objectId", ref: "users" },
-    isActive: { type: "boolean", default: true },
+    status: {
+      type: "string",
+      enum: ["published", "draft"],
+      default: "draft",
+    },
   },
   indexes: [
     // Índice composto para garantir slug único por usuário
@@ -156,7 +160,11 @@ export const SectionSchema = {
     publicAccess: { type: "object" },
     icon: { type: "string", default: "folder" },
     order: { type: "number", default: 0 },
-    isActive: { type: "boolean", default: true },
+    status: {
+      type: "string",
+      enum: ["published", "draft"],
+      default: "draft",
+    },
   },
 };
 

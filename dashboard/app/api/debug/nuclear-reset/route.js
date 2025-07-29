@@ -1,80 +1,71 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
 import { getCurrentAuth } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { ObjectId } from "mongodb";
 
 export async function POST(request) {
   try {
-    const authData = await getCurrentAuth();
-    const userId = authData.userId || "temp_user_dev";
+    const { userId } = await getCurrentAuth();
+    if (!userId) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    }
 
-    const { confirm } = await request.json();
-
-    if (confirm !== "DELETE_EVERYTHING") {
+    // Por segurança, só permitir em ambiente de desenvolvimento
+    if (process.env.NODE_ENV !== "development") {
       return NextResponse.json(
-        { error: "Confirmação necessária: { confirm: 'DELETE_EVERYTHING' }" },
+        {
+          error: "Esta operação só é permitida em ambiente de desenvolvimento.",
+        },
+        { status: 403 }
+      );
+    }
+
+    const { workspaceId } = await request.json();
+    if (!workspaceId) {
+      return NextResponse.json(
+        { error: "ID do Workspace é obrigatório" },
         { status: 400 }
       );
     }
 
-    console.log(`RESET NUCLEAR para usuário: ${userId}`);
+    const workspaceObjectId = new ObjectId(workspaceId);
 
-    // DELETAR TUDO do usuário
-    const deletions = await Promise.all([
-      db.deleteMany("items", { userId: userId }),
-      db.deleteMany("sections", { userId: userId }),
-      db.deleteMany("contentTypes", { userId: userId }),
-      db.deleteMany("workspaces", { ownerId: userId }),
-    ]);
-
-    // CRIAR WORKSPACE LIMPO
-    const cleanWorkspace = {
-      name: "Workspace Limpo",
-      slug: `clean-${Date.now()}`,
-      ownerId: userId,
-      plan: "free",
-      members: [
-        {
-          userId,
-          role: "owner",
-          permissions: { canExport: true },
-          joinedAt: new Date(),
-        },
-      ],
-      limits: {
-        maxUsers: 1,
-        maxContentTypes: 10,
-        maxSections: 20,
-        maxItems: 1000,
-      },
-      isActive: true,
-    };
-
-    const workspaceResult = await db.insertOne("workspaces", cleanWorkspace);
-    const newWorkspace = await db.findOne("workspaces", {
-      _id: workspaceResult.insertedId,
+    // Validação extra: o usuário pertence ao workspace?
+    const workspace = await db.findOne("workspaces", {
+      _id: workspaceObjectId,
+      "members.userId": userId,
     });
+
+    if (!workspace) {
+      return NextResponse.json(
+        { error: "Workspace não encontrado ou acesso negado." },
+        { status: 404 }
+      );
+    }
+
+    // Executar a limpeza
+    const itemsDeleted = await db.deleteMany("items", {
+      workspaceId: workspaceObjectId,
+    });
+    const sectionsDeleted = await db.deleteMany("sections", {
+      workspaceId: workspaceObjectId,
+    });
+    const contentTypesDeleted = await db.deleteMany("contentTypes", {
+      workspaceId: workspaceObjectId,
+    });
+
+    const message = `Limpeza concluída para o workspace ${workspace.name} (${workspaceId}):\n- ${itemsDeleted.deletedCount} Itens deletados\n- ${sectionsDeleted.deletedCount} Seções deletadas\n- ${contentTypesDeleted.deletedCount} Content Types deletados`;
+
+    console.log(`☢️ NUCLEAR RESET EXECUTADO: ${message}`);
 
     return NextResponse.json({
-      status: "SUCCESS",
-      message: "Reset nuclear concluído",
-      deleted: {
-        items: deletions[0].deletedCount,
-        sections: deletions[1].deletedCount,
-        contentTypes: deletions[2].deletedCount,
-        workspaces: deletions[3].deletedCount,
-      },
-      created: {
-        workspace: {
-          id: newWorkspace._id,
-          name: newWorkspace.name,
-          slug: newWorkspace.slug,
-        },
-      },
+      success: true,
+      message,
     });
   } catch (error) {
-    console.error("❌ O reset nuclear falhou:", error);
+    console.error("Erro no Nuclear Reset:", error);
     return NextResponse.json(
-      { error: "Falha no reset", details: error.message },
+      { error: "Erro interno do servidor", details: error.message },
       { status: 500 }
     );
   }

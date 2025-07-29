@@ -18,20 +18,20 @@ export default function DynamicItemForm({
   const [formData, setFormData] = useState({
     title: item?.title || "",
     status: item?.status || "draft",
-    ...item?.data,
+    data: item?.data || {}, // Corrigido para aninhar os dados
   });
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (item) {
-      const initialData = {
+      setFormData({
         title: item.title || item.name || "",
         status: item.status || "draft",
-        ...item.data,
-      };
-      setFormData(initialData);
+        data: item.data || {}, // Corrigido para aninhar os dados
+      });
     } else if (contentType?.addons) {
-      setFormData({ title: "", status: "draft" });
+      // Para novos itens, inicializa com data vazio
+      setFormData({ title: "", status: "draft", data: {} });
     }
   }, [item, contentType]);
 
@@ -42,8 +42,9 @@ export default function DynamicItemForm({
 
   const handleAddonChange = (e) => {
     const { name, value } = e.target;
+    // Precisamos garantir que estamos atualizando dentro de 'data'
     const newFormData = { ...formData };
-    set(newFormData, name, value);
+    set(newFormData, `data.${name}`, value);
     setFormData(newFormData);
   };
 
@@ -105,16 +106,11 @@ export default function DynamicItemForm({
           </h3>
           <RecursiveFormRenderer
             addons={contentType.addons}
-            formData={formData.data} // Passa apenas a parte 'data' para os campos customizados
-            handleAddonChange={(e) => {
-              const { name, value } = e.target;
-              const newFormData = { ...formData };
-              set(newFormData, `data.${name}`, value); // Adiciona 'data.' ao path
-              setFormData(newFormData);
-            }}
+            formData={formData.data} // Agora isso funciona
+            handleAddonChange={handleAddonChange} // Passando a função corrigida
             workspaceSlug={currentWorkspace?.slug}
             sectionSlug={section?.slug}
-            path={[]} // Começa o path a partir de 'data'
+            path={[]}
           />
         </div>
       )}

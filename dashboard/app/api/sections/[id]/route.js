@@ -145,9 +145,12 @@ export async function PUT(request, { params }) {
     const dataWithAuth = {
       ...data,
       userId,
-      workspaceId: workspace._id.toString(),
+      workspaceId: workspace._id, // <-- CORREÇÃO: Passar o ObjectId, não a string
       slug,
     };
+
+    // Remover o campo obsoleto antes de validar e atualizar
+    delete dataWithAuth.isActive;
 
     console.log(
       "🔍 Dados para validação (EDIT):",
@@ -171,7 +174,7 @@ export async function PUT(request, { params }) {
         _id: new ObjectId(sectionId),
         userId, // Garantir que o usuário só possa editar suas próprias seções
       },
-      dataWithAuth // ✅ Usar dados com userId, workspaceId e slug incluídos
+      dataWithAuth // ✅ CORREÇÃO: Passar o objeto diretamente, pois db.js já adiciona o $set
     );
 
     if (updatedSection.matchedCount === 0) {
