@@ -2,15 +2,16 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
-import Button from "@/components/ui/Button"; // Corrigido: import default
-import Modal from "@/components/ui/Modal"; // Corrigido: import default
-import { Input } from "@/components/ui/Input"; // Corrigido: import nomeado
-import { Checkbox } from "@/components/ui/Checkbox"; // Adicionar import
+import Button from "@/components/ui/Button";
+import Modal from "@/components/ui/Modal";
+import { Input } from "@/components/ui/Input";
+import { Checkbox } from "@/components/ui/Checkbox";
 import {
   CheckIcon,
   XMarkIcon,
   ClockIcon,
   ArrowPathIcon,
+  ArrowUpRightIcon,
 } from "@heroicons/react/24/outline";
 
 const getStatusIcon = (status) => {
@@ -50,16 +51,17 @@ export default function DeployPage() {
   const [deployConfig, setDeployConfig] = useState({
     githubToken: "",
     netlifyToken: "",
-    customRepoUrl: "", // Garantir que comece vazio
+    customRepoUrl: "",
   });
-  const [useCustomRepo, setUseCustomRepo] = useState(false); // Estado para o checkbox
+  const [useCustomRepo, setUseCustomRepo] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [error, setError] = useState(null);
+  const [siteStatus, setSiteStatus] = useState(null);
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
 
   const handleCustomRepoToggle = (checked) => {
     setUseCustomRepo(checked);
     if (!checked) {
-      // Limpar a URL se o usuário desmarcar a opção
       setDeployConfig((prev) => ({ ...prev, customRepoUrl: "" }));
     }
   };
@@ -72,7 +74,7 @@ export default function DeployPage() {
       );
       if (!response.ok) throw new Error("Falha ao buscar deployments.");
       const data = await response.json();
-      setDeployments(data.slice(0, 10)); // Mostrar apenas os 10 mais recentes
+      setDeployments(data.slice(0, 10));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -82,9 +84,58 @@ export default function DeployPage() {
 
   useEffect(() => {
     fetchDeployments();
-    const interval = setInterval(fetchDeployments, 5000); // Polling a cada 5 segundos
+    const interval = setInterval(fetchDeployments, 5000);
     return () => clearInterval(interval);
   }, [fetchDeployments]);
+
+  const checkSiteStatus = async (url) => {
+    setIsCheckingStatus(true);
+    setSiteStatus(null);
+    try {
+      const response = await fetch("/api/deploy/check-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Falha ao verificar status");
+      }
+
+      setSiteStatus({
+        code: data.status,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.error("Falha ao checar status do site:", err);
+      setSiteStatus({
+        code: "ERRO",
+        timestamp: new Date().toISOString(),
+      });
+    } finally {
+      setIsCheckingStatus(false);
+    }
+  };
+
+  useEffect(() => {
+    const lastDeploy = deployments?.[0];
+    const siteUrl = currentWorkspace?.netlifyDeployment?.siteUrl;
+
+    if (lastDeploy?.status === "concluido" && siteUrl) {
+      const now = new Date();
+      const lastCheck = siteStatus?.timestamp
+        ? new Date(siteStatus.timestamp)
+        : null;
+      const secondsSinceLastCheck = lastCheck
+        ? (now - lastCheck) / 1000
+        : Infinity;
+
+      if (secondsSinceLastCheck > 10) {
+        checkSiteStatus(siteUrl);
+      }
+    }
+  }, [deployments, currentWorkspace, siteStatus]);
 
   const handleDeploy = async () => {
     if (!currentWorkspace) return;
@@ -108,10 +159,8 @@ export default function DeployPage() {
       alert(result.message);
       setShowConfigModal(false);
 
-      // Atualizar tanto os deployments quanto o workspace (para capturar netlifyDeployment)
       fetchDeployments();
 
-      // Aguardar um pouco mais e recarregar workspace para capturar netlifyDeployment
       const refreshWorkspace = () => {
         setIsRefreshingWorkspace(true);
         setTimeout(() => {
@@ -131,7 +180,6 @@ export default function DeployPage() {
     }
   };
 
-  // Estados de deploy
   const hasDeployment = currentWorkspace?.netlifyDeployment;
   const lastDeploy = deployments?.[0];
 
@@ -172,7 +220,6 @@ export default function DeployPage() {
         </div>
       </div>
 
-      {/* Informações de Deploy Existente */}
       {hasDeployment ? (
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6 mb-6">
           <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-3">
@@ -196,14 +243,34 @@ export default function DeployPage() {
               <span className="font-medium text-blue-800 dark:text-blue-200">
                 Site Netlify:
               </span>
-              <a
-                href={currentWorkspace.netlifyDeployment.siteUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block text-blue-600 dark:text-blue-400 hover:underline"
-              >
-                {currentWorkspace.netlifyDeployment.siteName}
-              </a>
+              <div className="flex items-center space-x-2">
+                <a
+                  href={currentWorkspace.netlifyDeployment.siteUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  <span>{currentWorkspace.netlifyDeployment.siteName}</span>
+                  <ArrowUpRightIcon className="h-4 w-4 ml-1" />
+                </a>
+                {isCheckingStatus && (
+                  <span className="text-xs text-blue-500 flex items-center">
+                    <ArrowPathIcon className="h-3 w-3 mr-1 animate-spin" />{" "}
+                    Verificando...
+                  </span>
+                )}
+                {siteStatus && !isCheckingStatus && (
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded-full ${
+                      siteStatus.code >= 200 && siteStatus.code < 300
+                        ? "bg-green-100 text-green-800"
+                        : "bg-red-100 text-red-800"
+                    }`}
+                  >
+                    {siteStatus.code}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           <div className="flex items-center justify-between mt-3">
