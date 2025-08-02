@@ -218,6 +218,9 @@ export function Sidebar({
           clipRule="evenodd"
         />
       ),
+      "paper-airplane": (
+        <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+      ),
     };
 
     return icons[iconKey] || icons["folder"];
@@ -299,6 +302,8 @@ export function Sidebar({
               <span className="whitespace-nowrap">Dashboard</span>
             </div>
           </Link>
+
+          {/* LINK DE DEPLOY FOI MOVIDO DAQUI */}
         </div>
 
         {/* Dynamic Sections */}
@@ -701,6 +706,38 @@ export function Sidebar({
                 }`}
               >
                 <span className="whitespace-nowrap">Billing</span>
+              </div>
+            </Link>
+
+            {/* LINK DE DEPLOY MOVIDO PARA CÁ */}
+            <Link
+              href="/dashboard/deploy"
+              className={`group w-full flex items-center px-2 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
+                isActive("/dashboard/deploy", true)
+                  ? "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white shadow-lg border-l-4 border-purple-500"
+                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+              }`}
+              title={isCollapsed && !isHovered ? "Deploy" : ""}
+            >
+              <div
+                className={`flex-shrink-0 w-5 h-5 ${
+                  isActive("/dashboard/deploy", true)
+                    ? "text-purple-500 dark:text-purple-400"
+                    : ""
+                }`}
+              >
+                <svg fill="currentColor" viewBox="0 0 20 20">
+                  {getIconSvg("paper-airplane")}
+                </svg>
+              </div>
+              <div
+                className={`ml-3 overflow-hidden transition-all duration-300 ${
+                  isCollapsed && !isHovered
+                    ? "opacity-0 w-0"
+                    : "opacity-100 w-auto"
+                }`}
+              >
+                <span className="whitespace-nowrap">Deploy</span>
               </div>
             </Link>
           </div>

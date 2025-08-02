@@ -14,7 +14,10 @@ const LibraryPage = ({ pageContext }) => {
       pageTitle={data.name}
       globalData={globalData}
     >
-      <PageBuilderContainer pageBuilderData={data.page_builder} />
+      <PageBuilderContainer
+        pageBuilderData={data.page_builder}
+        testimonialsData={globalData.testimonials}
+      />
       <MarkdownContentContainer frontmatter={data} html={html} />
     </LayoutContainer>
   );

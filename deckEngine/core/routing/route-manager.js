@@ -229,4 +229,4 @@ class RouteManager {
   }
 }
 
-module.exports = RouteManager;
+export default RouteManager;

@@ -6,8 +6,8 @@
  */
 
 // Core Components
-const DeckEngineCore = require("./engine/deck-engine");
-const Utils = require("./engine/utils");
+import DeckEngineCore from "./engine/deck-engine.js";
+import Utils from "./engine/utils.js";
 
 // ============ MAIN EXPORT ============
 class DeckEngineApp {
@@ -121,16 +121,12 @@ class DeckEngineApp {
 // ============ EXPORTS ============
 
 // Export principal
-module.exports = DeckEngineApp;
+export default DeckEngineApp;
 
 // Named exports para flexibilidade
-module.exports.DeckEngine = DeckEngineCore;
-module.exports.DeckEngineApp = DeckEngineApp;
-
-// Utils
-module.exports.Utils = Utils;
+export { DeckEngineCore as DeckEngine, DeckEngineApp, Utils };
 
 // Convenience function
-module.exports.createEngine = (options = {}) => {
+export const createEngine = (options = {}) => {
   return new DeckEngineApp(options);
 };

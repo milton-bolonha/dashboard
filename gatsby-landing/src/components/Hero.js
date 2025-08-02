@@ -1,4 +1,5 @@
 import React from "react";
+import { buildCloudinaryUrl } from "../lib/cloudinary"; // Importar a função
 // import JotformEmbed from "react-jotform-embed";
 
 const Hero = ({
@@ -9,17 +10,12 @@ const Hero = ({
   form = {},
   textPosition, // Prop para controlar o layout
 }) => {
-  // Data setup...
-  const { data: backgroundDataFromProp } = background || {};
-  const backgroundData = backgroundDataFromProp || {};
-  const { data: headingDataFromProp } = heading || {};
-  const headingData = headingDataFromProp || {};
-  const { data: subHeadingDataFromProp } = subHeading || {};
-  const subHeadingData = subHeadingDataFromProp || {};
-  const { data: textSliderDataFromProp } = textSlider || {};
-  const textSliderData = textSliderDataFromProp || {};
-  const { data: formDataFromProp } = form || {};
-  const formData = formDataFromProp || {};
+  // Data setup - Suporte para estruturas antigas e novas
+  const backgroundData = background?.data || background || {};
+  const headingData = heading?.data || heading || {};
+  const subHeadingData = subHeading?.data || subHeading || {};
+  const textSliderData = textSlider?.data || textSlider || {};
+  const formData = form?.data || form || {};
 
   if (!headingData?.text && !subHeadingData?.text && !textSliderData?.heading) {
     return null;
@@ -27,9 +23,20 @@ const Hero = ({
 
   const HeadingTag = `h${headingData?.level || 1}`;
 
+  // Define o public ID da imagem, lidando com ambas as estruturas de dados.
+  const imagePublicId =
+    typeof backgroundData === "string" ? backgroundData : backgroundData?.image;
+
+  // Construir a URL da imagem de fundo otimizada
+  const backgroundImageUrl = buildCloudinaryUrl(imagePublicId, {
+    width: 1920,
+    quality: "auto",
+    format: "auto",
+  });
+
   // Style logic...
   const hasSolidBg = !!backgroundData?.color;
-  const hasImageBg = !!backgroundData?.image;
+  const hasImageBg = !!backgroundImageUrl; // Usar a URL construída
   const backgroundClass =
     backgroundData.color ||
     "bg-gradient-to-br from-blue-700 via-purple-700 to-blue-900";
@@ -126,8 +133,8 @@ const Hero = ({
     <section
       className={`relative flex min-h-[80vh] items-center justify-center py-10 ${backgroundClass}`}
       style={{
-        backgroundImage: backgroundData?.image
-          ? `url(${backgroundData.image})`
+        backgroundImage: backgroundImageUrl
+          ? `url(${backgroundImageUrl})`
           : undefined,
         backgroundSize: "cover",
         backgroundPosition: "center",

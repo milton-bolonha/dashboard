@@ -1,28 +1,28 @@
 ---
-title: "Our Caulking Services"
+title: "Our Bubble Wrap Services"
 image: "/images/hero-bg.webp"
 page_builder:
   - type: "section"
-    title: "Trusted Caulking for All Window Types in Toronto"
-    text: "At Windows Caulking Toronto, we specialize in professional window sealing for all types of windows — from standard frames to complex architectural designs. Every window needs caulking, but certain window types present unique sealing challenges that require expertise."
+    title: "Reliable Bubble Wrap Solutions for All Window Types in Toronto"
+    text: "At Toronto Bubble Wrap Experts, we specialize in professional bubble wrap insulation and sealing for all kinds of windows — from simple frames to intricate architectural designs. Every window benefits from bubble wrap protection, but some types require specialized techniques to ensure lasting results."
     textPosition: "left"
   - type: "boxes"
-    title: "Specialized Window Caulking"
+    title: "Specialized Bubble Wrap Applications"
     boxes:
-      - title: "Awning Window Caulking"
-        text: "Awning windows open outward, creating stress on the caulking line. We use durable, weather-resistant materials backed by a 10-year warranty to ensure long-term performance."
-      - title: "Bay Window Caulking"
-        text: "Bay windows are exposed to direct weather, making precision sealing essential. Our team is experienced with angular window systems and ensures a weatherproof, airtight seal."
-      - title: "Slider Window Caulking"
-        text: "Sliding windows and patio doors experience high wear. We offer recaulking services to restore performance and energy efficiency for these frequently used fixtures."
+      - title: "Awning Window Insulation"
+        text: "Awning windows open outward, which puts stress on the sealing material. We use durable, weather-resistant bubble wrap solutions backed by a 10-year warranty to ensure long-term performance."
+      - title: "Bay Window Protection"
+        text: "Bay windows face direct exposure to the elements, so precise bubble wrap application is critical. Our team expertly handles angular window designs to create airtight, weatherproof seals."
+      - title: "Sliding Window & Door Insulation"
+        text: "Sliding windows and patio doors endure frequent use and wear. We offer reapplication services to restore insulation efficiency and extend the life of these features."
   - type: "section"
-    title: "More Than Just Windows: Interior & Exterior Caulking"
-    text: "We provide expert sealing for bathrooms, kitchens, driveways, and general exterior joints. Proper caulking in wet areas can prevent thousands of dollars in damage and is an essential part of home maintenance."
+    title: "Beyond Windows: Interior and Exterior Bubble Wrap Services"
+    text: "We also provide professional bubble wrap insulation for bathrooms, kitchens, driveways, and exterior joints. Proper bubble wrap application in moisture-prone areas prevents costly damage and is essential for property maintenance."
     textPosition: "right"
 ---
 
-## Serving All of Toronto and the GTA
+## Serving All of Toronto and the Greater Toronto Area
 
-If you’re looking for professional caulking or recaulking services in Toronto, contact our team today. Whether it’s for a window, bathroom, or concrete surface, we deliver sealing solutions that last.
+If you need expert bubble wrap insulation or reapplication services in Toronto, get in touch with us today. Whether it’s for windows, bathrooms, or concrete surfaces, we deliver reliable sealing solutions that last.
 
-Call us, send us an email, or use our contact form to request a free estimate.
+Call us, email, or use our contact form to request your free estimate.

@@ -1,35 +1,19 @@
 import React from "react";
 import Hero from "../components/Hero";
 
+/**
+ * HeroContainer agora atua como um simples "pass-through" de props,
+ * passando todos os dados recebidos diretamente para o componente Hero.
+ * Isso simplifica a lógica e se adapta à estrutura de dados da API.
+ */
 const HeroContainer = (props) => {
-  // Fallback para props vazias
+  // Se não houver props, não renderiza nada.
   if (!props || Object.keys(props).length === 0) {
     return null;
   }
 
-  // Extrai e ordena os elementos baseado na prop order
-  const elements = Object.entries(props)
-    .filter(([key, value]) => value && typeof value === "object")
-    .map(([key, value]) => ({
-      key,
-      ...value,
-      order: value.order || 0,
-    }))
-    .sort((a, b) => a.order - b.order);
-
-  // Se não há elementos válidos, não renderiza
-  if (elements.length === 0) return null;
-
-  // Reorganiza as props na ordem correta
-  const orderedProps = {};
-  elements.forEach((element) => {
-    orderedProps[element.key] = {
-      data: element.data,
-      order: element.order,
-    };
-  });
-
-  return <Hero {...orderedProps} />;
+  // Passa todas as props diretamente para o componente Hero.
+  return <Hero {...props} />;
 };
 
 export default HeroContainer;

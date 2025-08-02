@@ -1,26 +1,37 @@
 import React from "react";
+import { buildCloudinaryUrl } from "../lib/cloudinary";
 import LayoutContainer from "../containers/LayoutContainer";
 import PageBuilderContainer from "../containers/PageBuilderContainer";
 import MarkdownContentContainer from "../containers/MarkdownContentContainer";
 import Seo from "../components/Seo";
 
 const CustomPage = ({ pageContext }) => {
-  const { pageData } = pageContext;
-  const { data, html } = pageData; // 'data' contém o frontmatter, 'html' o conteúdo markdown
+  const { pageData, globalData } = pageContext;
+  // pageData *é* o objeto de dados, que inclui o `html` do markdown
+
+  const backgroundImageUrl = buildCloudinaryUrl(pageData?.image, {
+    width: 1920,
+    quality: "auto",
+    format: "auto",
+  });
 
   return (
     <LayoutContainer
-      bgImage={data.image}
-      pageTitle={data.name}
-      // Dados globais agora vêm do pageContext e são passados para o Layout
-      globalData={pageContext.globalData}
+      bgImage={backgroundImageUrl}
+      pageTitle={pageData?.title}
+      globalData={globalData}
     >
-      <PageBuilderContainer pageBuilderData={data.page_builder} />
+      <PageBuilderContainer pageBuilderData={pageData?.page_builder} />
 
       <div className="container mx-auto px-4 py-8">
-        <MarkdownContentContainer frontmatter={data} html={html} />
-        {data.address && <p className="text-lg mb-2">{data.address}</p>}
-        {data.phone && <p className="text-lg">{data.phone}</p>}
+        <MarkdownContentContainer
+          frontmatter={pageData}
+          html={pageData?.html}
+        />
+        {pageData?.address && (
+          <p className="text-lg mb-2">{pageData.address}</p>
+        )}
+        {pageData?.phone && <p className="text-lg">{pageData.phone}</p>}
       </div>
     </LayoutContainer>
   );

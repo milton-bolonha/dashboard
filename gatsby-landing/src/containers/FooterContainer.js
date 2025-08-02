@@ -8,7 +8,7 @@ const FooterContainer = ({ footer, cities, services }) => {
 
   const citiesData = {
     heading: "Service Areas",
-    cities: cities ? Object.values(cities).map((city) => city.name) : [],
+    cities: cities ? cities.map((city) => city.name) : [],
   };
 
   const servicesData = services || {};

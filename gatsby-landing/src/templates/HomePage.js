@@ -10,35 +10,21 @@ import TestimonialsContainer from "../containers/TestimonialsContainer";
 const HomePage = ({ pageContext }) => {
   const { pageData, globalData } = pageContext;
 
-  // Encontra a seção landing-page que contém todos os dados da página inicial
-  const landingPageSection = pageData.find(
-    (s) =>
-      s.slug === "landing-page" ||
-      s.title === "Landing-page" ||
-      s.slug === "" ||
-      (s.items &&
-        s.items.some((item) =>
-          ["hero", "boxes", "section-1"].includes(item.slug)
-        ))
-  );
-
-  // Encontra a seção de testimonials
-  const testimonialsSection = pageData.find((s) => s.slug === "testimonials");
-
-  if (!landingPageSection || !landingPageSection.items) {
-    console.warn("Seção landing-page não encontrada na API");
+  // pageData agora é a lista de itens da seção "landing-page"
+  if (!pageData || pageData.length === 0) {
+    console.warn("Nenhum item encontrado para a landing-page");
     return (
       <LayoutContainer globalData={globalData}>
         <div className="container mx-auto px-4 py-8">
-          <h1>Dados da página inicial não encontrados</h1>
+          <h1>Dados da página inicial não encontrados.</h1>
         </div>
       </LayoutContainer>
     );
   }
 
-  // Extrai os dados de cada item da landing page
+  // Helper para encontrar os dados de um item pelo seu slug
   const getItemData = (slug) => {
-    const item = landingPageSection.items.find((item) => item.slug === slug);
+    const item = pageData.find((item) => item.slug === slug);
     return item ? item.data : null;
   };
 
@@ -46,16 +32,20 @@ const HomePage = ({ pageContext }) => {
   const boxesData = getItemData("boxes");
   const section1Data = getItemData("section-1");
   const section2Data = getItemData("section-2");
-  const testimonialsData = testimonialsSection?.items[0]?.data; // Busca na seção de testimonials
+  const section3Data = getItemData("section-3");
+
+  // Testimonials agora vêm dos dados globais
+  const testimonialsData = globalData.testimonials;
 
   return (
     <LayoutContainer globalData={globalData}>
       {heroData && <HeroContainer {...heroData} />}
-      {boxesData && <BoxesContainer {...boxesData} />}
-      {testimonialsData && <TestimonialsContainer {...testimonialsData} />}
       {section1Data && <SectionContainer {...section1Data} />}
-      <ServicesContainer />
+      {boxesData && <BoxesContainer {...boxesData} />}
       {section2Data && <SectionContainer {...section2Data} />}
+      {testimonialsData && <TestimonialsContainer {...testimonialsData} />}
+      <ServicesContainer servicesData={globalData.services} />
+      {section3Data && <SectionContainer {...section3Data} />}
     </LayoutContainer>
   );
 };
@@ -68,10 +58,13 @@ export const Head = ({ location, pageContext }) => {
     <Seo
       site={globalData.site}
       title="Home"
-      description="Your trusted partner for window caulking in Toronto. We serve residential and commercial clients with top-quality materials and professional service. Contact us for a free estimate."
+      description={
+        globalData.site?.description ||
+        "Your trusted partner for window services in Toronto."
+      }
       path={location.pathname}
-      navigationItems={globalData.header.menu.data.items}
-      services={globalData.services.services}
+      navigationItems={globalData.header?.menu.data.items}
+      services={globalData.services?.services}
     />
   );
 };

@@ -1,12 +1,14 @@
 import React from "react";
 import Testimonials from "../components/Testimonials";
-import testimonialsData from "../../content/testimonials.json";
 
 const TestimonialsBuilderContainer = (props) => {
-  const { title } = props;
-  const { testimonials } = testimonialsData;
+  // Este componente agora espera receber tanto o `title` quanto os `testimonials` via props.
+  const { title, testimonials } = props;
 
-  // Use the title from page_builder, but the testimonials from the JSON
+  if (!testimonials) {
+    return null; // Não renderiza nada se não houver testimonials
+  }
+
   const finalData = {
     title: title,
     testimonials: testimonials,

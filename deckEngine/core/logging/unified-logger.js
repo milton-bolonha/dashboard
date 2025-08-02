@@ -2,7 +2,12 @@
  * 📝 Sistema de Logging Unificado - DeckEngine V2
  */
 
-const path = require("path");
+import path from "path";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 class UnifiedLogger {
   constructor(outputs = ["console"]) {
@@ -142,15 +147,15 @@ class FileLogger {
     this.ensureLogDir();
   }
 
-  ensureLogDir() {
-    const fs = require("fs");
+  async ensureLogDir() {
+    const fs = await import("fs");
     if (!fs.existsSync(this.logDir)) {
       fs.mkdirSync(this.logDir, { recursive: true });
     }
   }
 
-  write(logEntry) {
-    const fs = require("fs");
+  async write(logEntry) {
+    const fs = await import("fs");
     const logFile = path.join(
       this.logDir,
       `deck-engine-${new Date().toISOString().split("T")[0]}.log`
@@ -170,15 +175,15 @@ class MarkdownLogger {
     this.ensureLogDir();
   }
 
-  ensureLogDir() {
-    const fs = require("fs");
+  async ensureLogDir() {
+    const fs = await import("fs");
     if (!fs.existsSync(this.logDir)) {
       fs.mkdirSync(this.logDir, { recursive: true });
     }
   }
 
-  write(logEntry) {
-    const fs = require("fs");
+  async write(logEntry) {
+    const fs = await import("fs");
     const logFile = path.join(
       this.logDir,
       `deck-engine-${new Date().toISOString().split("T")[0]}.md`
@@ -215,4 +220,4 @@ class MarkdownLogger {
   }
 }
 
-module.exports = UnifiedLogger;
+export default UnifiedLogger;

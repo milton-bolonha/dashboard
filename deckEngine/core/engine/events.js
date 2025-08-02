@@ -57,4 +57,4 @@ class EventSystem {
   }
 }
 
-module.exports = EventSystem;
+export default EventSystem;

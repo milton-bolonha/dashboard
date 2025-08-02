@@ -8,23 +8,23 @@
   },
   "heading": {
     "data": {
-      "text": "Professional Window Caulking Company In Toronto",
+      "text": "Expert Bubble Wrap Solutions for Windows and More",
       "level": 1
     },
     "order": 2
   },
   "subHeading": {
     "data": {
-      "text": "Proper Window Caulking Stops Water Condensation, Leaking Windows and Air From Blowing In"
+      "text": "Effective Bubble Wrap Insulation to Prevent Drafts, Water Leaks, and Temperature Loss"
     },
     "order": 3
   },
   "textSlider": {
     "data": {
-      "heading": "Affordable, High Quality Caulking",
-      "content": "<p>Residential Homes <strong>Window Caulking</strong> Experts, Servicing The Greater Toronto Area</p>",
+      "heading": "Affordable, Reliable Bubble Wrap Services",
+      "content": "<p>Protecting Homes and Businesses with Quality Bubble Wrap Insulation and Sealing</p>",
       "button": {
-        "label": "Read More",
+        "label": "Learn More",
         "link": "/about-us"
       }
     },
@@ -33,9 +33,9 @@
   "form": {
     "data": {
       "id": "quote-form",
-      "heading": "Request a Quote",
-      "subheading": "Receive a personalized proposal within 24 hours",
-      "postFormContent": "We will be in touch soon!",
+      "heading": "Get Your Free Quote",
+      "subheading": "Receive a custom proposal within 24 hours",
+      "postFormContent": "Thank you! We'll contact you shortly.",
       "formType": "jotform",
       "formData": {
         "formId": "123456789",

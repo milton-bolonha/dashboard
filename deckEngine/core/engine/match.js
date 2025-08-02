@@ -2,7 +2,7 @@
  * ⚔️ Sistema de Partidas (Matches) do DeckEngine
  */
 
-const Utils = require("./utils");
+import Utils from "./utils.js";
 
 class MatchSystem {
   constructor(eventSystem, metricsSystem, MATCH_STATES, CARD_STATES) {
@@ -392,4 +392,4 @@ class MatchSystem {
   }
 }
 
-module.exports = MatchSystem;
+export default MatchSystem;

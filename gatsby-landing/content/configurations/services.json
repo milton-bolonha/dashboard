@@ -1,87 +1,95 @@
 {
-  "heading": "Services Offered",
+  "heading": "Our Bubble-Infused Services",
   "services": [
     {
-      "name": "Awning Windows Caulking",
-      "slug": "awning-windows-caulking",
-      "description": "We expertly seal around awning windows to stop unwanted air infiltration and boost your home's insulation."
+      "name": "Awning Bubble Window Installation",
+      "slug": "awning-bubble-window-installation",
+      "description": "We custom-fit and seal awning-style bubble windows to keep your home airy, insulated, and uniquely stylish."
     },
     {
-      "name": "Bay Window Caulking",
-      "slug": "bay-window-caulking",
-      "description": "Our professional bay window caulking prevents moisture, drafts, and structural damage by sealing every edge thoroughly."
+      "name": "Bay Bubble Window Replacement",
+      "slug": "bay-bubble-window-replacement",
+      "description": "Give your bay windows a bubbly makeover with our precision installation and sealing techniques that block drafts and raise eyebrows (in a good way)."
     },
     {
-      "name": "Casement Window Caulking",
-      "slug": "casement-window-caulking",
-      "description": "Sealing casement windows reduces energy loss and keeps indoor temperatures consistent year-round."
+      "name": "Casement Bubble Window Sealing",
+      "slug": "casement-bubble-window-sealing",
+      "description": "Keep your bubble casement windows airtight and visually flawless — no heat loss, no moisture, just pop-proof comfort."
     },
     {
-      "name": "Horizontal & Vertical Slider Caulking",
-      "slug": "horizontal-vertical-slider-caulking",
-      "description": "Proper caulking for slider windows blocks outdoor air, ensuring smooth operation and improved energy efficiency."
+      "name": "Sliding Bubble Panels",
+      "slug": "sliding-bubble-panels",
+      "description": "We install horizontal and vertical slider windows with bubble wrap inserts that glide smoothly and insulate playfully."
     },
     {
-      "name": "Patio Doors Caulking",
-      "slug": "patio-doors-caulking",
-      "description": "We seal around patio doors to eliminate drafts, enhance comfort, and prevent heat or cooling loss."
+      "name": "Bubble Patio Panels",
+      "slug": "bubble-patio-panels",
+      "description": "Turn your patio entrance into a cozy, lightweight barrier against the elements using transparent bubble-style insulation."
     },
     {
-      "name": "Specialty Windows Caulking",
-      "slug": "specialty-windows-caulking",
-      "description": "No matter the shape or size, we provide precision caulking for specialty windows to ensure full protection and a perfect finish."
+      "name": "Custom Bubble Window Shapes",
+      "slug": "custom-bubble-window-shapes",
+      "description": "Triangles? Circles? Abstract forms? We craft and seal specialty bubble windows with perfect symmetry and sealing."
     },
     {
-      "name": "Exterior Openings",
-      "slug": "exterior-openings",
-      "description": ""
+      "name": "Exterior Bubble Wrap Barriers",
+      "slug": "exterior-bubble-wrap-barriers",
+      "description": "Protect your outer walls and openings with thermal bubble-wrap layers — functional, futuristic, and fabulous."
     },
     {
-      "name": "Hardie Board Siding",
-      "slug": "hardie-board-siding",
-      "description": ""
+      "name": "Bubble Siding Panels",
+      "slug": "bubble-siding-panels",
+      "description": "Forget hard boards — embrace siding made from high-density bubble wrap panels, resilient and eco-friendly."
     },
     {
-      "name": "Granite, Marble, Precast & Tile",
-      "slug": "granite-marble-precast-tile",
-      "description": ""
+      "name": "Bubble Accents for Stone & Tile",
+      "slug": "bubble-accents-stone-tile",
+      "description": "Enhance marble, granite or tile with decorative or insulative bubble film edges. It’s a vibe."
     },
     {
-      "name": "Expansion & Control Joints",
-      "slug": "expansion-control-joints",
-      "description": ""
+      "name": "Flexible Joint Sealing",
+      "slug": "flexible-joint-sealing",
+      "description": "Expansion and control joints deserve love too. We bubble-seal those cracks with precision and flair."
     },
     {
-      "name": "Solariums & Sun Rooms",
-      "slug": "solariums-sun-rooms",
-      "description": ""
+      "name": "Bubble-Wrapped Sunrooms",
+      "slug": "bubble-wrapped-sunrooms",
+      "description": "Turn solariums and sunrooms into glowing sanctuaries of warmth using smart-layered bubble window panels."
     },
     {
-      "name": "Bathrooms and Showers",
-      "slug": "bathrooms-showers",
-      "description": ""
-    },
-    { "name": "Mortar Repair", "slug": "mortar-repair", "description": "" },
-    { "name": "Stucco", "slug": "stucco", "description": "" },
-    {
-      "name": "Walkways & Patios",
-      "slug": "walkways-patios",
-      "description": ""
+      "name": "Moisture Control for Bathrooms",
+      "slug": "bubble-bathroom-moisture-control",
+      "description": "Line your bathrooms with light bubble wrap protection that resists mold, moisture and Monday mornings."
     },
     {
-      "name": "Firestop Caulking Services",
-      "slug": "firestop-caulking-services",
-      "description": "Certified firestop caulking to ensure your building meets all safety codes."
+      "name": "Cracked Mortar Patching",
+      "slug": "bubble-mortar-repair",
+      "description": "Where stone meets foam — patch worn mortar joints with bubble-edge reinforcement for added charm."
     },
     {
-      "name": "Pools (Coping & Liner)",
-      "slug": "pools-coping-liner",
-      "description": ""
+      "name": "Bubble Stucco Integration",
+      "slug": "bubble-stucco",
+      "description": "Give your stucco surface a soft-touch thermal boost with integrated bubble lining under the coat."
     },
     {
-      "name": "Glass Curtain Wall Systems",
-      "slug": "glass-curtain-wall-systems",
-      "description": ""
+      "name": "Walkway Bubble Edging",
+      "slug": "walkways-bubble-edging",
+      "description": "Subtle bubble protection on patio edges and walkways — keeping heat in and cold feet out."
+    },
+    {
+      "name": "Bubble Firestop Membranes",
+      "slug": "bubble-firestop-systems",
+      "description": "Fire-rated bubble layers? Yes, it’s real. We install certified firestop solutions using our bubble-safe membranes."
+    },
+    {
+      "name": "Poolside Bubble Panels",
+      "slug": "bubble-pools-coping-liner",
+      "description": "Around the pool, bubble wrap gets bold — from coping to liner insulation, stylish and splash-resistant."
+    },
+    {
+      "name": "Curtain Walls, Reinvented",
+      "slug": "bubble-curtain-wall-systems",
+      "description": "Replace rigid glass façades with creative bubble curtain walls for a lightweight, breathable, energy-smart structure."
     }
   ]
 }

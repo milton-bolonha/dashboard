@@ -5,31 +5,27 @@ image: "/images/contact-us.jpg"
 page_builder:
   - type: "section"
     title: "Get in Touch"
-    text: "Whether you have a question about our services, pricing, or anything else, our team is ready to answer all your questions. Fill out the form below and we'll get back to you as soon as possible."
+    text: "If you have any questions about our bubble wrap services, pricing, or anything else, our team is ready to assist you. Fill out the form below and we'll get back to you as soon as possible."
     textPosition: "center"
 
   - type: "section"
-    title: "Get a Free Quote"
-    text: "Please provide as much detail as possible so we can give you an accurate estimate. Our team will get back to you within 24 hours."
+    title: "Request a Free Quote"
+    text: "Please provide as many details as possible so we can offer you an accurate estimate. Our team will respond within 24 hours."
     imageUrl: "/images/contact-us.jpg"
     textPosition: "left"
     sectionId: "online-quote"
-    form:
-      formType: "jotform"
-      formData:
-        formId: "210911653803450"
 
   - type: "map"
     map:
-      src: "https://maps.google.com/maps?q=8171+Yonge+St+%23231,+Thornhill,+ON+L3T+2C6,+Canada&t=&z=13&ie=UTF8&iwloc=&output=embed"
-      title: "Our Office Location"
+      src: "https://maps.google.com/maps?q=123+Example+St,+City,+State,+Country&t=&z=13&ie=UTF8&iwloc=&output=embed"
+      title: "Our Location"
 ---
 
 ### Our Contact Information
 
-- **Address:** 8171 Yonge St #321, Thornhill, ON L3T 2C6, Canada
-- **Phone:** (647) 695-6966
-- **Email:** info@windowcaulkingtoronto.ca
-- **Hours:** Mon - Sat : 9am to 7pm
+- **Address:** 123 Example St, Neighborhood, City, State, Country
+- **Phone:** (123) 456-7890
+- **Email:** contact@bubblewrapwindows.com
+- **Hours:** Monday to Saturday: 9 AM to 7 PM
 
-We are available from Monday to Friday, 9 AM to 5 PM.
+We are available Monday through Friday from 9 AM to 6 PM.

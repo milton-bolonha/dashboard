@@ -368,4 +368,4 @@ class PlatformAdapter {
   }
 }
 
-module.exports = PlatformAdapter;
+export default PlatformAdapter;

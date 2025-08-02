@@ -45,5 +45,12 @@ module.exports = {
       },
     },
     `gatsby-plugin-netlify`,
+    {
+      resolve: "gatsby-source-filesystem",
+      options: {
+        name: "city-templates",
+        path: `${__dirname}/content/cities`,
+      },
+    },
   ],
 };

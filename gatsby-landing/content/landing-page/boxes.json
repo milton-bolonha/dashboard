@@ -2,26 +2,26 @@
   "boxes": [
     {
       "order": 1,
-      "title": "Buildings of all sizes",
-      "text": "We have experience in handling high rise and low rise full building caulking.",
+      "title": "Protection for All Building Types",
+      "text": "From skyscrapers to smaller structures, we provide expert bubble wrap insulation and sealing solutions.",
       "icon": "building"
     },
     {
       "order": 2,
-      "title": "Commercial/Industrial",
-      "text": "Owners of industrial and commercial properties can count on us for high quality caulking.",
+      "title": "Industrial and Commercial Spaces",
+      "text": "We offer durable bubble wrap applications to safeguard and insulate factories, warehouses, and offices.",
       "icon": "industrial"
     },
     {
       "order": 3,
-      "title": "Homes",
-      "text": "We can make your home both more comfortable and more energy efficient.",
+      "title": "Residential Comfort",
+      "text": "Improve your home's energy efficiency and comfort with our customized bubble wrap services.",
       "icon": "home"
     },
     {
       "order": 4,
-      "title": "Landscaping",
-      "text": "We are fully prepared to handle outdoor caulking, such as driveway projects, as well as indoor.",
+      "title": "Outdoor and Landscape Protection",
+      "text": "Our bubble wrap solutions also extend to outdoor areas, providing protection for gardens, patios, and walkways.",
       "icon": "landscaping"
     }
   ]

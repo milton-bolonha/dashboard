@@ -166,4 +166,4 @@ class ArenaSystem {
   }
 }
 
-module.exports = ArenaSystem;
+export default ArenaSystem;

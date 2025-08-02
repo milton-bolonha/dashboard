@@ -1,10 +1,37 @@
-# 📘 Documentação Técnica — DashMaster.PRO (MVP)
+# 🚀 DashMaster.PRO - Plataforma de Gestão de Conteúdo e Deploy Automatizado
 
-## 🧱 Introdução Geral
+## 🧱 Introdução
 
 O **DashMaster.PRO** é uma plataforma modular de gestão de conteúdo e experiências digitais. Como "um CMS dos CMSs", ele permite a construção de Workspaces altamente personalizados com Seções, Tipos de Conteúdo, Lógicas de Acesso, Addons e Serviços.
 
-## 🌌 Visão Geral da Arquitetura
+**🆕 NOVA FUNCIONALIDADE:** Sistema de Deploy Automatizado com GitHub Actions que transforma qualquer workspace em um site estático publicado na Netlify com um clique!
+
+## ✨ Principais Funcionalidades
+
+### 🏗️ CMS Headless Avançado
+
+- **Workspaces isolados** com multi-tenancy
+- **Sections e Content Types** personalizáveis
+- **API pública robusta** com autenticação por API Keys
+- **Importador inteligente** com suporte a múltiplas estratégias (Singleton, Coleção, Agrupamento)
+- **Sistema de permissões** granular com super admin
+
+### 🚀 Deploy Automatizado (NOVO!)
+
+- **Deploy com um clique** para Netlify
+- **GitHub Actions integrado** para build automatizado
+- **Múltiplos templates** suportados
+- **Rate limiting e segurança** avançada
+- **Monitoramento em tempo real** do progresso do deploy
+
+### 🛡️ Segurança e Performance
+
+- **Rate limiting** implementado em todas as APIs críticas
+- **Sanitização de inputs** para prevenir ataques
+- **Criptografia de tokens** sensíveis
+- **Autenticação centralizada** com Clerk.dev
+
+## 🌌 Arquitetura do Sistema
 
 ### Entidades Centrais
 
@@ -19,6 +46,7 @@ O **DashMaster.PRO** é uma plataforma modular de gestão de conteúdo e experi�
 | `Pipeline`    | Automação de eventos e ações                               |
 | `Plan`        | Modelo de cobrança e controle de acesso                    |
 | `Role`        | Regras de acesso vinculadas ao usuário dentro do Workspace |
+| `Deployment`  | **NOVO:** Registro de deploy automatizado                  |
 
 ### Integrações Confirmadas
 
@@ -28,153 +56,284 @@ O **DashMaster.PRO** é uma plataforma modular de gestão de conteúdo e experi�
 - **MongoDB Atlas**: banco de dados principal
 - **Next.js 15 (App Router)** + **Node.js 22**
 - **DeckEngine Pipelines**
+- **🆕 GitHub Actions**: CI/CD automatizado
+- **🆕 Netlify**: hosting de sites estáticos
 
----
+## 🎯 Sistema de Deploy Automatizado
 
-## 🧩 Addons no MVP
+### Como Funciona
+
+1. **Usuário inicia deploy** no dashboard
+2. **Sistema cria repositório privado** no GitHub do usuário
+3. **GitHub Action** clona template e faz build
+4. **Deploy automático** para Netlify
+5. **Monitoramento em tempo real** do progresso
+
+### Fluxo Técnico
+
+```mermaid
+graph TD
+    A[Dashboard UI] --> B[Deploy API]
+    B --> C[DeploymentOrchestrator]
+    C --> D[GitManager]
+    C --> E[NetlifyManager]
+    D --> F[GitHub Actions]
+    F --> G[Template Build]
+    G --> H[Netlify Deploy]
+    H --> I[Site Publicado]
+```
+
+### Recursos de Segurança
+
+- **🛡️ Rate Limiting**: 5 deploys por hora por usuário
+- **🔐 Sanitização de Inputs**: Validação rigorosa de tokens e URLs
+- **🔑 Secrets Management**: Tokens criptografados no GitHub
+- **📊 Monitoramento**: Logs detalhados de cada etapa
+
+## 🧩 Addons Disponíveis
 
 ### Addons de Campo (`field_addon`)
 
-- `TextField`
-- `ImageField`
-- `ChoiceField`
-- `MultiTextField`
-- `AI_TextGeneratorField`: gera conteúdo textual com IA baseado nos dados inseridos
+- `TextField` - Campos de texto simples
+- `ImageField` - Upload e gestão de imagens
+- `ChoiceField` - Campos de seleção
+- `MultiTextField` - Campos de texto múltiplo
+- `AI_TextGeneratorField` - **NOVO:** Geração de conteúdo com IA
 
 ### Addons de Comportamento (`behavior_addon`)
 
-- `SlugField`
-- `VersionControl`
+- `SlugField` - Geração automática de slugs
+- `VersionControl` - Controle de versões
 
 ### Addons de Acesso e Cobrança
 
-- `AccessAddon`: limita visibilidade por `Role` ou `Plan`
-- `PurchaseAddonButton`: botão para aquisição de features, campos ou seções (liberações por Stripe)
+- `AccessAddon` - Controle de visibilidade por Role/Plan
+- `PurchaseAddonButton` - Botões de compra integrados
 
----
+## 👁️ ViewTypes Suportados
 
-## 👁️ ViewTypes no MVP
+| Nome           | Finalidade                                                |
+| -------------- | --------------------------------------------------------- |
+| `FormStepView` | Interface de formulário dividido em etapas                |
+| `TableView`    | Interface administrativa de listagem e edição             |
+| `GroupingView` | **NOVO:** Visualização em cards para conteúdo heterogêneo |
+| `CheckoutView` | Tela de compra de planos                                  |
+| `PDFView`      | Geração e exportação de conteúdo                          |
 
-| Nome           | Finalidade                                           |
-| -------------- | ---------------------------------------------------- |
-| `FormStepView` | Interface de formulário dividido em etapas ou seções |
-| `TableView`    | Interface administrativa de listagem e edição        |
-| `CheckoutView` | Tela de compra de planos ou liberação de conteúdo    |
-| `PDFView`      | Geração visual/exportação de conteúdo                |
+## 🌐 API Pública Headless
 
----
+### ✅ Implementação Completa (Janeiro 2025)
 
-## 🔐 Seções Pagas e Campos com Acesso Restrito
-
-### Lógica Padrão
-
-- **Section com flag `is_paid: true`**: só pode ser acessada após a compra do plano ou addon correspondente.
-- Campos em `ContentType` podem ser marcados com restrições via `AccessAddon`, associando permissões por plano ou role.
-
-> 🧠 Observação: campos dentro de Steps podem ser restringidos individualmente ou como conjunto, considerando a hierarquia do form como addon aninhado. Essa complexidade será refinada após o MVP.
-
----
-
-#### Estrutura no DashMaster
-
-- **Workspace**: "Autores Apaixonados"
-- **Sections**:
-  - `Casais`
-  - `Histórias`
-  - `Capítulos`
-  - `Pedidos`
-- **ContentTypes**:
-  - `Couple`: campos de identificação
-  - `LoveStory`: multi-step com campos condicionais e pagos
-  - `Chapter`: campos com `AI_TextGeneratorField`
-  - `OrderRequest`: formulário de pedido físico
-- **Views**:
-  - `FormStepView` com desbloqueios progressivos
-  - `CheckoutView` para adquirir o acesso completo ao livro
-  - `PDFView` para visualização e exportação
-- **Planos**:
-  - `Free`: acesso a primeiras etapas
-  - `Plus`: acesso completo com exportação e impressão
-- **Addons utilizados**:
-  - `AI_TextGeneratorField`
-  - `AccessAddon`
-  - `PurchaseAddonButton`
-
----
-
-## ✏️ Exemplo Prático: Blog com Taxonomia
-
-Para demonstrar o uso padrão do DashMaster.PRO, o MVP inclui um exemplo nativo de blog, com taxonomia funcional.
-
-### Estrutura
-
-- **Workspace**: "Meu Blog"
-- **Sections**:
-  - `Posts`
-  - `Categorias`
-  - `Tags`
-
-### ContentTypes
-
-- `Post`: campos de título, slug, imagem, resumo, conteúdo e referências a categorias/tags
-- `Category`: nome + slug
-- `Tag`: nome simples
-
-### Views
-
-- `TableView`: gerenciamento de posts e categorias
-- `FormView`: criação de novo post
-- `SlugField`: usado para URLs amigáveis
-- `AccessAddon`: apenas `admin` pode publicar posts
-
----
-
-## 🌐 Arquitetura Headless
-
-### ✅ **API Pública Implementada (Janeiro 2025)**
-
-O DashMaster.PRO agora oferece uma API pública robusta que permite consumo de conteúdo por aplicações externas:
+A API pública permite consumo de conteúdo por aplicações externas:
 
 - **Endpoint Principal:** `/api/public/content`
 - **Autenticação:** API Keys com Bearer token
-- **Funcionalidades:**
-  - Rate limiting por chave
-  - Cache inteligente
-  - Controle de acesso granular por seção
-  - Suporte a múltiplos workspaces
+- **Rate Limiting:** Implementado por chave
+- **Cache Inteligente:** Otimizado para performance
+- **Multi-workspace:** Suporte completo
 
-### 🎯 **Caso de Uso Validado: Gatsby Landing Page**
+### Exemplo de Uso
 
-A migração bem-sucedida do site Gatsby demonstra a maturidade da API:
+```javascript
+const response = await fetch("https://dashmaster.pro/api/public/content", {
+  headers: {
+    Authorization: "Bearer YOUR_API_KEY",
+  },
+});
+const content = await response.json();
+```
 
-- ✅ **100% headless:** Eliminação completa de conteúdo estático
-- ✅ **Performance:** Cache implementado e otimizações de query
-- ✅ **Escalabilidade:** Pronto para múltiplos sites/aplicações
-- ✅ **Flexibilidade:** Atualização de conteúdo sem rebuild
+## 🏠 Casos de Uso Validados
 
-### 🧠 **Arquitetura de Conteúdo Inteligente (Julho 2025)**
+### 1. Gatsby Landing Page ✅
 
-Para aprimorar a experiência de desenvolvimento e a automação, o DashMaster.PRO implementou uma arquitetura que entende a **intenção** por trás da estrutura do conteúdo. Cada "Seção" agora possui uma "Estratégia" que define seu comportamento:
+Migração bem-sucedida de site estático para headless:
 
-- **Coleção (`collection`):** O comportamento padrão. Ideal para múltiplos itens do mesmo tipo, como posts de blog, produtos ou depoimentos. A interface renderiza uma tabela para gerenciamento.
-- **Item Único (`singleton`):** Perfeito para conteúdo de configuração que só existe uma vez, como o "Header", "Footer" ou "Configurações do Site". A interface redireciona o usuário diretamente para a página de edição do único item, eliminando cliques desnecessários.
-- **Agrupamento (`grouping`):** Um caso de uso avançado onde uma única Seção pode conter itens de diferentes Tipos de Conteúdo.
+- **100% dinâmico** com eliminação de conteúdo estático
+- **Performance otimizada** com cache implementado
+- **Atualizações instantâneas** sem rebuild
 
-Esta arquitetura é suportada por um **Importador Inteligente** que analisa a estrutura de diretórios e arquivos (`.json`, `.md`) e atribui automaticamente a estratégia correta, criando Seções, Content Types e Itens em massa, e preservando a intenção original do conteúdo.
+### 2. Deploy Automatizado ✅
+
+Sistema de "fábrica de sites" implementado:
+
+- **Template padrão** baseado no gatsby-landing
+- **Repositórios customizados** suportados
+- **GitHub Actions** para build/deploy automatizado
+
+## 🔧 Desenvolvimento e Deploy
+
+### Estrutura do Projeto
+
+```
+dash/
+├── dashboard/              # Next.js dashboard
+│   ├── app/               # App Router (Next.js 15)
+│   ├── lib/               # Bibliotecas e utilitários
+│   ├── components/        # Componentes React
+│   └── scripts/           # Scripts de manutenção
+├── deckEngine/            # Engine de pipelines
+├── gatsby-landing/        # Template base para sites
+└── templates/             # Templates de deploy
+```
+
+### Scripts Disponíveis
+
+```bash
+# Desenvolvimento
+npm run dash:dev          # Iniciar dashboard
+npm run dash:build        # Build do dashboard
+
+# Manutenção
+npm run cleanup-orphans   # Limpar dados órfãos
+npm run cleanup-deploys   # Limpar deploys fantasmas
+npm run superadmin        # Gerar chave de super admin
+```
+
+### Configuração de Ambiente
+
+```env
+# Dashboard (.env.local)
+MONGODB_URI=mongodb://...
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...
+CLERK_SECRET_KEY=sk_...
+CLERK_ENCRYPTION_KEY=generated_key
+NEXT_PUBLIC_APP_URL=https://dashmaster.pro
+
+# Opcional para deploy
+GITHUB_TOKEN=ghp_...
+NETLIFY_TOKEN=nfp_...
+```
+
+## 🛡️ Segurança Implementada
+
+### Rate Limiting por Tipo de API
+
+- **Deploy APIs**: 5 requests/hora
+- **Webhook APIs**: 30 requests/minuto
+- **API Pública**: 100 requests/minuto
+- **APIs Gerais**: 60 requests/minuto
+
+### Sanitização de Inputs
+
+- **Nomes de site**: Apenas alfanuméricos e hífens
+- **URLs de repositório**: Validação de formato GitHub
+- **Tokens de API**: Limpeza e validação de formato
+- **Inputs gerais**: Remoção de scripts maliciosos
+
+### Autenticação e Autorização
+
+- **Clerk.dev** para gestão de usuários
+- **Super Admin** com chaves de ativação
+- **Workspaces isolados** com multi-tenancy
+- **API Keys** com escopo por workspace
+
+## 📊 Monitoramento e Analytics
+
+### Métricas de Deploy
+
+- Taxa de sucesso de deploys
+- Tempo médio de build
+- Erros mais comuns
+- Sites ativos por workspace
+
+### Logs Estruturados
+
+- Cada deploy tem ID único
+- Status em tempo real
+- Histórico completo
+- Debugging facilitado
+
+## 🔄 Arquitetura de Deploy com GitHub Actions
+
+### Template Repository
+
+O sistema usa um template base que pode ser:
+
+- **Template padrão**: `dashmaster-gatsby-template`
+- **Repositório customizado**: URL fornecida pelo usuário
+
+### GitHub Action Workflow
+
+```yaml
+name: Deploy DashMaster.PRO Site to Netlify
+on:
+  workflow_dispatch:
+    inputs:
+      workspace_id: { required: true }
+      site_name: { required: true }
+      template_repo: { required: true }
+```
+
+### Estrutura do Repositório Final
+
+```
+user-site-repo/
+├── website/           # Arquivos estáticos (Netlify)
+├── content/          # Backup do conteúdo
+├── source/           # Código fonte (opcional)
+└── README.md         # Documentação
+```
+
+## 🚀 Próximos Passos
+
+### Funcionalidades Planejadas
+
+- **Command Palette** (Ctrl+K) para navegação rápida
+- **Brand.json** para personalização automática com IA
+- **Templates adicionais** (Next.js, Nuxt, Astro)
+- **Marketplace de addons** e templates
+- **Analytics avançado** de sites publicados
+
+### Melhorias Técnicas
+
+- **WebSockets** para atualizações em tempo real
+- **CDN** para assets estáticos
+- **Multi-idioma** para internacionalização
+- **Performance** otimizações contínuas
+
+## 📌 Status de Implementação
+
+### ✅ Funcionalidades Implementadas
+
+- ✅ CMS Headless com API pública
+- ✅ Sistema de deploy automatizado
+- ✅ GitHub Actions integration
+- ✅ Rate limiting e segurança
+- ✅ Importador inteligente
+- ✅ Multi-tenancy com workspaces
+- ✅ Autenticação e autorização completa
+
+### 🔄 Em Desenvolvimento
+
+- 🔄 Command Palette (Ctrl+K)
+- 🔄 Personalização com IA
+- 🔄 Templates adicionais
+- 🔄 Analytics avançado
+
+### 📋 Planejado
+
+- 📋 Marketplace de addons
+- 📋 Versão mobile/tablet
+- 📋 Integração com mais provedores de hosting
+
+## 📞 Suporte e Contribuição
+
+### Links Importantes
+
+- **Dashboard**: [https://dashmaster.pro](https://dashmaster.pro)
+- **Documentação**: `/docs/` (neste repositório)
+- **Template Base**: `gatsby-landing/`
+
+### Estrutura de Documentação
+
+- `/docs/dashboard/` - Guias do dashboard
+- `/docs/regras-de-negocio/` - Lógica de negócio
+- `DEBUGGING-GUIDE.md` - Guia de depuração
+- `seguranca-performance.md` - Segurança e performance
 
 ---
 
-## 🔧 Roadmap Pós-MVP (Resumo)
+**DashMaster.PRO** - Transformando ideias em sites publicados com a velocidade da IA e a confiabilidade de uma arquitetura enterprise.
 
-- Interface visual para construção de Pipelines
-- Suporte a lógica condicional entre Addons
-- Addons do tipo `Analytics`, `Scheduling` e `Notification`
-- Marketplace de Templates e Addons
-- Versão offline e app do DashMaster.Tablet
-- **Expansão do Ecosystem Headless:** Integração com frameworks adicionais
-
----
-
-## 📌 Conclusão
-
-O MVP do **DashMaster.PRO** entrega a fundação de um construtor de sistemas administrativos flexível e monetizável. Com estrutura modular, integração completa com pagamentos e IA, e exemplo real de uso com o **Autores Apaixonados**, a plataforma se posiciona como base para criadores e empreendedores desenvolverem experiências digitais com agilidade e profundidade.
+_Versão: 2.0 - Janeiro 2025_

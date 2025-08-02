@@ -71,9 +71,7 @@ function Seo({
   // Se os dados do site não forem passados, retorna um fallback mínimo
   if (!site) {
     return (
-      <title>
-        {title ? `${title} | Loading...` : "Window Caulking Toronto"}
-      </title>
+      <title>{title ? `${title} | Loading...` : "Bubble Wrap Solutions"}</title>
     );
   }
 

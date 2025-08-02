@@ -1,22 +1,20 @@
 import React from "react";
 import Services from "../components/Services";
-import servicesData from "../../content/services.json";
 
 const classicSlugs = [
-  "awning-windows-caulking",
-  "bay-window-caulking",
-  "casement-window-caulking",
-  "horizontal-vertical-slider-caulking",
-  "patio-doors-caulking",
-  "specialty-windows-caulking",
+  "awning-bubble-window-installation",
+  "bay-bubble-window-replacement",
+  "casement-bubble-window-sealing",
+  "sliding-bubble-panels",
+  "bubble-patio-panels",
+  "custom-bubble-window-shapes",
 ];
 
-const ServicesContainer = () => {
+const ServicesContainer = ({ servicesData }) => {
   if (!servicesData || !servicesData.services) {
     return null;
   }
 
-  // Filtra para mostrar só os seis clássicos na home
   const classicServices = servicesData.services.filter((service) =>
     classicSlugs.includes(service.slug)
   );

@@ -3,7 +3,7 @@
   "logo": {
     "data": {
       "src": "/images/logo.png",
-      "alt": "Window Caulking Toronto Logo",
+      "alt": "Bubble Window Logo",
       "badges": []
     },
     "position": {
@@ -31,8 +31,8 @@
   },
   "contact": {
     "data": [
-      { "icon": "phone", "text": "Phone: (647) 695-6966" },
-      { "icon": "email", "text": "info@windowcaulkingtoronto.ca" },
+      { "icon": "phone", "text": "Phone: (416) 900-0000" },
+      { "icon": "email", "text": "hello@bubblewindow.ca" },
       { "icon": "clock", "text": "Mon - Sat : 9am to 7pm" }
     ],
     "position": {

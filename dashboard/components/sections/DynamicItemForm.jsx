@@ -51,7 +51,8 @@ export default function DynamicItemForm({
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    const { title, status, ...data } = formData;
+    // Correção: Desestruturar corretamente para extrair `data`
+    const { title, status, data } = formData;
     await onSubmit({ title, status, data });
     setLoading(false);
   };

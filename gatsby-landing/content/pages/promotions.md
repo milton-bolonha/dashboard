@@ -1,15 +1,15 @@
 ---
-title: "Promotions"
+title: "Special Offers"
 image: "/images/promotions.jpg"
 page_builder:
   - type: "section"
-    subtitle: "LIMITED TIME OFFER"
-    title: "This Month's Promotions"
-    text: "Book your window caulking now and enjoy a <strong>free lintel paint job</strong> and professional <strong>window cleaning</strong> — on us!"
+    subtitle: "LIMITED TIME DEAL"
+    title: "This Month's Bubble Wrap Specials"
+    text: "Schedule your bubble wrap insulation service today and receive a <strong>free protective sealing</strong> and expert <strong>window cleaning</strong> — on us!"
     textPosition: "center"
   - type: "section"
-    title: "A Fresh Look & Lasting Protection"
-    text: "Don't miss out on this offer. Contact us for a free, no-obligation quote and get the best protection for your windows, plus a fresh new look for your lintels and sparkling clean glass. <strong>It's the perfect package to improve your home's curb appeal and efficiency.</strong>"
+    title: "Enhanced Protection & Fresh Appearance"
+    text: "Take advantage of this exclusive deal. Contact us for a free, no-commitment quote and enjoy superior protection for your windows along with a fresh, clean finish. <strong>The perfect way to boost your property’s comfort and curb appeal.</strong>"
     imageUrl: "/images/promotions.jpg"
     textPosition: "left"
 ---

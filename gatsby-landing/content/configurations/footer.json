@@ -1,24 +1,24 @@
 {
   "about": {
-    "heading": "About Window Caulking Toronto",
-    "text": "We have over 15 years experience in the window caulking services industry. We have worked on many projects, both commercial and residential. Learn more about our experience here.",
+    "heading": "About Bubble Wrap Solutions",
+    "text": "With over 15 years of experience in bubble wrap insulation and sealing, we have successfully completed numerous commercial and residential projects. Discover more about our expertise and commitment to quality here.",
     "readMore": {
-      "text": "read more about Window Caulking Toronto ...",
+      "text": "Learn more about Bubble Wrap Solutions ...",
       "link": "/about-us"
     }
   },
   "social": {
-    "heading": "Get in touch",
+    "heading": "Connect With Us",
     "links": [
       { "name": "Facebook", "link": null },
       { "name": "Twitter", "link": null },
       { "name": "Instagram", "link": null }
     ]
   },
-  "copyright": "© 2025 Window Caulking Toronto. All Rights Reserved.",
+  "copyright": "© 2025 Bubble Wrap Solutions. All Rights Reserved.",
   "developedBy": {
     "text": "Design and Developed by",
-    "name": "Buzzinternet.ca",
-    "link": "https://buzzinternet.ca"
+    "name": "DashMaster.PRO",
+    "link": "https://dashmaster.pro"
   }
 }

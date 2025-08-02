@@ -9,6 +9,7 @@ import { getCurrentUserId, withAuth } from "@/lib/auth";
  */
 export const GET = withAuth(async (request, { params }, { userId }) => {
   try {
+    console.log("🔧 Items GET: userId =", userId);
     const { id, itemId } = await params;
 
     if (!ObjectId.isValid(id) || !ObjectId.isValid(itemId)) {
@@ -17,7 +18,7 @@ export const GET = withAuth(async (request, { params }, { userId }) => {
 
     const item = await db.findOne("items", {
       _id: new ObjectId(itemId),
-      sectionId: id,
+      sectionId: new ObjectId(id),
       userId: userId,
     });
 
@@ -44,6 +45,8 @@ export const PUT = withAuth(async (request, { params }, { userId }) => {
     const { id, itemId } = await params;
     const data = await request.json();
     console.log("🔧 Items PUT: userId =", userId);
+    console.log("--- DEBUG: Dados recebidos do cliente ---");
+    console.log(JSON.stringify(data, null, 2));
 
     // Validar IDs
     if (!ObjectId.isValid(id) || !ObjectId.isValid(itemId)) {
@@ -53,7 +56,7 @@ export const PUT = withAuth(async (request, { params }, { userId }) => {
     // Verificar se o item existe, pertence à section E ao usuário (triangulação)
     const existingItem = await db.findOne("items", {
       _id: new ObjectId(itemId),
-      sectionId: id,
+      sectionId: new ObjectId(id),
       userId: userId, // ← TRIANGULAÇÃO: só items do usuário
     });
 
@@ -65,11 +68,17 @@ export const PUT = withAuth(async (request, { params }, { userId }) => {
     const updateData = {
       title: data.title || existingItem.title,
       status: data.status || existingItem.status,
-      data: data.data !== undefined ? data.data : existingItem.data, // ← Dados dos addons
-      // Manter compatibilidade com campo antigo
-      content: data.content !== undefined ? data.content : existingItem.content,
-      updatedAt: new Date(),
+      // Merge para preservar campos não alterados no objeto data
+      data: { ...existingItem.data, ...(data.data || {}) },
     };
+
+    // Tratar `content` separadamente para permitir que seja `null` ou string vazia,
+    // mantendo o valor existente se não for fornecido.
+    if (data.content !== undefined) {
+      updateData.content = data.content;
+    } else if (existingItem.content !== undefined) {
+      updateData.content = existingItem.content;
+    }
 
     // Se título mudou, gerar novo slug
     if (data.title && data.title !== existingItem.title) {
@@ -80,7 +89,7 @@ export const PUT = withAuth(async (request, { params }, { userId }) => {
 
       // Verificar se novo slug já existe NO ESCOPO DO USUÁRIO (triangulação)
       const slugExists = await db.findOne("items", {
-        sectionId: id,
+        sectionId: new ObjectId(id),
         userId: userId, // ← TRIANGULAÇÃO: só verificar no escopo do usuário
         slug: newSlug,
         _id: { $ne: new ObjectId(itemId) },
@@ -88,6 +97,9 @@ export const PUT = withAuth(async (request, { params }, { userId }) => {
 
       updateData.slug = slugExists ? `${newSlug}-${Date.now()}` : newSlug;
     }
+
+    console.log("--- DEBUG: Objeto de atualização construído ---");
+    console.log(JSON.stringify(updateData, null, 2));
 
     const result = await db.updateOne(
       "items",
@@ -97,6 +109,9 @@ export const PUT = withAuth(async (request, { params }, { userId }) => {
       },
       updateData
     );
+
+    console.log("--- DEBUG: Resultado da operação no MongoDB ---");
+    console.log(result);
 
     if (result.matchedCount === 0) {
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
@@ -135,7 +150,7 @@ export const DELETE = withAuth(async (request, { params }, { userId }) => {
     // Verificar se o item existe, pertence à section E ao usuário (triangulação)
     const existingItem = await db.findOne("items", {
       _id: new ObjectId(itemId),
-      sectionId: id,
+      sectionId: new ObjectId(id),
       userId: userId, // ← TRIANGULAÇÃO: só items do usuário
     });
 

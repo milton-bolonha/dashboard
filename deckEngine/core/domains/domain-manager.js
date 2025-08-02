@@ -328,4 +328,4 @@ class Domain {
   }
 }
 
-module.exports = DomainManager;
+export default DomainManager;

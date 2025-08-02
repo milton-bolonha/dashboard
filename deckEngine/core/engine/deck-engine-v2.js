@@ -9,14 +9,14 @@
  */
 
 // V1 Core (base sólida)
-const DeckEngineV1 = require("./deck-engine");
-const Utils = require("./utils");
+import DeckEngineV1 from "./deck-engine.js";
+import Utils from "./utils.js";
 
 // V2 Systems com fallbacks
 let UnifiedLogger, RouteManager, DomainManager, PlatformAdapter;
 
 try {
-  UnifiedLogger = require("../logging/unified-logger");
+  UnifiedLogger = (await import("../logging/unified-logger.js")).default;
 } catch {
   UnifiedLogger = class {
     constructor(outputs = ["console"]) {
@@ -46,7 +46,7 @@ try {
 }
 
 try {
-  RouteManager = require("../routing/route-manager");
+  RouteManager = (await import("../routing/route-manager.js")).default;
 } catch {
   RouteManager = class {
     constructor(logger) {
@@ -79,7 +79,7 @@ try {
 }
 
 try {
-  DomainManager = require("../domains/domain-manager");
+  DomainManager = (await import("../domains/domain-manager.js")).default;
 } catch {
   DomainManager = class {
     constructor(logger) {
@@ -106,7 +106,7 @@ try {
 }
 
 try {
-  PlatformAdapter = require("../platform/platform-adapter");
+  PlatformAdapter = (await import("../platform/platform-adapter.js")).default;
 } catch {
   PlatformAdapter = class {
     constructor(platform = "auto") {
@@ -352,4 +352,4 @@ class DeckEngineV2 extends DeckEngineV1 {
   }
 }
 
-module.exports = DeckEngineV2;
+export default DeckEngineV2;

@@ -13,7 +13,7 @@ const componentMap = {
   testimonials: TestimonialsBuilderContainer,
 };
 
-const PageBuilderContainer = ({ pageBuilderData }) => {
+const PageBuilderContainer = ({ pageBuilderData, testimonialsData }) => {
   if (!pageBuilderData || pageBuilderData.length === 0) {
     return null;
   }
@@ -61,6 +61,17 @@ const PageBuilderContainer = ({ pageBuilderData }) => {
             <SimpleSectionContainer
               key={index}
               {...item}
+              isAlternate={isAlternate}
+            />
+          );
+        }
+
+        if (item.type === "testimonials") {
+          return (
+            <TestimonialsBuilderContainer
+              key={index}
+              {...item}
+              testimonials={testimonialsData?.testimonials}
               isAlternate={isAlternate}
             />
           );

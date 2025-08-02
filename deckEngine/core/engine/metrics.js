@@ -138,4 +138,4 @@ class MetricsSystem {
   }
 }
 
-module.exports = MetricsSystem;
+export default MetricsSystem;

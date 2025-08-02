@@ -1,0 +1,19 @@
+{
+  "name": "deck-engine-core",
+  "version": "1.0.0",
+  "description": "Core engine for deck-based pipeline execution",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test.js",
+    "start": "node index.js"
+  },
+  "keywords": [
+    "deck",
+    "engine",
+    "pipeline",
+    "execution"
+  ],
+  "author": "",
+  "license": "MIT"
+}

@@ -1,30 +1,132 @@
 /**
- * 🎮 DeckEngine - Ponto de Entrada Principal
+ * 🎮 DeckEngine App - Ponto de Entrada Core
  *
- * Este arquivo serve como proxy para o core organizado,
- * mantendo compatibilidade total com todas as importações existentes.
+ * Wrapper principal que expõe todas as funcionalidades
+ * de forma organizada e compatível.
  */
 
-// Importar do core organizado
-const DeckEngineApp = require("./core/index");
+// Core Components
+import DeckEngineCore from "./engine/deck-engine.js";
+import Utils from "./engine/utils.js";
 
-// Re-exportar tudo para manter compatibilidade
-module.exports = DeckEngineApp;
-module.exports.DeckEngine = DeckEngineApp.DeckEngine;
-module.exports.DeckEngineApp = DeckEngineApp.DeckEngineApp;
-module.exports.Utils = DeckEngineApp.Utils;
-module.exports.createEngine = DeckEngineApp.createEngine;
+// ============ MAIN EXPORT ============
+class DeckEngineApp {
+  constructor(options = {}) {
+    this.options = options;
+    this.engine = new DeckEngineCore(options);
 
-// Manter mensagem de startup
-if (process.env.NODE_ENV !== "test") {
-  console.log(`
-🎮 DeckEngine Loaded!
-├─ Version: 2.1.0
-├─ Environment: ${process.env.NODE_ENV || "development"}
-├─ Architecture: Unified Core
-└─ Ready for action!
+    // Expor componentes principais
+    this.logger = this.engine.logger;
+    this.routeManager = this.engine.routeManager;
+    this.domainManager = this.engine.domainManager;
+    this.platformAdapter = this.engine.platformAdapter;
+  }
 
-Example usage:
-const engine = require('./index')();
-  `);
+  // ============ DOMAIN METHODS ============
+  async installDomain(domainName, type = "expansion", config = {}) {
+    return await this.engine.installDomain(domainName, type, config);
+  }
+
+  getInstalledDomains() {
+    return this.engine.getInstalledDomains();
+  }
+
+  getDomain(domainName) {
+    return this.engine.getDomain(domainName);
+  }
+
+  async playDomainDeck(domainName, deckPath, payload = {}, options = {}) {
+    return await this.engine.playDomainDeck(
+      domainName,
+      deckPath,
+      payload,
+      options
+    );
+  }
+
+  // ============ CORE METHODS ============
+  createDeck(deckName, config = {}) {
+    return this.engine.createDeck(deckName, config);
+  }
+
+  async playMatch(deckName, payload = {}, options = {}) {
+    return await this.engine.playMatch(deckName, payload, options);
+  }
+
+  async playAndWait(deckName, payload = {}, options = {}) {
+    return await this.engine.playAndWait(deckName, payload, options);
+  }
+
+  async playMatches(deckName, payloads, options = {}) {
+    if (this.engine.playMatches) {
+      return await this.engine.playMatches(deckName, payloads, options);
+    }
+    // Fallback para execução sequencial
+    const promises = payloads.map((payload) =>
+      this.playMatch(deckName, payload, options)
+    );
+    return options.waitAll ? await Promise.all(promises) : promises;
+  }
+
+  async waitForMatch(matchId, timeout = 60000) {
+    if (this.engine.waitForMatch) {
+      return await this.engine.waitForMatch(matchId, timeout);
+    }
+    // Fallback simples
+    return { success: true, matchId, result: { completed: true } };
+  }
+
+  getDeckStatus(deckName) {
+    if (this.engine.getDeckStatus) {
+      return this.engine.getDeckStatus(deckName);
+    }
+    // Fallback básico
+    const deck = this.engine.getDeck(deckName);
+    return deck
+      ? {
+          name: deckName,
+          enabled: deck.enabled !== false,
+          cardCount: deck.cards ? deck.cards.length : 0,
+          status: "active",
+        }
+      : null;
+  }
+
+  healthCheck() {
+    return this.engine.healthCheck();
+  }
+
+  getGlobalStatus() {
+    return this.engine.getGlobalStatus();
+  }
+
+  cleanup(maxAge) {
+    return this.engine.cleanup(maxAge);
+  }
+
+  async shutdown() {
+    return await this.engine.shutdown();
+  }
+
+  // ============ EVENT METHODS ============
+  on(event, handler) {
+    return this.engine.on(event, handler);
+  }
+
+  off(event, handler) {
+    return this.engine.off(event, handler);
+  }
 }
+
+// ============ EXPORTS ============
+
+// Export principal
+export default DeckEngineApp;
+
+// Named exports para flexibilidade
+export { DeckEngineCore as DeckEngine, DeckEngineApp, Utils };
+
+// Convenience function
+export const createEngine = (options = {}) => {
+  return new DeckEngineApp(options);
+};

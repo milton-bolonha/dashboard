@@ -8,12 +8,12 @@
  * - Unified Architecture
  */
 
-const Utils = require("./utils");
-const EventSystem = require("./events");
-const MetricsSystem = require("./metrics");
-const ArenaSystem = require("./arena");
-const DeckSystem = require("./deck");
-const MatchSystem = require("./match");
+import Utils from "./utils.js";
+import EventSystem from "./events.js";
+import MetricsSystem from "./metrics.js";
+import ArenaSystem from "./arena.js";
+import DeckSystem from "./deck.js";
+import MatchSystem from "./match.js";
 
 // ============ SISTEMAS INTEGRADOS ============
 
@@ -759,4 +759,4 @@ class DeckEngine {
   }
 }
 
-module.exports = DeckEngine;
+export default DeckEngine;

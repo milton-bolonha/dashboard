@@ -1,39 +1,40 @@
 {
-  "title": "Window Caulking Toronto",
-  "description": "Professional window caulking services in Toronto and GTA. We offer residential and commercial caulking for windows, doors, and more. Get a free quote!",
-  "author": "Window Caulking Toronto",
-  "siteUrl": "https://windowcaulkingtoronto.ca",
+  "title": "Bubble Window Installations in Toronto",
+  "description": "Discover the future of comfort and style with Bubble Window. We specialize in installing and maintaining innovative bubble plastic windows across Toronto and the GTA. Eco-friendly, lightweight, and fun. Request a free estimate today!",
+  "author": "Bubble Window",
+  "siteUrl": "https://bubblewindow.ca",
   "keywords": [
-    "window caulking",
-    "caulking services",
-    "toronto",
-    "commercial caulking",
-    "residential caulking"
+    "bubble windows",
+    "plastic bubble window installation",
+    "eco window Toronto",
+    "modern window solutions",
+    "alternative window design",
+    "lightweight window panels"
   ],
   "business": {
-    "name": "Window Caulking Toronto",
+    "name": "Bubble Window",
     "address": {
-      "street": "8171 Yonge St #321",
-      "city": "Thornhill",
+      "street": "42 Bubble Lane, Suite B",
+      "city": "Toronto",
       "region": "ON",
-      "postalCode": "L3T 2C6",
+      "postalCode": "M5H 2N2",
       "country": "Canada"
     },
-    "phone": "+1-647-695-6966",
-    "email": "info@windowcaulkingtoronto.ca",
-    "openingHours": "Mo-Fr 09:00-20:00",
+    "phone": "+1-416-123-9876",
+    "email": "hello@bubblewindow.ca",
+    "openingHours": "Mo-Fr 08:30-18:00",
     "social": {
-      "facebook": null,
-      "instagram": null
+      "facebook": "https://facebook.com/bubblewindow",
+      "instagram": "https://instagram.com/bubblewindow"
     },
-    "logo": "/images/cover.jpg"
+    "logo": "/images/bubble-window-logo.jpg"
   },
   "tracking": {
-    "googleSiteVerification": "",
-    "gtag": "AW-755844797"
+    "googleSiteVerification": null,
+    "gtag": null
   },
   "integrations": {
-    "googleAds": "AW-755844797",
-    "microsoftAds": ""
+    "googleAds": null,
+    "microsoftAds": null
   }
 }

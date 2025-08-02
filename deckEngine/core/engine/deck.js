@@ -2,7 +2,7 @@
  * 🎴 Sistema de Decks do DeckEngine
  */
 
-const Utils = require("./utils");
+import Utils from "./utils.js";
 
 class DeckSystem {
   constructor(eventSystem) {
@@ -307,4 +307,4 @@ class DeckSystem {
   }
 }
 
-module.exports = DeckSystem;
+export default DeckSystem;

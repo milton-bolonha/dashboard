@@ -9,35 +9,35 @@
     {
       "type": "preHeading",
       "order": 1,
-      "text": "Our Process"
+      "text": "Our Approach"
     },
     {
       "type": "heading",
       "order": 2,
-      "text": "A Foundation of Quality"
+      "text": "Built on Quality and Care"
     },
     {
       "type": "paragraph",
       "order": 3,
-      "text": "Our methodology is built on a rigorous process that guarantees results. We start with a detailed assessment, followed by meticulous surface preparation and the application of industry-leading sealants. The final step is a thorough quality check to ensure a perfect, lasting finish."
+      "text": "We follow a thorough process to deliver lasting protection. Starting with an in-depth site assessment, we carefully prepare surfaces before expertly applying our premium bubble wrap materials. The final step includes a detailed quality inspection to ensure flawless results."
     },
     {
       "type": "image",
       "order": 4,
       "src": "images/section-2.jpg",
-      "alt": "Detailed view of a construction worker applying caulking with precision."
+      "alt": "Close-up of a technician carefully applying bubble wrap insulation."
     },
     {
       "type": "ctaButton",
       "order": 5,
       "buttons": [
         {
-          "label": "Get a Free Quote",
+          "label": "Request a Free Quote",
           "link": "#quote-form",
           "color": "cta"
         },
         {
-          "label": "Our Services",
+          "label": "View Our Services",
           "link": "/services/",
           "color": "contrast"
         }

@@ -1,481 +1,109 @@
-# 🚀 Guia de Desenvolvimento - Autores Apaixonados
+# 📖 Guia de Desenvolvimento e Padrões de Arquitetura - DashMaster.PRO
 
-**Como contribuir e desenvolver na plataforma de livros românticos**
+**Última Atualização:** 02 de Agosto de 2025
 
----
-
-## 🎯 Primeiros Passos
-
-### 1. Setup do Ambiente
-
-```bash
-# Clone o repositório
-git clone <repo-url>
-cd dash
-
-# Instale dependências
-npm install
-npm --workspace=dashboard install
-
-# Configure variáveis de ambiente
-cp env.example .env
-# Preencha as chaves no arquivo .env
-```
-
-### 2. Estrutura de Desenvolvimento
-
-```bash
-# Inicia servidor de desenvolvimento
-npm run dash:dev
-
-# Em outro terminal, inicie as funções Netlify
-netlify dev  # Roda functions localmente na porta 8888
-
-# Rode testes em watch mode
-npm run test -- --watch
-```
+**Propósito:** Este documento é a nossa **fonte única da verdade** para as regras de arquitetura, padrões de código e soluções para problemas comuns. Ele deve ser consultado antes de iniciar novas features para garantir consistência, segurança e performance.
 
 ---
 
-## 🧩 Padrões de Código
+## 🏛️ I. Padrões de Arquitetura Fundamentais
 
-### **Smart/Dumb Component Pattern**
+### **Regra de Ouro #1: Autenticação Centralizada**
 
-#### ✅ DO - Component Dumb
+- **Descrição:** **TODA** rota de API no backend que necessita de autenticação **DEVE** usar o helper centralizado `getCurrentAuth()` de `lib/auth.js`.
+- **Justificativa:** O uso direto de funções do Clerk (`getAuth`) se provou inconsistente. Nossa função centralizada contém a lógica de fallback para JWT, garantindo que a identidade do usuário seja obtida de forma confiável em todos os ambientes.
+- **Referência:** `docs/dashboard/DEBUGGING-GUIDE.md` (Problemas 1, 9, 11).
 
-```javascript
-// components/forms/StoryForm.js
-export function StoryForm({ story, onSubmit, loading, errors }) {
-  const [formData, setFormData] = useState(story);
+### **Regra de Ouro #2: Acesso a Dados via `lib/db.js`**
 
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSubmit(formData);
-      }}
-    >
-      <Input
-        value={formData.title}
-        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-        error={errors.title}
-      />
-      <Button type="submit" loading={loading}>
-        Salvar
-      </Button>
-    </form>
-  );
-}
-```
+- **Descrição:** Todo o acesso ao banco de dados (operações CRUD) deve ser feito através do nosso helper `db` exportado de `lib/db.js`.
+- **Justificativa:** Centraliza o gerenciamento da conexão com o MongoDB (connection pooling), o que é vital para a performance em ambientes serverless e evita o esgotamento de conexões.
+- **Referência:** `docs/seguranca-performance.md` (Tópico 2.4).
 
-#### ✅ DO - Container Smart
+### **Regra de Ouro #3: Nunca Confie no Frontend para Permissões**
 
-```javascript
-// containers/StoryContainer.js
-export function StoryContainer() {
-  const { user } = useUser();
-  const [stories, setStories] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState({});
-
-  const handleSubmit = async (storyData) => {
-    setLoading(true);
-    setErrors({});
-
-    try {
-      const response = await fetch("/.netlify/functions/story-create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(storyData),
-      });
-
-      if (!response.ok) {
-        throw new Error("Falha ao criar história");
-      }
-
-      const { story } = await response.json();
-      setStories((prev) => [...prev, story]);
-    } catch (error) {
-      setErrors({ general: error.message });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <StoryForm
-      story={currentStory}
-      onSubmit={handleSubmit}
-      loading={loading}
-      errors={errors}
-    />
-  );
-}
-```
-
-#### ❌ DON'T - Não misture responsabilidades
-
-```javascript
-// ❌ RUIM - Component fazendo fetch
-function StoryForm() {
-  const [story, setStory] = useState({});
-
-  useEffect(() => {
-    // NÃO! Component não deve fazer fetch
-    fetch("/api/stories").then(setStory);
-  }, []);
-
-  return <form>...</form>;
-}
-```
+- **Descrição:** O frontend **NUNCA** deve conter lógica de permissão. Ele apenas reage ao que o backend (via API e, futuramente, o `Access Engine`) permite ou nega. `privateMetadata` do Clerk, por exemplo, não é acessível no cliente.
+- **Justificativa:** É a base da nossa segurança. As decisões de acesso devem ser tomadas no servidor, que é um ambiente controlado. A UI apenas renderiza o resultado.
+- **Implementação:** Foi criada a rota segura `/api/auth/check-role` para que o frontend possa verificar a role de um usuário sem acessar dados sensíveis.
+- **Referência:** `docs/dashboard/DEBUGGING-GUIDE.md` (Problema 11), `docs/seguranca-performance.md` (Tópico 2.6).
 
 ---
 
-## 🎨 Sistema de Design
+## 🐞 II. Guia de Depuração e Erros Comuns
 
-### **Atomic Design Hierarchy**
+### **Problema #1: Inconsistência de Tipos no MongoDB (`String` vs. `ObjectId`)**
 
-```
-Atoms (ui/)     → Button, Input, Badge
-Molecules (forms/) → StoryForm, BookConfig
-Organisms (containers/) → StoryContainer
-Templates (app/) → Layout, Page Structure
-Pages (app/) → Rotas finais
-```
-
-### **Convenções de Naming**
+- **Sintomas:** Queries ao banco de dados (`db.find`, `db.findOne`) retornam `null` ou um array vazio, mesmo quando os dados parecem corretos no banco.
+- **Causa Raiz:** Comparar um campo que é `String` (ex: vindo de uma URL ou de outra coleção) com um campo que é `ObjectId` no banco de dados.
+- **Solução Definitiva:** Sempre garanta que os tipos coincidam. Se estiver buscando por um `_id` ou um campo de referência (`workspaceId`, `sectionId`), converta a `String` para um `ObjectId` antes de passar para a query.
 
 ```javascript
-// Componentes: PascalCase
-export function StoryForm() {}
-export function PlanCard() {}
+import { ObjectId } from "mongodb";
 
-// Funções: camelCase
-export function validateStory() {}
-export function formatPrice() {}
+// CORRETO:
+const id = new ObjectId(stringIdFromApi);
+await db.findOne("items", { _id: id });
 
-// Constantes: UPPER_SNAKE_CASE
-export const MAX_STORY_LENGTH = 5000;
-export const PLAN_TYPES = ["cupido", "afrodite", "zeus"];
-
-// Arquivos: kebab-case
-story - form.js;
-plan - card.js;
-user - metadata.js;
+// INCORRETO:
+// await db.findOne("items", { _id: stringIdFromApi });
 ```
+
+- **Referência:** `docs/dashboard/DEBUGGING-GUIDE.md` (Problema 7), e a depuração da API pública em 02/08/25.
+
+### **Problema #2: Falhas de Build no Middleware por Regex Complexo**
+
+- **Sintomas:** Erro `Error: Invalid path: /...` durante o build, originado do `middleware.js`.
+- **Causa Raiz:** O `createRouteMatcher` do Clerk não suporta regex avançado (como negative lookaheads).
+- **Solução Definitiva:** Use uma abordagem "segura por padrão". Proteja tudo e defina uma lista simples de rotas públicas, em vez de tentar excluir rotas de uma regra geral.
+- **Referência:** `docs/dashboard/DEBUGGING-GUIDE.md` (Problema 2).
+
+### **Problema #3: Funções de Busca (ex: `listKeys`) Quebrando com Filtros Vazios**
+
+- **Sintomas:** Erro `500 Internal Server Error` ao listar recursos em páginas de admin.
+- **Causa Raiz:** A função de busca tenta construir uma query com filtros que são `undefined` ou `null`.
+- **Solução Definitiva:** Construa o objeto `query` dinamicamente, apenas adicionando as chaves se os filtros correspondentes forem válidos.
+- **Referência:** `docs/dashboard/DEBUGGING-GUIDE.md` (Problema 8).
 
 ---
 
-## 🔧 Netlify Functions
+## ⚡ III. Performance e Otimização
 
-### **Estrutura de Function**
+### **1. Indexação de Queries**
 
-```javascript
-// netlify/functions/story-create.js
-export async function handler(event, context) {
-  // 1. Validação de método
-  if (event.httpMethod !== "POST") {
-    return {
-      statusCode: 405,
-      body: JSON.stringify({ error: "Method Not Allowed" }),
-    };
-  }
+- **Status:** Prática contínua.
+- **Ação:** Sempre que uma nova query for criada, especialmente para filtrar dados por `workspaceId`, `userId`, `status`, ou outros campos usados em filtros, adicione um índice correspondente no MongoDB para garantir buscas rápidas.
+- **Referência:** `docs/seguranca-performance.md` (Tópico 2.1).
 
-  // 2. Parse e validação de dados
-  let requestData;
-  try {
-    requestData = JSON.parse(event.body || "{}");
-  } catch (error) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: "Invalid JSON" }),
-    };
-  }
+### **2. Cache de Dados na API Pública**
 
-  // 3. Lógica de negócio
-  try {
-    const result = await processStoryCreation(requestData);
+- **Status:** Implementado (básico), com recomendação de melhoria.
+- **Padrão:** Endpoints públicos que retornam dados que não mudam a todo segundo devem ter uma camada de cache.
+- **Solução Ideal (Futuro):** Usar **Upstash Redis** para um cache serverless compartilhado e de alta performance.
+- **Referência:** `docs/seguranca-performance.md` (Tópico 2.2).
 
-    return {
-      statusCode: 200,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ success: true, data: result }),
-    };
-  } catch (error) {
-    console.error("Story creation error:", error);
+### **3. Serialização de JSON Padronizada**
 
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: "Internal Server Error" }),
-    };
-  }
-}
-```
-
-### **Error Handling Pattern**
-
-```javascript
-// lib/api-client.js
-export async function apiCall(endpoint, options = {}) {
-  try {
-    const response = await fetch(`/.netlify/functions/${endpoint}`, {
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
-      ...options,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || `HTTP ${response.status}`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error(`API call failed: ${endpoint}`, error);
-    throw error;
-  }
-}
-
-// Uso nos containers
-const handleSubmit = async (data) => {
-  try {
-    const result = await apiCall("story-create", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
-    // Handle success
-  } catch (error) {
-    setErrors({ general: error.message });
-  }
-};
-```
+- **Status:** Prática recomendada.
+- **Ação:** Considerar a criação de um helper `lib/serialization.js` para padronizar a conversão de objetos do MongoDB para o frontend, garantindo que `_id` se torne `id` (string) e que datas sejam formatadas como ISO strings.
+- **Referência:** `docs/seguranca-performance.md` (Tópico 2.3).
 
 ---
 
-## 🧪 Estratégia de Testes
+## 🔍 IV. Checklist de Code Review (Pré-Merge)
 
-### **Testes de Componentes**
+**Propósito:** Uma verificação rápida para garantir que os novos Pull Requests sigam nossos padrões estabelecidos, evitando a reintrodução de bugs conhecidos.
 
-```javascript
-// tests/components/button.test.js
-import test from "node:test";
-import assert from "node:assert/strict";
+### **Arquitetura e Segurança**
 
-test("Button - deve aplicar variante correta", () => {
-  const variants = {
-    primary: "bg-pink-600",
-    secondary: "bg-gray-200",
-    outline: "border border-pink-600",
-  };
+- [ ] **Autenticação Centralizada:** A rota de API usa `getCurrentAuth()` de `lib/auth.js` (e não `getAuth()` direto)?
+- [ ] **Sem Lógica no Frontend:** A verificação de permissões (ex: `isSuperAdmin`) é feita via chamada de API (ex: `/api/auth/check-role`) e não tentando acessar `privateMetadata` no cliente?
 
-  Object.entries(variants).forEach(([variant, expectedClass]) => {
-    // Test variant logic
-    assert.ok(
-      expectedClass.includes("bg-") || expectedClass.includes("border")
-    );
-  });
-});
-```
+### **Banco de Dados e Prevenção de Bugs**
 
-### **Testes de Functions**
-
-```javascript
-// tests/functions/story-create.test.js
-import test from "node:test";
-import assert from "node:assert/strict";
-import { handler } from "../../netlify/functions/story-create.js";
-
-test("story-create - deve retornar 405 para método inválido", async () => {
-  const event = { httpMethod: "GET" };
-  const result = await handler(event, {});
-
-  assert.equal(result.statusCode, 405);
-  const body = JSON.parse(result.body);
-  assert.equal(body.error, "Method Not Allowed");
-});
-
-test("story-create - deve criar história válida", async () => {
-  const event = {
-    httpMethod: "POST",
-    body: JSON.stringify({
-      title: "Teste História",
-      partner1: { name: "João" },
-      partner2: { name: "Maria" },
-    }),
-  };
-
-  const result = await handler(event, {});
-  assert.equal(result.statusCode, 200);
-
-  const body = JSON.parse(result.body);
-  assert.ok(body.data.id.startsWith("story_"));
-});
-```
-
-### **Testes de Integração**
-
-```javascript
-// tests/integration/story-flow.test.js
-import test from "node:test";
-import assert from "node:assert/strict";
-
-test("Story Flow - criar → atualizar → gerar livro", async () => {
-  // 1. Cria história
-  const createResponse = await fetch("/.netlify/functions/story-create", {
-    method: "POST",
-    body: JSON.stringify({ title: "Test Story" }),
-  });
-  const { story } = await createResponse.json();
-
-  // 2. Atualiza história
-  const updateResponse = await fetch("/.netlify/functions/story-update", {
-    method: "PATCH",
-    body: JSON.stringify({
-      storyId: story.id,
-      data: { howWeMet: "Em um café" },
-    }),
-  });
-  assert.equal(updateResponse.status, 200);
-
-  // 3. Gera livro
-  const bookResponse = await fetch("/.netlify/functions/book-generate", {
-    method: "POST",
-    body: JSON.stringify({ storyId: story.id }),
-  });
-  assert.equal(bookResponse.status, 200);
-});
-```
+- [ ] **Tipos de Dados Corretos:** IDs (`_id`, `workspaceId`, etc.) estão sendo convertidos para `ObjectId` antes das queries no DB?
+- [ ] **Buscas Robustas:** As funções de busca constroem a `query` dinamicamente para lidar com filtros nulos/undefined?
+- [ ] **Indexação:** Se a PR introduz uma nova forma de filtrar dados, um índice correspondente foi considerado/adicionado?
 
 ---
 
-## 📊 Sistema de Planos
-
-### **Estrutura YAML**
-
-```yaml
-# config/plans.yml
-metadata:
-  currency: "BRL"
-  trial_days: 7
-
-plans:
-  cupido:
-    name: "Plano Cupido"
-    price: 47
-    includes:
-      max_books: 1
-      ai_suggestions: false
-    features:
-      - "1 livro digital"
-      - "50 páginas max"
-```
-
-### **Helper Functions**
-
-```javascript
-// lib/plans.js
-import { getPlan } from "./plans.js";
-
-export function canUserAccessFeature(user, feature) {
-  const plan = getPlan(user.unsafeMetadata?.currentPlan);
-  return plan?.includes?.[feature] === true;
-}
-
-export function getUserBookLimit(user) {
-  const plan = getPlan(user.unsafeMetadata?.currentPlan);
-  const limit = plan?.includes?.max_books ?? 0;
-  return limit === -1 ? Infinity : limit;
-}
-
-// Uso nos containers
-if (!canUserAccessFeature(user, "ai_suggestions")) {
-  setError("Feature não disponível no seu plano");
-  return;
-}
-```
-
----
-
-## 🎯 Checklist de Feature
-
-Antes de implementar uma nova feature:
-
-### **Planning**
-
-- [ ] Definir requisitos claros
-- [ ] Identificar componentes necessários
-- [ ] Planejar estrutura Smart/Dumb
-- [ ] Definir API endpoints
-- [ ] Considerar permissões de plano
-
-### **Implementation**
-
-- [ ] Criar componentes dumb primeiro
-- [ ] Implementar container smart
-- [ ] Adicionar API function se necessário
-- [ ] Integrar com sistema de planos
-- [ ] Adicionar validações
-
-### **Testing**
-
-- [ ] Testes unitários dos componentes
-- [ ] Testes das functions
-- [ ] Teste manual no browser
-- [ ] Verificar responsividade
-- [ ] Testar diferentes planos
-
-### **Documentation**
-
-- [ ] Atualizar README se necessário
-- [ ] Documentar novos endpoints
-- [ ] Adicionar comentários no código
-- [ ] Update architecture.md
-
----
-
-## 🚨 Troubleshooting Comum
-
-### **Error: Module not found**
-
-```bash
-# Certifique-se que type: "module" está no package.json
-# E use extensões .js nos imports
-import { something } from './file.js';  // ✅
-import { something } from './file';     // ❌
-```
-
-### **Clerk Authentication Issues**
-
-```javascript
-// Sempre verifique se user está carregado
-const { user, isLoaded } = useUser();
-
-if (!isLoaded) {
-  return <div>Carregando...</div>;
-}
-
-if (!user) {
-  return <div>Não logado</div>;
-}
-```
-
-### **Netlify Functions Local**
-
-```bash
-# Se functions não funcionam localmente:
-netlify dev --live  # Tunnel para teste
-netlify functions:serve  # Só functions
-```
-
----
-
-## 📚 Recursos Úteis
-
-- **Documentação:** `/docs/architecture.md`
-- **Componentes:** Storybook (TODO)
-- **API Docs:** OpenAPI spec (TODO)
-- **Design System:** Figma (TODO)
-
-**Happy coding! 💖📚**
+_Este documento será a base para nossas futuras interações. Ao me pedir para desenvolver algo, você pode se referir a ele dizendo "lembre-se do nosso Guia de Desenvolvimento"._
