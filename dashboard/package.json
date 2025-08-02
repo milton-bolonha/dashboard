@@ -46,7 +46,7 @@
     "gray-matter": "^4.0.3",
     "jose": "^5.2.4",
     "libsodium-wrappers": "^0.7.15",
-    "lodash": "^4.17.21",
+    "lodash.get": "^4.4.2",
     "mongodb": "^6.5.0",
     "nanoid": "^5.0.7",
     "netlify": "^23.0.0",

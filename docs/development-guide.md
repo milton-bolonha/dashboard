@@ -27,6 +27,12 @@
 - **Implementação:** Foi criada a rota segura `/api/auth/check-role` para que o frontend possa verificar a role de um usuário sem acessar dados sensíveis.
 - **Referência:** `docs/dashboard/DEBUGGING-GUIDE.md` (Problema 11), `docs/seguranca-performance.md` (Tópico 2.6).
 
+### **Regra de Ouro #4: A GitHub Action é um Ambiente Isolado**
+
+- **Descrição:** Uma GitHub Action executa em um servidor limpo e isolado do GitHub. Ela **NÃO** tem acesso às variáveis de ambiente, ao contexto ou ao estado do nosso backend.
+- **Justificativa:** Entender este isolamento previne erros de comunicação. Qualquer informação que a Action precise (como URLs de webhook, chaves de API ou IDs de deploy) **DEVE** ser passada explicitamente do nosso backend para a Action através de `inputs` no `workflow_dispatch`.
+- **Referência:** Correção do erro `Could not resolve host: undefined` no fluxo de deploy em 02/08/25.
+
 ---
 
 ## 🐞 II. Guia de Depuração e Erros Comuns
@@ -97,6 +103,7 @@ await db.findOne("items", { _id: id });
 
 - [ ] **Autenticação Centralizada:** A rota de API usa `getCurrentAuth()` de `lib/auth.js` (e não `getAuth()` direto)?
 - [ ] **Sem Lógica no Frontend:** A verificação de permissões (ex: `isSuperAdmin`) é feita via chamada de API (ex: `/api/auth/check-role`) e não tentando acessar `privateMetadata` no cliente?
+- [ ] **Comunicação com Actions:** Se o backend dispara uma GitHub Action, ele está passando toda a configuração necessária (URLs, segredos) via `inputs`?
 
 ### **Banco de Dados e Prevenção de Bugs**
 

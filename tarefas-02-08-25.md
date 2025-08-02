@@ -113,7 +113,7 @@ Sua análise está perfeita. Devemos migrar para uma arquitetura com **Webhooks*
 
 - [ ] **Arquitetura de Deploy:**
   - [ ] Criar endpoint de webhook (`/api/deploy/webhook`).
-  - [ ] Modificar GitHub Action para chamar o webhook.
+  - [x] Modificar GitHub Action para chamar o webhook.
   - [ ] Aprimorar lógica de polling no frontend para atuar como fallback.
 - [ ] **Funcionalidades Críticas:**
   - [ ] Adicionar botão "Resetar Deploy" na UI.
@@ -125,3 +125,23 @@ Sua análise está perfeita. Devemos migrar para uma arquitetura com **Webhooks*
 - [ ] **Configuração:**
   - [ ] Ler nome do template de variável de ambiente.
   - [ ] Atualizar `env-template.txt`.
+
+---
+
+## 📊 **Reports e Progresso**
+
+### **Report #1 - 02/08/25 - Correção Crítica do Webhook na GitHub Action**
+
+**✅ CONCLUÍDO:**
+
+- **Problema:** A GitHub Action estava falhando com o erro `curl: (6) Could not resolve host: undefined`.
+- **Causa Raiz:** O orquestrador de deploy não estava passando a URL do nosso backend para a Action. A Action, rodando em um ambiente isolado do GitHub, não tinha como saber para onde enviar o status do webhook.
+- **Solução Implementada:**
+  1.  O `deploy-orchestrator.mjs` agora injeta a `webhook_url` e o `webhook_secret` como `inputs` ao disparar o workflow.
+  2.  O `deploy.yml` foi modificado para receber estes `inputs` e usá-los diretamente na chamada `curl`.
+- **Resultado:** A Action agora sabe exatamente para qual URL ligar, resolvendo a falha de comunicação e permitindo que o status do deploy seja reportado corretamente.
+
+**🔧 ARQUIVOS MODIFICADOS:**
+
+- `dashboard/lib/deployment/deploy-orchestrator.mjs`
+- `dashboard/templates/github-workflows/deploy.yml`
