@@ -354,6 +354,9 @@ class DeploymentOrchestrator {
       const { deployConfig } = context.payload;
       const gitManager = new GitManager(deployConfig.githubToken);
 
+      // Montar a URL do webhook
+      const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/deploy/webhook`;
+
       // Disparar o workflow via workflow_dispatch
       const workflowInputs = {
         workspace_id: context.workspace._id.toString(),
@@ -364,6 +367,8 @@ class DeploymentOrchestrator {
           "https://github.com/milton-bolonha/dashmaster-gatsby-template",
         save_source_code: "false", // MVP
         save_content_backup: "true", // MVP
+        webhook_url: webhookUrl, // Passa a URL para a Action
+        webhook_secret: context.secrets.WEBHOOK_SECRET, // Passa o secret
       };
 
       await gitManager.triggerWorkflow(

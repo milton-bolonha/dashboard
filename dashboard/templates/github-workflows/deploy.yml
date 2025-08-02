@@ -24,6 +24,12 @@ on:
         description: "Save content as static files backup"
         required: false
         default: "true"
+      webhook_url:
+        description: "URL to send status updates"
+        required: true
+      webhook_secret:
+        description: "Secret to authenticate webhook calls"
+        required: true
 
 jobs:
   build-and-deploy:
@@ -52,13 +58,13 @@ jobs:
 
       - name: Send Starting Status
         run: >
-          curl -X POST -H "Authorization: Bearer ${{ secrets.WEBHOOK_SECRET }}" -H "Content-Type: application/json"
+          curl -X POST -H "Authorization: Bearer ${{ github.event.inputs.webhook_secret }}" -H "Content-Type: application/json"
           -d '{"status": "iniciado", "run_id": "${{ github.run_id }}", "deploy_id": "${{ github.event.inputs.deploy_id }}", "step": "setup", "message": "Iniciando o processo de deploy..."}'
-          "${{ secrets.WEBHOOK_URL }}"
+          "${{ github.event.inputs.webhook_url }}"
 
       - name: Build Gatsby Site
         run: |
-          curl -X POST -H "Authorization: Bearer ${{ secrets.WEBHOOK_SECRET }}" -H "Content-Type: application/json" -d '{"status": "progresso", "run_id": "${{ github.run_id }}", "deploy_id": "${{ github.event.inputs.deploy_id }}", "step": "build", "message": "Construindo o site Gatsby..."}' "${{ secrets.WEBHOOK_URL }}"
+          curl -X POST -H "Authorization: Bearer ${{ github.event.inputs.webhook_secret }}" -H "Content-Type: application/json" -d '{"status": "progresso", "run_id": "${{ github.run_id }}", "deploy_id": "${{ github.event.inputs.deploy_id }}", "step": "build", "message": "Construindo o site Gatsby..."}' "${{ github.event.inputs.webhook_url }}"
           npm run build
         env:
           # A Action precisa consumir esta API para buildar o site
@@ -125,16 +131,16 @@ jobs:
       - name: Send Success Status
         if: success()
         run: >
-          curl -X POST -H "Authorization: Bearer ${{ secrets.WEBHOOK_SECRET }}" -H "Content-Type: application/json"
+          curl -X POST -H "Authorization: Bearer ${{ github.event.inputs.webhook_secret }}" -H "Content-Type: application/json"
           -d '{"status": "concluido", "run_id": "${{ github.run_id }}", "deploy_id": "${{ github.event.inputs.deploy_id }}", "message": "Deploy finalizado com sucesso! 🎉"}'
-          "${{ secrets.WEBHOOK_URL }}"
+          "${{ github.event.inputs.webhook_url }}"
 
       - name: Send Failure Status
         if: failure()
         run: >
-          curl -X POST -H "Authorization: Bearer ${{ secrets.WEBHOOK_SECRET }}" -H "Content-Type: application/json"
+          curl -X POST -H "Authorization: Bearer ${{ github.event.inputs.webhook_secret }}" -H "Content-Type: application/json"
           -d '{"status": "falhou", "run_id": "${{ github.run_id }}", "deploy_id": "${{ github.event.inputs.deploy_id }}", "message": "Ocorreu um erro durante o deploy. Verifique os logs da Action para mais detalhes."}'
-          "${{ secrets.WEBHOOK_URL }}"
+          "${{ github.event.inputs.webhook_url }}"
 
       - name: Commit Repository Structure
         run: |
