@@ -47,6 +47,7 @@
     "jose": "^5.2.4",
     "libsodium-wrappers": "^0.7.15",
     "lodash.get": "^4.4.2",
+    "lucide-react": "^0.536.0",
     "mongodb": "^6.5.0",
     "nanoid": "^5.0.7",
     "netlify": "^23.0.0",
