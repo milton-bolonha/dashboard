@@ -62,7 +62,7 @@ class DeploymentOrchestrator {
       { $match: { _id: new ObjectId(workspaceId) } },
       {
         $lookup: {
-          from: "api_keys",
+          from: "apiKeys",
           localField: "_id",
           foreignField: "workspaceId",
           as: "apiKeys",
@@ -185,14 +185,96 @@ class DeploymentOrchestrator {
       const { deployConfig } = context.payload;
       const gitManager = new GitManager(deployConfig.githubToken);
 
-      // Encontrar uma API key pública para o workspace
-      const publicApiKey = context.workspace.apiKeys?.find(
-        (key) => key.type === "public" && key.isActive
+      // Encontrar ou criar uma API key para o workspace (qualquer uma ativa)
+      let publicApiKey = context.workspace.apiKeys?.find(
+        (key) => key.hashedKey && key.keyPrefix // API key válida criada pelo usuário
       );
 
       if (!publicApiKey) {
         console.warn(
-          `[${context.deploymentId}] ⚠️ Workspace ${context.workspace.name} não possui uma API Key pública`
+          `[${context.deploymentId}] ⚠️ Workspace ${context.workspace.name} não possui uma API Key. Criando automaticamente...`
+        );
+
+        // Criar API Key automaticamente
+        const { nanoid } = await import("nanoid");
+        const crypto = await import("crypto");
+
+        const apiKeyValue = `dsmp_${nanoid(32)}`;
+        const hashedKey = crypto
+          .createHash("sha256")
+          .update(apiKeyValue)
+          .digest("hex");
+
+        const apiKeyData = {
+          userId: context.workspace.ownerId,
+          workspaceId: context.workspace._id.toString(),
+          name: "Deploy Auto-Generated Key",
+          hashedKey,
+          keyPrefix: apiKeyValue.substring(0, 7),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        const apiKeyResult = await db.insertOne("apiKeys", apiKeyData);
+
+        publicApiKey = {
+          _id: apiKeyResult.insertedId,
+          keyValue: apiKeyValue, // Apenas API keys auto-geradas têm keyValue
+        };
+
+        console.log(
+          `[${
+            context.deploymentId
+          }] ✅ API Key criada automaticamente: ${apiKeyValue.substring(
+            0,
+            12
+          )}...`
+        );
+      } else {
+        console.log(
+          `[${context.deploymentId}] ✅ Usando API Key existente criada pelo usuário: ${publicApiKey.keyPrefix}...`
+        );
+
+        // ⚠️ PROBLEMA: API Keys existentes não têm keyValue, apenas hash
+        // Isso significa que não podemos usar as API Keys que você criou
+        // Vamos criar uma nova mesmo assim para o deploy
+        console.warn(
+          `[${context.deploymentId}] ⚠️ API Keys existentes não podem ser reutilizadas (apenas hash disponível). Criando nova para deploy...`
+        );
+
+        // Criar API Key temporária para deploy
+        const { nanoid } = await import("nanoid");
+        const crypto = await import("crypto");
+
+        const apiKeyValue = `dsmp_${nanoid(32)}`;
+        const hashedKey = crypto
+          .createHash("sha256")
+          .update(apiKeyValue)
+          .digest("hex");
+
+        const apiKeyData = {
+          userId: context.workspace.ownerId,
+          workspaceId: context.workspace._id.toString(),
+          name: "Deploy Temporary Key",
+          hashedKey,
+          keyPrefix: apiKeyValue.substring(0, 7),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        await db.insertOne("apiKeys", apiKeyData);
+
+        publicApiKey = {
+          keyValue: apiKeyValue,
+        };
+
+        console.log(
+          `[${
+            context.deploymentId
+          }] ✅ API Key temporária criada para deploy: ${apiKeyValue.substring(
+            0,
+            12
+          )}...`
         );
       }
 
@@ -200,7 +282,7 @@ class DeploymentOrchestrator {
         GATSBY_API_URL:
           process.env.NEXT_PUBLIC_APP_URL || "https://dashmaster.pro",
         GATSBY_API_KEY: publicApiKey?.keyValue || "PLACEHOLDER_API_KEY",
-        GATSBY_SITE_URL: `https://${context.workspace.slug}.netlify.app`,
+        GATSBY_SITE_URL: `https://${context.workspace.slug}.netlify.app`, // Será atualizado após criar site
         NETLIFY_AUTH_TOKEN: deployConfig.netlifyToken,
         NETLIFY_SITE_ID: "PLACEHOLDER_SITE_ID", // Será atualizado após criar o site
         WEBHOOK_SECRET: "webhook-secret-placeholder",
@@ -453,11 +535,15 @@ jobs:
 
       context.site = site;
 
-      // Atualizar o secret NETLIFY_SITE_ID com o ID real
+      // Atualizar secrets com dados reais do site
       const gitManager = new GitManager(deployConfig.githubToken);
       await gitManager.createSecrets(context.repo, {
         NETLIFY_SITE_ID: site.id,
+        GATSBY_SITE_URL: site.url, // URL real retornado pela Netlify
       });
+      console.log(
+        `[${context.deploymentId}] 🔄 Secrets atualizados: NETLIFY_SITE_ID=${site.id}, GATSBY_SITE_URL=${site.url}`
+      );
 
       await this.logStatus(context.deploymentId, "progresso", {
         step: "createNetlifySite",
@@ -491,7 +577,7 @@ jobs:
       const workflowInputs = {
         workspace_id: context.workspace._id.toString(),
         deploy_id: context.deploymentId, // Passar o ID do nosso deploy
-        site_name: context.workspace.slug,
+        site_name: context.site?.name || context.workspace.slug, // Usar nome real do site se disponível
         template_repo:
           context.payload.deployConfig.customRepoUrl ||
           "https://github.com/milton-bolonha/dashmaster-gatsby-template",
