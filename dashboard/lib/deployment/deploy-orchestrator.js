@@ -6,7 +6,7 @@ import { NetlifyManager } from "./netlify-manager.js";
 import { SecurityManager } from "./security-manager.js";
 
 import { ObjectId } from "mongodb";
-import { getCollection } from "../db.js";
+import { getCollection, db } from "../db.js";
 
 class DeploymentOrchestrator {
   constructor() {
