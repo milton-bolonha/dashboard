@@ -76,9 +76,22 @@ export function WorkspaceProvider({ children }) {
         // Definir workspace atual se não tiver
         if (!currentWorkspace) {
           const savedWorkspaceId = localStorage.getItem("currentWorkspaceId");
-          const workspace = savedWorkspaceId
-            ? workspacesList.find((w) => w._id === savedWorkspaceId)
-            : workspacesList[0]; // Primeiro workspace como padrão
+          let workspace = null;
+
+          if (savedWorkspaceId) {
+            workspace = workspacesList.find((w) => w._id === savedWorkspaceId);
+
+            // Se o workspace salvo não existe mais (transferido/deletado), limpar localStorage
+            if (!workspace) {
+              console.log(
+                `⚠️ Workspace ${savedWorkspaceId} não encontrado, removendo do localStorage`
+              );
+              localStorage.removeItem("currentWorkspaceId");
+              workspace = workspacesList[0]; // Usar o primeiro disponível
+            }
+          } else {
+            workspace = workspacesList[0]; // Primeiro workspace como padrão
+          }
 
           setCurrentWorkspace(workspace || workspacesList[0]);
           console.log(

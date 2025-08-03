@@ -202,9 +202,14 @@ export default function DeployPage() {
 
       // Recarregar dados após o nuke
       fetchDeployments();
+
+      // Forçar reload imediato do workspace para atualizar as informações
       setTimeout(() => {
         loadWorkspaces();
-      }, 1000);
+        console.log(
+          "🔄 Workspace recarregado após nuke para atualizar informações"
+        );
+      }, 500);
     } catch (err) {
       setError(err.message);
     } finally {

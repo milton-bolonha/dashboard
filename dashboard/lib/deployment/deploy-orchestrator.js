@@ -238,8 +238,14 @@ class DeploymentOrchestrator {
       // Ler o template de workflow
       const fs = await import("fs/promises");
       const path = await import("path");
+      const { fileURLToPath } = await import("url");
+
+      // Caminho absoluto baseado na localização do arquivo atual
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = path.dirname(__filename);
       const workflowPath = path.resolve(
-        "./templates/github-workflows/deploy.yml"
+        __dirname,
+        "../../templates/github-workflows/deploy.yml"
       );
       const workflowContent = await fs.readFile(workflowPath, "utf8");
 
