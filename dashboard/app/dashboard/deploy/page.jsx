@@ -231,12 +231,12 @@ export default function DeployPage() {
                 Repositório GitHub:
               </span>
               <a
-                href={currentWorkspace.netlifyDeployment.repoUrl}
+                href={currentWorkspace?.netlifyDeployment?.repoUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block text-blue-600 dark:text-blue-400 hover:underline"
               >
-                {currentWorkspace.netlifyDeployment.repoUrl}
+                {currentWorkspace?.netlifyDeployment?.repoUrl}
               </a>
             </div>
             <div>
@@ -245,12 +245,12 @@ export default function DeployPage() {
               </span>
               <div className="flex items-center space-x-2">
                 <a
-                  href={currentWorkspace.netlifyDeployment.siteUrl}
+                  href={currentWorkspace?.netlifyDeployment?.siteUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center text-blue-600 dark:text-blue-400 hover:underline"
                 >
-                  <span>{currentWorkspace.netlifyDeployment.siteName}</span>
+                  <span>{currentWorkspace?.netlifyDeployment?.siteName}</span>
                   <ArrowUpRightIcon className="h-4 w-4 ml-1" />
                 </a>
                 {isCheckingStatus && (
@@ -277,7 +277,7 @@ export default function DeployPage() {
             <p className="text-xs text-blue-700 dark:text-blue-300">
               Configurado em:{" "}
               {new Date(
-                currentWorkspace.netlifyDeployment.createdAt
+                currentWorkspace?.netlifyDeployment?.createdAt
               ).toLocaleString()}
             </p>
             {lastDeploy && (
