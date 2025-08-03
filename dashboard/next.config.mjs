@@ -1,5 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "img.clerk.com",
+        port: "",
+        pathname: "/**",
+      },
+    ],
+  },
   webpack: (config) => {
     // A biblioteca do MongoDB usa alguns módulos que não são feitos
     // para o navegador. Esta configuração diz ao Next.js para

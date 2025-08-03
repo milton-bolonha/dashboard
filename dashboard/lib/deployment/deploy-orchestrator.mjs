@@ -204,7 +204,7 @@ class DeploymentOrchestrator {
         NETLIFY_AUTH_TOKEN: deployConfig.netlifyToken,
         NETLIFY_SITE_ID: "PLACEHOLDER_SITE_ID", // Será atualizado após criar o site
         WEBHOOK_SECRET: "webhook-secret-placeholder",
-        WEBHOOK_URL: `${process.env.NEXT_PUBLIC_APP_URL}/api/deploy/webhook`,
+        WEBHOOK_URL: `${process.env.APP_PUBLIC_URL}/api/deploy/webhook`,
       };
 
       await gitManager.createSecrets(context.repo, secrets);
@@ -355,7 +355,7 @@ class DeploymentOrchestrator {
       const gitManager = new GitManager(deployConfig.githubToken);
 
       // Montar a URL do webhook
-      const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/deploy/webhook`;
+      const webhookUrl = `${process.env.APP_PUBLIC_URL}/api/deploy/webhook`;
 
       // Disparar o workflow via workflow_dispatch
       const workflowInputs = {
