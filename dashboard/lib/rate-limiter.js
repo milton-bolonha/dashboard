@@ -156,7 +156,7 @@ export async function checkRateLimit(
   userId = null
 ) {
   // 🚨 HACK TEMPORÁRIO: Bypass para email específico de desenvolvimento
-  if (userId === "user_2zZNqqf3OlYsi0AB7KbyyqqpzpB") {
+  if (userId === "user_30lCRGxlNoUi6cc1l9m30u71zNt") {
     console.log(
       "🔓 HACK DEV: Bypass de rate limit para usuário de desenvolvimento"
     );

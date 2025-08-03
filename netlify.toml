@@ -1,5 +1,5 @@
 [build]
-command = "npm run build --workspace=dashboard"
+command = "cd dashboard && npm run build"
 publish = "dashboard/.next"
 
 [build.environment]
