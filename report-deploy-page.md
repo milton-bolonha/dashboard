@@ -131,9 +131,42 @@ O erro 500 na página de deploy foi causado por uma **confluência de problemas 
 
 A resolução não apenas corrigiu a funcionalidade de deploy, mas também **expôs e iniciou a correção de inconsistências arquiteturais mais amplas** no sistema. O projeto agora está mais alinhado com suas próprias **Regras de Ouro** e práticas de desenvolvimento estabelecidas.
 
+6.  **Resolução da Dependência `@netlify/open-api` (Causa Raiz do Erro em Produção):**
+
+    - **Problema:** O módulo `netlify` importava internamente `@netlify/open-api` que não estava disponível no ambiente de produção da Netlify, causando os erros `Cannot find module '@netlify/open-api'` observados nos logs.
+    - **Arquivo:** `dashboard/lib/deployment/netlify-manager.js`
+    - **Ações:**
+      - Removida dependência do módulo `netlify` que usava `NetlifyAPI`.
+      - Implementado cliente HTTP direto usando `fetch()` nativo.
+      - Criado método `_fetch()` centralizado para chamadas à API da Netlify.
+      - Convertidas todas as operações (`createSite`, `getSite`, `triggerBuild`, `getBuildStatus`) para usar a API REST diretamente.
+      - Adicionado método `deleteSite()` para suporte ao "nuke".
+
+7.  **Implementação da Funcionalidade "Nuke":**
+
+    - **Arquivos:** `dashboard/app/dashboard/deploy/page.jsx`, `dashboard/app/api/deploy/nuke/route.js`
+    - **Ações:**
+      - Criado botão "🗑️ Nuke" visível apenas quando há deploy configurado.
+      - Implementado modal de confirmação com detalhes dos recursos que serão removidos.
+      - Criada API route `/api/deploy/nuke` para remoção completa de recursos.
+      - Funcionalidade remove: configurações do workspace, histórico de deploys, referências a site/repositório.
+      - Implementadas verificações de segurança (permissões de workspace).
+
+8.  **Restauração da Funcionalidade Original do Deploy:**
+    - **Arquivo:** `dashboard/app/dashboard/deploy/page.jsx`
+    - **Problemas Corrigidos:**
+      - Restaurado refresh automático do histórico (intervalo de 5s).
+      - Adicionado verificador de status do site com cache temporal.
+      - Implementadas seções de status: "Site Configurado", "Deploy Incompleto", "Primeiro Deploy".
+      - Restaurada renderização completa do histórico de deploys com detalhes (ID, status, URLs, erros).
+      - Adicionado tratamento de workspace refreshing após deploy.
+
 **Status Atual:**
 
-- ✅ Deploy page totalmente funcional
-- ✅ Modal de configuração implementado
-- ✅ Conformidade com guias de desenvolvimento iniciada
-- 🔄 Migração completa de autenticação em andamento (6 rotas restantes identificadas)
+- ✅ **Deploy page totalmente funcional** com todas as features do código original
+- ✅ **Modal de configuração implementado** com validação e campos obrigatórios
+- ✅ **Funcionalidade Nuke implementada** para limpeza completa de recursos
+- ✅ **Erro `@netlify/open-api` resolvido** - produção deve funcionar sem erros 500
+- ✅ **Conformidade com guias de desenvolvimento** implementada
+- ✅ **Histórico de deploys funcionando** com refresh automático
+- 🔄 **Migração de autenticação** em andamento (6 rotas restantes identificadas)
