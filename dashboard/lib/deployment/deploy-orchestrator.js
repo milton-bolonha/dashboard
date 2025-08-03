@@ -57,22 +57,10 @@ class DeploymentOrchestrator {
       throw new Error("Tokens de API inválidos.");
     }
 
-    // Usar aggregation para buscar o workspace e suas chaves de API
-    const pipeline = [
-      { $match: { _id: new ObjectId(workspaceId) } },
-      {
-        $lookup: {
-          from: "apiKeys",
-          localField: "_id",
-          foreignField: "workspaceId",
-          as: "apiKeys",
-        },
-      },
-    ];
-
+    // Buscar o workspace
     const workspacesCollection = await getCollection("workspaces");
     const workspaceData = await workspacesCollection
-      .aggregate(pipeline)
+      .find({ _id: new ObjectId(workspaceId) })
       .toArray();
 
     if (!workspaceData || workspaceData.length === 0) {
@@ -185,98 +173,40 @@ class DeploymentOrchestrator {
       const { deployConfig } = context.payload;
       const gitManager = new GitManager(deployConfig.githubToken);
 
-      // Encontrar ou criar uma API key para o workspace (qualquer uma ativa)
-      let publicApiKey = context.workspace.apiKeys?.find(
-        (key) => key.hashedKey && key.keyPrefix // API key válida criada pelo usuário
+      // Criar API Key temporária para este deploy específico
+      console.log(
+        `[${context.deploymentId}] 🔑 Gerando API Key para este deploy...`
       );
 
-      if (!publicApiKey) {
-        console.warn(
-          `[${context.deploymentId}] ⚠️ Workspace ${context.workspace.name} não possui uma API Key. Criando automaticamente...`
-        );
+      const { nanoid } = await import("nanoid");
+      const crypto = await import("crypto");
 
-        // Criar API Key automaticamente
-        const { nanoid } = await import("nanoid");
-        const crypto = await import("crypto");
+      const apiKeyValue = `dsmp_${nanoid(32)}`;
+      const hashedKey = crypto
+        .createHash("sha256")
+        .update(apiKeyValue)
+        .digest("hex");
 
-        const apiKeyValue = `dsmp_${nanoid(32)}`;
-        const hashedKey = crypto
-          .createHash("sha256")
-          .update(apiKeyValue)
-          .digest("hex");
+      const apiKeyData = {
+        userId: context.workspace.ownerId,
+        workspaceId: context.workspace._id.toString(),
+        name: `Deploy Key - ${new Date().toISOString().split("T")[0]}`,
+        hashedKey,
+        keyPrefix: apiKeyValue.substring(0, 7),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
-        const apiKeyData = {
-          userId: context.workspace.ownerId,
-          workspaceId: context.workspace._id.toString(),
-          name: "Deploy Auto-Generated Key",
-          hashedKey,
-          keyPrefix: apiKeyValue.substring(0, 7),
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
+      await db.insertOne("apiKeys", apiKeyData);
 
-        const apiKeyResult = await db.insertOne("apiKeys", apiKeyData);
+      const publicApiKey = { keyValue: apiKeyValue };
 
-        publicApiKey = {
-          _id: apiKeyResult.insertedId,
-          keyValue: apiKeyValue, // Apenas API keys auto-geradas têm keyValue
-        };
-
-        console.log(
-          `[${
-            context.deploymentId
-          }] ✅ API Key criada automaticamente: ${apiKeyValue.substring(
-            0,
-            12
-          )}...`
-        );
-      } else {
-        console.log(
-          `[${context.deploymentId}] ✅ Usando API Key existente criada pelo usuário: ${publicApiKey.keyPrefix}...`
-        );
-
-        // ⚠️ PROBLEMA: API Keys existentes não têm keyValue, apenas hash
-        // Isso significa que não podemos usar as API Keys que você criou
-        // Vamos criar uma nova mesmo assim para o deploy
-        console.warn(
-          `[${context.deploymentId}] ⚠️ API Keys existentes não podem ser reutilizadas (apenas hash disponível). Criando nova para deploy...`
-        );
-
-        // Criar API Key temporária para deploy
-        const { nanoid } = await import("nanoid");
-        const crypto = await import("crypto");
-
-        const apiKeyValue = `dsmp_${nanoid(32)}`;
-        const hashedKey = crypto
-          .createHash("sha256")
-          .update(apiKeyValue)
-          .digest("hex");
-
-        const apiKeyData = {
-          userId: context.workspace.ownerId,
-          workspaceId: context.workspace._id.toString(),
-          name: "Deploy Temporary Key",
-          hashedKey,
-          keyPrefix: apiKeyValue.substring(0, 7),
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-
-        await db.insertOne("apiKeys", apiKeyData);
-
-        publicApiKey = {
-          keyValue: apiKeyValue,
-        };
-
-        console.log(
-          `[${
-            context.deploymentId
-          }] ✅ API Key temporária criada para deploy: ${apiKeyValue.substring(
-            0,
-            12
-          )}...`
-        );
-      }
+      console.log(
+        `[${context.deploymentId}] ✅ API Key criada: ${apiKeyValue.substring(
+          0,
+          12
+        )}...`
+      );
 
       const secrets = {
         GATSBY_API_URL:
