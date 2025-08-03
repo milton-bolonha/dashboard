@@ -121,6 +121,16 @@ class GitManager {
           continue;
         }
 
+        // DEBUG: Log especial para GATSBY_API_KEY
+        if (name === "GATSBY_API_KEY") {
+          console.log(
+            `🔑 DEBUG: Criando secret GATSBY_API_KEY com valor: ${value.substring(
+              0,
+              12
+            )}...`
+          );
+        }
+
         const encryptedValue = this.encryptSecret(value, publicKey.key);
 
         await this.octokit.rest.actions.createOrUpdateRepoSecret({

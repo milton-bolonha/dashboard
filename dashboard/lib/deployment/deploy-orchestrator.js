@@ -225,6 +225,12 @@ class DeploymentOrchestrator {
       const { deployConfig } = context.payload;
       const gitManager = new GitManager(deployConfig.githubToken);
 
+      // DEBUG: Verificar se a API Key está no contexto
+      console.log(
+        `[${context.deploymentId}] 🔍 DEBUG: context.apiKey =`,
+        context.apiKey ? `${context.apiKey.substring(0, 12)}...` : "UNDEFINED"
+      );
+
       const secrets = {
         GATSBY_API_URL:
           process.env.NEXT_PUBLIC_APP_URL || "https://dashmaster.pro",
