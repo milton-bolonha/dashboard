@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { db, getCollection } from "@/lib/db"; // Importar getCollection
 import { ObjectId } from "mongodb";
 
 export const DELETE = withAuth(async (req, context, { userId }) => {
@@ -42,13 +42,15 @@ export const DELETE = withAuth(async (req, context, { userId }) => {
       );
     }
 
-    // Remover o membro do array usando $pull
-    const result = await db
-      .getCollection("workspaces")
-      .updateOne(
-        { _id: workspaceObjectId },
-        { $pull: { members: { userId: memberId } } }
-      );
+    // Usar getCollection para a operação $pull
+    const workspacesCollection = await getCollection("workspaces");
+    const result = await workspacesCollection.updateOne(
+      { _id: workspaceObjectId },
+      {
+        $pull: { members: { userId: memberId } },
+        $set: { updatedAt: new Date() }, // Atualizar o timestamp
+      }
+    );
 
     if (result.modifiedCount === 0) {
       return NextResponse.json(
