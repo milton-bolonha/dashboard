@@ -126,6 +126,14 @@ export function createRateLimiter(limitType = "general") {
       return { allowed: true, remaining: 999 };
     }
 
+    // 🚨 HACK TEMPORÁRIO: Bypass para email específico de desenvolvimento
+    if (userId === "user_30lCRGxlNoUi6cc1l9m30u71zNt") {
+      console.log(
+        "🔓 HACK DEV: Bypass de rate limit para usuário de desenvolvimento"
+      );
+      return { allowed: true, remaining: 999, hackMode: true };
+    }
+
     // Limpar entradas expiradas periodicamente
     if (Math.random() < 0.01) {
       // 1% chance a cada request
@@ -147,6 +155,22 @@ export async function checkRateLimit(
   limitType = "general",
   userId = null
 ) {
+  // 🚨 HACK TEMPORÁRIO: Bypass para email específico de desenvolvimento
+  if (userId === "user_2zZNqqf3OlYsi0AB7KbyyqqpzpB") {
+    console.log(
+      "🔓 HACK DEV: Bypass de rate limit para usuário de desenvolvimento"
+    );
+    return {
+      blocked: false,
+      remaining: 999,
+      hackMode: true,
+      headers: {
+        "X-RateLimit-Limit": "999",
+        "X-RateLimit-Remaining": "999",
+        "X-RateLimit-Reset": "0",
+      },
+    };
+  }
   const rateLimiter = createRateLimiter(limitType);
   const result = rateLimiter(request, userId);
 

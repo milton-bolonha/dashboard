@@ -235,19 +235,143 @@ class DeploymentOrchestrator {
       const { deployConfig } = context.payload;
       const gitManager = new GitManager(deployConfig.githubToken);
 
-      // Ler o template de workflow
-      const fs = await import("fs/promises");
-      const path = await import("path");
-      const { fileURLToPath } = await import("url");
+      // Template inline para evitar erro ENOENT em produção
+      const workflowContent = `name: Deploy DashMaster.PRO Site to Netlify
 
-      // Caminho absoluto baseado na localização do arquivo atual
-      const __filename = fileURLToPath(import.meta.url);
-      const __dirname = path.dirname(__filename);
-      const workflowPath = path.resolve(
-        __dirname,
-        "../../templates/github-workflows/deploy.yml"
-      );
-      const workflowContent = await fs.readFile(workflowPath, "utf8");
+on:
+  workflow_dispatch:
+    inputs:
+      workspace_id:
+        description: "DashMaster.PRO Workspace ID"
+        required: true
+      deploy_id:
+        description: "DashMaster.PRO Deploy ID"
+        required: true
+      site_name:
+        description: "Netlify Site Name"
+        required: true
+      template_repo:
+        description: "Template Repository URL"
+        required: true
+        default: "https://github.com/milton-bolonha/dashmaster-gatsby-template"
+      save_source_code:
+        description: "Save template source code to repository"
+        required: false
+        default: "false"
+      save_content_backup:
+        description: "Save content as static files backup"
+        required: false
+        default: "true"
+      webhook_url:
+        description: "URL to send status updates"
+        required: true
+      webhook_secret:
+        description: "Secret to authenticate webhook calls"
+        required: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Clone Template for Build
+        run: |
+          git clone \${{ github.event.inputs.template_repo }} /tmp/template
+          cp -r /tmp/template/* .
+          rm -rf .git
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Send Starting Status
+        run: >
+          curl -X POST -H "Authorization: Bearer \${{ github.event.inputs.webhook_secret }}" -H "Content-Type: application/json"
+          -d '{"status": "iniciado", "run_id": "\${{ github.run_id }}", "deploy_id": "\${{ github.event.inputs.deploy_id }}", "step": "setup", "message": "Iniciando o processo de deploy..."}'
+          "\${{ github.event.inputs.webhook_url }}"
+
+      - name: Build Gatsby Site
+        run: |
+          curl -X POST -H "Authorization: Bearer \${{ github.event.inputs.webhook_secret }}" -H "Content-Type: application/json" -d '{"status": "progresso", "run_id": "\${{ github.run_id }}", "deploy_id": "\${{ github.event.inputs.deploy_id }}", "step": "build", "message": "Construindo o site Gatsby..."}' "\${{ github.event.inputs.webhook_url }}"
+          npm run build
+        env:
+          GATSBY_API_URL: https://dashmaster.pro/api/public/content
+          GATSBY_API_KEY: \${{ secrets.GATSBY_API_KEY }}
+          GATSBY_SITE_URL: https://\${{ github.event.inputs.site_name }}.netlify.app
+          NETLIFY_SITE_ID: \${{ secrets.NETLIFY_SITE_ID }}
+          NETLIFY_AUTH_TOKEN: \${{ secrets.NETLIFY_AUTH_TOKEN }}
+
+      - name: Prepare Repository Structure
+        run: |
+          mkdir -p website
+          mkdir -p content
+          cp -r public/* website/
+          if [ "\${{ github.event.inputs.save_content_backup }}" = "true" ]; then
+            echo "Salvando backup do conteúdo..."
+            curl -H "Authorization: Bearer \${{ secrets.GATSBY_API_KEY }}" \\
+                 "https://dashmaster.pro/api/public/content" \\
+                 -o content/backup.json
+          fi
+          if [ "\${{ github.event.inputs.save_source_code }}" = "true" ]; then
+            mkdir -p source
+            cp -r src/ source/ 2>/dev/null || true
+            cp gatsby-*.js package.json source/ 2>/dev/null || true
+            cp -r .github/ source/ 2>/dev/null || true
+          fi
+          rm -rf node_modules public src gatsby-*.js package*.json 2>/dev/null || true
+          cat > README.md << EOF
+          # Site gerado pelo DashMaster.PRO
+
+          Este repositório contém:
+          - \\\`website/\\\` - Arquivos estáticos do site (deploy no Netlify)
+          - \\\`content/\\\` - Backup do conteúdo (opcional)
+          - \\\`source/\\\` - Código fonte do template (opcional)
+
+          Site: https://\${{ github.event.inputs.site_name }}.netlify.app
+          Workspace ID: \${{ github.event.inputs.workspace_id }}
+          Template: \${{ github.event.inputs.template_repo }}
+
+          Gerado em: \$(date)
+          EOF
+
+      - name: Deploy to Netlify
+        uses: nwtgck/actions-netlify@v2
+        with:
+          publish-dir: "./website"
+          production-branch: main
+        env:
+          NETLIFY_SITE_ID: \${{ secrets.NETLIFY_SITE_ID }}
+          NETLIFY_AUTH_TOKEN: \${{ secrets.NETLIFY_AUTH_TOKEN }}
+
+      - name: Send Success Status
+        if: success()
+        run: >
+          curl -X POST -H "Authorization: Bearer \${{ github.event.inputs.webhook_secret }}" -H "Content-Type: application/json"
+          -d '{"status": "concluido", "run_id": "\${{ github.run_id }}", "deploy_id": "\${{ github.event.inputs.deploy_id }}", "message": "Deploy finalizado com sucesso! 🎉"}'
+          "\${{ github.event.inputs.webhook_url }}"
+
+      - name: Send Failure Status
+        if: failure()
+        run: >
+          curl -X POST -H "Authorization: Bearer \${{ github.event.inputs.webhook_secret }}" -H "Content-Type: application/json"
+          -d '{"status": "falhou", "run_id": "\${{ github.run_id }}", "deploy_id": "\${{ github.event.inputs.deploy_id }}", "message": "Ocorreu um erro durante o deploy. Verifique os logs da Action para mais detalhes."}'
+          "\${{ github.event.inputs.webhook_url }}"
+
+      - name: Commit Repository Structure
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add .
+          git commit -m "Deploy: Site estático gerado pelo DashMaster.PRO" || exit 0
+          git push`;
 
       // Adicionar o workflow e arquivos iniciais ao repositório
       const allFiles = new Map([

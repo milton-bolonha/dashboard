@@ -236,8 +236,20 @@ export default function DeployPage() {
     );
   }
 
-  const hasDeployment = currentWorkspace?.netlifyDeployment;
+  // Verificar deployment de duas formas: configuração no workspace OU histórico de deploys
+  const hasDeployment =
+    currentWorkspace?.netlifyDeployment ||
+    (deployments && deployments.length > 0);
   const lastDeploy = deployments?.[0];
+
+  // 🚨 DEBUG: Verificar estado do workspace em produção
+  console.log("🔍 DEPLOY DEBUG:", {
+    hasCurrentWorkspace: !!currentWorkspace,
+    netlifyDeployment: currentWorkspace?.netlifyDeployment,
+    deploymentsCount: deployments?.length,
+    lastDeploy: lastDeploy,
+    hasDeployment,
+  });
 
   return (
     <div className="max-w-4xl mx-auto p-6">
