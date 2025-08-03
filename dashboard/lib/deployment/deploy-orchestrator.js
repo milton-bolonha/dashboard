@@ -24,6 +24,7 @@ class DeploymentOrchestrator {
     this.engine.createDeck("netlify-deploy", {
       cards: [
         this.validateRequest,
+        this.createApiKey, // NOVO: Criar API Key primeiro
         this.setupRepositoryStructure,
         this.createOrFindRepository,
         this.createOrUpdateSecrets,
@@ -39,6 +40,57 @@ class DeploymentOrchestrator {
   }
 
   // --- CARTAS DO DECK DE DEPLOY ---
+
+  createApiKey = async (context) => {
+    console.log(
+      `[${context.deploymentId}] 2. Gerando API Key para este deploy...`
+    );
+
+    try {
+      const { nanoid } = await import("nanoid");
+      const crypto = await import("crypto");
+
+      const apiKeyValue = `dsmp_${nanoid(32)}`;
+      const hashedKey = crypto
+        .createHash("sha256")
+        .update(apiKeyValue)
+        .digest("hex");
+
+      const apiKeyData = {
+        userId: context.workspace.ownerId,
+        workspaceId: context.workspace._id.toString(),
+        name: `Deploy Key - ${new Date().toISOString().split("T")[0]}`,
+        hashedKey,
+        keyPrefix: apiKeyValue.substring(0, 7),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      await db.insertOne("apiKeys", apiKeyData);
+
+      // Armazenar a API key no contexto para usar depois
+      context.apiKey = apiKeyValue;
+
+      console.log(
+        `[${context.deploymentId}] ✅ API Key criada: ${apiKeyValue.substring(
+          0,
+          12
+        )}...`
+      );
+
+      await this.logStatus(
+        context.deploymentId,
+        "progresso",
+        "API Key gerada com sucesso"
+      );
+    } catch (error) {
+      console.error(
+        `[${context.deploymentId}] ❌ Erro em createApiKey:`,
+        error
+      );
+      throw error;
+    }
+  };
 
   validateRequest = async (context) => {
     const { workspaceId, userId, deployConfig, deploymentId } = context.payload;
@@ -77,7 +129,7 @@ class DeploymentOrchestrator {
 
   createOrFindRepository = async (context) => {
     console.log(
-      `[${context.deploymentId}] 2. Criando/Encontrando repositório Git...`
+      `[${context.deploymentId}] 4. Criando/Encontrando repositório Git...`
     );
 
     try {
@@ -166,52 +218,17 @@ class DeploymentOrchestrator {
 
   createOrUpdateSecrets = async (context) => {
     console.log(
-      `[${context.deploymentId}] 4. Configurando secrets do repositório...`
+      `[${context.deploymentId}] 5. Configurando secrets do repositório...`
     );
 
     try {
       const { deployConfig } = context.payload;
       const gitManager = new GitManager(deployConfig.githubToken);
 
-      // Criar API Key temporária para este deploy específico
-      console.log(
-        `[${context.deploymentId}] 🔑 Gerando API Key para este deploy...`
-      );
-
-      const { nanoid } = await import("nanoid");
-      const crypto = await import("crypto");
-
-      const apiKeyValue = `dsmp_${nanoid(32)}`;
-      const hashedKey = crypto
-        .createHash("sha256")
-        .update(apiKeyValue)
-        .digest("hex");
-
-      const apiKeyData = {
-        userId: context.workspace.ownerId,
-        workspaceId: context.workspace._id.toString(),
-        name: `Deploy Key - ${new Date().toISOString().split("T")[0]}`,
-        hashedKey,
-        keyPrefix: apiKeyValue.substring(0, 7),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      await db.insertOne("apiKeys", apiKeyData);
-
-      const publicApiKey = { keyValue: apiKeyValue };
-
-      console.log(
-        `[${context.deploymentId}] ✅ API Key criada: ${apiKeyValue.substring(
-          0,
-          12
-        )}...`
-      );
-
       const secrets = {
         GATSBY_API_URL:
           process.env.NEXT_PUBLIC_APP_URL || "https://dashmaster.pro",
-        GATSBY_API_KEY: publicApiKey?.keyValue || "PLACEHOLDER_API_KEY",
+        GATSBY_API_KEY: context.apiKey || "PLACEHOLDER_API_KEY",
         GATSBY_SITE_URL: `https://${context.workspace.slug}.netlify.app`, // Será atualizado após criar site
         NETLIFY_AUTH_TOKEN: deployConfig.netlifyToken,
         NETLIFY_SITE_ID: "PLACEHOLDER_SITE_ID", // Será atualizado após criar o site
@@ -240,7 +257,7 @@ class DeploymentOrchestrator {
 
   addGitHubWorkflow = async (context) => {
     console.log(
-      `[${context.deploymentId}] 5. Adicionando GitHub Action workflow...`
+      `[${context.deploymentId}] 6. Adicionando GitHub Action workflow...`
     );
 
     try {
@@ -407,7 +424,7 @@ jobs:
   };
 
   createNetlifySite = async (context) => {
-    console.log(`[${context.deploymentId}] 6. Criando site na Netlify...`);
+    console.log(`[${context.deploymentId}] 7. Criando site na Netlify...`);
 
     try {
       const { deployConfig } = context.payload;
@@ -494,7 +511,7 @@ jobs:
   };
 
   triggerWorkflow = async (context) => {
-    console.log(`[${context.deploymentId}] 7. Disparando GitHub Action...`);
+    console.log(`[${context.deploymentId}] 8. Disparando GitHub Action...`);
 
     try {
       const { deployConfig } = context.payload;
@@ -542,7 +559,7 @@ jobs:
 
   markDispatchAsSuccessful = async (context) => {
     console.log(
-      `[${context.deploymentId}] 8. Notificando sucesso do disparo...`
+      `[${context.deploymentId}] 9. Notificando sucesso do disparo...`
     );
 
     try {
