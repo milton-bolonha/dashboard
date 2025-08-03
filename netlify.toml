@@ -1,38 +1,12 @@
 [build]
-base = "dashboard"
-command = "npm run build"
-publish = ".next"
+command = "npm run build --workspace=dashboard"
+publish = "dashboard/.next"
 
 [build.environment]
 NODE_VERSION = "22.16.0"
 
 [[plugins]]
 package = "@netlify/plugin-nextjs"
-# [[plugins]]
-# package = "@netlify/plugin-local-install-core"
 
 [functions]
-directory = "./netlify/functions"
-
-# [[edge_functions]]
-# path = "/netlify/functions/ai-enhance"
-
-[[edge_functions]]
-path = "/netlify/functions/billing-create"
-function = "billing-create"
-
-# [[edge_functions]]
-# path = "/netlify/functions/book-generate"
-# function = "book-generate"
-
-# [[edge_functions]]
-# path = "/netlify/functions/story-create"
-# function = "story-create"
-
-# [[edge_functions]]
-# path = "/netlify/functions/story-update"
-# function = "story-update"
-
-[[edge_functions]]
-path = "/netlify/functions/stripe-webhook"
-function = "stripe-webhook"
+directory = "dashboard/netlify/functions"

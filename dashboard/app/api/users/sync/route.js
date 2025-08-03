@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { createClerkClient } from "@clerk/nextjs/server";
+import { getCurrentAuth } from "@/lib/auth";
 import { getCollection } from "../../../../lib/db";
 
 const clerkClient = createClerkClient({
@@ -51,7 +52,8 @@ export async function POST(request) {
 
 export async function GET(request) {
   try {
-    const { userId } = await auth();
+    const authData = await getCurrentAuth();
+    const userId = authData.userId;
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

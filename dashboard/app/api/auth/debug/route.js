@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
+import { getCurrentAuth } from "@/lib/auth";
 
 /**
  * GET /api/auth/debug
@@ -9,19 +10,27 @@ export async function GET(request) {
   try {
     console.log("🔐 DEBUG: Verificando status de autenticação...");
 
-    const authData = auth();
-    console.log("🔐 DEBUG: Auth data completo:", authData);
+    // Comparar ambos os métodos para debug
+    const authDataDirect = auth();
+    const authDataCentralized = await getCurrentAuth();
+
+    console.log("🔐 DEBUG: Auth data direto:", authDataDirect);
+    console.log("🔐 DEBUG: Auth data centralizado:", authDataCentralized);
 
     const debug = {
       timestamp: new Date().toISOString(),
-      auth: {
-        userId: authData.userId,
-        sessionId: authData.sessionId,
-        orgId: authData.orgId,
-        orgRole: authData.orgRole,
-        orgSlug: authData.orgSlug,
+      authDirect: {
+        userId: authDataDirect.userId,
+        sessionId: authDataDirect.sessionId,
+        orgId: authDataDirect.orgId,
+        orgRole: authDataDirect.orgRole,
+        orgSlug: authDataDirect.orgSlug,
       },
-      isAuthenticated: !!authData.userId,
+      authCentralized: {
+        userId: authDataCentralized.userId,
+        method: authDataCentralized.method || "unknown",
+      },
+      isAuthenticated: !!authDataCentralized.userId,
       userAgent: request.headers.get("user-agent") || "N/A",
     };
 

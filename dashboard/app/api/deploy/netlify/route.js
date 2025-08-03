@@ -3,7 +3,7 @@ import { getCurrentAuth } from "@/lib/auth";
 import { checkRateLimit, sanitizeInput } from "@/lib/rate-limiter";
 
 // Corrigido: Usando path.resolve a partir da raiz do workspace do dashboard
-import { DeploymentOrchestrator } from "@/lib/deployment/deploy-orchestrator.mjs";
+import { DeploymentOrchestrator } from "@/lib/deployment/deploy-orchestrator.js";
 
 import { db } from "@/lib/db";
 import { ObjectId } from "mongodb";
