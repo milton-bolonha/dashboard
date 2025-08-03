@@ -156,7 +156,7 @@ export async function GET(request) {
       );
     }
 
-    const { searchParams } = new URL(request.url);
+    const searchParams = request.nextUrl.searchParams;
     const workspaceId = searchParams.get("workspaceId");
 
     if (!workspaceId) {
@@ -169,10 +169,10 @@ export async function GET(request) {
     // 🛡️ SEGURANÇA: Sanitizar workspaceId
     const sanitizedWorkspaceId = sanitizeInput(workspaceId, "general");
 
-    // Garante que o usuário só possa ver os deploys do seu workspace
+    // Garante que o usuário só possa ver os deploys de workspaces aos quais pertence
     const workspace = await db.findOne("workspaces", {
       _id: new ObjectId(sanitizedWorkspaceId),
-      ownerId: auth.userId,
+      "members.userId": auth.userId,
     });
     if (!workspace) {
       return NextResponse.json(
