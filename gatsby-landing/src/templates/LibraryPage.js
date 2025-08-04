@@ -6,19 +6,15 @@ import Seo from "../components/Seo";
 
 const LibraryPage = ({ pageContext }) => {
   const { pageData, globalData } = pageContext;
-  const { data, html } = pageData;
+  const { html, image, title, page_builder } = pageData;
 
   return (
-    <LayoutContainer
-      bgImage={data.image}
-      pageTitle={data.name}
-      globalData={globalData}
-    >
+    <LayoutContainer bgImage={image} pageTitle={title} globalData={globalData}>
       <PageBuilderContainer
-        pageBuilderData={data.page_builder}
+        pageBuilderData={page_builder}
         testimonialsData={globalData.testimonials}
       />
-      <MarkdownContentContainer frontmatter={data} html={html} />
+      <MarkdownContentContainer frontmatter={pageData} html={html} />
     </LayoutContainer>
   );
 };
@@ -29,7 +25,7 @@ export const Head = ({ location, pageContext }) => {
   return (
     <Seo
       site={globalData.site}
-      title={pageData.name}
+      title={pageData.title}
       description={pageData.description}
       path={location.pathname}
       navigationItems={globalData.header.menu.data.items}

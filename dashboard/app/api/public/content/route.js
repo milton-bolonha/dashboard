@@ -3,6 +3,45 @@ import { db } from "@/lib/db";
 import { requireApiKey } from "@/lib/api-key-auth";
 import { ObjectId } from "mongodb";
 
+// Função para processar URLs de imagem do Cloudinary
+function processImageUrls(data) {
+  if (!data || typeof data !== "object") return data;
+
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+  if (!cloudName) return data; // Se não tiver Cloudinary configurado, retorna como está
+
+  function processValue(value) {
+    if (typeof value === "string") {
+      // Se parece com um Public ID do Cloudinary (sem protocolo/domínio)
+      if (
+        value &&
+        !value.startsWith("http") &&
+        !value.startsWith("/") &&
+        !value.includes(".")
+      ) {
+        return `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${value}`;
+      }
+      return value;
+    }
+
+    if (Array.isArray(value)) {
+      return value.map(processValue);
+    }
+
+    if (value && typeof value === "object") {
+      const processed = {};
+      for (const [key, val] of Object.entries(value)) {
+        processed[key] = processValue(val);
+      }
+      return processed;
+    }
+
+    return value;
+  }
+
+  return processValue(data);
+}
+
 /**
  * GET /api/public/content
  * Retorna todos os dados de conteúdo organizados por seções para build do gatsby
@@ -41,7 +80,7 @@ export async function GET(request) {
           id: item._id,
           title: item.title,
           slug: item.slug,
-          data: item.data,
+          data: processImageUrls(item.data), // Processar URLs de imagem
           createdAt: item.createdAt,
           updatedAt: item.updatedAt,
         }));

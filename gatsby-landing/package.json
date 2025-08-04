@@ -19,6 +19,7 @@
     "@tailwindcss/postcss": "^4.1.11",
     "@tailwindcss/typography": "^0.5.16",
     "autoprefixer": "^10.4.21",
+    "dotenv": "^17.2.1",
     "front-matter": "^4.0.2",
     "gatsby": "^5.14.1",
     "gatsby-plugin-google-gtag": "^5.14.0",
