@@ -18,8 +18,24 @@ export const config = {
   matcher: [
     // Roda o middleware em todas as rotas, exceto a raiz, arquivos estáticos E rotas públicas
     "/((?!^/$|.+\\.[\\w]+$|_next|api/public).*)",
-    // Rodar apenas em APIs que NÃO sejam públicas
-    "/api/(?!public)(.*)",
+    // Proteger todas as APIs privadas (lista explícita em vez de negative lookahead)
+    "/api/access(.*)",
+    "/api/admin(.*)",
+    "/api/auth(.*)",
+    "/api/billing(.*)",
+    "/api/content-types(.*)",
+    "/api/dashboard(.*)",
+    "/api/debug(.*)",
+    "/api/deploy(.*)",
+    "/api/importer(.*)",
+    "/api/migrate(.*)",
+    "/api/plans(.*)",
+    "/api/sections(.*)",
+    "/api/sync(.*)",
+    "/api/test-items(.*)",
+    "/api/upload(.*)",
+    "/api/users(.*)",
+    "/api/workspaces(.*)",
     "/(trpc)(.*)",
   ],
 };
