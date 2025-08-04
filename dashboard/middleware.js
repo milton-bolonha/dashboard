@@ -16,8 +16,10 @@ export default clerkMiddleware(async (auth, req) => {
 
 export const config = {
   matcher: [
-    // Roda o middleware em todas as rotas, exceto a raiz e arquivos estáticos.
-    "/((?!^/$|.+\\.[\\w]+$|_next).*)",
-    "/(api|trpc)(.*)",
+    // Roda o middleware em todas as rotas, exceto a raiz, arquivos estáticos E rotas públicas
+    "/((?!^/$|.+\\.[\\w]+$|_next|api/public).*)",
+    // Rodar apenas em APIs que NÃO sejam públicas
+    "/api/(?!public)(.*)",
+    "/(trpc)(.*)",
   ],
 };
