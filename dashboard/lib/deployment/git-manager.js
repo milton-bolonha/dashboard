@@ -5,6 +5,9 @@ class GitManager {
   constructor(githubToken) {
     this.octokit = new Octokit({
       auth: githubToken,
+      request: {
+        timeout: 30000, // 30 segundos timeout (padrão é 5s)
+      },
     });
 
     // Aguardar sodium estar pronto
@@ -133,15 +136,40 @@ class GitManager {
 
         const encryptedValue = this.encryptSecret(value, publicKey.key);
 
-        await this.octokit.rest.actions.createOrUpdateRepoSecret({
-          owner: repo.owner.login,
-          repo: repo.name,
-          secret_name: name,
-          encrypted_value: encryptedValue,
-          key_id: publicKey.key_id,
-        });
+        // Implementar retry logic para falhas de conectividade
+        let retries = 3;
+        let success = false;
 
-        console.log(`✅ Secret ${name} criado`);
+        while (retries > 0 && !success) {
+          try {
+            await this.octokit.rest.actions.createOrUpdateRepoSecret({
+              owner: repo.owner.login,
+              repo: repo.name,
+              secret_name: name,
+              encrypted_value: encryptedValue,
+              key_id: publicKey.key_id,
+            });
+
+            console.log(`✅ Secret ${name} criado`);
+            success = true;
+          } catch (secretError) {
+            retries--;
+            console.log(
+              `⚠️ Falha ao criar secret ${name}, tentativas restantes: ${retries}`
+            );
+
+            if (retries === 0) {
+              console.error(
+                `❌ Falha definitiva ao criar secret ${name}:`,
+                secretError.message
+              );
+              throw secretError;
+            }
+
+            // Aguardar 2 segundos antes de tentar novamente
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+          }
+        }
       }
     } catch (error) {
       console.error("Erro ao criar secrets:", error);
