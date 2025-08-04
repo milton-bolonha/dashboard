@@ -137,7 +137,7 @@ async function fetchContent(apiKey, apiUrl) {
 
 exports.createPages = async ({ graphql, actions }) => {
   const { createPage } = actions;
-  const publicApiUrl = \`\${process.env.GATSBY_API_URL}/api/public/content\`;
+  const publicApiUrl = process.env.GATSBY_API_URL; // Já contém a URL completa
   const apiKey = process.env.GATSBY_API_KEY;
 
   const apiResult = await fetchContent(apiKey, publicApiUrl);
@@ -302,7 +302,7 @@ export default function NotFound() {
     return {
       production: `GATSBY_API_URL=${
         process.env.APP_URL || "https://dashmaster.pro"
-      }
+      }/api/public/content
 GATSBY_API_KEY=${apiKey || "COLOQUE_SUA_API_KEY_PUBLICA_AQUI"}
 GATSBY_SITE_URL=https://${this.workspace.slug}.netlify.app`,
 

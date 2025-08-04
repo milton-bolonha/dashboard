@@ -3,7 +3,7 @@ const fetch = require("node-fetch");
 
 // Função para buscar todos os dados da API pública
 async function getSourceData() {
-  const apiUrl = `${process.env.GATSBY_API_URL}/api/public/content`;
+  const apiUrl = process.env.GATSBY_API_URL; // Já contém a URL completa
   const apiKey = process.env.GATSBY_API_KEY;
 
   if (!apiUrl || !apiKey) {

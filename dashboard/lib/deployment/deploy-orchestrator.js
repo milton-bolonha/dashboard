@@ -232,8 +232,9 @@ class DeploymentOrchestrator {
       );
 
       const secrets = {
-        GATSBY_API_URL:
-          process.env.NEXT_PUBLIC_APP_URL || "https://dashmaster.pro",
+        GATSBY_API_URL: `${
+          process.env.NEXT_PUBLIC_APP_URL || "https://dashmaster.pro"
+        }/api/public/content`,
         GATSBY_API_KEY: context.apiKey || "PLACEHOLDER_API_KEY",
         GATSBY_SITE_URL: `https://${context.workspace.slug}.netlify.app`, // Será atualizado após criar site
         NETLIFY_AUTH_TOKEN: deployConfig.netlifyToken,
