@@ -6,6 +6,7 @@ import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Checkbox } from "@/components/ui/Checkbox";
+import ThemeSelector from "@/components/deploy/ThemeSelector";
 import {
   CheckIcon,
   XMarkIcon,
@@ -553,47 +554,15 @@ export default function DeployPage() {
               </p>
             </div>
 
-            <div className="flex items-start space-x-2">
-              <Checkbox
-                id="use-custom-repo"
-                checked={useCustomRepo}
-                onCheckedChange={setUseCustomRepo}
-              />
-              <div className="flex-1">
-                <label
-                  htmlFor="use-custom-repo"
-                  className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer"
-                >
-                  Usar repositório customizado
-                </label>
-                <p className="text-xs text-gray-500">
-                  Por padrão, um novo repositório será criado automaticamente
-                </p>
-              </div>
-            </div>
-
-            {useCustomRepo && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  URL do Repositório (Opcional)
-                </label>
-                <Input
-                  type="url"
-                  placeholder="https://github.com/usuario/repo"
-                  value={deployConfig.customRepoUrl}
-                  onChange={(e) =>
-                    setDeployConfig((prev) => ({
-                      ...prev,
-                      customRepoUrl: e.target.value,
-                    }))
-                  }
-                  className="w-full"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Deixe vazio para criar um novo repositório automaticamente
-                </p>
-              </div>
-            )}
+            <ThemeSelector
+              value={deployConfig.customRepoUrl}
+              onChange={(url) =>
+                setDeployConfig((prev) => ({
+                  ...prev,
+                  customRepoUrl: url,
+                }))
+              }
+            />
 
             {error && (
               <div className="bg-red-50 border border-red-200 rounded-md p-3">

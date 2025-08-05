@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { ContentTypeSchema, validateSchema } from "@/schemas/index.js";
 import { ObjectId } from "mongodb";
-import { getAuthenticatedUser } from "@/lib/auth";
+import { getCurrentAuth } from "@/lib/auth";
 import { logDebug, logError } from "@/lib/logger";
 
 /**
@@ -65,12 +65,9 @@ async function getCurrentWorkspace(userId, requestedWorkspaceId = null) {
  */
 export async function GET(request, { params }) {
   try {
-    const authResult = await getAuthenticatedUser();
-    if (authResult.error) {
-      return NextResponse.json(
-        { error: authResult.error },
-        { status: authResult.status }
-      );
+    const { userId } = await getCurrentAuth();
+    if (!userId) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 
     const { id } = await params;
@@ -105,14 +102,10 @@ export async function GET(request, { params }) {
  */
 export async function PUT(request, { params }) {
   try {
-    const authResult = await getAuthenticatedUser();
-    if (authResult.error) {
-      return NextResponse.json(
-        { error: authResult.error },
-        { status: authResult.status }
-      );
+    const { userId } = await getCurrentAuth();
+    if (!userId) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
-    const { userId } = authResult;
 
     const { id } = await params;
     if (!ObjectId.isValid(id)) {
@@ -187,12 +180,9 @@ export async function PUT(request, { params }) {
  */
 export async function DELETE(request, { params }) {
   try {
-    const authResult = await getAuthenticatedUser();
-    if (authResult.error) {
-      return NextResponse.json(
-        { error: authResult.error },
-        { status: authResult.status }
-      );
+    const { userId } = await getCurrentAuth();
+    if (!userId) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 
     const { id } = await params;

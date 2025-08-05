@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import { createAccessEngine } from "@/lib/access-engine";
-import { getAuthenticatedUser } from "@/lib/auth";
+import { getCurrentAuth } from "@/lib/auth";
 import { logError } from "@/lib/logger";
 import { ObjectId } from "mongodb";
 
 export async function POST(request) {
   try {
-    const authResult = await getAuthenticatedUser();
+    const { userId } = await getCurrentAuth();
+    if (!userId) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    }
     if (authResult.error) {
       return NextResponse.json(
         { error: authResult.error },

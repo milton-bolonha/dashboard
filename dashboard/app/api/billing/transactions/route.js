@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAuthenticatedUser } from "@/lib/auth";
+import { getCurrentAuth } from "@/lib/auth";
 import { getCollection } from "../../../../lib/db";
 
 export async function POST(request) {
@@ -113,13 +113,13 @@ export async function POST(request) {
 
 export async function GET(request) {
   try {
-    const { userId, error, status: authStatus } = await getAuthenticatedUser();
+    const { userId } = await getCurrentAuth();
 
-    if (error) {
+    if (!userId) {
       // Permitir chamadas internas com API Key como fallback
       const authHeader = request.headers.get("authorization");
       if (!authHeader?.includes(process.env.INTERNAL_API_KEY)) {
-        return NextResponse.json({ error }, { status: authStatus });
+        return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
       }
     }
 

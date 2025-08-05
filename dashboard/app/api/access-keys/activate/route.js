@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { AccessKeys } from "@/lib/access-keys";
 import { getCollection } from "@/lib/db";
 import bcrypt from "bcryptjs";
-import { getAuthenticatedUser } from "@/lib/auth";
+import { getCurrentAuth } from "@/lib/auth";
 import { logDebug, logError } from "@/lib/logger";
 
 async function handleSuperAdminSetup(key, userId) {
@@ -99,14 +99,10 @@ export async function POST(req) {
   logDebug(`=== INICIANDO REQUISIÇÃO ACTIVATE KEY ===`);
 
   try {
-    const authResult = await getAuthenticatedUser();
-    if (authResult.error) {
-      return NextResponse.json(
-        { error: authResult.error },
-        { status: authResult.status }
-      );
+    const { userId } = await getCurrentAuth();
+    if (!userId) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
-    const { userId } = authResult;
 
     logDebug(`✅ userId confirmado: ${userId}`);
 

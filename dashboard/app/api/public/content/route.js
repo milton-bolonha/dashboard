@@ -12,15 +12,50 @@ function processImageUrls(data) {
 
   function processValue(value) {
     if (typeof value === "string") {
-      // Se parece com um Public ID do Cloudinary (sem protocolo/domínio)
+      // Verificar se é uma URL completa do Cloudinary - não processar
+      if (value && value.startsWith("https://res.cloudinary.com/")) {
+        console.log(`[CLOUDINARY] ✅ URL já processada: ${value}`);
+        return value;
+      }
+
+      // Verificar se é um Public ID do Cloudinary (pode incluir folders)
       if (
         value &&
         !value.startsWith("http") &&
         !value.startsWith("/") &&
         !value.includes(".")
       ) {
-        return `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${value}`;
+        // Detectar se é public_id com estrutura de pastas do nosso sistema
+        const isOurFolderStructure =
+          value.includes("/") &&
+          (value.includes("uploads/") ||
+            value.includes("landing-page/") ||
+            /user_\w+/.test(value));
+
+        if (isOurFolderStructure) {
+          // É um public_id completo com pastas - usar diretamente
+          const cloudinaryUrl = `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${value}`;
+          console.log(
+            `[CLOUDINARY] 🔧 Convertendo public_id com pastas: ${value} → ${cloudinaryUrl}`
+          );
+          return cloudinaryUrl;
+        } else if (value.length > 10 && /^[a-zA-Z0-9_-]+$/.test(value)) {
+          // É um public_id simples - usar diretamente
+          const cloudinaryUrl = `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${value}`;
+          console.log(
+            `[CLOUDINARY] 🔍 Convertendo public_id simples: ${value} → ${cloudinaryUrl}`
+          );
+          return cloudinaryUrl;
+        }
       }
+
+      // Debug: Log valores que não são convertidos
+      if (value && value.length > 30) {
+        console.log(
+          `[CLOUDINARY] ⚠️ Valor não convertido: ${value.substring(0, 50)}...`
+        );
+      }
+
       return value;
     }
 

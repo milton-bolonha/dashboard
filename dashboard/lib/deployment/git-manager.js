@@ -218,6 +218,32 @@ class GitManager {
     // Isso pode ser melhorado para suportar organizações
     return this.octokit.auth.token.split("_")[0]; // Simplificação
   }
+
+  async deleteRepository(repositoryName) {
+    try {
+      const { data: user } = await this.octokit.rest.users.getAuthenticated();
+      
+      // repositoryName pode vir como "owner/repo" ou apenas "repo"
+      let owner, repo;
+      if (repositoryName.includes('/')) {
+        [owner, repo] = repositoryName.split('/');
+      } else {
+        owner = user.login;
+        repo = repositoryName;
+      }
+
+      await this.octokit.rest.repos.delete({
+        owner: owner,
+        repo: repo,
+      });
+
+      console.log(`✅ Repositório ${owner}/${repo} deletado com sucesso`);
+      return true;
+    } catch (error) {
+      console.error(`❌ Erro ao deletar repositório ${repositoryName}:`, error.message || error);
+      throw error;
+    }
+  }
 }
 
 export { GitManager };

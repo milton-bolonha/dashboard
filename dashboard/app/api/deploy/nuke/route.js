@@ -53,20 +53,27 @@ export async function POST(request) {
     // 1. Deletar site da Netlify (se existir)
     if (workspace.netlifyDeployment?.siteId) {
       try {
-        const { NetlifyManager } = await import(
-          "@/lib/deployment/netlify-manager"
+        // Buscar deployments com tokens para deletar recursos reais
+        const latestDeployment = await db.findOne("deployments", 
+          { workspaceId: workspaceId },
+          { sort: { createdAt: -1 } }
         );
 
-        // Para deletar o site, precisamos do token da Netlify
-        // Como não temos o token armazenado, vamos apenas limpar as referências
-        console.log(
-          `[NUKE] Site Netlify: ${workspace.netlifyDeployment.siteId} (limpeza de referência)`
-        );
-        deletedResources.push(
-          `Site Netlify: ${workspace.netlifyDeployment.siteName}`
-        );
+        if (latestDeployment?.deployConfig?.netlifyToken) {
+          const { NetlifyManager } = await import("@/lib/deployment/netlify-manager");
+          
+          const netlifyManager = new NetlifyManager(latestDeployment.deployConfig.netlifyToken);
+          
+          console.log(`[NUKE] 🗑️ Deletando site real da Netlify: ${workspace.netlifyDeployment.siteId}`);
+          await netlifyManager.deleteSite(workspace.netlifyDeployment.siteId);
+          
+          deletedResources.push(`✅ Site Netlify DELETADO: ${workspace.netlifyDeployment.siteName}`);
+        } else {
+          console.log(`[NUKE] ⚠️ Token Netlify não encontrado - apenas limpeza de referência: ${workspace.netlifyDeployment.siteId}`);
+          deletedResources.push(`⚠️ Site Netlify (apenas referência): ${workspace.netlifyDeployment.siteName}`);
+        }
       } catch (error) {
-        console.error("[NUKE] Erro ao tentar deletar site Netlify:", error);
+        console.error("[NUKE] Erro ao deletar site Netlify:", error);
         errors.push(`Site Netlify: ${error.message}`);
       }
     }
@@ -74,21 +81,37 @@ export async function POST(request) {
     // 2. Deletar repositório GitHub (se existir)
     if (workspace.netlifyDeployment?.repoUrl) {
       try {
-        const { GitManager } = await import("@/lib/deployment/git-manager");
+        // Buscar deployments com tokens para deletar recursos reais
+        const latestDeployment = await db.findOne("deployments", 
+          { workspaceId: workspaceId },
+          { sort: { createdAt: -1 } }
+        );
 
-        // Similarmente, para deletar o repo, precisaríamos do token do GitHub
-        // Por ora, apenas limpamos as referências
-        console.log(
-          `[NUKE] Repositório GitHub: ${workspace.netlifyDeployment.repoUrl} (limpeza de referência)`
-        );
-        deletedResources.push(
-          `Repositório: ${workspace.netlifyDeployment.repoUrl}`
-        );
+        if (latestDeployment?.deployConfig?.githubToken) {
+          const { GitManager } = await import("@/lib/deployment/git-manager");
+          
+          const gitManager = new GitManager(latestDeployment.deployConfig.githubToken);
+          
+          // Extrair owner/repo da URL
+          const repoMatch = workspace.netlifyDeployment.repoUrl.match(/github\.com\/([^\/]+)\/([^\/]+)/);
+          if (repoMatch) {
+            const [, owner, repo] = repoMatch;
+            const repoName = repo.replace('.git', '');
+            
+            console.log(`[NUKE] 🗑️ Deletando repositório real do GitHub: ${owner}/${repoName}`);
+            await gitManager.deleteRepository(`${owner}/${repoName}`);
+            
+            deletedResources.push(`✅ Repositório GitHub DELETADO: ${owner}/${repoName}`);
+          } else {
+            console.log(`[NUKE] ⚠️ Formato de URL inválido: ${workspace.netlifyDeployment.repoUrl}`);
+            errors.push(`Repositório GitHub: URL inválida - ${workspace.netlifyDeployment.repoUrl}`);
+          }
+        } else {
+          console.log(`[NUKE] ⚠️ Token GitHub não encontrado - apenas limpeza de referência: ${workspace.netlifyDeployment.repoUrl}`);
+          deletedResources.push(`⚠️ Repositório GitHub (apenas referência): ${workspace.netlifyDeployment.repoUrl}`);
+        }
       } catch (error) {
-        console.error(
-          "[NUKE] Erro ao tentar deletar repositório GitHub:",
-          error
-        );
+        console.error("[NUKE] Erro ao deletar repositório GitHub:", error);
         errors.push(`Repositório GitHub: ${error.message}`);
       }
     }

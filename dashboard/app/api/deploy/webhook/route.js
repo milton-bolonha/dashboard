@@ -26,12 +26,28 @@ export async function POST(request) {
     }
 
     // Buscar o deployment no banco
+    console.log(`[WEBHOOK] 🔍 Buscando deployment com ID: ${deploy_id}`);
     const deployment = await db.findOne("deployments", {
       deploymentId: deploy_id,
     });
 
     if (!deployment) {
-      console.error(`[WEBHOOK] Deployment ${deploy_id} não encontrado`);
+      console.error(`[WEBHOOK] ❌ Deployment ${deploy_id} não encontrado`);
+
+      // Debug: Verificar deployments existentes
+      const recentDeployments = await db.find(
+        "deployments",
+        {},
+        { sort: { createdAt: -1 }, limit: 5 }
+      );
+      console.log(
+        `[WEBHOOK] 🔍 Últimos 5 deployments:`,
+        recentDeployments.map((d) => ({
+          id: d.deploymentId,
+          created: d.createdAt,
+        }))
+      );
+
       return NextResponse.json(
         { error: "Deployment não encontrado" },
         { status: 404 }

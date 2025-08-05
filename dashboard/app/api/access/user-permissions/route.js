@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuthenticatedUser } from "@/lib/auth";
+import { getCurrentAuth } from "@/lib/auth";
 import { ObjectId } from "mongodb";
 import { logError } from "@/lib/logger";
 
 export async function GET(request) {
   try {
-    const { userId, error, status } = await getAuthenticatedUser();
+    const { userId } = await getCurrentAuth();
+    if (!userId) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    }
 
     if (error) {
       return NextResponse.json({ error }, { status });
