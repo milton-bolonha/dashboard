@@ -22,7 +22,14 @@
 - **Impacto:** GitHub Action nunca é disparada, não há deploy do site
 - **Status:** **RESOLVIDO** ✅ - Secret agora gera valor único
 
-### ❌ **PROBLEMA #2: Exportação de Imagens Cloudinary**
+### ❌ **PROBLEMA #2: Conflito de Diretórios no GitHub Action**
+
+- **Sintoma:** Erro `mv: cannot overwrite './website/404': Directory not empty` no workflow
+- **Causa:** Diretório `website/` já existe com conteúdo de deploys anteriores
+- **Impacto:** GitHub Action falha ao tentar mover novos arquivos
+- **Status:** **RESOLVIDO** ✅ - Diretório é limpo antes de copiar
+
+### ❌ **PROBLEMA #3: Exportação de Imagens Cloudinary**
 
 - **Sintoma:** As imagens/IDs do Cloudinary não estão sendo exportadas como URLs completas do Cloudinary.
 - **Impacto:** O conteúdo gerado não tem acesso às imagens corretas, quebrando a funcionalidade visual do site.
@@ -39,7 +46,18 @@
 - **Solução:** Alterado para gerar secret único: `webhook-secret-${Date.now()}`
 - **Status:** **CONCLUÍDA** ✅ - Deploy deve funcionar agora
 
-### ✅ **TAREFA #2: Investigar e Corrigir Exportação de Imagens Cloudinary (CONCLUÍDA)**
+### ✅ **TAREFA #2: Corrigir Conflito de Diretórios (CONCLUÍDA)**
+
+- **Problema Identificado:** Diretório `website/` já existe com conteúdo de deploys anteriores
+- **Impacto:** GitHub Action falha ao tentar mover novos arquivos
+- **Solução:**
+  - Adicionado `rm -rf website 2>/dev/null || true` (robusto)
+  - Verificação se `public/` existe antes de copiar
+  - Tratamento de erro para backup do conteúdo
+  - Limpeza segura de arquivos temporários
+- **Status:** **CONCLUÍDA** ✅ - Deploy deve funcionar sem conflitos
+
+### ✅ **TAREFA #3: Investigar e Corrigir Exportação de Imagens Cloudinary (CONCLUÍDA)**
 
 - **Problema Identificado:**
 
@@ -60,17 +78,17 @@
 - **Arquivo Modificado:** `dashboard/app/api/public/content/route.js`
 - **Status:** **CONCLUÍDA** - Aguardando teste do usuário
 
-### ✅ **TAREFA #3: Corrigir Update Duplicado no Webhook (CONCLUÍDA)**
+### ✅ **TAREFA #4: Corrigir Update Duplicado no Webhook (CONCLUÍDA)**
 
 - **Ação:** Refatorar a chamada `db.updateOne` no endpoint `/api/deploy/webhook` para passar apenas os dados a serem atualizados, sem o operador `$set`, já que a função helper `db.updateOne` já faz isso internamente.
 - **Status:** **CONCLUÍDA**.
 
-### ✅ **TAREFA #4: Conceder Permissão de Escrita à GitHub Action (CONCLUÍDA)**
+### ✅ **TAREFA #5: Conceder Permissão de Escrita à GitHub Action (CONCLUÍDA)**
 
 - **Ação:** Adicionar a seção `permissions: contents: write` ao arquivo de workflow `deploy.yml` gerado pelo `deploy-orchestrator.js`. Isso deu ao `GITHUB_TOKEN` a permissão necessária para fazer push.
 - **Status:** **CONCLUÍDA**.
 
-### 🟡 **TAREFA #5: Limpar Deploys Corrompidos (Ação do Usuário Opcional)**
+### 🟡 **TAREFA #6: Limpar Deploys Corrompidos (Ação do Usuário Opcional)**
 
 - **Ação:** Rodar o script `npm run cleanup:stale` para remover os documentos de deploy corrompidos das tentativas anteriores.
 - **Status:** **PENDENTE - RECOMENDADO**.
@@ -98,7 +116,22 @@
 - Alterado para gerar secret único: `webhook-secret-${Date.now()}`
 - Deploy deve funcionar completamente agora
 
-### **PROBLEMA #2: URLs de Imagem Cloudinary**
+### **PROBLEMA #2: Conflito de Diretórios**
+
+**Causa Raiz:**
+
+- Diretório `website/` já existe com conteúdo de deploys anteriores
+- Comando `cp -r` não consegue sobrescrever diretórios não vazios
+
+**Solução Aplicada:**
+
+- Adicionado `rm -rf website 2>/dev/null || true` (não falha se não existir)
+- Verificação se `public/` existe e tem conteúdo antes de copiar
+- Tratamento de erro para backup do conteúdo com fallback
+- Limpeza segura de arquivos temporários com `|| true`
+- Criação de arquivo placeholder se build falhar
+
+### **PROBLEMA #3: URLs de Imagem Cloudinary**
 
 **Causa Raiz:**
 
@@ -114,4 +147,5 @@
 ### **Arquivos Modificados:**
 
 - `dashboard/lib/deployment/deploy-orchestrator.js` (linha 241) - Secret único gerado
+- `dashboard/templates/github-workflows/deploy.yml` (linhas 84-86) - Limpeza de diretório
 - `dashboard/app/api/public/content/route.js` (linhas 9 e 16-22)

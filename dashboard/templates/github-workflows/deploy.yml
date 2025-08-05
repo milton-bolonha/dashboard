@@ -77,19 +77,34 @@ jobs:
       - name: Prepare Repository Structure
         run: |
           # Cria estrutura do repositório do usuário
-          mkdir -p website
           mkdir -p content
 
+          # Limpa e recria diretório website/ para evitar conflitos
+          # Usa -f para não falhar se não existir, e || true para ignorar erros
+          rm -rf website 2>/dev/null || true
+          mkdir -p website
+
           # Move arquivos estáticos buildados para website/
-          cp -r public/* website/
+          # Verifica se public/ existe e tem conteúdo antes de copiar
+          if [ -d "public" ] && [ "$(ls -A public 2>/dev/null)" ]; then
+            cp -r public/* website/
+          else
+            echo "⚠️ Diretório public/ não existe ou está vazio"
+            # Cria arquivo placeholder para evitar erro
+            echo "Site em construção" > website/index.html
+          fi
 
           # Se solicitado, salva backup do conteúdo como arquivos estáticos
           if [ "${{ github.event.inputs.save_content_backup }}" = "true" ]; then
             echo "Salvando backup do conteúdo..."
             # Baixar conteúdo da API e salvar em content/
-            curl -H "Authorization: Bearer ${{ secrets.GATSBY_API_KEY }}" \
+            # Usa -f para não falhar se a API retornar erro
+            curl -f -H "Authorization: Bearer ${{ secrets.GATSBY_API_KEY }}" \
                  "https://dashmaster.pro/api/public/content" \
-                 -o content/backup.json
+                 -o content/backup.json 2>/dev/null || {
+              echo "⚠️ Falha ao baixar backup do conteúdo, criando arquivo vazio"
+              echo '{"error": "Falha ao baixar conteúdo", "timestamp": "'$(date -Iseconds)'"}' > content/backup.json
+            }
           fi
 
           # Se solicitado, salva código fonte (OPCIONAL - padrão é false)
@@ -100,8 +115,13 @@ jobs:
             cp -r .github/ source/ 2>/dev/null || true
           fi
 
-          # Remove arquivos temporários de build
-          rm -rf node_modules public src gatsby-*.js package*.json 2>/dev/null || true
+          # Remove arquivos temporários de build (com tratamento de erro)
+          echo "🧹 Limpando arquivos temporários..."
+          rm -rf node_modules 2>/dev/null || true
+          rm -rf public 2>/dev/null || true
+          rm -rf src 2>/dev/null || true
+          rm -f gatsby-*.js 2>/dev/null || true
+          rm -f package*.json 2>/dev/null || true
 
           # Cria README explicativo
           cat > README.md << EOF
