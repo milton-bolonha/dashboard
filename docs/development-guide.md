@@ -31,7 +31,14 @@
 
 - **Descrição:** Uma GitHub Action executa em um servidor limpo e isolado do GitHub. Ela **NÃO** tem acesso às variáveis de ambiente, ao contexto ou ao estado do nosso backend.
 - **Justificativa:** Entender este isolamento previne erros de comunicação. Qualquer informação que a Action precise (como URLs de webhook, chaves de API ou IDs de deploy) **DEVE** ser passada explicitamente do nosso backend para a Action através de `inputs` no `workflow_dispatch`.
-- **Referência:** Correção do erro `Could not resolve host: undefined` no fluxo de deploy em 02/08/25.
+    - **Referência:** Correção do erro `Could not resolve host: undefined` no fluxo de deploy em 02/08/25.
+
+### **Regra de Ouro #5: A API é a Única Fonte da Verdade**
+
+- **Descrição:** **TODA** a lógica de formatação, processamento e preparação de dados para o frontend **DEVE** residir no backend (API). Os templates (Gatsby, etc.) devem ser o mais "burros" possível, focando apenas em renderizar os dados que recebem, já prontos para uso.
+- **Justificativa:** Centralizar a lógica de dados na API garante consistência, segurança e manutenibilidade. Evita a duplicação de código em múltiplos frontends e garante que a fonte da verdade seja única e controlada.
+- **Referência:** `docs/dashboard/DEBUGGING-GUIDE.md` (Problema 14: URLs de Imagem Quebradas).
+
 
 ---
 

@@ -315,18 +315,22 @@ jobs:
 
       - name: Clone Template for Build
         run: |
-          git clone \${{ github.event.inputs.template_repo }} /tmp/template
-          cp -r /tmp/template/* .
-          rm -rf .git
-
+          # Clona o template em um subdiretório para build
+          mkdir build_dir
+          git clone \${{ github.event.inputs.template_repo }} build_dir
+          cd build_dir
+          
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "npm"
+          cache-dependency-path: 'build_dir/package-lock.json' # Aponta para o local correto
 
       - name: Install Dependencies
-        run: npm ci
+        run: |
+          cd build_dir
+          npm ci
 
       - name: Send Starting Status
         run: >
@@ -336,6 +340,7 @@ jobs:
 
       - name: Build Gatsby Site
         run: |
+          cd build_dir
           curl -X POST -H "Authorization: Bearer \${{ github.event.inputs.webhook_secret }}" -H "Content-Type: application/json" -d '{"status": "progresso", "run_id": "\${{ github.run_id }}", "deploy_id": "\${{ github.event.inputs.deploy_id }}", "step": "build", "message": "Construindo o site Gatsby..."}' "\${{ github.event.inputs.webhook_url }}"
           npm run build
         env:
@@ -347,36 +352,28 @@ jobs:
 
       - name: Prepare Repository Structure
         run: |
-          mkdir -p website
-          mkdir -p content
-          cp -r public/* website/
+          # Move os arquivos buildados para a raiz
+          mv build_dir/public/* ./website/
+          
+          # Copia o backup e o source code se solicitado
           if [ "\${{ github.event.inputs.save_content_backup }}" = "true" ]; then
-            echo "Salvando backup do conteúdo..."
-            curl -H "Authorization: Bearer \${{ secrets.GATSBY_API_KEY }}" \\
-                 "https://dashmaster.pro/api/public/content" \\
-                 -o content/backup.json
+            curl -H "Authorization: Bearer \${{ secrets.GATSBY_API_KEY }}" "https://dashmaster.pro/api/public/content" -o ./content/backup.json
           fi
           if [ "\${{ github.event.inputs.save_source_code }}" = "true" ]; then
-            mkdir -p source
-            cp -r src/ source/ 2>/dev/null || true
-            cp gatsby-*.js package.json source/ 2>/dev/null || true
-            cp -r .github/ source/ 2>/dev/null || true
+            mv build_dir/src ./source/
+            mv build_dir/gatsby-*.js ./source/
+            mv build_dir/package.json ./source/
           fi
-          rm -rf node_modules public src gatsby-*.js package*.json 2>/dev/null || true
+          
+          # Limpa o diretório de build
+          rm -rf build_dir
+          
+          # Cria o README na raiz
           cat > README.md << EOF
           # Site gerado pelo DashMaster.PRO
-
-          Este repositório contém:
-          - \\\`website/\\\` - Arquivos estáticos do site (deploy no Netlify)
-          - \\\`content/\\\` - Backup do conteúdo (opcional)
-          - \\\`source/\\\` - Código fonte do template (opcional)
-
-          Site: https://\${{ github.event.inputs.site_name }}.netlify.app
-          Workspace ID: \${{ github.event.inputs.workspace_id }}
-          Template: \${{ github.event.inputs.template_repo }}
-
-          Gerado em: \$(date)
+          ...
           EOF
+
 
       - name: Deploy to Netlify
         uses: nwtgck/actions-netlify@v2

@@ -4,7 +4,8 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 const isPublicRoute = createRouteMatcher([
   "/",
   "/api/webhooks(.*)",
-  "/api/public(.*)", // ← NOVO: Permitir rotas públicas
+  "/api/public(.*)",
+  "/api/deploy/webhook",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
@@ -17,7 +18,7 @@ export default clerkMiddleware(async (auth, req) => {
 export const config = {
   matcher: [
     // Roda o middleware em todas as rotas, exceto a raiz, arquivos estáticos E rotas públicas
-    "/((?!^/$|.+\\.[\\w]+$|_next|api/public).*)",
+    "/((?!^/$|.+\\.[\\w]+$|_next|api/public|api/deploy/webhook).*)",
     // Proteger todas as APIs privadas (lista explícita em vez de negative lookahead)
     "/api/access(.*)",
     "/api/admin(.*)",

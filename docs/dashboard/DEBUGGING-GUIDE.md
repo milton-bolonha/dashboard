@@ -326,3 +326,28 @@ Este documento é um registro vivo dos desafios de depuração que enfrentamos, 
 ---
 
 _Este documento será atualizado à medida que novos desafios surgirem._
+
+---
+
+## Problema Recorrente 14: URLs de Imagem Quebradas no Site Final
+
+- **Sintomas:**
+  - O site buildado (Gatsby, Next, etc.) mostra imagens quebradas.
+  - Ao inspecionar a URL da imagem, ela é um caminho relativo (ex: `/workspace-slug/uploads/...`) em vez de uma URL completa do Cloudinary (`https://res.cloudinary.com/...`).
+
+- **Causa Raiz:**
+  - O valor armazenado no banco de dados para a imagem é um `public_id` do Cloudinary (que pode conter `/`, ex: `workspace/section/user/img_id`), mas a API pública (`/api/public/content`) não está convertendo esse `public_id` em uma URL completa e pronta para consumo.
+  - O template (Gatsby) recebe esse caminho parcial e o interpreta como uma rota local do site, resultando em um 404.
+
+- **Tentativa de Correção Incorreta (Anti-Padrão):**
+  - Adicionar lógica de processamento de URL dentro do template Gatsby (`gatsby-node.js`).
+  - **Por que isso estava errado:** Isso viola nosso princípio de que a **API é a única fonte da verdade**. Os templates devem ser "burros" e apenas renderizar os dados que recebem. A responsabilidade de formatar os dados corretamente é sempre da API.
+
+- **Solução Definitiva: Correção na API Pública**
+  - **Ação:** A função `processImageUrls` dentro de `dashboard/app/api/public/content/route.js` foi refatorada para ser mais robusta.
+  - **Lógica Final:**
+    1. A função percorre recursivamente todos os dados que serão enviados para o cliente.
+    2. Para cada valor do tipo `string`, ela aplica uma regra simples e eficaz: "Se **não** começa com `http` e **não** contém um `.` (extensão de arquivo), então é um `public_id` e deve ser convertido para uma URL completa do Cloudinary."
+    3. Todos os outros valores são mantidos como estão.
+  - **Resultado:** O template Gatsby recebe os dados 100% prontos para uso, sem precisar de nenhuma lógica de processamento de URL. A separação de responsabilidades é mantida, e o sistema fica mais robusto e fácil de manter.
+

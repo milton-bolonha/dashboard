@@ -5,70 +5,30 @@ import { ObjectId } from "mongodb";
 
 // Função para processar URLs de imagem do Cloudinary
 function processImageUrls(data) {
-  if (!data || typeof data !== "object") return data;
+  if (!data) return data;
 
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-  if (!cloudName) return data; // Se não tiver Cloudinary configurado, retorna como está
+  if (!cloudName) return data;
 
   function processValue(value) {
-    if (typeof value === "string") {
-      // Verificar se é uma URL completa do Cloudinary - não processar
-      if (value && value.startsWith("https://res.cloudinary.com/")) {
-        console.log(`[CLOUDINARY] ✅ URL já processada: ${value}`);
-        return value;
+    if (typeof value === 'string') {
+      // Se NÃO for uma URL completa e NÃO tiver extensão de arquivo, é um public_id.
+      if (!value.startsWith('http') && !value.includes('.')) {
+        return `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${value}`;
       }
-
-      // Verificar se é um Public ID do Cloudinary (pode incluir folders)
-      if (
-        value &&
-        !value.startsWith("http") &&
-        !value.startsWith("/") &&
-        !value.includes(".")
-      ) {
-        // Detectar se é public_id com estrutura de pastas do nosso sistema
-        const isOurFolderStructure =
-          value.includes("/") &&
-          (value.includes("uploads/") ||
-            value.includes("landing-page/") ||
-            /user_\w+/.test(value));
-
-        if (isOurFolderStructure) {
-          // É um public_id completo com pastas - usar diretamente
-          const cloudinaryUrl = `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${value}`;
-          console.log(
-            `[CLOUDINARY] 🔧 Convertendo public_id com pastas: ${value} → ${cloudinaryUrl}`
-          );
-          return cloudinaryUrl;
-        } else if (value.length > 10 && /^[a-zA-Z0-9_-]+$/.test(value)) {
-          // É um public_id simples - usar diretamente
-          const cloudinaryUrl = `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${value}`;
-          console.log(
-            `[CLOUDINARY] 🔍 Convertendo public_id simples: ${value} → ${cloudinaryUrl}`
-          );
-          return cloudinaryUrl;
-        }
-      }
-
-      // Debug: Log valores que não são convertidos
-      if (value && value.length > 30) {
-        console.log(
-          `[CLOUDINARY] ⚠️ Valor não convertido: ${value.substring(0, 50)}...`
-        );
-      }
-
       return value;
     }
-
+    
     if (Array.isArray(value)) {
       return value.map(processValue);
     }
 
-    if (value && typeof value === "object") {
-      const processed = {};
-      for (const [key, val] of Object.entries(value)) {
-        processed[key] = processValue(val);
+    if (value && typeof value === 'object') {
+      const newObj = {};
+      for (const key in value) {
+        newObj[key] = processValue(value[key]);
       }
-      return processed;
+      return newObj;
     }
 
     return value;
