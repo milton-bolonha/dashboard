@@ -275,12 +275,15 @@ jobs:
             cp -r .github/ source/ 2>/dev/null || true
           fi
 
-          echo "🧹 Limpando arquivos temporários..."
-          rm -rf node_modules 2>/dev/null || true
-          rm -rf public 2>/dev/null || true
-          rm -rf src 2>/dev/null || true
-          rm -f gatsby-*.js 2>/dev/null || true
-          rm -f package*.json 2>/dev/null || true
+                     echo "🧹 Limpando arquivos temporários..."
+           rm -rf node_modules 2>/dev/null || true
+           rm -rf public 2>/dev/null || true
+           rm -rf src 2>/dev/null || true
+           rm -rf static 2>/dev/null || true
+           rm -f gatsby-*.js 2>/dev/null || true
+           rm -f package*.json 2>/dev/null || true
+           rm -f postcss.config.js 2>/dev/null || true
+           rm -f tailwind.config.js 2>/dev/null || true
 
           cat > README.md << EOF
           # Site gerado pelo DashMaster.PRO
