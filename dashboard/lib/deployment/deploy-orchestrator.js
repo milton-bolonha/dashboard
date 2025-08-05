@@ -239,7 +239,7 @@ class DeploymentOrchestrator {
         GATSBY_SITE_URL: `https://${context.workspace.slug}.netlify.app`, // Será atualizado após criar site
         NETLIFY_AUTH_TOKEN: deployConfig.netlifyToken,
         NETLIFY_SITE_ID: "PLACEHOLDER_SITE_ID", // Será atualizado após criar o site
-        WEBHOOK_SECRET: "webhook-secret-placeholder",
+        WEBHOOK_SECRET: `webhook-secret-${Date.now()}`, // Gerar secret único
         WEBHOOK_URL: `${process.env.APP_PUBLIC_URL}/api/deploy/webhook`,
       };
 
