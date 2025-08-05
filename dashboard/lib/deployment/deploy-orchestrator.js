@@ -352,11 +352,8 @@ jobs:
 
       - name: Prepare Repository Structure
         run: |
-                    # Garante que os diretórios de destino existam
           mkdir -p website content
-
-          
-          # Copia o backup e o source code se solicitado
+          mv build_dir/public/* ./website/
           if [ "\${{ github.event.inputs.save_content_backup }}" = "true" ]; then
             curl -H "Authorization: Bearer \${{ secrets.GATSBY_API_KEY }}" "https://dashmaster.pro/api/public/content" -o ./content/backup.json
           fi
@@ -365,11 +362,7 @@ jobs:
             mv build_dir/gatsby-*.js ./source/
             mv build_dir/package.json ./source/
           fi
-          
-          # Limpa o diretório de build
           rm -rf build_dir
-          
-          # Cria o README na raiz
           cat > README.md << EOF
           # Site gerado pelo DashMaster.PRO
           ...
@@ -420,6 +413,13 @@ jobs:
       await gitManager.commitFiles(context.repo, allFiles);
 
       console.log(`[${context.deploymentId}] ✅ Workflow adicionado`);
+
+      // Adiciona um atraso estratégico para dar tempo ao GitHub de processar o novo workflow
+      console.log(
+        `[${context.deploymentId}] ⏳ Aguardando 10 segundos para o GitHub processar o workflow...`
+      );
+      await new Promise((resolve) => setTimeout(resolve, 10000));
+
       return context;
     } catch (error) {
       console.error(
