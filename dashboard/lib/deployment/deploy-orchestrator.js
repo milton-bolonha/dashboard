@@ -275,26 +275,66 @@ class DeploymentOrchestrator {
       const fs = await import("fs");
       const path = await import("path");
       // Ler o template atualizado do arquivo
-      const templatePath = path.join(
-        process.cwd(),
-        "templates",
-        "github-workflows",
-        "deploy.yml"
+      // Tentar múltiplos caminhos possíveis
+      const possiblePaths = [
+        path.join(process.cwd(), "templates", "github-workflows", "deploy.yml"),
+        path.join(
+          process.cwd(),
+          "dashboard",
+          "templates",
+          "github-workflows",
+          "deploy.yml"
+        ),
+        path.join(
+          process.cwd(),
+          "..",
+          "dashboard",
+          "templates",
+          "github-workflows",
+          "deploy.yml"
+        ),
+        path.join(
+          process.cwd(),
+          "..",
+          "templates",
+          "github-workflows",
+          "deploy.yml"
+        ),
+      ];
+
+      console.log(
+        `[${context.deploymentId}] 🔍 Debug - Process.cwd(): ${process.cwd()}`
       );
 
+      let templatePath;
       let workflowContent;
-      try {
-        workflowContent = fs.readFileSync(templatePath, "utf8");
+
+      // Tentar cada caminho possível
+      for (const testPath of possiblePaths) {
         console.log(
-          `[${context.deploymentId}] ✅ Template carregado de: ${templatePath}`
+          `[${context.deploymentId}] 🔍 Debug - Testando caminho: ${testPath}`
         );
-      } catch (error) {
-        console.error(
-          `[${context.deploymentId}] ❌ Erro ao ler template:`,
-          error
-        );
+
+        try {
+          const content = fs.readFileSync(testPath, "utf8");
+          templatePath = testPath;
+          workflowContent = content;
+          console.log(
+            `[${context.deploymentId}] ✅ Template carregado de: ${templatePath}`
+          );
+          break;
+        } catch (error) {
+          console.log(
+            `[${context.deploymentId}] ❌ Caminho não válido: ${testPath} - ${error.message}`
+          );
+        }
+      }
+
+      if (!templatePath) {
         throw new Error(
-          `Falha ao carregar template do workflow: ${error.message}`
+          `Template não encontrado em nenhum dos caminhos: ${possiblePaths.join(
+            ", "
+          )}`
         );
       }
 
