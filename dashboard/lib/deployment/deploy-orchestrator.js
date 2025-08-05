@@ -277,7 +277,6 @@ class DeploymentOrchestrator {
       // Ler o template atualizado do arquivo
       const templatePath = path.join(
         process.cwd(),
-        "dashboard",
         "templates",
         "github-workflows",
         "deploy.yml"
