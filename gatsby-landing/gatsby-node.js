@@ -5,7 +5,7 @@ require("dotenv").config({
 });
 // Função para buscar todos os dados da API pública
 async function getSourceData() {
-  const apiUrl = `${process.env.GATSBY_API_URL}/api/public/content`;
+  const apiUrl = `${process.env.GATSBY_API_URL}`;
   const apiKey = process.env.GATSBY_API_KEY;
 
   if (!apiUrl || !apiKey) {

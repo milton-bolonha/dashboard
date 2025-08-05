@@ -197,7 +197,7 @@ jobs:
         uses: nwtgck/actions-netlify@v2
         with:
           publish-dir: './public'
-          production-branch: main
+          production-branch: master
           github-token: \${{ secrets.GITHUB_TOKEN }}
           deploy-message: "Deploy \${{ github.sha }}"
         env:

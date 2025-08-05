@@ -1,84 +1,88 @@
 import { NextResponse } from "next/server";
-import { getCollection } from "@/lib/db";
-import { headers } from "next/headers";
-import crypto from "crypto";
+import { db } from "@/lib/db";
+import { ObjectId } from "mongodb";
 
-// Esta função valida se o webhook veio realmente do GitHub
-async function verifySignature(request) {
-  const signature = headers().get("x-hub-signature-256");
-  if (!signature) {
-    console.warn("Webhook sem assinatura recebido.");
-    return false;
-  }
-
-  const secret = process.env.GITHUB_WEBHOOK_SECRET;
-  if (!secret) {
-    console.error("GITHUB_WEBHOOK_SECRET não está configurado.");
-    return false;
-  }
-
-  const body = await request.text();
-  const hmac = crypto.createHmac("sha256", secret);
-  const digest = `sha256=${hmac.update(body).digest("hex")}`;
-
-  return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(digest));
-}
-
+/**
+ * POST /api/deploy/webhook
+ * Recebe notificações de status da GitHub Action sobre deploys
+ */
 export async function POST(request) {
-  // A assinatura do webhook não está funcionando como esperado,
-  // vamos desativá-la temporariamente para depuração.
-  // const isValid = await verifySignature(request.clone());
-  // if (!isValid) {
-  //   console.error("Assinatura de webhook inválida.");
-  //   return NextResponse.json({ error: "Assinatura inválida" }, { status: 403 });
-  // }
-
   try {
-    const payload = await request.json();
-    const { run_id, status, message, step, deploy_id } = payload;
+    console.log("[WEBHOOK] Recebendo notificação de deploy...");
 
-    if (!deploy_id || !status) {
+    const body = await request.json();
+    const { status, run_id, deploy_id, step, message } = body;
+
+    console.log(
+      `[WEBHOOK] Deploy ID: ${deploy_id}, Status: ${status}, Step: ${step}`
+    );
+
+    if (!deploy_id) {
+      console.error("[WEBHOOK] Deploy ID é obrigatório");
       return NextResponse.json(
-        { error: "deploy_id e status são obrigatórios." },
+        { error: "Deploy ID é obrigatório" },
         { status: 400 }
       );
     }
 
-    const deploymentsCollection = await getCollection("deployments");
+    // Buscar o deployment no banco
+    const deployment = await db.findOne("deployments", {
+      deploymentId: deploy_id,
+    });
 
-    const updateData = {
-      $set: {
-        status,
-        "details.githubActionRunId": run_id,
-        "details.lastMessage": message,
-        "details.lastStep": step,
-        updatedAt: new Date(),
-      },
-    };
-
-    if (status === "concluido" || status === "falhou") {
-      updateData.$set["completedAt"] = new Date();
-    }
-
-    const result = await deploymentsCollection.updateOne(
-      { _id: deploy_id },
-      updateData
-    );
-
-    if (result.matchedCount === 0) {
-      console.warn(`Webhook recebido para deploy não encontrado: ${deploy_id}`);
+    if (!deployment) {
+      console.error(`[WEBHOOK] Deployment ${deploy_id} não encontrado`);
       return NextResponse.json(
-        { error: "Deploy não encontrado" },
+        { error: "Deployment não encontrado" },
         { status: 404 }
       );
     }
 
-    console.log(
-      `[Webhook] Status do deploy ${deploy_id} atualizado para: ${status}`
+    // Atualizar status do deployment
+    const updateData = {
+      status,
+      lastUpdate: new Date(),
+    };
+
+    if (message) {
+      updateData.message = message;
+    }
+
+    if (step) {
+      updateData.currentStep = step;
+    }
+
+    if (run_id) {
+      updateData.githubRunId = run_id;
+    }
+
+    // Adicionar informações específicas baseadas no status
+    if (status === "concluido") {
+      updateData.completedAt = new Date();
+      console.log(`[WEBHOOK] ✅ Deploy ${deploy_id} concluído com sucesso!`);
+    } else if (status === "falhou") {
+      updateData.failedAt = new Date();
+      console.log(`[WEBHOOK] ❌ Deploy ${deploy_id} falhou: ${message}`);
+    }
+
+    await db.updateOne(
+      "deployments",
+      { deploymentId: deploy_id },
+      { $set: updateData }
     );
-    return NextResponse.json({ success: true });
+
+    console.log(
+      `[WEBHOOK] ✅ Status do deploy ${deploy_id} atualizado para: ${status}`
+    );
+
+    return NextResponse.json({
+      success: true,
+      deploymentId: deploy_id,
+      status,
+      message: "Status atualizado com sucesso",
+    });
   } catch (error) {
-    console.error("Erro ao processar webhook de deploy:", error);
+    console.error("[WEBHOOK] Erro ao processar webhook:", error);
     return NextResponse.json(
       { error: "Erro interno do servidor" },
       { status: 500 }

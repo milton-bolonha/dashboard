@@ -382,7 +382,7 @@ jobs:
         uses: nwtgck/actions-netlify@v2
         with:
           publish-dir: "./website"
-          production-branch: main
+          production-branch: master
         env:
           NETLIFY_SITE_ID: \${{ secrets.NETLIFY_SITE_ID }}
           NETLIFY_AUTH_TOKEN: \${{ secrets.NETLIFY_AUTH_TOKEN }}
@@ -403,11 +403,15 @@ jobs:
 
       - name: Commit Repository Structure
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add .
-          git commit -m "Deploy: Site estático gerado pelo DashMaster.PRO" || exit 0
-          git push`;
+          if [ -d ".git" ]; then
+            git config --local user.email "action@github.com"
+            git config --local user.name "GitHub Action"
+            git add .
+            git commit -m "Deploy: Site estático gerado pelo DashMaster.PRO" || exit 0
+            git push
+          else
+            echo "Não é um repositório git, pulando commit..."
+          fi`;
 
       // Adicionar o workflow e arquivos iniciais ao repositório
       const allFiles = new Map([
