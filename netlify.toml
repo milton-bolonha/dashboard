@@ -1,5 +1,5 @@
 [build]
-command = "cd dashboard && npm run build && mkdir -p .next/templates && cp -r templates .next/"
+command = "cd dashboard && npm run build"
 publish = "dashboard/.next"
 
 [build.environment]

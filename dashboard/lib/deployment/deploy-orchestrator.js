@@ -281,7 +281,7 @@ class DeploymentOrchestrator {
 
       // Tentar múltiplos caminhos possíveis considerando a estrutura do Netlify
       const possiblePaths = [
-        // Local copiado pelo plugin Netlify (ambiente de produção)
+        // Local copiado pelo script de build (ambiente de produção)
         path.join(
           process.cwd(),
           ".next",
@@ -297,34 +297,15 @@ class DeploymentOrchestrator {
           "github-workflows",
           "deploy.yml"
         ),
-        // Fallbacks com process.cwd() para diferentes contextos
+        // Fallbacks para diferentes contextos
         path.join(process.cwd(), "templates", "github-workflows", "deploy.yml"),
         path.join(
           process.cwd(),
-          "dashboard",
-          "templates",
-          "github-workflows",
-          "deploy.yml"
-        ),
-        path.join(
-          process.cwd(),
-          "..",
-          "dashboard",
-          "templates",
-          "github-workflows",
-          "deploy.yml"
-        ),
-        path.join(
-          process.cwd(),
           "..",
           "templates",
           "github-workflows",
           "deploy.yml"
         ),
-        // Fallbacks absolutos para ambiente Netlify
-        "/var/task/.next/templates/github-workflows/deploy.yml",
-        "/var/task/dashboard/templates/github-workflows/deploy.yml",
-        "/var/task/templates/github-workflows/deploy.yml",
       ];
 
       console.log(
