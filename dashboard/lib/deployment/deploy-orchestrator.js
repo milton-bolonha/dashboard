@@ -271,98 +271,23 @@ class DeploymentOrchestrator {
       const { deployConfig } = context.payload;
       const gitManager = new GitManager(deployConfig.githubToken);
 
-      // Ler o template atualizado do arquivo
-      const fs = await import("fs");
-      const path = await import("path");
-      const appRoot = await import("app-root-path");
-
-      // Obter o diretório raiz da aplicação (mais confiável que process.cwd())
-      const rootPath = appRoot.path;
-
-      // Tentar múltiplos caminhos possíveis considerando a estrutura do Netlify
-      const possiblePaths = [
-        // Local copiado pelo script de build (ambiente de produção)
-        path.join(
-          process.cwd(),
-          ".next",
-          "templates",
-          "github-workflows",
-          "deploy.yml"
-        ),
-        // Usando app-root-path (desenvolvimento local)
-        path.join(
-          rootPath,
-          "dashboard",
-          "templates",
-          "github-workflows",
-          "deploy.yml"
-        ),
-        // Fallbacks para diferentes contextos
-        path.join(process.cwd(), "templates", "github-workflows", "deploy.yml"),
-        path.join(
-          process.cwd(),
-          "..",
-          "templates",
-          "github-workflows",
-          "deploy.yml"
-        ),
-      ];
+      // Gerar o template usando a TemplateGenerator (seguindo nosso padrão de desenvolvimento)
+      const { TemplateGenerator } = await import("./template-generator.js");
 
       console.log(
         `[${context.deploymentId}] 🔍 Debug - Process.cwd(): ${process.cwd()}`
       );
       console.log(
-        `[${context.deploymentId}] 🔍 Debug - App root path: ${rootPath}`
+        `[${context.deploymentId}] 🔍 Debug - Workspace: ${context.workspace.name}`
       );
 
-      let templatePath;
-      let workflowContent;
+      // Criar instância da TemplateGenerator e gerar o workflow
+      const templateGenerator = new TemplateGenerator(context.workspace);
+      const workflowContent = templateGenerator.generateGitHubWorkflow();
 
-      // Tentar cada caminho possível
-      for (const testPath of possiblePaths) {
-        console.log(
-          `[${context.deploymentId}] 🔍 Debug - Testando caminho: ${testPath}`
-        );
-
-        try {
-          const content = fs.readFileSync(testPath, "utf8");
-          templatePath = testPath;
-          workflowContent = content;
-          console.log(
-            `[${context.deploymentId}] ✅ Template carregado de: ${templatePath}`
-          );
-          break;
-        } catch (error) {
-          console.log(
-            `[${context.deploymentId}] ❌ Caminho não válido: ${testPath} - ${error.message}`
-          );
-        }
-      }
-
-      if (!templatePath) {
-        // Log detalhado da estrutura do diretório para debug
-        console.log(
-          `[${context.deploymentId}] 🔍 Debug - Listando estrutura do diretório:`
-        );
-        try {
-          const files = fs.readdirSync(process.cwd());
-          console.log(
-            `[${
-              context.deploymentId
-            }] 🔍 Debug - Arquivos em process.cwd(): ${files.join(", ")}`
-          );
-        } catch (error) {
-          console.log(
-            `[${context.deploymentId}] ❌ Erro ao listar diretório: ${error.message}`
-          );
-        }
-
-        throw new Error(
-          `Template não encontrado em nenhum dos caminhos: ${possiblePaths.join(
-            ", "
-          )}`
-        );
-      }
+      console.log(
+        `[${context.deploymentId}] ✅ Template gerado usando TemplateGenerator`
+      );
 
       // Adicionar o workflow e arquivos iniciais ao repositório
       const allFiles = new Map([
