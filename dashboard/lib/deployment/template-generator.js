@@ -218,7 +218,6 @@ jobs:
         run: |
           git clone \${{ github.event.inputs.template_repo }} /tmp/template
           cp -r /tmp/template/* .
-          rm -rf .git
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -323,11 +322,16 @@ jobs:
 
       - name: Commit Repository Structure
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add .
-          git commit -m "Deploy: Site estático gerado pelo DashMaster.PRO" || exit 0
-          git push`;
+          # Verificar se estamos em um repositório git válido
+          if [ -d ".git" ]; then
+            git config --local user.email "action@github.com"
+            git config --local user.name "GitHub Action"
+            git add .
+            git commit -m "Deploy: Site estático gerado pelo DashMaster.PRO" || exit 0
+            git push || exit 0
+          else
+            echo "⚠️ Não é um repositório git válido, pulando commit"
+          fi`;
   }
 
   generateNetlifyConfig() {
