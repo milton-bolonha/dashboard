@@ -22,12 +22,12 @@
 - **Impacto:** GitHub Action nunca é disparada, não há deploy do site
 - **Status:** **RESOLVIDO** ✅ - Secret agora gera valor único
 
-### ❌ **PROBLEMA #2: Conflito de Diretórios no GitHub Action**
+### ❌ **PROBLEMA #2: Workflow Hardcoded vs Template (BLOQUEADOR)**
 
 - **Sintoma:** Erro `mv: cannot overwrite './website/404': Directory not empty` no workflow
-- **Causa:** Diretório `website/` já existe com conteúdo de deploys anteriores
-- **Impacto:** GitHub Action falha ao tentar mover novos arquivos
-- **Status:** **RESOLVIDO** ✅ - Diretório é limpo antes de copiar
+- **Causa Raiz:** `deploy-orchestrator.js` usa workflow hardcoded (versão antiga) em vez do template atualizado
+- **Impacto:** GitHub Action usa versão antiga com `mv build_dir/public/* ./website/` em vez da versão robusta
+- **Status:** **RESOLVIDO** ✅ - Agora usa template atualizado do arquivo
 
 ### ❌ **PROBLEMA #3: Exportação de Imagens Cloudinary**
 
@@ -46,16 +46,18 @@
 - **Solução:** Alterado para gerar secret único: `webhook-secret-${Date.now()}`
 - **Status:** **CONCLUÍDA** ✅ - Deploy deve funcionar agora
 
-### ✅ **TAREFA #2: Corrigir Conflito de Diretórios (CONCLUÍDA)**
+### ✅ **TAREFA #2: Corrigir Workflow Hardcoded (CONCLUÍDA)**
 
-- **Problema Identificado:** Diretório `website/` já existe com conteúdo de deploys anteriores
-- **Impacto:** GitHub Action falha ao tentar mover novos arquivos
+- **Problema Identificado:** `deploy-orchestrator.js` usa workflow hardcoded em vez do template atualizado
+- **Impacto:** GitHub Action usa versão antiga com `mv build_dir/public/* ./website/` (problemático)
 - **Solução:**
-  - Adicionado `rm -rf website 2>/dev/null || true` (robusto)
+  - Removido workflow hardcoded inline
+  - Implementado carregamento do template atualizado: `dashboard/templates/github-workflows/deploy.yml`
+  - Agora usa versão robusta com `rm -rf website 2>/dev/null || true`
   - Verificação se `public/` existe antes de copiar
   - Tratamento de erro para backup do conteúdo
   - Limpeza segura de arquivos temporários
-- **Status:** **CONCLUÍDA** ✅ - Deploy deve funcionar sem conflitos
+- **Status:** **CONCLUÍDA** ✅ - Deploy agora usa template atualizado e robusto
 
 ### ✅ **TAREFA #3: Investigar e Corrigir Exportação de Imagens Cloudinary (CONCLUÍDA)**
 
@@ -116,16 +118,19 @@
 - Alterado para gerar secret único: `webhook-secret-${Date.now()}`
 - Deploy deve funcionar completamente agora
 
-### **PROBLEMA #2: Conflito de Diretórios**
+### **PROBLEMA #2: Workflow Hardcoded vs Template**
 
 **Causa Raiz:**
 
-- Diretório `website/` já existe com conteúdo de deploys anteriores
-- Comando `cp -r` não consegue sobrescrever diretórios não vazios
+- `deploy-orchestrator.js` tinha workflow hardcoded inline (versão antiga)
+- Template atualizado em `dashboard/templates/github-workflows/deploy.yml` não era usado
+- GitHub Action usava versão antiga com `mv build_dir/public/* ./website/` (problemático)
 
 **Solução Aplicada:**
 
-- Adicionado `rm -rf website 2>/dev/null || true` (não falha se não existir)
+- Removido workflow hardcoded inline do `deploy-orchestrator.js`
+- Implementado carregamento dinâmico do template atualizado
+- Agora usa versão robusta com `rm -rf website 2>/dev/null || true`
 - Verificação se `public/` existe e tem conteúdo antes de copiar
 - Tratamento de erro para backup do conteúdo com fallback
 - Limpeza segura de arquivos temporários com `|| true`
@@ -147,5 +152,6 @@
 ### **Arquivos Modificados:**
 
 - `dashboard/lib/deployment/deploy-orchestrator.js` (linha 241) - Secret único gerado
-- `dashboard/templates/github-workflows/deploy.yml` (linhas 84-86) - Limpeza de diretório
-- `dashboard/app/api/public/content/route.js` (linhas 9 e 16-22)
+- `dashboard/lib/deployment/deploy-orchestrator.js` (linhas 275-364) - Removido workflow hardcoded, agora carrega template
+- `dashboard/templates/github-workflows/deploy.yml` (linhas 84-86) - Limpeza de diretório robusta
+- `dashboard/app/api/public/content/route.js` (linhas 9 e 16-22) - URLs Cloudinary corrigidas
