@@ -274,9 +274,22 @@ class DeploymentOrchestrator {
       // Ler o template atualizado do arquivo
       const fs = await import("fs");
       const path = await import("path");
-      // Ler o template atualizado do arquivo
-      // Tentar múltiplos caminhos possíveis
+      const appRoot = await import("app-root-path");
+
+      // Obter o diretório raiz da aplicação (mais confiável que process.cwd())
+      const rootPath = appRoot.path;
+
+      // Tentar múltiplos caminhos possíveis considerando a estrutura do Netlify
       const possiblePaths = [
+        // Usando app-root-path (mais confiável)
+        path.join(
+          rootPath,
+          "dashboard",
+          "templates",
+          "github-workflows",
+          "deploy.yml"
+        ),
+        // Fallbacks com process.cwd() para diferentes contextos
         path.join(process.cwd(), "templates", "github-workflows", "deploy.yml"),
         path.join(
           process.cwd(),
@@ -300,10 +313,16 @@ class DeploymentOrchestrator {
           "github-workflows",
           "deploy.yml"
         ),
+        // Fallbacks absolutos para ambiente Netlify
+        "/var/task/dashboard/templates/github-workflows/deploy.yml",
+        "/var/task/templates/github-workflows/deploy.yml",
       ];
 
       console.log(
         `[${context.deploymentId}] 🔍 Debug - Process.cwd(): ${process.cwd()}`
+      );
+      console.log(
+        `[${context.deploymentId}] 🔍 Debug - App root path: ${rootPath}`
       );
 
       let templatePath;
@@ -331,6 +350,23 @@ class DeploymentOrchestrator {
       }
 
       if (!templatePath) {
+        // Log detalhado da estrutura do diretório para debug
+        console.log(
+          `[${context.deploymentId}] 🔍 Debug - Listando estrutura do diretório:`
+        );
+        try {
+          const files = fs.readdirSync(process.cwd());
+          console.log(
+            `[${
+              context.deploymentId
+            }] 🔍 Debug - Arquivos em process.cwd(): ${files.join(", ")}`
+          );
+        } catch (error) {
+          console.log(
+            `[${context.deploymentId}] ❌ Erro ao listar diretório: ${error.message}`
+          );
+        }
+
         throw new Error(
           `Template não encontrado em nenhum dos caminhos: ${possiblePaths.join(
             ", "
