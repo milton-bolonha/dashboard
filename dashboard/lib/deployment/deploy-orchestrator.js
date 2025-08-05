@@ -281,7 +281,15 @@ class DeploymentOrchestrator {
 
       // Tentar múltiplos caminhos possíveis considerando a estrutura do Netlify
       const possiblePaths = [
-        // Usando app-root-path (mais confiável)
+        // Local copiado pelo plugin Netlify (ambiente de produção)
+        path.join(
+          process.cwd(),
+          ".next",
+          "templates",
+          "github-workflows",
+          "deploy.yml"
+        ),
+        // Usando app-root-path (desenvolvimento local)
         path.join(
           rootPath,
           "dashboard",
@@ -314,6 +322,7 @@ class DeploymentOrchestrator {
           "deploy.yml"
         ),
         // Fallbacks absolutos para ambiente Netlify
+        "/var/task/.next/templates/github-workflows/deploy.yml",
         "/var/task/dashboard/templates/github-workflows/deploy.yml",
         "/var/task/templates/github-workflows/deploy.yml",
       ];
