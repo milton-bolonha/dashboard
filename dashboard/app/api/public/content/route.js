@@ -12,8 +12,13 @@ function processImageUrls(data) {
 
   function processValue(value) {
     if (typeof value === "string") {
-      // Se NÃO for uma URL completa, é um public_id do Cloudinary
-      if (!value.startsWith("http")) {
+      // Detectar se é um public_id válido do Cloudinary
+      // public_id geralmente contém barras e não tem espaços
+      if (!value.startsWith("http") && 
+          value.includes("/") && 
+          !value.includes(" ") &&
+          value.length > 5) {
+        // Estrutura correta: https://res.cloudinary.com/<cloud_name>/image/upload/<transformations>/<public_id>
         return `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${value}`;
       }
       return value;
