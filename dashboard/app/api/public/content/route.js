@@ -7,23 +7,23 @@ import { ObjectId } from "mongodb";
 function processImageUrls(data) {
   if (!data) return data;
 
-  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
   if (!cloudName) return data;
 
   function processValue(value) {
-    if (typeof value === 'string') {
-      // Se NÃO for uma URL completa e NÃO tiver extensão de arquivo, é um public_id.
-      if (!value.startsWith('http') && !value.includes('.')) {
+    if (typeof value === "string") {
+      // Se NÃO for uma URL completa, é um public_id do Cloudinary
+      if (!value.startsWith("http")) {
         return `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${value}`;
       }
       return value;
     }
-    
+
     if (Array.isArray(value)) {
       return value.map(processValue);
     }
 
-    if (value && typeof value === 'object') {
+    if (value && typeof value === "object") {
       const newObj = {};
       for (const key in value) {
         newObj[key] = processValue(value[key]);
