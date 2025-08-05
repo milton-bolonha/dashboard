@@ -10,13 +10,6 @@ export async function POST(request) {
     if (!userId) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
-    if (authResult.error) {
-      return NextResponse.json(
-        { error: authResult.error },
-        { status: authResult.status }
-      );
-    }
-    const { userId } = authResult;
 
     const workspaceId = request.headers.get("x-workspace-id");
     if (!workspaceId) {

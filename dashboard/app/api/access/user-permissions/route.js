@@ -11,10 +11,6 @@ export async function GET(request) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 
-    if (error) {
-      return NextResponse.json({ error }, { status });
-    }
-
     const { searchParams } = new URL(request.url);
     const workspaceId = searchParams.get("workspaceId");
 
