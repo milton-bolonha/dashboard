@@ -85,7 +85,7 @@ export async function POST(request) {
     await db.updateOne(
       "deployments",
       { _id: deployment._id },
-      { $set: updateData }
+      updateData // Passar o objeto diretamente, sem o $set
     );
 
     console.log(

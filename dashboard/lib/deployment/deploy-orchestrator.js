@@ -309,6 +309,8 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: write # Necessário para fazer push no repositório
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4

@@ -1,53 +1,46 @@
-# 🎯 Tarefas do Dia - 05/08/25
+# 🎯 Tarefas do Dia - 05/08/25 - Relatório Pós-Deploy
 
-**Objetivo:** Diagnosticar e corrigir as falhas críticas de deploy relacionadas à conexão com o banco de dados e erros no script da GitHub Action.
-
----
-
-## 🔥 **PROBLEMAS CRÍTICOS IDENTIFICADOS**
-
-### ❌ **PROBLEMA #1: Falha de Conexão com MongoDB (BLOQUEADOR CRÍTICO)**
-
-- **Sintoma:** Logs da Netlify mostram `MongoServerSelectionError: Server selection timed out after 30000 ms`.
-- **Impacto:** A API não consegue se conectar ao banco de dados, causando falha em cascata em todas as operações, incluindo o webhook.
-- **Causa Provável:**
-  1. Variável de ambiente `MONGODB_URI` incorreta na Netlify.
-  2. IP da Netlify não está liberado no IP Access List do MongoDB Atlas.
-
-### ❌ **PROBLEMA #2: Webhook Não Encontra o Deploy ID**
-
-- **Sintoma:** Action log mostra `{"error":"Deployment não encontrado"}`.
-- **Impacto:** O dashboard não é notificado sobre o progresso do deploy.
-- **Causa Raiz Confirmada:** Inconsistência na forma como o ID do deploy é salvo versus como ele é buscado. O sistema salva o ID no campo `_id` do documento, mas o webhook o procura em um campo chamado `deploymentId` (que não existe).
-
-### ❌ **PROBLEMA #3: Erro de "Arquivo ou Diretório Não Encontrado" na GitHub Action**
-
-- **Sintoma:** Action log mostra `mv: target './website/': No such file or directory`.
-- **Impacto:** A Action falha e o deploy não é concluído.
-- **Causa Raíz Confirmada:** O script de deploy tenta mover os arquivos buildados para a pasta `./website/` antes de criar essa pasta.
+**Objetivo:** Analisar e corrigir os erros finais no processo de deploy e webhook.
 
 ---
 
-## 🎯 **TAREFAS PRIORITÁRIAS PARA HOJE**
+## ✅ **PROGRESSO SIGNIFICATIVO - O QUE ESTÁ FUNCIONANDO:**
 
-### ✅ **TAREFA #1: Corrigir Busca do Webhook (Implementado)**
+- **Conexão com MongoDB:** **RESOLVIDO!** Os logs mostram que a API está se conectando e interagindo com o banco.
+- **Disparo da GitHub Action:** **RESOLVIDO!** O delay de 10 segundos funcionou, e o erro "Workflow does not have 'workflow_dispatch' trigger" desapareceu. A Action está sendo executada.
+- **Build do Gatsby:** A Action está conseguindo buildar o site com sucesso.
 
-- **Ação:** Alterar a query no endpoint do webhook (`/api/deploy/webhook`) para buscar o deploy pelo campo `_id` em vez do campo inexistente `deploymentId`.
+---
+
+## 🔥 **NOVOS PROBLEMAS CRÍTICOS IDENTIFICADOS:**
+
+### ❌ **PROBLEMA #1: Erro de Update no MongoDB no Webhook**
+
+- **Sintoma:** Logs da Netlify mostram `MongoServerError: The dollar ($) prefixed field '$set' in '$set' is not allowed...`.
+- **Impacto:** O webhook recebe a notificação da Action, encontra o deploy no banco, mas falha ao tentar atualizar o status. O dashboard nunca reflete a conclusão do deploy.
+- **Causa Raiz:** A função `db.updateOne` está recebendo o operador `$set` duas vezes (uma vez na sua própria lógica interna e outra vez no objeto `updateData` que o webhook está montando).
+
+### ❌ **PROBLEMA #2: Permissão Negada no `git push` (Erro 403)**
+
+- **Sintoma:** Log da Action mostra `remote: Write access to repository not granted.` e `fatal: unable to access '...': The requested URL returned error: 403`.
+- **Impacto:** A Action não consegue fazer o commit e push da estrutura do site (`website/`, `content/`) para o repositório do usuário.
+- **Causa Raiz:** O token padrão (`GITHUB_TOKEN`) que a Action usa tem permissões de `read-only` para o conteúdo do repositório por padrão. Ele precisa de permissão de `write` para poder fazer push.
+
+---
+
+## 🎯 **TAREFAS PRIORITÁRIAS PARA HOJE:**
+
+### ✅ **TAREFA #1: Corrigir Update Duplicado no Webhook (Implementado)**
+
+- **Ação:** Refatorar a chamada `db.updateOne` no endpoint `/api/deploy/webhook` para passar apenas os dados a serem atualizados, sem o operador `$set`, já que a função helper `db.updateOne` já faz isso internamente.
 - **Status:** **CONCLUÍDO**.
 
-### ✅ **TAREFA #2: Corrigir Script da GitHub Action (Implementado)**
+### ✅ **TAREFA #2: Conceder Permissão de Escrita à GitHub Action (Implementado)**
 
-- **Ação:** Adicionar o comando `mkdir -p website content` no workflow gerado pelo `deploy-orchestrator.js` para garantir que os diretórios de destino existam antes de mover os arquivos.
+- **Ação:** Adicionar a seção `permissions: contents: write` ao arquivo de workflow `deploy.yml` gerado pelo `deploy-orchestrator.js`. Isso dará ao `GITHUB_TOKEN` a permissão necessária para fazer push.
 - **Status:** **CONCLUÍDO**.
 
-### 🟡 **TAREFA #3: Investigar Conexão com MongoDB (Ação do Usuário Necessária)**
+### 🟡 **TAREFA #3: Limpar Deploys Corrompidos (Ação do Usuário Opcional)**
 
-- **Ação:** Verificar as configurações na Netlify e no MongoDB Atlas.
-- **Status:** **PENDENTE - AGUARDANDO VERIFICAÇÃO DO USUÁRIO**.
-- **Instruções para o Usuário:**
-  1. **No MongoDB Atlas:**
-     - Vá para "Network Access".
-     - Adicione uma entrada de "IP Access List" com o valor `0.0.0.0/0` (Allow Access From Anywhere). Isso é necessário porque os IPs da Netlify são dinâmicos.
-  2. **Na Netlify:**
-     - Vá para as configurações do seu site > "Build & deploy" > "Environment".
-     - Verifique se a variável de ambiente `MONGODB_URI` está presente e se o valor está 100% correto, incluindo usuário, senha e nome do banco de dados.
+- **Ação:** Rodar o script `npm run cleanup:stale` para remover os documentos de deploy corrompidos das tentativas anteriores.
+- **Status:** **PENDENTE - RECOMENDADO**.
