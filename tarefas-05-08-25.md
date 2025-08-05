@@ -13,9 +13,16 @@
 
 ---
 
-## 🔥 **PROBLEMA CRÍTICO ATUAL - PRIORIDADE MÁXIMA:**
+## 🔥 **PROBLEMAS CRÍTICOS IDENTIFICADOS:**
 
-### ❌ **PROBLEMA #1: Exportação de Imagens Cloudinary**
+### ❌ **PROBLEMA #1: GitHub Action Não Dispara (BLOQUEADOR)**
+
+- **Sintoma:** O deploy para na etapa 7 (criando site na Netlify) e não chega na etapa 8 (disparando GitHub Action)
+- **Causa Raiz:** Dependência `libsodium-wrappers` não estava instalada, causando erro na criação de secrets
+- **Impacto:** GitHub Action nunca é disparada, não há deploy do site
+- **Status:** **RESOLVIDO** ✅ - Dependência instalada
+
+### ❌ **PROBLEMA #2: Exportação de Imagens Cloudinary**
 
 - **Sintoma:** As imagens/IDs do Cloudinary não estão sendo exportadas como URLs completas do Cloudinary.
 - **Impacto:** O conteúdo gerado não tem acesso às imagens corretas, quebrando a funcionalidade visual do site.
@@ -25,7 +32,14 @@
 
 ## 🎯 **TAREFAS PRIORITÁRIAS PARA HOJE:**
 
-### ✅ **TAREFA #1: Investigar e Corrigir Exportação de Imagens Cloudinary (CONCLUÍDA)**
+### ✅ **TAREFA #1: Corrigir Dependência Bloqueadora (CONCLUÍDA)**
+
+- **Problema Identificado:** Dependência `libsodium-wrappers` não estava instalada
+- **Impacto:** Erro na criação de secrets do GitHub, impedindo o disparo da Action
+- **Solução:** Instalada dependência `npm install libsodium-wrappers`
+- **Status:** **CONCLUÍDA** ✅ - Deploy deve funcionar agora
+
+### ✅ **TAREFA #2: Investigar e Corrigir Exportação de Imagens Cloudinary (CONCLUÍDA)**
 
 - **Problema Identificado:**
 
@@ -46,17 +60,17 @@
 - **Arquivo Modificado:** `dashboard/app/api/public/content/route.js`
 - **Status:** **CONCLUÍDA** - Aguardando teste do usuário
 
-### ✅ **TAREFA #2: Corrigir Update Duplicado no Webhook (CONCLUÍDA)**
+### ✅ **TAREFA #3: Corrigir Update Duplicado no Webhook (CONCLUÍDA)**
 
 - **Ação:** Refatorar a chamada `db.updateOne` no endpoint `/api/deploy/webhook` para passar apenas os dados a serem atualizados, sem o operador `$set`, já que a função helper `db.updateOne` já faz isso internamente.
 - **Status:** **CONCLUÍDA**.
 
-### ✅ **TAREFA #3: Conceder Permissão de Escrita à GitHub Action (CONCLUÍDA)**
+### ✅ **TAREFA #4: Conceder Permissão de Escrita à GitHub Action (CONCLUÍDA)**
 
 - **Ação:** Adicionar a seção `permissions: contents: write` ao arquivo de workflow `deploy.yml` gerado pelo `deploy-orchestrator.js`. Isso deu ao `GITHUB_TOKEN` a permissão necessária para fazer push.
 - **Status:** **CONCLUÍDA**.
 
-### 🟡 **TAREFA #4: Limpar Deploys Corrompidos (Ação do Usuário Opcional)**
+### 🟡 **TAREFA #5: Limpar Deploys Corrompidos (Ação do Usuário Opcional)**
 
 - **Ação:** Rodar o script `npm run cleanup:stale` para remover os documentos de deploy corrompidos das tentativas anteriores.
 - **Status:** **PENDENTE - RECOMENDADO**.
@@ -65,18 +79,33 @@
 
 ## 📋 **PRÓXIMOS PASSOS:**
 
-1. **✅ Testar correção implementada** - Verificar se as imagens aparecem corretamente no site gerado
-2. **🔄 Verificar outros possíveis problemas** - Se ainda houver issues, investigar outras partes do sistema
-3. **📊 Documentar solução** - Atualizar documentação técnica se necessário
+1. **✅ Testar deploy completo** - Agora que a dependência foi instalada, o deploy deve funcionar
+2. **✅ Testar correção de imagens** - Verificar se as imagens aparecem corretamente no site gerado
+3. **🔄 Verificar outros possíveis problemas** - Se ainda houver issues, investigar outras partes do sistema
+4. **📊 Documentar solução** - Atualizar documentação técnica se necessário
 
-## 🔍 **RELATÓRIO TÉCNICO - PROBLEMA RESOLVIDO:**
+## 🔍 **RELATÓRIO TÉCNICO - PROBLEMAS RESOLVIDOS:**
 
-### **Causa Raiz:**
+### **PROBLEMA #1: Dependência Bloqueadora**
+
+**Causa Raiz:**
+
+- Dependência `libsodium-wrappers` não estava instalada
+- Erro na criação de secrets do GitHub, impedindo o disparo da Action
+
+**Solução Aplicada:**
+
+- Instalada dependência: `npm install libsodium-wrappers`
+- Deploy deve funcionar completamente agora
+
+### **PROBLEMA #2: URLs de Imagem Cloudinary**
+
+**Causa Raiz:**
 
 - A API pública (`/api/public/content`) estava usando variável de ambiente incorreta
 - Lógica de detecção de `public_id` muito restritiva
 
-### **Solução Aplicada:**
+**Solução Aplicada:**
 
 - Corrigida variável de ambiente para `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME`
 - Implementada detecção inteligente de `public_id` com múltiplas validações
@@ -84,4 +113,5 @@
 
 ### **Arquivos Modificados:**
 
-- `dashboard/app/api/public/content/route.js` (linhas 9 e 16-18)
+- `package.json` - Dependência `libsodium-wrappers` adicionada
+- `dashboard/app/api/public/content/route.js` (linhas 9 e 16-22)
