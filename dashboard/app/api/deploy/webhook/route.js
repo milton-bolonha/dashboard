@@ -27,8 +27,9 @@ export async function POST(request) {
 
     // Buscar o deployment no banco
     console.log(`[WEBHOOK] 🔍 Buscando deployment com ID: ${deploy_id}`);
+    // CORREÇÃO: Buscar o deployment pelo ID correto (_id) e não por 'deploymentId'
     const deployment = await db.findOne("deployments", {
-      deploymentId: deploy_id,
+      _id: deploy_id,
     });
 
     if (!deployment) {
@@ -83,7 +84,7 @@ export async function POST(request) {
 
     await db.updateOne(
       "deployments",
-      { deploymentId: deploy_id },
+      { _id: deployment._id },
       { $set: updateData }
     );
 

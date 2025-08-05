@@ -113,10 +113,12 @@ export function getDeleteUrl(publicId) {
   return `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/destroy`;
 }
 
-export default {
+const cloudinaryHelpers = {
   buildUrl,
   getImageSizes,
   parsePublicId,
   isValidPublicId,
   getDeleteUrl,
 };
+
+export default cloudinaryHelpers;

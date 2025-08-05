@@ -12,7 +12,7 @@ export default function BillingPage() {
 
   useEffect(() => {
     loadTransactions();
-  }, [filter, dateRange]);
+  }, [filter, dateRange, loadTransactions]);
 
   const loadTransactions = async () => {
     try {

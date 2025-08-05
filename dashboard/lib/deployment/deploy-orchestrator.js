@@ -352,8 +352,9 @@ jobs:
 
       - name: Prepare Repository Structure
         run: |
-          # Move os arquivos buildados para a raiz
-          mv build_dir/public/* ./website/
+                    # Garante que os diretórios de destino existam
+          mkdir -p website content
+
           
           # Copia o backup e o source code se solicitado
           if [ "\${{ github.event.inputs.save_content_backup }}" = "true" ]; then
@@ -618,19 +619,23 @@ jobs:
     try {
       const deploymentsCollection = await getCollection("deployments");
 
+      // Garante que 'details' seja sempre um objeto para evitar corrupção
+      const detailsObject =
+        typeof details === "string" ? { message: details } : details;
+
       const updateData = {
         $set: {
           status,
           updatedAt: new Date(),
-          workspaceId: this.workspaceId, // Garantir que o workspaceId seja sempre salvo
-          userId: this.userId, // Garantir que o userId seja sempre salvo
-          ...details,
+          workspaceId: this.workspaceId,
+          userId: this.userId,
+          ...detailsObject,
         },
       };
 
-      // Se é o primeiro status (iniciado), definir createdAt
       if (status === "iniciado") {
         updateData.$setOnInsert = {
+          _id: deploymentId, // Usar o ID customizado como _id
           createdAt: new Date(),
         };
       }

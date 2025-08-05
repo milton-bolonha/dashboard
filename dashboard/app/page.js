@@ -242,7 +242,7 @@ const HeroSection = ({ isSignedIn, user }) => {
     }, 2000); // Muda a cada 2 segundos
 
     return () => clearInterval(interval); // Limpa o intervalo
-  }, []);
+  }, [words]);
 
   return (
     <section
