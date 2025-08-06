@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import TransferOwnershipCard from "@/components/settings/TransferOwnershipCard";
+import CloneWorkspaceCard from "@/components/settings/CloneWorkspaceCard";
 
 export default function SettingsPage() {
   const { user } = useUser();
@@ -108,6 +109,7 @@ export default function SettingsPage() {
         </h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
           <TransferOwnershipCard />
+          <CloneWorkspaceCard />
           <Card title="Delete Current Workspace">
             <div className="space-y-4">
               <p className="text-sm text-gray-600 dark:text-gray-300">
