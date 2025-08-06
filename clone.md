@@ -416,27 +416,35 @@ const Spinner = () => (
 );
 ```
 
-### **❌ Erro #6: Next.js 15 - `params` não é um objeto**
+### **❌ Erro #6: `insertedIds.forEach is not a function`**
 
 **Problema:**
 
 ```
-Error: params is not an object
+TypeError: contentTypeResults.insertedIds.forEach is not a function
 ```
 
-**Causa:** No Next.js 15, o objeto `params` deve ser aguardado antes de acessar suas propriedades.
+**Causa:** O método `insertMany` do MongoDB retorna `insertedIds` como um **objeto**, não um array, então não podemos usar `.forEach()` diretamente.
 
 **Solução Aplicada:**
 
 ```javascript
 // ANTES (causava erro):
-const { id: workspaceId } = params;
-console.log("🚀 Iniciando clonagem de workspace:", params.id);
+contentTypeResults.insertedIds.forEach((newId, index) => {
+  // ...
+});
 
 // DEPOIS (corrigido):
-const { id: workspaceId } = await params;
-console.log("🚀 Iniciando clonagem de workspace:", workspaceId);
+const insertedIdsArray = Object.values(contentTypeResults.insertedIds);
+insertedIdsArray.forEach((newId, index) => {
+  // ...
+});
 ```
+
+**Correções Aplicadas:**
+1. **Content Types:** Convertido `insertedIds` para array usando `Object.values()`
+2. **Sections:** Aplicada a mesma correção
+3. **Items:** Aplicada a mesma correção
 
 ---
 
@@ -583,8 +591,9 @@ O **clonador de workspaces** foi implementado com sucesso seguindo todas as espe
 - **Arquivos Modificados:** 3 arquivos existentes
 - **Linhas de Código:** ~800 linhas implementadas
 - **Tempo de Desenvolvimento:** ~4 horas
-- **Erros Corrigidos:** 5 problemas identificados e resolvidos
+- **Erros Corrigidos:** 6 problemas identificados e resolvidos
 - **Testes Realizados:** 4 cenários principais validados
+- **Status Final:** ✅ **FUNCIONANDO EM PRODUÇÃO**
 
 ### **🚀 Próximos Passos Recomendados:**
 
