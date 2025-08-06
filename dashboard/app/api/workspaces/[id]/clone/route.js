@@ -67,7 +67,7 @@ export async function POST(request, { params }) {
     const planLimits = originalWorkspace.limits?.maxWorkspaces || 1;
 
     // 🚨 HACK TEMPORÁRIO: Bypass para usuário de desenvolvimento
-    if (userId === "user_2zZNqqf3OlYsi0AB7KbyyqqpzpB") {
+    if (userId === "user_30lCRGxlNoUi6cc1l9m30u71zNt") {
       console.log(
         "🔓 HACK DEV: Bypass de limite de workspaces para usuário de desenvolvimento"
       );
