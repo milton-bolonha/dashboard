@@ -9,11 +9,16 @@ const SimplePage = ({ pageContext }) => {
   const { pageData, globalData } = pageContext;
   const { html } = pageData; // pageData *é* o objeto de dados
 
+  console.log("[DEBUG] SimplePage: pageData recebido:", JSON.stringify(pageData, null, 2));
+  console.log("[DEBUG] SimplePage: pageData.image =", pageData?.image);
+
   const backgroundImageUrl = buildCloudinaryUrl(pageData?.image, {
     width: 1920,
     quality: "auto",
     format: "auto",
   });
+
+  console.log("[DEBUG] SimplePage: backgroundImageUrl =", backgroundImageUrl);
 
   return (
     <LayoutContainer

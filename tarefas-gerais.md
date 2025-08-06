@@ -24,19 +24,18 @@
 
 #### ❌ **PROBLEMA CRÍTICO: URLs de Imagem Cloudinary Malformadas**
 
-- **Status:** **PRIORIDADE MÁXIMA** - Bloqueando sites em produção
+- **Status:** **EM TESTE** - Correção implementada, aguardando validação
 - **URL Problemática:** `https://windowcaulkingto-site-dotfvo.netlify.app/windowcaulkingto/landing-page/user_2zZNqqf3OlYsi0AB7KbyyqqpzpB/uploads/yliv9trde6hq8zabczyl`
 - **Problema:** URLs contêm paths extras desnecessários que quebram as imagens
-- **Causa Identificada:** A função `processImageUrls()` na API pública está criando URLs incorretas
+- **Causa Identificada:** A função `processImageUrls()` na API pública estava usando o primeiro segmento do public_id como cloud_name
 - **Localização:** `dashboard/app/api/public/content/route.js` linha 22
 - **Impacto:** Sites em produção com imagens quebradas
-- **Solução Necessária:**
-  1. Debugar entrada vs saída da função `processImageUrls()`
-  2. Identificar de onde vêm os paths extras (`windowcaulkingto/landing-page/user_xyz/uploads/`)
-  3. Corrigir lógica de detecção de Public ID do Cloudinary
-  4. Testar com dados reais do MongoDB
+- **✅ Correção Implementada:**
+  1. ✅ Melhorada lógica de detecção de public_ids (mínimo 2 barras, tamanho > 10)
+  2. ✅ Corrigido uso do cloud_name correto da variável de ambiente
+  3. ✅ Teste manual confirmou URL correta: `https://res.cloudinary.com/dyxuhpt7j/image/upload/q_auto,f_auto/windowcaulkingto/pages-content/user_2zZNqqf3OlYsi0AB7KbyyqqpzpB/uploads/f8rvg4vtqnbkvajemsr9`
 - **Complexidade:** Média (debug + correção)
-- **Prazo:** **URGENTE** - Próximas horas
+- **Prazo:** **AGUARDANDO TESTE** - Próximas horas
 
 ### 🔥 **PRIORIDADE MÁXIMA - LANÇAMENTO**
 
@@ -136,7 +135,27 @@
 
 ### 🎯 **PRIORIDADE MÉDIA - MELHORIAS DE UX**
 
-#### ☐ **TAREFA #8: Template Configurável via ENV**
+#### ☐ **TAREFA #8: Sistema de Live Data Inteligente**
+
+- **Status:** **NOVA TAREFA** - Melhoria de UX e performance
+- **Descrição:** Implementar sistema de dados em tempo real com otimizações de UX
+- **Problemas a Resolver:**
+  1. **Loading Excessivo:** Evitar mostrar loading toda vez que dados mudam
+  2. **Inatividade do Usuário:** Detectar quando usuário está inativo e pausar atualizações
+  3. **Performance:** Otimizar re-renders desnecessários
+- **Soluções Técnicas:**
+  1. **useMemo/useCallback:** Otimizar re-renders de componentes
+  2. **Debounced Loading:** Delay antes de mostrar loading (só mostrar se dados realmente mudaram)
+  3. **Detecção de Inatividade:** Usar `document.visibilitychange` e `userActivity` tracking
+  4. **Stale-While-Revalidate:** Mostrar dados antigos enquanto carrega novos
+- **Futuro (Cache Avançado):**
+  1. **Redis Integration:** Implementar cache serverless com Upstash Redis
+  2. **Cache Invalidation:** Estratégias inteligentes de invalidação
+  3. **Real-time Updates:** WebSockets ou Server-Sent Events para updates em tempo real
+- **Complexidade:** Alta (UX + performance + cache)
+- **Prazo:** Próxima sprint
+
+#### ☐ **TAREFA #9: Template Configurável via ENV**
 
 - **Status:** **ON HOLD** - Baixa prioridade
 - **Problema:** URL do template está hardcodada em `dashmaster-gatsby-template`
@@ -230,7 +249,7 @@
 
 ### 🔄 **EM PROGRESSO:**
 
-- [ ] Tarefa específica do usuário (aguardando detalhes)
+- [ ] ✅ Correção URLs Cloudinary (implementada, aguardando teste)
 - [ ] Clonador de workspaces (prioridade máxima)
 - [ ] Theme Selector Visual (página dedicada)
 - [ ] Novo Homepage e texto

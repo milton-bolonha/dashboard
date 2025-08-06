@@ -8,7 +8,12 @@ function processImageUrls(data) {
   if (!data) return data;
 
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-  if (!cloudName) return data;
+  if (!cloudName) {
+    console.log("[DEBUG] processImageUrls: cloudName não encontrado");
+    return data;
+  }
+
+  console.log("[DEBUG] processImageUrls: cloudName =", cloudName);
 
   function processValue(value) {
     if (typeof value === "string") {
@@ -23,7 +28,14 @@ function processImageUrls(data) {
         (value.match(/\//g) || []).length >= 2
       ) {
         // Estrutura correta: https://res.cloudinary.com/<cloud_name>/image/upload/<transformations>/<public_id>
-        return `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${value}`;
+        const cloudinaryUrl = `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${value}`;
+        console.log(
+          "[DEBUG] processImageUrls: Convertendo",
+          value,
+          "para",
+          cloudinaryUrl
+        );
+        return cloudinaryUrl;
       }
       return value;
     }
@@ -52,6 +64,12 @@ function processImageUrls(data) {
  */
 export async function GET(request) {
   try {
+    console.log("[DEBUG] API PUBLIC CONTENT: Iniciando requisição");
+    console.log(
+      "[DEBUG] API PUBLIC CONTENT: NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME =",
+      process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
+    );
+
     const authResult = await requireApiKey(request);
     if (authResult.error) {
       return NextResponse.json(
@@ -80,14 +98,30 @@ export async function GET(request) {
         });
 
         // Filtrar apenas os dados públicos dos items
-        const publicItems = items.map((item) => ({
-          id: item._id,
-          title: item.title,
-          slug: item.slug,
-          data: processImageUrls(item.data), // Processar URLs de imagem
-          createdAt: item.createdAt,
-          updatedAt: item.updatedAt,
-        }));
+        const publicItems = items.map((item) => {
+          console.log(
+            "[DEBUG] Item original:",
+            item.slug,
+            "data:",
+            JSON.stringify(item.data, null, 2)
+          );
+          const processedData = processImageUrls(item.data);
+          console.log(
+            "[DEBUG] Item processado:",
+            item.slug,
+            "data:",
+            JSON.stringify(processedData, null, 2)
+          );
+
+          return {
+            id: item._id,
+            title: item.title,
+            slug: item.slug,
+            data: processedData, // Processar URLs de imagem
+            createdAt: item.createdAt,
+            updatedAt: item.updatedAt,
+          };
+        });
 
         return {
           slug: section.slug,

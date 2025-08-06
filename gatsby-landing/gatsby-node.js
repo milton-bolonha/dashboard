@@ -22,6 +22,7 @@ async function getSourceData() {
       throw new Error(`API call failed with status: ${response.status}`);
     }
     const data = await response.json();
+    console.log("[DEBUG] Gatsby: Dados recebidos da API:", JSON.stringify(data, null, 2));
     return data.content;
   } catch (error) {
     console.error(
@@ -120,7 +121,9 @@ exports.createPages = async ({ actions }) => {
   // --- 3. Gerar Páginas de Conteúdo (About, Services, Promotions) ---
   const pagesSection = findSectionBySlug("pages-content");
   if (pagesSection) {
+    console.log("[DEBUG] Gatsby: Processando pages-content, items:", pagesSection.items.length);
     pagesSection.items.forEach((page) => {
+      console.log("[DEBUG] Gatsby: Página", page.slug, "data:", JSON.stringify(page.data, null, 2));
       createPage({
         path: `/${page.slug}`,
         component: path.resolve(`./src/templates/SimplePage.js`),
