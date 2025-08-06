@@ -97,6 +97,13 @@ await db.findOne("items", { _id: id });
 - **Solução Definitiva:** Use `TemplateGenerator` para gerar conteúdo dinamicamente em vez de ler arquivos físicos.
 - **Referência:** Correção do sistema de deploy em 05/08/25.
 
+### **Problema #5: Inconsistência de Branch - Deploy Preview vs Production**
+
+- **Sintomas:** Sites sendo deployados como "Deploy Preview" em vez de produção, URLs malformadas
+- **Causa Raiz:** Inconsistência entre configurações de branch (`deploy-orchestrator.js` usando `master`, `template-generator.js` usando `main`)
+- **Solução Definitiva:** Garantir que todas as configurações usem a mesma branch (`master` para usuários que usam master)
+- **Referência:** Correção do sistema de deploy em 05/08/25.
+
 ### **Problema #5: Erro Git --local em GitHub Actions**
 
 - **Sintomas:** `fatal: --local can only be used inside a git repository`
