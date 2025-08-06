@@ -31,7 +31,7 @@
 
 - **Descrição:** Uma GitHub Action executa em um servidor limpo e isolado do GitHub. Ela **NÃO** tem acesso às variáveis de ambiente, ao contexto ou ao estado do nosso backend.
 - **Justificativa:** Entender este isolamento previne erros de comunicação. Qualquer informação que a Action precise (como URLs de webhook, chaves de API ou IDs de deploy) **DEVE** ser passada explicitamente do nosso backend para a Action através de `inputs` no `workflow_dispatch`.
-    - **Referência:** Correção do erro `Could not resolve host: undefined` no fluxo de deploy em 02/08/25.
+  - **Referência:** Correção do erro `Could not resolve host: undefined` no fluxo de deploy em 02/08/25.
 
 ### **Regra de Ouro #5: A API é a Única Fonte da Verdade**
 
@@ -39,6 +39,19 @@
 - **Justificativa:** Centralizar a lógica de dados na API garante consistência, segurança e manutenibilidade. Evita a duplicação de código em múltiplos frontends e garante que a fonte da verdade seja única e controlada.
 - **Referência:** `docs/dashboard/DEBUGGING-GUIDE.md` (Problema 14: URLs de Imagem Quebradas).
 
+### **Regra de Ouro #6: TemplateGenerator é a Fonte dos Templates**
+
+- **Descrição:** **NUNCA** tente ler arquivos físicos de template. **SEMPRE** use a classe `TemplateGenerator` para gerar conteúdo dinamicamente.
+- **Justificativa:** Arquivos físicos não existem no ambiente de produção (Netlify) e o plugin Next.js os remove após o build. A geração dinâmica garante que os templates estejam sempre disponíveis.
+- **Implementação:** Use `TemplateGenerator` em `dashboard/lib/deployment/template-generator.js` para gerar workflows, configurações e código fonte.
+- **Referência:** Correção do erro `ENOENT: no such file or directory` no sistema de deploy em 05/08/25.
+
+### **Regra de Ouro #7: Preserve Repositórios Git em GitHub Actions**
+
+- **Descrição:** **NUNCA** remova o `.git` de um repositório do usuário em uma GitHub Action, mesmo que você clone um template por cima.
+- **Justificativa:** O repositório git do usuário é necessário para o commit final. Remover `.git` quebra o `git config --local` e `git push`.
+- **Implementação:** Clone templates para `/tmp/template` e copie arquivos, mas preserve o `.git` original.
+- **Referência:** Correção do erro `fatal: --local can only be used inside a git repository` no deploy em 05/08/25.
 
 ---
 
@@ -76,6 +89,20 @@ await db.findOne("items", { _id: id });
 - **Causa Raiz:** A função de busca tenta construir uma query com filtros que são `undefined` ou `null`.
 - **Solução Definitiva:** Construa o objeto `query` dinamicamente, apenas adicionando as chaves se os filtros correspondentes forem válidos.
 - **Referência:** `docs/dashboard/DEBUGGING-GUIDE.md` (Problema 8).
+
+### **Problema #4: Erro ENOENT - Template não encontrado**
+
+- **Sintomas:** `ENOENT: no such file or directory, open '/var/task/dashboard/templates/github-workflows/deploy.yml'`
+- **Causa Raiz:** Tentativa de ler arquivo físico de template que não existe no ambiente de produção (Netlify).
+- **Solução Definitiva:** Use `TemplateGenerator` para gerar conteúdo dinamicamente em vez de ler arquivos físicos.
+- **Referência:** Correção do sistema de deploy em 05/08/25.
+
+### **Problema #5: Erro Git --local em GitHub Actions**
+
+- **Sintomas:** `fatal: --local can only be used inside a git repository`
+- **Causa Raiz:** `rm -rf .git` remove o repositório git do usuário, quebrando comandos git subsequentes.
+- **Solução Definitiva:** Preserve o `.git` original do repositório do usuário ao clonar templates.
+- **Referência:** Correção do sistema de deploy em 05/08/25.
 
 ---
 

@@ -13,11 +13,15 @@ function processImageUrls(data) {
   function processValue(value) {
     if (typeof value === "string") {
       // Detectar se é um public_id válido do Cloudinary
-      // public_id geralmente contém barras e não tem espaços
-      if (!value.startsWith("http") && 
-          value.includes("/") && 
-          !value.includes(" ") &&
-          value.length > 5) {
+      // public_id deve ter formato específico: workspace/section/user/filename ou similar
+      if (
+        !value.startsWith("http") &&
+        value.includes("/") &&
+        !value.includes(" ") &&
+        value.length > 10 && // Aumentar tamanho mínimo para evitar IDs simples
+        // Verificar se tem pelo menos 2 barras (workspace/section/filename)
+        (value.match(/\//g) || []).length >= 2
+      ) {
         // Estrutura correta: https://res.cloudinary.com/<cloud_name>/image/upload/<transformations>/<public_id>
         return `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${value}`;
       }
