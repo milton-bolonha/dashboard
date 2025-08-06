@@ -15,19 +15,10 @@ function processImageUrls(data) {
 
   console.log("[DEBUG] processImageUrls: cloudName =", cloudName);
 
-  function processValue(value) {
-    if (typeof value === "string") {
-      // Detectar se é um public_id válido do Cloudinary
-      // public_id deve ter formato específico: workspace/section/user/filename ou similar
-      if (
-        !value.startsWith("http") &&
-        value.includes("/") &&
-        !value.includes(" ") &&
-        value.length > 10 && // Aumentar tamanho mínimo para evitar IDs simples
-        // Verificar se tem pelo menos 2 barras (workspace/section/filename)
-        (value.match(/\//g) || []).length >= 2
-      ) {
-        // Estrutura correta: https://res.cloudinary.com/<cloud_name>/image/upload/<transformations>/<public_id>
+  function processValue(value, key) {
+    if (typeof value === "string" && key === "image") {
+      // ✅ Verificar se é um public_id válido E se segue nosso padrão
+      if (isValidPublicId(value) && isCloudinaryPublicId(value)) {
         const cloudinaryUrl = `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${value}`;
         console.log(
           "[DEBUG] processImageUrls: Convertendo",
@@ -37,6 +28,7 @@ function processImageUrls(data) {
         );
         return cloudinaryUrl;
       }
+      // ✅ Manter qualquer outro valor como está
       return value;
     }
 
@@ -47,7 +39,7 @@ function processImageUrls(data) {
     if (value && typeof value === "object") {
       const newObj = {};
       for (const key in value) {
-        newObj[key] = processValue(value[key]);
+        newObj[key] = processValue(value[key], key);
       }
       return newObj;
     }
@@ -56,6 +48,41 @@ function processImageUrls(data) {
   }
 
   return processValue(data);
+}
+
+// ✅ Função específica para detectar nosso padrão de public_id
+function isCloudinaryPublicId(value) {
+  // Deve ter pelo menos 3 partes separadas por /
+  const parts = value.split("/");
+  if (parts.length < 3) return false;
+
+  // Deve começar com workspace (sem http, sem /)
+  if (value.startsWith("http") || value.startsWith("/")) return false;
+
+  // Deve conter 'uploads' ou 'pages-content' (nossos padrões)
+  if (!value.includes("uploads") && !value.includes("pages-content"))
+    return false;
+
+  // Deve ter formato: workspace/section/user/filename
+  // workspace: alfanumérico, hífens, underscores
+  // section: alfanumérico, hífens, underscores
+  // user: deve começar com 'user_'
+  // filename: alfanumérico, hífens, underscores, extensões
+
+  const workspacePattern = /^[a-zA-Z0-9_-]+$/;
+  const userPattern = /^user_[a-zA-Z0-9_-]+$/;
+
+  if (!workspacePattern.test(parts[0])) return false;
+  if (!userPattern.test(parts[2])) return false;
+
+  return true;
+}
+
+// ✅ Função para validar se é um public_id válido (usando regex do cloudinary.js)
+function isValidPublicId(publicId) {
+  if (!publicId || typeof publicId !== "string") return false;
+  const validFormat = /^[a-zA-Z0-9_\-\/]+$/;
+  return validFormat.test(publicId) && publicId.length > 0;
 }
 
 /**

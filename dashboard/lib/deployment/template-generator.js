@@ -304,7 +304,7 @@ jobs:
         uses: nwtgck/actions-netlify@v2
         with:
           publish-dir: "./website"
-          production-branch: main
+          production-branch: master
         env:
           NETLIFY_SITE_ID: \${{ secrets.NETLIFY_SITE_ID }}
           NETLIFY_AUTH_TOKEN: \${{ secrets.NETLIFY_AUTH_TOKEN }}

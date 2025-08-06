@@ -22,20 +22,42 @@
 
 ### 🔥 **PRIORIDADE MÁXIMA - BLOQUEADORES CRÍTICOS**
 
-#### ❌ **PROBLEMA CRÍTICO: URLs de Imagem Cloudinary Malformadas**
+#### ✅ **PROBLEMA CRÍTICO #1: Deploy Preview vs Production**
 
-- **Status:** **EM TESTE** - Correção implementada, aguardando validação
+- **Status:** **CORRIGIDO** - Inconsistência de branch identificada e corrigida
+- **Problema:** GitHub Action estava fazendo "Deploy Preview" em vez de deploy de produção
+- **Causa Identificada:** Inconsistência entre configurações de branch
+  - `deploy-orchestrator.js` usava `master`
+  - `template-generator.js` usava `main`
+  - Workflow gerado com `production-branch: main` mas usuário usa `master`
+- **Correções Implementadas:**
+  1. ✅ Corrigido `template-generator.js` para usar `production-branch: master`
+  2. ✅ Corrigido `deploy.yml` template para usar `production-branch: master`
+  3. ✅ Agora todas as configurações usam `master` consistentemente
+- **Próximo Passo:** Testar novo deploy para confirmar correção
+- **Localização:** `dashboard/lib/deployment/template-generator.js` e `dashboard/templates/github-workflows/deploy.yml`
+- **Complexidade:** Baixa (correção de configuração)
+- **Prazo:** **TESTE NECESSÁRIO** - Próximas horas
+
+#### ❌ **PROBLEMA CRÍTICO #2: URLs de Imagem Cloudinary Malformadas**
+
+- **Status:** **INVESTIGAÇÃO COMPLETA** - Problema identificado e corrigido
 - **URL Problemática:** `https://windowcaulkingto-site-dotfvo.netlify.app/windowcaulkingto/landing-page/user_2zZNqqf3OlYsi0AB7KbyyqqpzpB/uploads/yliv9trde6hq8zabczyl`
 - **Problema:** URLs contêm paths extras desnecessários que quebram as imagens
-- **Causa Identificada:** A função `processImageUrls()` na API pública estava usando o primeiro segmento do public_id como cloud_name
-- **Localização:** `dashboard/app/api/public/content/route.js` linha 22
-- **Impacto:** Sites em produção com imagens quebradas
-- **✅ Correção Implementada:**
+- **🔍 DESCOBERTAS IMPORTANTES:**
+  1. **API está funcionando corretamente:** URLs Cloudinary estão sendo geradas corretamente
+  2. **Problema é no Gatsby:** Site está sendo feito como "Deploy Preview" em vez de produção
+  3. **Lógica de detecção precisa ser refinada:** Algumas strings com caminhos estão sendo convertidas incorretamente
+- **✅ Correções Implementadas:**
   1. ✅ Melhorada lógica de detecção de public_ids (mínimo 2 barras, tamanho > 10)
   2. ✅ Corrigido uso do cloud_name correto da variável de ambiente
   3. ✅ Teste manual confirmou URL correta: `https://res.cloudinary.com/dyxuhpt7j/image/upload/q_auto,f_auto/windowcaulkingto/pages-content/user_2zZNqqf3OlYsi0AB7KbyyqqpzpB/uploads/f8rvg4vtqnbkvajemsr9`
+- **🚨 PROBLEMAS IDENTIFICADOS:**
+  1. **Strings com caminhos sendo convertidas:** `/images/about-us.jpg` está sendo convertido incorretamente
+  2. **Deploy Preview vs Production:** GitHub Action está fazendo deploy preview em vez de produção
+  3. **Lógica de detecção muito permissiva:** Precisa distinguir entre public_ids reais e strings com caminhos
 - **Complexidade:** Média (debug + correção)
-- **Prazo:** **AGUARDANDO TESTE** - Próximas horas
+- **Prazo:** **CORREÇÃO NECESSÁRIA** - Próximas horas
 
 ### 🔥 **PRIORIDADE MÁXIMA - LANÇAMENTO**
 
@@ -138,22 +160,54 @@
 #### ☐ **TAREFA #8: Sistema de Live Data Inteligente**
 
 - **Status:** **NOVA TAREFA** - Melhoria de UX e performance
-- **Descrição:** Implementar sistema de dados em tempo real com otimizações de UX
+- **Descrição:** Implementar sistema de dados em tempo real com otimizações de UX para melhorar a experiência do usuário
 - **Problemas a Resolver:**
+
   1. **Loading Excessivo:** Evitar mostrar loading toda vez que dados mudam
   2. **Inatividade do Usuário:** Detectar quando usuário está inativo e pausar atualizações
   3. **Performance:** Otimizar re-renders desnecessários
-- **Soluções Técnicas:**
-  1. **useMemo/useCallback:** Otimizar re-renders de componentes
-  2. **Debounced Loading:** Delay antes de mostrar loading (só mostrar se dados realmente mudaram)
-  3. **Detecção de Inatividade:** Usar `document.visibilitychange` e `userActivity` tracking
-  4. **Stale-While-Revalidate:** Mostrar dados antigos enquanto carrega novos
-- **Futuro (Cache Avançado):**
-  1. **Redis Integration:** Implementar cache serverless com Upstash Redis
-  2. **Cache Invalidation:** Estratégias inteligentes de invalidação
-  3. **Real-time Updates:** WebSockets ou Server-Sent Events para updates em tempo real
+  4. **UX Fluida:** Manter interface responsiva durante atualizações
+
+- **Implementação em Fases:**
+
+  **🟢 FASE 1: Otimizações Básicas (Impacto Alto, Esforço Baixo)**
+
+  - ✅ **Debounced Loading:** Delay de 300ms antes de mostrar loading
+  - ✅ **useMemo/useCallback:** Otimizar re-renders nos componentes críticos
+  - ✅ **Stale-While-Revalidate:** Mostrar dados antigos enquanto carrega novos
+  - **Prazo:** 1-2 dias
+
+  **🟡 FASE 2: Detecção de Inatividade (Impacto Alto, Esforço Médio)**
+
+  - ✅ **Visibility API:** Pausar requests quando tab está inativa
+  - ✅ **User Activity Tracking:** Detectar inatividade do usuário
+  - ✅ **Smart Polling:** Reduzir frequência de requests em background
+  - **Prazo:** 3-5 dias
+
+  **🔴 FASE 3: Cache Avançado (Impacto Médio, Esforço Alto)**
+
+  - ✅ **Redis Integration:** Cache serverless com Upstash Redis
+  - ✅ **Cache Invalidation:** Estratégias inteligentes de invalidação
+  - ✅ **Real-time Updates:** WebSockets ou Server-Sent Events
+  - **Prazo:** 1-2 semanas
+
+- **Soluções Técnicas Detalhadas:**
+
+  1. **Debounced Loading:** `setTimeout` + `clearTimeout` para evitar loading desnecessário
+  2. **React Optimizations:** `useMemo`, `useCallback`, `React.memo` nos componentes críticos
+  3. **Visibility Detection:** `document.visibilitychange` + `document.hidden`
+  4. **Activity Tracking:** Mouse/keyboard events + timeout para detectar inatividade
+  5. **Stale Data Strategy:** Manter dados antigos visíveis durante fetch
+
+- **⚠️ CUIDADOS E CONSIDERAÇÕES:**
+
+  - **Não over-engineer:** Começar simples e medir impacto real
+  - **Edge Cases:** Conexão lenta, múltiplas abas, troca rápida de tabs
+  - **Complexidade vs Benefício:** Avaliar se WebSockets realmente agregam valor
+  - **Performance:** Medir impacto antes e depois de cada fase
+
 - **Complexidade:** Alta (UX + performance + cache)
-- **Prazo:** Próxima sprint
+- **Prazo:** Próxima sprint (Fase 1) → Sprint seguinte (Fase 2) → Futuro (Fase 3)
 
 #### ☐ **TAREFA #9: Template Configurável via ENV**
 
@@ -249,8 +303,9 @@
 
 ### 🔄 **EM PROGRESSO:**
 
-- [ ] ✅ Correção URLs Cloudinary (implementada, aguardando teste)
-- [ ] Clonador de workspaces (prioridade máxima)
+- [ ] ✅ Correção URLs Cloudinary (implementada, problemas identificados)
+- [ ] 🔥 Investigar Deploy Preview vs Production (URGENTE)
+- [ ] Clonador of workspaces (prioridade máxima)
 - [ ] Theme Selector Visual (página dedicada)
 - [ ] Novo Homepage e texto
 
