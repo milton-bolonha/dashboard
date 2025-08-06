@@ -108,7 +108,9 @@ export async function cloneWorkspaceComplete(
         "contentTypes",
         contentTypesToInsert
       );
-      contentTypeResults.insertedIds.forEach((newId, index) => {
+      // insertedIds é um objeto, converter para array
+      const insertedIdsArray = Object.values(contentTypeResults.insertedIds);
+      insertedIdsArray.forEach((newId, index) => {
         const originalId = originalContentTypes[index]._id.toString();
         contentTypeIdMap.set(originalId, newId);
         createdIds.contentTypes.push(newId);
@@ -145,7 +147,9 @@ export async function cloneWorkspaceComplete(
     // Batch insert para sections
     if (sectionsToInsert.length > 0) {
       const sectionResults = await db.insertMany("sections", sectionsToInsert);
-      sectionResults.insertedIds.forEach((newId, index) => {
+      // insertedIds é um objeto, converter para array
+      const insertedIdsArray = Object.values(sectionResults.insertedIds);
+      insertedIdsArray.forEach((newId, index) => {
         const originalId = originalSections[index]._id.toString();
         sectionIdMap.set(originalId, newId);
         createdIds.sections.push(newId);
@@ -179,8 +183,10 @@ export async function cloneWorkspaceComplete(
     // Batch insert para items (mais eficiente para grandes volumes)
     if (itemsToInsert.length > 0) {
       const itemResults = await db.insertMany("items", itemsToInsert);
-      createdIds.items.push(...itemResults.insertedIds);
-      stats.items = itemResults.insertedIds.length;
+      // insertedIds é um objeto, converter para array
+      const insertedIdsArray = Object.values(itemResults.insertedIds);
+      createdIds.items.push(...insertedIdsArray);
+      stats.items = insertedIdsArray.length;
       console.log("✅ Items clonados:", stats.items);
     }
 
@@ -240,4 +246,4 @@ export async function cloneWorkspaceComplete(
 
     throw error; // Re-throw para tratamento no endpoint
   }
-} 
+}

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
-import { CopyIcon } from "@heroicons/react/24/outline";
+import { DocumentDuplicateIcon } from "@heroicons/react/24/outline";
 
 export default function CloneWorkspaceCard() {
   const { currentWorkspace, loadWorkspaces, switchWorkspace } = useWorkspace();
@@ -114,7 +114,7 @@ export default function CloneWorkspaceCard() {
             onClick={handleOpenModal}
             disabled={!currentWorkspace}
           >
-            <CopyIcon className="h-4 w-4 mr-2" />
+            <DocumentDuplicateIcon className="h-4 w-4 mr-2" />
             Clonar este Workspace
           </Button>
         </div>

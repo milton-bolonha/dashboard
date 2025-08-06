@@ -57,6 +57,17 @@ export const db = {
     return result;
   },
 
+  async insertMany(collection, docs) {
+    const coll = await getCollection(collection);
+    const docsWithTimestamps = docs.map(doc => ({
+      ...doc,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }));
+    const result = await coll.insertMany(docsWithTimestamps);
+    return result;
+  },
+
   async updateOne(collection, filter, update) {
     const coll = await getCollection(collection);
     const result = await coll.updateOne(filter, {
