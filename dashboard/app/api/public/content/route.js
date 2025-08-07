@@ -16,12 +16,13 @@ function processImageUrls(data) {
   console.log("[DEBUG] processImageUrls: cloudName =", cloudName);
 
   function processValue(value, key) {
-    if (typeof value === "string" && key === "image") {
+    if (typeof value === "string" && (key === "image" || key === "background")) {
       // ✅ Verificar se é um public_id válido E se segue nosso padrão
       if (isValidPublicId(value) && isCloudinaryPublicId(value)) {
         const cloudinaryUrl = `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${value}`;
         console.log(
           "[DEBUG] processImageUrls: Convertendo",
+          key,
           value,
           "para",
           cloudinaryUrl

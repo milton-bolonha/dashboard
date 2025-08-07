@@ -45,6 +45,16 @@ function inferFieldsRecursive(data) {
     ) {
       field.type = "textarea";
     }
+
+    // ✅ DEBUG: Log para investigar inferência
+    console.log(`🔍 DEBUG: Inferindo campo "${key}"`, {
+      value: value,
+      valueType: typeof value,
+      isArray: Array.isArray(value),
+      inferredType: field.type,
+      hasFields: !!field.fields,
+    });
+
     addons.push(field);
   }
   return addons;

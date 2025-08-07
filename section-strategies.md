@@ -1243,6 +1243,57 @@ const fieldProps = {
 
 **Próximo Passo:** Verificar console do navegador para entender o fluxo de dados
 
+### **🎯 PROBLEMA IDENTIFICADO:**
+
+**Análise dos Logs:**
+
+- **Campo 'content':** `addonType: 'textInput'` ❌ (deveria ser 'repeater')
+- **Campo 'page_builder':** `addonType: 'repeater'` ✅ (correto)
+- **Valor 'content':** `Array(4)` ✅ (é um array)
+- **Valor 'page_builder':** `undefined` ❌ (valor não existe)
+
+### **🔍 Causa Raiz:**
+
+**Problema na Inferência de Campos:**
+O importador está criando addons incorretos para o Section 3. O campo `content` (que é um array) está sendo inferido como `textInput` em vez de `repeater`.
+
+**Log Adicionado:**
+
+- **`inferFieldsRecursive`** - Log para investigar inferência de campos
+
+### **🎯 Próximo Passo:**
+
+**Reimportar Section 3** para ver os logs de inferência e corrigir o problema na criação dos addons.
+
+---
+
+## 🔧 **CORREÇÃO ADICIONAL: CLOUDINARY BACKGROUND**
+
+### **✅ Problema Identificado:**
+
+- **Campo `background`** não estava sendo processado como imagem Cloudinary
+- **URL malformada:** `windowcaulkingto/landing-page/user_2zZNqqf3OlYsi0AB7KbyyqqpzpB/uploads/yliv9trde6hq8zabczyl`
+- **Deveria ser:** `https://res.cloudinary.com/cloudname/image/upload/q_auto,f_auto/windowcaulkingto/landing-page/user_2zZNqqf3OlYsi0AB7KbyyqqpzpB/uploads/yliv9trde6hq8zabczyl`
+
+### **✅ Correção Implementada:**
+
+**Arquivo:** `dashboard/app/api/public/content/route.js`
+**Mudança:** Adicionado `background` na verificação de campos de imagem
+
+```javascript
+// ✅ ANTES: Apenas 'image'
+if (typeof value === "string" && key === "image") {
+
+// ✅ AGORA: 'image' e 'background'
+if (typeof value === "string" && (key === "image" || key === "background")) {
+```
+
+### **🎯 Resultado:**
+
+- **Campos `background`** agora serão convertidos para URLs completas do Cloudinary
+- **Campos `image`** continuam funcionando normalmente
+- **URLs malformadas** serão corrigidas automaticamente
+
 ---
 
 ## 🧪 **STATUS DE TESTE - PÁGINA DEDICADA**
