@@ -325,21 +325,20 @@ Este documento é um registro vivo dos desafios de depuração que enfrentamos, 
 
 ---
 
-_Este documento será atualizado à medida que novos desafios surgirem._
-
----
-
 ## Problema Recorrente 14: URLs de Imagem Quebradas no Site Final
 
 - **Sintomas:**
+
   - O site buildado (Gatsby, Next, etc.) mostra imagens quebradas.
   - Ao inspecionar a URL da imagem, ela é um caminho relativo (ex: `/workspace-slug/uploads/...`) em vez de uma URL completa do Cloudinary (`https://res.cloudinary.com/...`).
 
 - **Causa Raiz:**
+
   - O valor armazenado no banco de dados para a imagem é um `public_id` do Cloudinary (que pode conter `/`, ex: `workspace/section/user/img_id`), mas a API pública (`/api/public/content`) não está convertendo esse `public_id` em uma URL completa e pronta para consumo.
   - O template (Gatsby) recebe esse caminho parcial e o interpreta como uma rota local do site, resultando em um 404.
 
 - **Tentativa de Correção Incorreta (Anti-Padrão):**
+
   - Adicionar lógica de processamento de URL dentro do template Gatsby (`gatsby-node.js`).
   - **Por que isso estava errado:** Isso viola nosso princípio de que a **API é a única fonte da verdade**. Os templates devem ser "burros" e apenas renderizar os dados que recebem. A responsabilidade de formatar os dados corretamente é sempre da API.
 
@@ -351,3 +350,131 @@ _Este documento será atualizado à medida que novos desafios surgirem._
     3. Todos os outros valores são mantidos como estão.
   - **Resultado:** O template Gatsby recebe os dados 100% prontos para uso, sem precisar de nenhuma lógica de processamento de URL. A separação de responsabilidades é mantida, e o sistema fica mais robusto e fácil de manter.
 
+---
+
+## Problema Recorrente 15: Erros de MongoDB com Operadores `$` (Dollar Sign)
+
+- **Sintomas:**
+
+  - Erro `MongoServerError: The dollar ($) prefixed field '$set' in '$set' is not allowed in the context of an update's replacement document`
+  - Erro `MongoServerError: Expected 'update' to be string, but got primitive.D instead`
+  - Operações de `updateOne` ou `updateMany` falham com código de erro 52 ou 8000
+
+- **Causa Raiz:**
+
+  - **Erro de Sintaxe do MongoDB:** O MongoDB tem duas formas de fazer updates:
+    1. **Update Operators** (com `$set`, `$push`, etc.) - para atualizações parciais
+    2. **Replacement Document** (sem `$`) - para substituir o documento inteiro
+  - **Problema:** Estamos misturando as duas sintaxes, causando conflito
+
+- **Soluções por Tipo de Erro:**
+
+  ### **Erro 1: `$set` em Replacement Document**
+
+  **❌ CÓDIGO INCORRETO:**
+
+  ```javascript
+  // ❌ PROBLEMA: Misturando $set com replacement document
+  await db.updateOne(
+    "items",
+    { _id: new ObjectId(item._id) },
+    {
+      $set: { contentTypeId: newContentTypeId }, // ← $set aqui
+      updatedAt: new Date(), // ← mas sem $set aqui!
+    }
+  );
+  ```
+
+  **✅ CÓDIGO CORRETO:**
+
+  ```javascript
+  // ✅ SOLUÇÃO: Usar $set consistentemente
+  await db.updateOne(
+    "items",
+    { _id: new ObjectId(item._id) },
+    {
+      $set: {
+        contentTypeId: newContentTypeId,
+        updatedAt: new Date(),
+      },
+    }
+  );
+  ```
+
+  ### **Erro 2: `ObjectId` vs `String` Type Mismatch**
+
+  **❌ CÓDIGO INCORRETO:**
+
+  ```javascript
+  // ❌ PROBLEMA: Comparando ObjectId com string
+  const contentType = allContentTypes.find(
+    (ct) => ct._id === item.contentTypeId // ← ObjectId vs String
+  );
+  ```
+
+  **✅ CÓDIGO CORRETO:**
+
+  ```javascript
+  // ✅ SOLUÇÃO: Converter ambos para string
+  const contentType = allContentTypes.find(
+    (ct) => ct._id.toString() === item.contentTypeId?.toString()
+  );
+  ```
+
+  ### **Erro 3: Parâmetros Incorretos do `db.updateOne`**
+
+  **❌ CÓDIGO INCORRETO:**
+
+  ```javascript
+  // ❌ PROBLEMA: Parâmetros na ordem errada
+  await db.updateOne(
+    { _id: new ObjectId(item._id) }, // ← Filtro
+    { $set: { ... } } // ← Update
+  );
+  ```
+
+  **✅ CÓDIGO CORRETO:**
+
+  ```javascript
+  // ✅ SOLUÇÃO: Especificar coleção primeiro
+  await db.updateOne(
+    "items", // ← Coleção
+    { _id: new ObjectId(item._id) }, // ← Filtro
+    { $set: { ... } } // ← Update
+  );
+  ```
+
+- **Regras de Ouro para MongoDB Updates:**
+
+  1. **✅ SEMPRE use `$set`** para atualizações parciais
+  2. **✅ SEMPRE especifique a coleção** no primeiro parâmetro
+  3. **✅ SEMPRE converta IDs para string** antes de comparar
+  4. **✅ NUNCA misture** operadores `$` com campos diretos
+  5. **✅ SEMPRE use `ObjectId`** para filtros de `_id`
+
+- **Exemplo de Padrão Correto:**
+
+  ```javascript
+  // ✅ PADRÃO CORRETO para updates
+  await db.updateOne(
+    "collectionName",
+    { _id: new ObjectId(id) },
+    {
+      $set: {
+        field1: value1,
+        field2: value2,
+        updatedAt: new Date(),
+      },
+    }
+  );
+  ```
+
+- **Debug Checklist:**
+  - [ ] A coleção está especificada no primeiro parâmetro?
+  - [ ] Todos os campos estão dentro de `$set`?
+  - [ ] Os IDs estão sendo convertidos para string na comparação?
+  - [ ] O filtro usa `ObjectId` para campos `_id`?
+
+---
+
+_Este documento será atualizado à medida que novos desafios surgirem._

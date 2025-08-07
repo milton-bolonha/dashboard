@@ -20,8 +20,17 @@ export async function POST(request) {
       );
     }
 
-    const workspaceObjectId = new ObjectId(workspaceId);
-    const sectionObjectId = new ObjectId(sectionId);
+    // ✅ VALIDAÇÃO PREVENTIVA: Verificar se são ObjectIds válidos
+    let workspaceObjectId, sectionObjectId;
+    try {
+      workspaceObjectId = new ObjectId(workspaceId);
+      sectionObjectId = new ObjectId(sectionId);
+    } catch (error) {
+      return NextResponse.json(
+        { error: "workspaceId ou sectionId inválidos" },
+        { status: 400 }
+      );
+    }
 
     // Buscar todos os content types do workspace
     const contentTypes = await db.find("contentTypes", {
@@ -45,11 +54,12 @@ export async function POST(request) {
     }, {});
 
     for (const item of items) {
-      const currentContentTypeId = item.contentTypeId;
+      // ✅ NORMALIZAÇÃO PREVENTIVA: Converter para string sempre
+      const currentContentTypeId = item.contentTypeId?.toString();
       let newContentTypeId = null;
       let fixReason = "";
 
-      // Verificar se o contentTypeId atual existe
+      // ✅ COMPARAÇÃO SEGURA: Usar string normalizada
       if (currentContentTypeId && contentTypeMap[currentContentTypeId]) {
         // ✅ Content Type existe, não precisa corrigir
         continue;
@@ -69,18 +79,24 @@ export async function POST(request) {
         }
       }
 
+      // ✅ COMPARAÇÃO SEGURA: Ambos são strings agora
       if (newContentTypeId && newContentTypeId !== currentContentTypeId) {
-        // ✅ CORREÇÃO DEFINITIVA: Usar string para contentTypeId
-        await db.updateOne(
-          "items", // ✅ Especificar coleção
-          { _id: new ObjectId(item._id) },
-          {
-            $set: {
-              contentTypeId: newContentTypeId, // ✅ Já é string
-              updatedAt: new Date(),
-            },
-          }
-        );
+        // ✅ CORREÇÃO DEFINITIVA: Seguindo o guia de debugging
+        try {
+          await db.updateOne(
+            "items",
+            { _id: new ObjectId(item._id) },
+            {
+              $set: {
+                contentTypeId: newContentTypeId,
+                updatedAt: new Date(),
+              },
+            }
+          );
+        } catch (updateError) {
+          console.error(`❌ Erro ao atualizar item "${item.title}":`, updateError);
+          continue; // Pular este item e continuar com os próximos
+        }
 
         fixes.push({
           itemId: item._id.toString(),
@@ -93,6 +109,7 @@ export async function POST(request) {
         console.log(
           `🔧 Corrigido item "${item.title}": ${currentContentTypeId} → ${newContentTypeId}`
         );
+      }
       }
     }
 
