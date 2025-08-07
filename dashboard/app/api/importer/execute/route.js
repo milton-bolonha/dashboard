@@ -125,13 +125,22 @@ async function executeImportPlan(importPlan, workspaceId, userId) {
 
         let ct = await db.findOne("contentTypes", filter);
         if (!ct) {
-          const newCt = await db.insertOne("contentTypes", {
+          // ✅ CORREÇÃO: Garantir que addons sejam salvos
+          const contentTypeData = {
             ...file.contentType,
+            addons: file.contentType.addons || [], // Garantir que não seja undefined
             workspaceId: workspaceObjectId,
             userId,
             createdAt: new Date(),
             updatedAt: new Date(),
-          });
+          };
+
+          // ✅ VALIDAÇÃO: Log antes de salvar
+          console.log(
+            `💾 Salvando Content Type "${contentTypeData.name}" com ${contentTypeData.addons.length} addons`
+          );
+
+          const newCt = await db.insertOne("contentTypes", contentTypeData);
           results.contentTypesCreated++;
           ct = { _id: newCt.insertedId }; // Apenas o ID é necessário
         }

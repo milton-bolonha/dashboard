@@ -74,20 +74,13 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: "Section not found" }, { status: 404 });
     }
 
-    // Após encontrar a seção, determinar a estratégia de visualização
-    const items = await db.find("items", { sectionId: id });
-
-    let strategy = "singleton"; // Default
-    if (items.length > 1) {
-      const firstContentTypeId = items[0].contentTypeId;
-      const allSameContentType = items.every(
-        (item) => item.contentTypeId === firstContentTypeId
-      );
-      strategy = allSameContentType ? "collection" : "grouping";
-    }
-    // Se houver apenas 1 item, a estratégia permanece 'singleton'.
-
-    return NextResponse.json({ section: { ...section, strategy } });
+    // ✅ CORREÇÃO: Usar strategy do banco, não recalcular
+    return NextResponse.json({
+      section: {
+        ...section,
+        strategy: section.strategy || "collection",
+      },
+    });
   } catch (error) {
     console.error(`Error loading section ${params.id}:`, error);
     return NextResponse.json(

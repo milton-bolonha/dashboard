@@ -156,6 +156,25 @@ export default function SectionForm({
                 </p>
               </span>
             </label>
+            <label className="flex items-center p-3 border rounded-md cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 dark:border-gray-600">
+              <input
+                type="radio"
+                name="strategy"
+                value="grouping"
+                checked={formData.strategy === "grouping"}
+                onChange={handleChange}
+                className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+              />
+              <span className="ml-3 text-sm">
+                <strong className="font-medium text-gray-900 dark:text-white">
+                  Agrupamento de Tipos Diferentes
+                </strong>
+                <p className="text-gray-500 dark:text-gray-400">
+                  Ideal para configurações heterogêneas com múltiplos Content
+                  Types.
+                </p>
+              </span>
+            </label>
           </div>
         </div>
 
@@ -168,14 +187,21 @@ export default function SectionForm({
             value={formData.contentTypeId}
             onChange={handleChange}
             className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-            required
+            required={formData.strategy !== "grouping"}
           >
+            <option value="">Selecione um Content Type</option>
             {contentTypes.map((contentType) => (
               <option key={contentType._id} value={contentType._id}>
                 {contentType.name}
               </option>
             ))}
           </select>
+          {formData.strategy === "grouping" && (
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Para seções de agrupamento, o Content Type será definido
+              individualmente para cada item.
+            </p>
+          )}
         </div>
 
         <div className="flex items-center gap-2">

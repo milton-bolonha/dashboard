@@ -32,6 +32,12 @@ export async function createSectionAndInitialItem(sectionData) {
     );
   }
 
+  // ✅ ADICIONAR: Validação específica para grouping
+  if (sectionData.strategy === "grouping" && sectionData.contentTypeId) {
+    console.warn("⚠️ Seção 'Grouping' não deve ter contentTypeId específico");
+    delete sectionData.contentTypeId; // Remover se fornecido
+  }
+
   const dataToInsert = {
     ...sectionData,
     slug,

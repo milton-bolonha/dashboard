@@ -170,11 +170,29 @@ async function processSectionDirectory(
         contentTypeSlug = `${contentTypeSlug}-type`;
       }
 
+      // ✅ CORREÇÃO: Verificar se addons foram inferidos corretamente
       const contentType = {
         slug: contentTypeSlug,
         name: capitalize(baseName),
-        addons,
+        addons:
+          addons.length > 0
+            ? addons
+            : [
+                // ✅ FALLBACK: Addon básico se inferência falhar
+                {
+                  id: generateSlug(`${baseName}-title`),
+                  name: "Título",
+                  label: "Título",
+                  type: "textInput",
+                  required: true,
+                },
+              ],
       };
+
+      // ✅ VALIDAÇÃO: Log para debug
+      console.log(
+        `🔍 Content Type "${contentType.name}" criado com ${contentType.addons.length} addons`
+      );
 
       const itemSlug = generateSlug(baseName);
       const itemData = {
@@ -199,11 +217,29 @@ async function processSectionDirectory(
       contentTypeSlug = `${contentTypeSlug}-type`;
     }
 
+    // ✅ CORREÇÃO: Verificar se addons foram inferidos corretamente
     const sharedContentType = {
       slug: contentTypeSlug,
       name: pluralize.singular(sectionName),
-      addons: firstFileAnalysis.addons,
+      addons:
+        firstFileAnalysis.addons.length > 0
+          ? firstFileAnalysis.addons
+          : [
+              // ✅ FALLBACK: Addon básico se inferência falhar
+              {
+                id: generateSlug(`${sectionName}-title`),
+                name: "Título",
+                label: "Título",
+                type: "textInput",
+                required: true,
+              },
+            ],
     };
+
+    // ✅ VALIDAÇÃO: Log para debug
+    console.log(
+      `🔍 Content Type "${sharedContentType.name}" criado com ${sharedContentType.addons.length} addons`
+    );
 
     if (contentFiles.length === 1 && Array.isArray(firstFileAnalysis.data)) {
       // Caso de um único arquivo JSON que é um array
