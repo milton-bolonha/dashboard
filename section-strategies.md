@@ -861,19 +861,27 @@ if (section.strategy === "grouping") {
 
 ```javascript
 // ✅ IMPLEMENTADO: Mudança para página dedicada
-const handleEditItem = (item) => {
-  const contentType = getContentTypeForItem(item);
-  console.log("🔍 DEBUG: Editando Item", {
-    itemTitle: item.title,
-    itemId: item._id,
-    contentTypeName: contentType?.name,
-    contentTypeId: contentType?._id,
-    itemData: item.data,
-  });
+function GroupingView({ section, items, allContentTypes, headers }) {
+  const router = useRouter(); // ✅ PADRÃO: useRouter direto no componente
 
-  // ✅ MUDANÇA: Usar página dedicada em vez de modal
-  router.push(`/dashboard/sections/${section.slug}/items/${item._id}/edit`);
-};
+  // ... outros estados ...
+
+  const handleEditItem = (item) => {
+    const contentType = getContentTypeForItem(item);
+    console.log("🔍 DEBUG: Editando Item", {
+      itemTitle: item.title,
+      itemId: item._id,
+      contentTypeName: contentType?.name,
+      contentTypeId: contentType?._id,
+      itemData: item.data,
+    });
+
+    // ✅ MUDANÇA: Usar página dedicada em vez de modal
+    router.push(`/dashboard/sections/${section.slug}/items/${item._id}/edit`);
+  };
+
+  // ... resto do componente ...
+}
 ```
 
 ### **Fase 2: Remoção do Modal** ✅
@@ -929,6 +937,8 @@ function GroupingView({ section, items, allContentTypes, headers }) {
 2. **Estados limpos** - Removidos `isEditItemModalOpen` e `editingItem`
 3. **Fluxo direto** - Clique em "Editar" → Página dedicada
 4. **Código simplificado** - Menos complexidade no componente
+5. **✅ CORREÇÃO:** Router passado como prop para GroupingView
+6. **✅ PADRÃO CORRIGIDO:** Mudança para useRouter direto no componente
 
 ### **🔍 PONTOS A TESTAR:**
 

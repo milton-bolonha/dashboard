@@ -413,6 +413,7 @@ function CollectionView({ section, items, headers }) {
 }
 
 function GroupingView({ section, items, allContentTypes, headers }) {
+  const router = useRouter(); // ✅ PADRÃO: useRouter direto no componente
   const [localItems, setLocalItems] = useState(items);
   // ✅ REMOVIDO: Estados do modal - agora usa página dedicada
 
