@@ -173,6 +173,10 @@ export async function cloneWorkspaceComplete(
         workspaceId: newWorkspaceId,
         userId: userId,
         sectionId: sectionIdMap.get(item.sectionId.toString()),
+        // ✅ CORREÇÃO: Atualizar contentTypeId para o novo ID
+        contentTypeId: item.contentTypeId
+          ? contentTypeIdMap.get(item.contentTypeId.toString())?.toString()
+          : undefined,
         createdAt: new Date(),
         updatedAt: new Date(),
       };

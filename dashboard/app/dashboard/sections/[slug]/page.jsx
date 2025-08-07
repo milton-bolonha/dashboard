@@ -435,9 +435,24 @@ function GroupingView({ section, items, allContentTypes, headers }) {
     });
 
     // ✅ CORREÇÃO: Comparar como strings para evitar problemas de tipo
-    return allContentTypes.find(
+    let contentType = allContentTypes.find(
       (ct) => ct._id.toString() === item.contentTypeId?.toString()
     );
+
+    // ✅ CORREÇÃO: Fallback - tentar encontrar por nome se ID não funcionar
+    if (!contentType && item.title) {
+      contentType = allContentTypes.find(
+        (ct) => ct.name.toLowerCase() === item.title.toLowerCase()
+      );
+      if (contentType) {
+        console.log(
+          "🔍 DEBUG: Content Type encontrado por nome:",
+          contentType.name
+        );
+      }
+    }
+
+    return contentType;
   };
 
   const handleEditItem = (item) => {
@@ -507,6 +522,48 @@ function GroupingView({ section, items, allContentTypes, headers }) {
           <p>Nenhum item de configuração encontrado para esta seção.</p>
         </div>
       )}
+
+      {/* ✅ ADICIONAR: Botão para corrigir referências quebradas */}
+      <div className="mt-6 text-center">
+        <button
+          onClick={async () => {
+            try {
+              const response = await fetch(
+                "/api/debug/fix-content-type-references",
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    ...headers,
+                  },
+                  body: JSON.stringify({
+                    workspaceId: section.workspaceId,
+                    sectionId: section._id,
+                  }),
+                }
+              );
+
+              const result = await response.json();
+              if (result.success) {
+                alert(
+                  `✅ ${result.message}\n\n${result.fixes
+                    .map((fix) => `• ${fix.itemTitle}: ${fix.reason}`)
+                    .join("\n")}`
+                );
+                refreshItems(); // Recarregar a página
+              } else {
+                alert("❌ Erro ao corrigir referências");
+              }
+            } catch (error) {
+              console.error("Erro:", error);
+              alert("❌ Erro ao corrigir referências");
+            }
+          }}
+          className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md text-sm"
+        >
+          🔧 Corrigir Referências Quebradas
+        </button>
+      </div>
 
       {isEditItemModalOpen && editingItem && (
         <Modal

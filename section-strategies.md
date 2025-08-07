@@ -168,6 +168,10 @@ if (items.length > 1) {
 2. **Removida triangulação por userId** na API de itens para grouping
 3. **Adicionados logs de debug** para investigação
 4. **Content Type buscado sem triangulação** por userId
+5. **Fallback por nome:** Se ID não encontrar, tenta encontrar por nome do item
+6. **API de correção automática:** `/api/debug/fix-content-type-references` para corrigir referências quebradas
+7. **Botão de correção:** Interface para executar correção automática
+8. **✅ CORREÇÃO CRÍTICA:** Clonador agora atualiza `contentTypeId` dos items após clonar Content Types
 
 ### ❌ **Bug #4: Content Type Obrigatório para Grouping**
 
