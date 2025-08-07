@@ -16,7 +16,7 @@ const FieldRenderer = ({
 }) => {
   const fieldProps = {
     name: path.join("."),
-    value: value || "",
+    value: value ?? "",
     onChange: onChange,
     required: addon.required,
   };
