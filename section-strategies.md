@@ -162,6 +162,13 @@ if (items.length > 1) {
 
 **Problema Específico:** O `getContentTypeForItem()` pode não estar encontrando o Content Type correto ou o Content Type não tem addons definidos.
 
+**✅ Correções Implementadas:**
+
+1. **Comparação de tipos corrigida:** `ct._id.toString() === item.contentTypeId?.toString()`
+2. **Removida triangulação por userId** na API de itens para grouping
+3. **Adicionados logs de debug** para investigação
+4. **Content Type buscado sem triangulação** por userId
+
 ### ❌ **Bug #4: Content Type Obrigatório para Grouping**
 
 **Problema:** O formulário de seção (`SectionForm.jsx`) **exige** um Content Type mesmo para estratégias "Grouping", onde múltiplos Content Types são necessários.

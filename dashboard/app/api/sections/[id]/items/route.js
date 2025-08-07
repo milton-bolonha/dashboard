@@ -31,15 +31,38 @@ export const GET = withAuth(async (request, { params }, { userId }) => {
       return NextResponse.json({ error: "Section not found" }, { status: 404 });
     }
 
-    // Buscar items da section E userId (dupla triangulação)
+    // Buscar items da section (mais flexível para grouping)
     const items = await db.find("items", {
       sectionId: section._id, // <-- CORREÇÃO: Usar ObjectId, não string
-      userId: userId, // ← TRIANGULAÇÃO: só items do usuário
+      // ✅ CORREÇÃO: Remover triangulação por userId para grouping
+      // userId: userId, // ← TRIANGULAÇÃO: só items do usuário
     });
 
-    const contentType = await db.findOne("contentTypes", {
-      _id: new ObjectId(section.contentTypeId),
+    // ✅ DEBUG: Log para investigar os itens
+    console.log("🔍 DEBUG: Items encontrados", {
+      sectionId: section._id,
       userId: userId,
+      itemsCount: items.length,
+      items: items.map((item) => ({
+        _id: item._id,
+        title: item.title,
+        contentTypeId: item.contentTypeId,
+        contentTypeIdType: typeof item.contentTypeId,
+      })),
+    });
+
+    // ✅ CORREÇÃO: Buscar content type sem triangulação por userId (pode ter sido criado pelo importador)
+    const contentType = section.contentTypeId
+      ? await db.findOne("contentTypes", {
+          _id: new ObjectId(section.contentTypeId),
+        })
+      : null;
+
+    // ✅ DEBUG: Log para investigar content type
+    console.log("🔍 DEBUG: Content Type encontrado", {
+      sectionContentTypeId: section.contentTypeId,
+      contentTypeFound: !!contentType,
+      contentTypeName: contentType?.name,
     });
 
     return NextResponse.json({

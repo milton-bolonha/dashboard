@@ -422,7 +422,22 @@ function GroupingView({ section, items, allContentTypes, headers }) {
   };
 
   const getContentTypeForItem = (item) => {
-    return allContentTypes.find((ct) => ct._id === item.contentTypeId);
+    // ✅ DEBUG: Log para investigar o problema
+    console.log("🔍 DEBUG: getContentTypeForItem", {
+      itemContentTypeId: item.contentTypeId,
+      itemContentTypeIdType: typeof item.contentTypeId,
+      allContentTypesIds: allContentTypes.map((ct) => ({
+        id: ct._id,
+        type: typeof ct._id,
+        name: ct.name,
+      })),
+      found: allContentTypes.find((ct) => ct._id === item.contentTypeId),
+    });
+
+    // ✅ CORREÇÃO: Comparar como strings para evitar problemas de tipo
+    return allContentTypes.find(
+      (ct) => ct._id.toString() === item.contentTypeId?.toString()
+    );
   };
 
   const handleEditItem = (item) => {
