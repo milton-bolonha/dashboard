@@ -15,6 +15,18 @@ const RecursiveFormRenderer = ({
     const currentPath = [...path, addon.name];
     const value = get(formData, currentPath.join(".")); // Use lodash.get with dot notation path
 
+    // ✅ DEBUG: Log para investigar o problema
+    if (addon.name === "content") {
+      console.log("🔍 DEBUGZERA!!!: Campo 'content' encontrado", {
+        addonType: addon.type,
+        addonFields: addon.fields,
+        value: value,
+        valueType: typeof value,
+        isArray: Array.isArray(value),
+        path: currentPath.join("."),
+      });
+    }
+
     if (addon.type === "group") {
       return (
         <fieldset

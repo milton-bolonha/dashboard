@@ -13,6 +13,17 @@ const FieldRepeater = ({
 }) => {
   const items = Array.isArray(value) ? value : [];
 
+  // ✅ DEBUG: Log para investigar o problema
+  console.log("🔍 DEBUG: FieldRepeater", {
+    addonName: addon.name,
+    addonType: addon.type,
+    value: value,
+    valueType: typeof value,
+    isArray: Array.isArray(value),
+    items: items,
+    itemsLength: items.length,
+  });
+
   const handleAddItem = () => {
     const newItem = {}; // Inicializar com objeto vazio, poderia ter valores padrão
     const newItems = [...items, newItem];
