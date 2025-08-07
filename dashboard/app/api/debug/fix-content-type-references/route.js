@@ -94,7 +94,10 @@ export async function POST(request) {
             }
           );
         } catch (updateError) {
-          console.error(`❌ Erro ao atualizar item "${item.title}":`, updateError);
+          console.error(
+            `❌ Erro ao atualizar item "${item.title}":`,
+            updateError
+          );
           continue; // Pular este item e continuar com os próximos
         }
 
@@ -109,7 +112,6 @@ export async function POST(request) {
         console.log(
           `🔧 Corrigido item "${item.title}": ${currentContentTypeId} → ${newContentTypeId}`
         );
-      }
       }
     }
 
