@@ -724,4 +724,240 @@ const handleEditItem = (item) => {
 
 ---
 
+## 📄 **ANÁLISE DA PÁGINA DE GROUPING EXISTENTE**
+
+### **📍 Página Atual: `/dashboard/sections/[slug]/page.jsx`**
+
+**Status:** ✅ **JÁ EXISTE E FUNCIONA**
+
+**Estrutura da Página:**
+
+```javascript
+// Linha 277 - Renderização condicional
+if (section.strategy === "grouping") {
+  return (
+    <GroupingView
+      section={section}
+      items={items}
+      allContentTypes={allContentTypes}
+      headers={getWorkspaceHeaders()}
+    />
+  );
+}
+```
+
+**Componente GroupingView (linhas 414-585):**
+
+- ✅ **Cards individuais** para cada item
+- ✅ **Breadcrumbs** e navegação
+- ✅ **Botão de correção** de referências quebradas
+- ✅ **Modal de edição** integrado
+- ✅ **Logs de debug** para investigação
+
+### **📍 Página de Edição Dedicada: `/dashboard/sections/[slug]/items/[itemId]/edit/page.jsx`**
+
+**Status:** ✅ **JÁ EXISTE E FUNCIONA**
+
+**Funcionalidades:**
+
+- ✅ **Página dedicada** para edição de itens
+- ✅ **Breadcrumbs** completos
+- ✅ **Formulário full-screen** com `DynamicItemForm`
+- ✅ **Navegação** de volta para a seção
+- ✅ **Suporte** para criação de novos itens (`itemId === "new"`)
+
+---
+
+## ⚖️ **COMPARATIVO: MODAL vs PÁGINA DEDICADA**
+
+### **🎯 MODAL (Atual - GroupingView)**
+
+#### **✅ PRÓS:**
+
+- **Experiência fluida** - não sai da página principal
+- **Contexto mantido** - vê todos os itens da seção
+- **Navegação rápida** - edita múltiplos itens sem perder contexto
+- **Menos cliques** - acesso direto ao formulário
+- **Responsivo** - funciona bem em mobile
+- **Estado preservado** - não perde scroll ou filtros
+
+#### **❌ CONTRAS:**
+
+- **Espaço limitado** - formulários complexos ficam apertados
+- **Scroll interno** - pode ser confuso para formulários longos
+- **Foco dividido** - background ainda visível pode distrair
+- **Acessibilidade** - alguns leitores de tela têm dificuldade
+- **Teclas de atalho** - ESC fecha o modal (pode perder dados)
+- **URL não muda** - não pode compartilhar link direto para edição
+
+### **🎯 PÁGINA DEDICADA (Disponível - `/items/[itemId]/edit`)**
+
+#### **✅ PRÓS:**
+
+- **Espaço completo** - tela inteira para o formulário
+- **URL única** - pode compartilhar link direto
+- **Navegação nativa** - botão voltar do navegador funciona
+- **Acessibilidade** - melhor para leitores de tela
+- **Teclas de atalho** - Ctrl+S, F5, etc. funcionam normalmente
+- **Foco total** - sem distrações do background
+- **Formulários complexos** - melhor para muitos campos
+- **Histórico** - aparece no histórico do navegador
+
+#### **❌ CONTRAS:**
+
+- **Perda de contexto** - sai da listagem de itens
+- **Mais cliques** - precisa navegar de volta
+- **Carregamento** - nova página precisa carregar
+- **Estado perdido** - scroll e filtros são resetados
+- **Navegação lenta** - para editar múltiplos itens
+- **Mobile** - pode ser menos eficiente em telas pequenas
+
+---
+
+## 🎯 **DECISÃO IMPLEMENTADA**
+
+### **📋 Para Grouping Strategy:**
+
+**DECISÃO:** **MUDANÇA PARA PÁGINA DEDICADA** ✅
+
+**Implementado em:** 05/08/2025
+
+**Justificativa do Usuário:**
+
+- **Teste direto** - Usuário quer testar a experiência da página dedicada
+- **Comparação prática** - Avaliar qual abordagem funciona melhor
+- **Flexibilidade** - Pode voltar para modal se necessário
+
+**Mudanças Técnicas:**
+
+1. **GroupingView** agora usa `router.push()` para página dedicada
+2. **Modal removido** - Estados e componentes do modal eliminados
+3. **Página dedicada** - `/dashboard/sections/[slug]/items/[itemId]/edit` ativa
+4. **Fluxo simplificado** - Menos código, mais direto
+
+### **📋 Melhorias Propostas para o Modal:**
+
+1. **✅ Modal maior** - Usar mais espaço da tela
+2. **✅ Scroll interno melhorado** - Indicadores visuais claros
+3. **✅ Teclas de atalho** - Ctrl+S para salvar, ESC para cancelar
+4. **✅ Acessibilidade** - ARIA labels e foco management
+5. **✅ Auto-save** - Salvar automaticamente ao editar
+6. **✅ Preview** - Mostrar preview das mudanças
+
+### **📋 Página Dedicada como Fallback:**
+
+**Manter disponível** para casos específicos:
+
+- **Formulários muito complexos** (20+ campos)
+- **Usuários com necessidades especiais**
+- **Links diretos** para edição específica
+- **Mobile** em telas muito pequenas
+
+---
+
+## 🔧 **IMPLEMENTAÇÃO REALIZADA**
+
+### **Fase 1: Mudança para Página Dedicada** ✅
+
+```javascript
+// ✅ IMPLEMENTADO: Mudança para página dedicada
+const handleEditItem = (item) => {
+  const contentType = getContentTypeForItem(item);
+  console.log("🔍 DEBUG: Editando Item", {
+    itemTitle: item.title,
+    itemId: item._id,
+    contentTypeName: contentType?.name,
+    contentTypeId: contentType?._id,
+    itemData: item.data,
+  });
+
+  // ✅ MUDANÇA: Usar página dedicada em vez de modal
+  router.push(`/dashboard/sections/${section.slug}/items/${item._id}/edit`);
+};
+```
+
+### **Fase 2: Remoção do Modal** ✅
+
+```javascript
+// ✅ REMOVIDO: Estados e componentes do modal
+function GroupingView({ section, items, allContentTypes, headers }) {
+  const [localItems, setLocalItems] = useState(items);
+  // ✅ REMOVIDO: Estados do modal - agora usa página dedicada
+
+  // ... resto do código ...
+
+  // ✅ REMOVIDO: handleUpdateItem - agora é gerenciado pela página dedicada
+
+  return (
+    <div>
+      {/* ... cards dos itens ... */}
+
+      {/* ✅ REMOVIDO: Modal de edição - agora usa página dedicada */}
+    </div>
+  );
+}
+```
+
+### **Fase 3: Status de Teste** 🔄
+
+```javascript
+// ✅ IMPLEMENTADO: Mudança completa para página dedicada
+// 🔄 STATUS: Em teste pelo usuário
+
+// Próximos passos após teste:
+// 1. Avaliar experiência do usuário
+// 2. Comparar com modal anterior
+// 3. Decidir se mantém ou volta para modal
+// 4. Implementar melhorias baseadas no feedback
+```
+
+---
+
+---
+
+## 🧪 **STATUS DE TESTE - PÁGINA DEDICADA**
+
+### **📅 Data:** 05/08/2025
+
+### **👤 Testador:** Milton
+
+### **🎯 Objetivo:** Comparar experiência da página dedicada vs modal
+
+### **✅ MUDANÇAS IMPLEMENTADAS:**
+
+1. **GroupingView** - Removido modal, agora usa `router.push()`
+2. **Estados limpos** - Removidos `isEditItemModalOpen` e `editingItem`
+3. **Fluxo direto** - Clique em "Editar" → Página dedicada
+4. **Código simplificado** - Menos complexidade no componente
+
+### **🔍 PONTOS A TESTAR:**
+
+- [ ] **Carregamento** - Página abre rapidamente?
+- [ ] **Formulário** - Campos customizados aparecem?
+- [ ] **Navegação** - Breadcrumbs funcionam?
+- [ ] **Salvamento** - Dados são salvos corretamente?
+- [ ] **Volta** - Botão "Voltar" funciona?
+- [ ] **URL** - Link direto funciona?
+- [ ] **Mobile** - Funciona bem em telas pequenas?
+
+### **📊 COMPARAÇÃO ESPERADA:**
+
+| Aspecto            | Modal (Anterior) | Página Dedicada (Atual) |
+| ------------------ | ---------------- | ----------------------- |
+| **Espaço**         | Limitado         | Completo                |
+| **Contexto**       | Mantido          | Perdido                 |
+| **Navegação**      | Rápida           | Mais cliques            |
+| **URL**            | Não muda         | Única                   |
+| **Acessibilidade** | Problemas        | Melhor                  |
+| **Mobile**         | Bom              | Testar                  |
+
+### **🔄 PRÓXIMOS PASSOS:**
+
+1. **Teste do usuário** - Avaliar experiência prática
+2. **Feedback** - Coletar impressões e problemas
+3. **Decisão** - Manter página ou voltar para modal
+4. **Melhorias** - Implementar baseado no feedback
+
+---
+
 **Nota:** Esta documentação será atualizada conforme os bugs forem corrigidos e novas funcionalidades forem implementadas.

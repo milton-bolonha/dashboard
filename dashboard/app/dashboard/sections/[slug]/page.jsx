@@ -414,8 +414,7 @@ function CollectionView({ section, items, headers }) {
 
 function GroupingView({ section, items, allContentTypes, headers }) {
   const [localItems, setLocalItems] = useState(items);
-  const [isEditItemModalOpen, setIsEditItemModalOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState(null);
+  // ✅ REMOVIDO: Estados do modal - agora usa página dedicada
 
   const refreshItems = async () => {
     window.location.reload();
@@ -464,8 +463,9 @@ function GroupingView({ section, items, allContentTypes, headers }) {
       contentTypeId: contentType?._id,
       itemData: item.data,
     });
-    setEditingItem(item);
-    setIsEditItemModalOpen(true);
+
+    // ✅ MUDANÇA: Usar página dedicada em vez de modal
+    router.push(`/dashboard/sections/${section.slug}/items/${item._id}/edit`);
   };
 
   const handleDeleteItem = async (itemId) => {
@@ -477,17 +477,7 @@ function GroupingView({ section, items, allContentTypes, headers }) {
     refreshItems();
   };
 
-  const handleUpdateItem = async (itemData) => {
-    if (!editingItem) return;
-    await fetch(`/api/sections/${section._id}/items/${editingItem._id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", ...headers },
-      body: JSON.stringify(itemData),
-    });
-    refreshItems();
-    setIsEditItemModalOpen(false);
-    setEditingItem(null);
-  };
+  // ✅ REMOVIDO: handleUpdateItem - agora é gerenciado pela página dedicada
 
   return (
     <div>
@@ -565,20 +555,7 @@ function GroupingView({ section, items, allContentTypes, headers }) {
         </button>
       </div>
 
-      {isEditItemModalOpen && editingItem && (
-        <Modal
-          onClose={() => setIsEditItemModalOpen(false)}
-          title={`Editar Item: ${editingItem.title}`}
-        >
-          <DynamicItemForm
-            item={editingItem}
-            section={section}
-            contentType={getContentTypeForItem(editingItem)}
-            onSubmit={handleUpdateItem}
-            onCancel={() => setIsEditItemModalOpen(false)}
-          />
-        </Modal>
-      )}
+      {/* ✅ REMOVIDO: Modal de edição - agora usa página dedicada */}
     </div>
   );
 }
