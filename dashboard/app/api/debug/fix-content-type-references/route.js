@@ -72,10 +72,11 @@ export async function POST(request) {
       if (newContentTypeId && newContentTypeId !== currentContentTypeId) {
         // ✅ CORREÇÃO DEFINITIVA: Usar string para contentTypeId
         await db.updateOne(
+          "items", // ✅ Especificar coleção
           { _id: new ObjectId(item._id) },
           {
             $set: {
-              contentTypeId: newContentTypeId.toString(), // ✅ Converter para string
+              contentTypeId: newContentTypeId, // ✅ Já é string
               updatedAt: new Date(),
             },
           }
