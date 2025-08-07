@@ -70,10 +70,15 @@ export async function POST(request) {
       }
 
       if (newContentTypeId && newContentTypeId !== currentContentTypeId) {
-        // Atualizar o item
+        // ✅ CORREÇÃO: Usar ObjectId para o filtro
         await db.updateOne(
-          { _id: item._id },
-          { $set: { contentTypeId: newContentTypeId } }
+          { _id: new ObjectId(item._id) },
+          {
+            $set: {
+              contentTypeId: newContentTypeId,
+              updatedAt: new Date(),
+            },
+          }
         );
 
         fixes.push({

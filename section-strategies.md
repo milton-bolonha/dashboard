@@ -172,6 +172,7 @@ if (items.length > 1) {
 6. **API de correção automática:** `/api/debug/fix-content-type-references` para corrigir referências quebradas
 7. **Botão de correção:** Interface para executar correção automática
 8. **✅ CORREÇÃO CRÍTICA:** Clonador agora atualiza `contentTypeId` dos items após clonar Content Types
+9. **✅ CORREÇÃO DE BUG:** API de correção agora usa `ObjectId` corretamente para updates
 
 ### ❌ **Bug #4: Content Type Obrigatório para Grouping**
 
