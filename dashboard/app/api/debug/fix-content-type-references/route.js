@@ -85,12 +85,11 @@ export async function POST(request) {
         try {
           await db.updateOne(
             "items",
-            { _id: new ObjectId(item._id) },
             {
-              $set: {
-                contentTypeId: newContentTypeId,
-                updatedAt: new Date(),
-              },
+              _id: new ObjectId(item._id),
+            },
+            {
+              contentTypeId: newContentTypeId,
             }
           );
         } catch (updateError) {
