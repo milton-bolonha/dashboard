@@ -70,12 +70,12 @@ export async function POST(request) {
       }
 
       if (newContentTypeId && newContentTypeId !== currentContentTypeId) {
-        // ✅ CORREÇÃO: Usar ObjectId para o filtro
+        // ✅ CORREÇÃO DEFINITIVA: Usar string para contentTypeId
         await db.updateOne(
           { _id: new ObjectId(item._id) },
           {
             $set: {
-              contentTypeId: newContentTypeId,
+              contentTypeId: newContentTypeId.toString(), // ✅ Converter para string
               updatedAt: new Date(),
             },
           }
