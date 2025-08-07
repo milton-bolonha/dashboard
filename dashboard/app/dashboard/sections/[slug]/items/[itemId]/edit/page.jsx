@@ -110,24 +110,29 @@ export default function EditItemPage() {
       }
       setSection(foundSection);
 
-      // 2. Fetch Content Type
-      const contentTypesResponse = await fetch("/api/content-types", {
-        headers: getWorkspaceHeaders(),
-      });
-      const contentTypesData = await contentTypesResponse.json();
-      const foundContentType = contentTypesData.contentTypes?.find(
-        (ct) => ct._id === foundSection.contentTypeId
-      );
-
-      if (!foundContentType) {
-        throw new Error("Content Type not found");
-      }
-      setContentType(foundContentType);
-
       if (isCreating) {
+        // Para criação, usar Content Type da seção (se não for grouping)
+        const contentTypesResponse = await fetch("/api/content-types", {
+          headers: getWorkspaceHeaders(),
+        });
+        const contentTypesData = await contentTypesResponse.json();
+
+        if (foundSection.strategy === "grouping") {
+          // Para grouping, não há Content Type padrão da seção
+          setContentType(null);
+        } else {
+          const foundContentType = contentTypesData.contentTypes?.find(
+            (ct) => ct._id === foundSection.contentTypeId
+          );
+          if (!foundContentType) {
+            throw new Error("Content Type not found");
+          }
+          setContentType(foundContentType);
+        }
+
         setItem({}); // Start with an empty object for a new item
       } else {
-        // 3. Fetch the specific item
+        // 3. Fetch the specific item first
         const itemResponse = await fetch(
           `/api/sections/${foundSection._id}/items/${itemId}`,
           { headers: getWorkspaceHeaders() }
@@ -138,6 +143,30 @@ export default function EditItemPage() {
         }
         const itemData = await itemResponse.json();
         setItem(itemData.item);
+
+        // 4. Fetch Content Type based on item's contentTypeId (for grouping) or section's contentTypeId
+        const contentTypesResponse = await fetch("/api/content-types", {
+          headers: getWorkspaceHeaders(),
+        });
+        const contentTypesData = await contentTypesResponse.json();
+
+        let foundContentType;
+        if (foundSection.strategy === "grouping") {
+          // ✅ CORREÇÃO: Para grouping, usar Content Type do ITEM
+          foundContentType = contentTypesData.contentTypes?.find(
+            (ct) => ct._id === itemData.item.contentTypeId
+          );
+        } else {
+          // Para collection/singleton, usar Content Type da SEÇÃO
+          foundContentType = contentTypesData.contentTypes?.find(
+            (ct) => ct._id === foundSection.contentTypeId
+          );
+        }
+
+        if (!foundContentType) {
+          throw new Error("Content Type not found");
+        }
+        setContentType(foundContentType);
       }
     } catch (err) {
       setError(err.message);

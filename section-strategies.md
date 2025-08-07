@@ -906,20 +906,150 @@ function GroupingView({ section, items, allContentTypes, headers }) {
 }
 ```
 
-### **Fase 3: Status de Teste** 🔄
+### **Fase 3: Correção Crítica de Content Type** ✅
+
+```javascript
+// ✅ PROBLEMA IDENTIFICADO: Content Type incorreto para Grouping
+// ❌ ANTES: Buscava section.contentTypeId (sempre o mesmo)
+// ✅ AGORA: Busca item.contentTypeId (específico do item)
+
+// Lógica corrigida:
+if (foundSection.strategy === "grouping") {
+  // ✅ Para grouping, usar Content Type do ITEM
+  foundContentType = contentTypesData.contentTypes?.find(
+    (ct) => ct._id === itemData.item.contentTypeId
+  );
+} else {
+  // Para collection/singleton, usar Content Type da SEÇÃO
+  foundContentType = contentTypesData.contentTypes?.find(
+    (ct) => ct._id === foundSection.contentTypeId
+  );
+}
+```
+
+### **Fase 4: Status de Teste** 🔄
 
 ```javascript
 // ✅ IMPLEMENTADO: Mudança completa para página dedicada
+// ✅ CORRIGIDO: Content Type correto para Grouping
 // 🔄 STATUS: Em teste pelo usuário
 
 // Próximos passos após teste:
-// 1. Avaliar experiência do usuário
-// 2. Comparar com modal anterior
-// 3. Decidir se mantém ou volta para modal
-// 4. Implementar melhorias baseadas no feedback
+// 1. Verificar se campos customizados aparecem
+// 2. Testar edição de dados complexos
+// 3. Validar salvamento correto
+// 4. Comparar experiência com modal
 ```
 
 ---
+
+---
+
+## 🔍 **ANÁLISE DE COMPATIBILIDADE: CLONADOR E IMPORTADOR**
+
+### **📊 Status de Compatibilidade com Grouping:**
+
+| Componente           | Status           | Detalhes                                      |
+| -------------------- | ---------------- | --------------------------------------------- |
+| **Importador**       | ✅ **FUNCIONA**  | Cria Content Types individuais para cada item |
+| **Clonador**         | ✅ **FUNCIONA**  | Mapeia corretamente contentTypeId dos items   |
+| **Página de Edição** | ✅ **CORRIGIDO** | Agora busca Content Type correto              |
+
+### **✅ Importador - Análise Detalhada:**
+
+**Localização:** `dashboard/app/api/importer/analyze/route.js` (linhas 157-194)
+
+**Como funciona:**
+
+```javascript
+// ✅ CORRETO: Para Grouping, cria Content Type por item
+if (section.strategy === "singleton" || section.strategy === "grouping") {
+  for (const file of contentFiles) {
+    // Cada arquivo = 1 Content Type + 1 Item
+    const contentType = {
+      slug: contentTypeSlug,
+      name: capitalize(baseName),
+      addons: addons.length > 0 ? addons : [fallbackAddon],
+    };
+
+    const itemData = {
+      data, // Dados complexos do arquivo
+      title: capitalize(baseName),
+      slug: itemSlug,
+      status: "published",
+    };
+
+    // ✅ CORRETO: Item associado ao seu Content Type específico
+    importPlan.files.push({
+      section,
+      contentType, // Content Type específico
+      itemsData: [itemData], // Item com dados
+    });
+  }
+}
+```
+
+**Salvamento:** `dashboard/app/api/importer/execute/route.js` (linhas 180-195)
+
+```javascript
+// ✅ CORRETO: Salva item com contentTypeId específico
+await db.insertOne("items", {
+  ...item,
+  sectionId,
+  contentTypeId, // ← Content Type específico do item
+  workspaceId: workspaceObjectId,
+  userId,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+});
+```
+
+### **✅ Clonador - Análise Detalhada:**
+
+**Localização:** `dashboard/lib/workspace-clone.js` (linhas 170-185)
+
+**Como funciona:**
+
+```javascript
+// ✅ CORRETO: Mapeia Content Types e atualiza referências
+const contentTypeIdMap = new Map(); // Mapeia IDs antigos → novos
+
+// 1. Clona Content Types
+for (const contentType of originalContentTypes) {
+  const newContentTypeData = { ...contentType, workspaceId: newWorkspaceId };
+  // Salva e mapeia ID antigo → novo
+}
+
+// 2. Clona Items com referências corretas
+for (const item of originalItems) {
+  const newItemData = {
+    ...item,
+    sectionId: sectionIdMap.get(item.sectionId.toString()),
+    // ✅ CORREÇÃO: Atualizar contentTypeId para o novo ID
+    contentTypeId: item.contentTypeId
+      ? contentTypeIdMap.get(item.contentTypeId.toString())?.toString()
+      : undefined,
+  };
+}
+```
+
+### **🎯 Resultado da Análise:**
+
+**✅ TUDO FUNCIONA CORRETAMENTE!**
+
+1. **Importador** - Cria Content Types individuais para cada item de Grouping
+2. **Clonador** - Mapeia corretamente as referências de Content Types
+3. **Página de Edição** - Agora busca o Content Type correto do item
+
+**Fluxo completo:**
+
+```
+Importação → Content Types individuais → Items com contentTypeId específico
+     ↓
+Clonagem → Mapeamento correto → Items clonados com referências corretas
+     ↓
+Edição → Busca Content Type do item → Campos customizados aparecem
+```
 
 ---
 
@@ -939,6 +1069,8 @@ function GroupingView({ section, items, allContentTypes, headers }) {
 4. **Código simplificado** - Menos complexidade no componente
 5. **✅ CORREÇÃO:** Router passado como prop para GroupingView
 6. **✅ PADRÃO CORRIGIDO:** Mudança para useRouter direto no componente
+7. **✅ CORREÇÃO CRÍTICA:** Content Type correto para Grouping (item.contentTypeId vs section.contentTypeId)
+8. **✅ ANÁLISE COMPLETA:** Clonador e Importador já lidam corretamente com Grouping
 
 ### **🔍 PONTOS A TESTAR:**
 
