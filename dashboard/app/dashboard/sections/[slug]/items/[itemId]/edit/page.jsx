@@ -150,11 +150,37 @@ export default function EditItemPage() {
         });
         const contentTypesData = await contentTypesResponse.json();
 
+        // ✅ DEBUG: Log para investigar o problema
+        console.log("🔍 DEBUG: EditItemPage - Dados carregados", {
+          sectionStrategy: foundSection.strategy,
+          sectionContentTypeId: foundSection.contentTypeId,
+          itemContentTypeId: itemData.item.contentTypeId,
+          allContentTypes: contentTypesData.contentTypes?.map((ct) => ({
+            _id: ct._id,
+            name: ct.name,
+            slug: ct.slug,
+          })),
+        });
+
         let foundContentType;
         if (foundSection.strategy === "grouping") {
           // ✅ CORREÇÃO: Para grouping, usar Content Type do ITEM
           foundContentType = contentTypesData.contentTypes?.find(
             (ct) => ct._id === itemData.item.contentTypeId
+          );
+
+          // ✅ DEBUG: Log para verificar se encontrou
+          console.log(
+            "🔍 DEBUG: EditItemPage - Content Type encontrado para grouping",
+            {
+              foundContentType: foundContentType
+                ? {
+                    _id: foundContentType._id,
+                    name: foundContentType.name,
+                    slug: foundContentType.slug,
+                  }
+                : null,
+            }
           );
         } else {
           // Para collection/singleton, usar Content Type da SEÇÃO

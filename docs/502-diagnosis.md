@@ -24,7 +24,7 @@
 
 - **Problema:** UserID inconsistente entre as duas funções de bypass
 - **Sintoma:** Erro em runtime ao executar rate limiting
-- **✅ Correção Aplicada:** Unificado `user_30lCRGxlNoUi6cc1l9m30u71zNt` em ambas funções
+- **✅ Correção Aplicada:** Unificado `user_30xxxxxxxxxxxx` em ambas funções
 
 ### **3. Middleware do Clerk** ⚠️
 

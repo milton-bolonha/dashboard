@@ -6,12 +6,47 @@ class GitManager {
     this.octokit = new Octokit({
       auth: githubToken,
       request: {
-        timeout: 30000, // 30 segundos timeout (padrão é 5s)
+        timeout: 60000, // Aumentado para 60 segundos
+        retries: 3, // Adicionar retries automáticos
       },
     });
 
     // Aguardar sodium estar pronto
     this.sodiumReady = sodium.ready;
+  }
+
+  // Função auxiliar para fazer requisições com retry
+  async makeRequestWithRetry(requestFn, maxRetries = 3, delay = 2000) {
+    let lastError;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await requestFn();
+      } catch (error) {
+        lastError = error;
+
+        // Verificar se é um erro de conectividade
+        const isConnectionError =
+          error.code === "ECONNRESET" ||
+          error.code === "ETIMEDOUT" ||
+          error.code === "ENOTFOUND" ||
+          error.message?.includes("network socket disconnected") ||
+          error.message?.includes("fetch failed");
+
+        if (isConnectionError && attempt < maxRetries) {
+          console.log(
+            `🔄 Tentativa ${attempt} falhou, tentando novamente em ${delay}ms...`
+          );
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          delay *= 1.5; // Backoff exponencial
+          continue;
+        }
+
+        throw error;
+      }
+    }
+
+    throw lastError;
   }
 
   async createOrUpdateRepository(workspace, templateFiles) {
@@ -64,38 +99,46 @@ class GitManager {
       for (const [filePath, fileContent] of templateFiles.entries()) {
         try {
           // Tentar obter o arquivo para ver se ele já existe
-          const { data: existingFile } =
-            await this.octokit.rest.repos.getContent({
+          const { data: existingFile } = await this.makeRequestWithRetry(() =>
+            this.octokit.rest.repos.getContent({
               owner,
               repo: repoName,
               path: filePath,
-            });
+            })
+          );
 
           // Se existir, atualizar
-          await this.octokit.rest.repos.createOrUpdateFileContents({
-            owner,
-            repo: repoName,
-            path: filePath,
-            message: `Update ${filePath}`,
-            content: Buffer.from(fileContent).toString("base64"),
-            sha: existingFile.sha,
-          });
+          await this.makeRequestWithRetry(() =>
+            this.octokit.rest.repos.createOrUpdateFileContents({
+              owner,
+              repo: repoName,
+              path: filePath,
+              message: `Update ${filePath}`,
+              content: Buffer.from(fileContent).toString("base64"),
+              sha: existingFile.sha,
+            })
+          );
           console.log(`✅ Arquivo atualizado: ${filePath}`);
         } catch (error) {
           if (error.status === 404) {
             // Se não existir, criar
-            await this.octokit.rest.repos.createOrUpdateFileContents({
-              owner,
-              repo: repoName,
-              path: filePath,
-              message: `Create ${filePath}`,
-              content: Buffer.from(fileContent).toString("base64"),
-            });
+            await this.makeRequestWithRetry(() =>
+              this.octokit.rest.repos.createOrUpdateFileContents({
+                owner,
+                repo: repoName,
+                path: filePath,
+                message: `Create ${filePath}`,
+                content: Buffer.from(fileContent).toString("base64"),
+              })
+            );
             console.log(`✅ Arquivo criado: ${filePath}`);
           } else {
             throw error; // Lançar outros erros
           }
         }
+
+        // Pequena pausa entre commits para evitar rate limiting
+        await new Promise((resolve) => setTimeout(resolve, 500));
       }
     } catch (error) {
       console.error("Erro ao fazer commit dos arquivos:", error);
@@ -111,11 +154,12 @@ class GitManager {
       await this.sodiumReady;
 
       // Obter chave pública do repositório
-      const { data: publicKey } =
-        await this.octokit.rest.actions.getRepoPublicKey({
+      const { data: publicKey } = await this.makeRequestWithRetry(() =>
+        this.octokit.rest.actions.getRepoPublicKey({
           owner: repo.owner.login,
           repo: repo.name,
-        });
+        })
+      );
 
       // Criar cada secret
       for (const [name, value] of Object.entries(secrets)) {
@@ -136,40 +180,21 @@ class GitManager {
 
         const encryptedValue = this.encryptSecret(value, publicKey.key);
 
-        // Implementar retry logic para falhas de conectividade
-        let retries = 3;
-        let success = false;
+        // Usar retry logic para criar o secret
+        await this.makeRequestWithRetry(() =>
+          this.octokit.rest.actions.createOrUpdateRepoSecret({
+            owner: repo.owner.login,
+            repo: repo.name,
+            secret_name: name,
+            encrypted_value: encryptedValue,
+            key_id: publicKey.key_id,
+          })
+        );
 
-        while (retries > 0 && !success) {
-          try {
-            await this.octokit.rest.actions.createOrUpdateRepoSecret({
-              owner: repo.owner.login,
-              repo: repo.name,
-              secret_name: name,
-              encrypted_value: encryptedValue,
-              key_id: publicKey.key_id,
-            });
+        console.log(`✅ Secret ${name} criado`);
 
-            console.log(`✅ Secret ${name} criado`);
-            success = true;
-          } catch (secretError) {
-            retries--;
-            console.log(
-              `⚠️ Falha ao criar secret ${name}, tentativas restantes: ${retries}`
-            );
-
-            if (retries === 0) {
-              console.error(
-                `❌ Falha definitiva ao criar secret ${name}:`,
-                secretError.message
-              );
-              throw secretError;
-            }
-
-            // Aguardar 2 segundos antes de tentar novamente
-            await new Promise((resolve) => setTimeout(resolve, 2000));
-          }
-        }
+        // Pequena pausa entre secrets para evitar rate limiting
+        await new Promise((resolve) => setTimeout(resolve, 300));
       }
     } catch (error) {
       console.error("Erro ao criar secrets:", error);
@@ -198,13 +223,15 @@ class GitManager {
     console.log(`Disparando workflow ${workflowFileName}...`);
 
     try {
-      await this.octokit.rest.actions.createWorkflowDispatch({
-        owner: repo.owner.login,
-        repo: repo.name,
-        workflow_id: workflowFileName,
-        ref: repo.default_branch, // Usar a branch padrão do repositório
-        inputs,
-      });
+      await this.makeRequestWithRetry(() =>
+        this.octokit.rest.actions.createWorkflowDispatch({
+          owner: repo.owner.login,
+          repo: repo.name,
+          workflow_id: workflowFileName,
+          ref: repo.default_branch, // Usar a branch padrão do repositório
+          inputs,
+        })
+      );
 
       console.log(`✅ Workflow ${workflowFileName} disparado`);
     } catch (error) {
@@ -222,11 +249,11 @@ class GitManager {
   async deleteRepository(repositoryName) {
     try {
       const { data: user } = await this.octokit.rest.users.getAuthenticated();
-      
+
       // repositoryName pode vir como "owner/repo" ou apenas "repo"
       let owner, repo;
-      if (repositoryName.includes('/')) {
-        [owner, repo] = repositoryName.split('/');
+      if (repositoryName.includes("/")) {
+        [owner, repo] = repositoryName.split("/");
       } else {
         owner = user.login;
         repo = repositoryName;
@@ -240,7 +267,10 @@ class GitManager {
       console.log(`✅ Repositório ${owner}/${repo} deletado com sucesso`);
       return true;
     } catch (error) {
-      console.error(`❌ Erro ao deletar repositório ${repositoryName}:`, error.message || error);
+      console.error(
+        `❌ Erro ao deletar repositório ${repositoryName}:`,
+        error.message || error
+      );
       throw error;
     }
   }

@@ -127,7 +127,7 @@ export function createRateLimiter(limitType = "general") {
     }
 
     // 🚨 HACK TEMPORÁRIO: Bypass para email específico de desenvolvimento
-    if (userId === "user_30lCRGxlNoUi6cc1l9m30u71zNt") {
+    if (userId === NEXT_PUBLIC_DEV_USER_ID) {
       console.log(
         "🔓 HACK DEV: Bypass de rate limit para usuário de desenvolvimento"
       );
@@ -156,7 +156,7 @@ export async function checkRateLimit(
   userId = null
 ) {
   // 🚨 HACK TEMPORÁRIO: Bypass para email específico de desenvolvimento
-  if (userId === "user_30lCRGxlNoUi6cc1l9m30u71zNt") {
+  if (userId === NEXT_PUBLIC_DEV_USER_ID) {
     console.log(
       "🔓 HACK DEV: Bypass de rate limit para usuário de desenvolvimento"
     );
