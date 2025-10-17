@@ -1,0 +1,37 @@
+Produtos Complementares
+
+Esses produtos não estão incluídos diretamente no kit inicial, pois possuem acesso público e podem ser facilmente baixados da internet. Abaixo você encontra uma breve descrição de cada um deles e os links para acessá-los:
+
+# Hacker-book - NUKTPLS-CLI
+
+🐙 Eugenia 3.0 - As Crianças CTO's - Volume 1 🐙
+Este é o primeiro universo literário cibernético disponível também como um pacote Node.js. O e-book oferece uma experiência imersiva que pode ser acessada através da CLI.
+
+Instalação da CLI: Para instalar o NUKTPLS-CLI, basta executar o comando abaixo no seu Terminal: 
+
+
+```
+npm i -g nuktpls-cli
+```
+
+Início: Após a instalação, você pode iniciar o conteúdo imersivo com: nuktpls
+
+Mais informações: nuktpls-cli no npm (https://www.npmjs.com/package/nuktpls-cli)
+
+---
+
+# Tema Edu4Dev para VSCode
+
+Para uma experiência de programação personalizada, o Tema Edu4Dev oferece uma paleta de cores pensada para desenvolvedores e pode ser baixado e instalado diretamente no Visual Studio Code.
+
+Instalação no VSCode: Pressione Ctrl + Shift + X para abrir a aba de extensões no VSCode e pesquise por "Edu4Dev". Selecione o tema e clique em Instalar.
+Instalação via link: Edu4Dev no Marketplace do VSCode (https://marketplace.visualstudio.com/items?itemName=Edu4Dev.vscode-edu4dev-color-theme)
+
+---
+
+# Músicas Para Trabalhar - As Crianças CTO's (álbum instrumental)
+
+Para aqueles que gostam de ouvir música enquanto trabalham, o álbum As Crianças CTO's oferece faixas instrumentais que ajudam na concentração e produtividade.
+
+Ouça no YouTube: Músicas Para Trabalhar - Álbum Instrumental (https://music.youtube.com/playlist?list=OLAK5uy_lIyVSse9wyTfjCcvrUM2t134NOFSpMV8g)
+Esses produtos foram selecionados para complementar seu ambiente de desenvolvimento e potencializar sua experiência com o kit.

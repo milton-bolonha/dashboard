@@ -11,6 +11,7 @@ import {
   migrateToWorkspaces,
   checkMigrationStatus,
 } from "./migrate-to-workspaces.js";
+import { migrateExposureMode } from "./migrate-exposure-mode.js";
 
 async function main() {
   console.log("🚀 Dashboard Engine - Migração para Workspaces");
@@ -28,8 +29,14 @@ async function main() {
     console.log("   - Migrar content types, sections e items");
     console.log("   - Preservar todos os dados existentes");
 
-    // 3. Executar migração
+    // 3. Executar migração principal
     await migrateToWorkspaces();
+
+    // 3.1. Aplicar defaults de exposureMode/exposureSelection nas sections existentes
+    console.log(
+      "\n🔄 STEP 2.1: Aplicando defaults de exposureMode em Sections"
+    );
+    await migrateExposureMode();
 
     // 4. Verificar resultado
     console.log("\n🎯 STEP 3: Status Final");

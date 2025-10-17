@@ -153,6 +153,17 @@ export const SectionSchema = {
       enum: ["collection", "singleton", "grouping"],
       default: "collection",
     },
+    // Controle de exposição pública de itens desta Section
+    exposureMode: {
+      type: "string",
+      enum: ["all", "single"],
+      default: "all",
+    },
+    exposureSelection: {
+      type: "string",
+      enum: ["random", "latest"],
+      default: "random",
+    },
     contentTypeId: { type: "string", ref: "content_types" },
     userId: { type: "string", required: true },
     workspaceId: { type: "objectId", ref: "workspaces", required: true },

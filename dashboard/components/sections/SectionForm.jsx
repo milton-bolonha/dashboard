@@ -20,6 +20,9 @@ export default function SectionForm({
     order: section?.order || 0,
     contentTypeId: section?.contentTypeId || "", // Começar vazio
     status: section?.status || "draft", // ✅ CORREÇÃO: Usar status
+    // Modo de exposição (API) — somente para strategy=collection
+    exposureMode: section?.exposureMode || "all",
+    exposureSelection: section?.exposureSelection || "random",
     publicAccess: {
       isPublic: section?.publicAccess?.isPublic || false,
     },
@@ -203,6 +206,50 @@ export default function SectionForm({
             </p>
           )}
         </div>
+
+        {formData.strategy === "collection" && (
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Modo de Exposição (API)
+            </label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex flex-col">
+                <label className="text-xs text-gray-600 dark:text-gray-400 mb-1">
+                  exposureMode
+                </label>
+                <select
+                  name="exposureMode"
+                  value={formData.exposureMode}
+                  onChange={handleChange}
+                  className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                >
+                  <option value="all">Todos os itens (all)</option>
+                  <option value="single">Apenas 1 item (single)</option>
+                </select>
+              </div>
+              {formData.exposureMode === "single" && (
+                <div className="flex flex-col">
+                  <label className="text-xs text-gray-600 dark:text-gray-400 mb-1">
+                    exposureSelection
+                  </label>
+                  <select
+                    name="exposureSelection"
+                    value={formData.exposureSelection}
+                    onChange={handleChange}
+                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  >
+                    <option value="random">Aleatório (random)</option>
+                    <option value="latest">Mais recente (latest)</option>
+                  </select>
+                </div>
+              )}
+            </div>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Define como a API pública expõe os itens desta Section. Veja
+              `section-exposure-mode.md`.
+            </p>
+          </div>
+        )}
 
         <div className="flex items-center gap-2">
           <input

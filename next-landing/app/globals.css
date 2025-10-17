@@ -1,0 +1,44 @@
+@import url("https://fonts.googleapis.com/css2?family=Podkova:wght@400;700&display=swap");
+
+@import "tailwindcss";
+@plugin "@tailwindcss/postcss";
+
+:root {
+  --bg-primary: #191919;
+  --bg-secondary: #212121;
+  --text-primary: #f9fafb;
+  --border-color: #444444;
+  --cta-color: #7af42b;
+}
+
+/* Importa estilos originais essenciais */
+/* Copiados/adaptados de dashboard/app/home.css quando aplicável */
+.home-hero {
+  margin-top: -75px;
+  position: relative;
+  z-index: 1;
+  background-image: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)),
+    url("/images/bg-hero.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.cta-button {
+  background: var(--cta-color);
+  color: black;
+  font-weight: 700;
+  border: 3px solid black;
+  padding: 12px 24px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cta-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 black;
+}
+
+.border-color {
+  border-color: var(--border-color);
+}

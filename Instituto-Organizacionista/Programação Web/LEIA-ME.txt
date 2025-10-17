@@ -1,0 +1,27 @@
+# Kit Dev Iniciante
+
+Obrigado por adquirir o Kit Dev Iniciante! Estamos animados em ajudar você a iniciar sua jornada no mundo do desenvolvimento.
+
+## Versão
+
+Esta é a versão 1.0.0 do Kit Dev Iniciante. Com ela, você terá acesso a:
+
+- Atualizações gerais;
+- Atualizações de conteúdo;
+- Correções e melhorias.
+
+Essas atualizações estarão disponíveis gratuitamente por um ano a partir da data de aquisição. Fique atenta(o) aos comunicados para aproveitar as novidades!
+
+## Comunidade
+
+Para ter o máximo aproveitamento do Kit e se conectar com outras(os) iniciantes e desenvolvedores, convidamos você a participar da nossa comunidade no Discord. Lá, você poderá:
+
+- Tirar dúvidas;
+- Compartilhar seu progresso;
+- Participar de eventos e atividades;
+- Conhecer novos amigos e colegas desenvolvedores.
+
+Acesse o convite para o Discord aqui:
+https://discord.gg/p9zFrmuC
+
+Aproveite ao máximo seu Kit Dev Iniciante e seja bem-vinda(o) à nossa comunidade!

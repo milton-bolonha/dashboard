@@ -16,7 +16,10 @@ function processImageUrls(data) {
   console.log("[DEBUG] processImageUrls: cloudName =", cloudName);
 
   function processValue(value, key) {
-    if (typeof value === "string" && (key === "image" || key === "background")) {
+    if (
+      typeof value === "string" &&
+      (key === "image" || key === "background")
+    ) {
       // ✅ Verificar se é um public_id válido E se segue nosso padrão
       if (isValidPublicId(value) && isCloudinaryPublicId(value)) {
         const cloudinaryUrl = `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${value}`;
@@ -120,10 +123,35 @@ export async function GET(request) {
     // Para cada section, buscar seus items publicados
     const content = await Promise.all(
       sections.map(async (section) => {
-        const items = await db.find("items", {
-          sectionId: section._id, // CORREÇÃO: Passar como ObjectId
-          status: "published",
-        });
+        let items = [];
+        // Estratégia de exposição
+        const exposureMode = section.exposureMode || "all";
+        const exposureSelection = section.exposureSelection || "random";
+
+        if (exposureMode === "single" && section.strategy === "collection") {
+          if (exposureSelection === "random") {
+            // Selecionar 1 item aleatório
+            const sampled = await db.aggregate("items", [
+              { $match: { sectionId: section._id, status: "published" } },
+              { $sample: { size: 1 } },
+            ]);
+            items = sampled || [];
+          } else if (exposureSelection === "latest") {
+            // Selecionar item mais recente
+            const latest = await db.find(
+              "items",
+              { sectionId: section._id, status: "published" },
+              { sort: { createdAt: -1 }, limit: 1 }
+            );
+            items = latest || [];
+          }
+        } else {
+          // Padrão: todos os itens publicados
+          items = await db.find("items", {
+            sectionId: section._id, // CORREÇÃO: Passar como ObjectId
+            status: "published",
+          });
+        }
 
         // Filtrar apenas os dados públicos dos items
         const publicItems = items.map((item) => {
@@ -156,6 +184,8 @@ export async function GET(request) {
           name: section.name,
           description: section.description,
           strategy: section.strategy,
+          exposureMode: section.exposureMode || "all",
+          exposureSelection: section.exposureSelection || null,
           items: publicItems,
         };
       })

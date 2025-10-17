@@ -6,7 +6,8 @@
   "workspaces": [
     "ai",
     "dashboard",
-    "gatsby-landing"
+    "gatsby-landing",
+    "next-landing"
   ],
   "scripts": {
     "ai:setup": "ai-workspace setup",
