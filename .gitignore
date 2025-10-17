@@ -7,6 +7,9 @@
 /dashboard/node_modules/
 /next-landing/node_modules/
 /next-landing/.next/
+/gatsby-landing/.cache/
+/gatsby-landing/public/
+/gatsby-landing/node_modules/
 
 # dependencies
 /node_modules
