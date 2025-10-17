@@ -1,0 +1,170 @@
+Speaker
+Hello. Hey, how's it going? Hey, man. Good? I'm good, and you? Yeah, not bad, thank you, not bad. Not bad. Can you hear me, Ego? Yeah, I can hear you. And you, you can hear me well? Yeah, yeah, yeah. Apologies for the delays today. I just, we're working on another project and it's just had a lot of issues today. Yeah. Okay, no worries. Those days, unfortunately. It happens.
+
+Speaker
+Great, I thought it would make sense for us to just have a quick call on some of the documentation that you sent across yesterday. Maybe if we can just go through it a little bit so you can explain to me where it matches with, I guess, maybe the Figma that I sent across to you. And then we can go from there to see how this would work for us. Do you want me to make an explanation of it?
+
+Speaker
+what we I will do that that's it are you will yeah just an explanation of you know what let's go through what you put in the document on the excel screen let's see what can be done in week one week two week three and so on okay and and you asked me to open the figma 2 I've got a figment in front of me okay okay
+
+Speaker
+First thing, the major task is not your car system, it is the environment your car system will go fit into that multi-tenant thing. When you have all the login system and you share the data, isolating for this multi-tenant
+
+Speaker
+thing. So this is the major task. This is a very hard system. And that's why because that's why I coded this as a boilerplate. I have this if you want to share. I can share my screen and show you. Sure. Okay. Let me open here. Share. Screen, screen, everything.
+
+Speaker
+um yes chemistry okay this is this is the the system i told you and this is not healthy and and this is the mood stand thing uh i call workspace each one of them and all the data it is
+
+Speaker
+isolation data for all the workspace and we can easily create a new workspace and you will have a lot of small things, not small things, but necessary things like billing, users control, and the status of everything, how the user are spending
+
+Speaker
+But I have no being in here. And you can create another section. You can manage your landing page. You can manage your internal pages. And the idea is to create a new section for your car system in here. Why do we have to go through this route? I guess.
+
+Speaker
+you wonder why why using this uh my system yeah okay uh because this is the the the hardest hardest thing that uh puts your system
+
+Speaker
+to sell, you know, to have your own system. The easy part, it is what you got now. It's extremely easy to do what you have, but this not. This is very difficult. So if you want to, I can code this to you from the ground, from the zero, or just grab what you have on there. But that doesn't make sense.
+
+Speaker
+I think it's probably way better we use for the dashboard and for your administration thing. We have the same technologies, Next.js. I'm not using Prisma, but I'm using MongoDB. So it's kind of the same thing, but
+
+Speaker
+We have the major tasks already done. So we have just two customers. And the small part, it is what you have. That's why. Does it mean then that the web app has to use your system forever? Sorry? Can you ask me again? Does that mean that the web application that we are building has to be on your system forever? Yes.
+
+Speaker
+- It's not my system. It's just, it's not, I will give you all the codes, all the assets. I will, we can use Prisma too, but I prefer to use MongoDB, but it's all yours. Not mine. I just coded one code,
+
+Speaker
+open source platform to developers can improve your work and not spending much time with all these hardest tasks. And this is something that the market is asking to the multi-tenant thing. And because a lot of...
+
+Speaker
+entrepreneurs entrepreneurs and uh in the market they are uh they are coming from the wordpress and now that uh professional environment uh in the dashboard but this is not reality for the next GS marketing uh for these new frameworks nobody have uh something like that uh
+
+Speaker
+Neither the developers, neither the market is the first platform to do this dashboard and multi-tenant and be open source. If we have another one, we can choose another one, but we don't have another one for now.
+
+Speaker
+uh developers can can create one but i i have did this i i don't like this did this and it's open source and this is it i'm i'm using for my clients uh i'm trying to because this is something new you know it's something new yeah yeah so has it have you has it
+
+Speaker
+is it out there right now for any existing clients or is it something you're just trying for new clients i'm looking yeah this is uh i'm looking for my new my my first client for the dash master pro because this is something i coded i think uh in july in august so so i would be the first client
+
+Speaker
+Yeah, using all the stuff. Yeah, I have a little thing. That's risky for us. Well, I guess it's...
+
+Speaker
+It's not much risk than you took a developer who did this. I'm prepared for you. First thing, just look at my profile. I have hundreds, thousands of hours of success, 100% success, and all my clients are happy.
+
+Speaker
+I know what I'm saying. I'm coding since 98 and professionally since 2005. You know, I'm just sort of...
+
+Speaker
+I'm on the top of one of the most competitive marketing. This is the best solution you can find there. But I can do another way. I can code everything from the ground using what you have. I'm just trying to sell you something that it's
+
+Speaker
+already done. It's already in there, you know, just we just need to merge one of the two projects and voila. Okay, so this is the back end, right? Yeah.
+
+Speaker
+Okay, can you just help me? Can you tell me what you understand about the project that we're looking to do, about the app we're looking to build? And then I can reply to you and let you know which parts you've understood, maybe which parts I need to give you some more information on. So just what do you understand about the project so far? Yeah, it's kind of AI sales thing. You put the...
+
+Speaker
+the company you want to on that onboarding adding it's kind of just like adding a new workspace or kind of something like that you can use uh the the website of this company for that and this this pro this
+
+Speaker
+project, the core system will grab the information. I already did this in my own AI system. When you provoke the system and then start an event to grab information of one website, it's web scrapping.
+
+Speaker
+We use PupTir for that. And then we're going to try to find a few locations for information and then try to put on that rows and cards. You call the cards tiles. It's the same thing.
+
+Speaker
+In this card, you can click in the doc, that layout in the card we will expand. And you can interact with that card. You can improve the prompt.
+
+Speaker
+I think that's the major part. And all the outstanding steps, you can have your own dashboard with a lot of companies in the context, like, what's the name for that? Like system for users, sales users, sales. Yeah, contacts.
+
+Speaker
+Yeah, you know. Like I said, it's farce. Yeah, there's a couple of major things I'd say. I think the first thing is we're not scraping the internet for the information. So you have to remember that this tool is built on OpenAI's API. So the same way a user would go into ChatGPT and ask for this information, they're still doing that, but they're doing it through this web app.
+
+Speaker
+So ChatGPT is still providing the answers the same way if you go directly to ChatGPT. The second thing is the reason you would use this web app instead of going directly to ChatGPT is because if you're researching, I don't know, as a salesperson, you could be researching 100 companies.
+
+Speaker
+If you're researching 100 companies, once you get the information for them, it becomes very messy in terms of how it's stored on ChatGPT. You have to search through your chat history. Maybe you have to do a new chat and do the research again, but nothing is stored anywhere. Or you have to copy and paste it onto your own documents offline to be able to save the information.
+
+Speaker
+What we do is we allow people to upload their prompts. Maybe they have 20 prompts that they use to do research on a company. And then they can just save that dashboard view. So you can call it Q1 research.
+
+Speaker
+Whatever you want to call it. They save that dashboard view with those 20, 25 prompts. Then this time you only need to change the name of the company. So rather than start the whole process again, if you're researching Apple, you just need to change it from Apple to Netflix. You just need to change it from Netflix to Amazon and the information, the answers will automatically refresh. That's it.
+
+Speaker
+Then you can add contacts as well. So when you add contacts, the contacts is for how I'm going to reach out to those contacts. I need to reach out to the CEO of Apple or I need to reach out to the chief marketing officer of Amazon.
+
+Speaker
+So you add the contact in and their job title. Immediately again, the tool will start to generate some potential emails that you can send to these people or generate some calls, some things you can say on the cold call. If you call a person, a prospect, and you want to sell your product, it will give you some ideas of what you can say.
+
+Speaker
+So again, that's all based on context that comes from the company research. So you've got company research that provides context for anything you want to say on email or by phone to a contact. But then you can add more context to the whole solution. And how do you do that? You do that by uploading any notes that you have made offline on the company. Or maybe you have...
+
+Speaker
+You've been writing something called Medpick. Medpick is a sales methodology where you're thinking about who's the economic buyer, who's the decision maker, who's my competition in this deal. If you have that information already, upload it as well into the system. And then the system knows the email when it's writing the email, it will think about all of this context that you've added to the tool. Okay. There's a lot of information. I'm glad you were recording.
+
+Speaker
+because if you can share this recording too, because it's a lot of precious information. I don't want to miss anything that you explained to me. And, you know, I'm not especially so fluent in English. So maybe there is something that I want to read better
+
+Speaker
+I'm always concerned a lot of the plan of the preparation because that's the most important thing.
+
+Speaker
+I have to have all these features, these small features, written. And then I have to check up everything because that's the right thing to do. We're going to be on the same page all the time, you know. Of course, of course. So I guess what...
+
+Speaker
+we'd like to understand is where you think we can get to by the end of week one, week two, week three and week four. Well, yeah, I guess this will be very, very quick. I'm trying to be not an optimist, but I prepare my dashboard to be very fast. And I think we can do everything in four weeks.
+
+Speaker
+But at the end of the first week, I want to merge what you have in the dashboard and give you the first view for the cards and everything.
+
+Speaker
+Yeah, it's the same technology, you know, it's Next.js, both of them. So perhaps the first week we can already see a lot of things ready. Yeah, okay. The V1 version 1, version 0.1, I guess, you know.
+
+Speaker
+Yeah, yeah, no, of course. So you think you can get there by, we can get version one by next week? Yeah, yeah. That's what I want to do. Version one is connecting what exists already with the backend and having it work as well. Yeah. So when I type in a company, the information will be there. Yeah, yeah.
+
+Speaker
+let's see okay so what do you need from me then okay uh I think uh we should uh oh we I already have the repository access you you are working in Verso
+
+Speaker
+we can work in Vercel or maybe we can try Netlify if you want. I can set up everything to you. What's the one you just mentioned? Netlify. I don't know how to say, but it's the same as Vercel, but they are extremely easier. Okay. What about Hetzner? Is that another one that you use, Hetzner?
+
+Speaker
+What are you using? Do you know Hexner? I don't think so. Okay. Let's try Netlify if that's what you're comfortable with. Yeah. Then let's try that. We can do two things. I give you a list of services that you need to just do the...
+
+Speaker
+Yeah, you create accounts.
+
+Speaker
+Or I can proceed with this and then just transfer to you when it's ready. Maybe you give me the list and I'll create the account and then give you developer access to all of them. Okay. I will grab all these websites and accounts and the API keys that we need. Okay. And you stripe one of them?
+
+Speaker
+Strap is one of them. If you want to use Strap, it's one of them. Yeah. Okay. Okay, understood. I think one other thing is, I think the two most important things for us as well is the speed of the results. Yeah. Because when people use ChatGPT, it's very fast.
+
+Speaker
+And I've used some other ChatGPT wrappers and they're also very fast because they're putting the answers straight from ChatGPT. So we want it to be like that. We don't want people to wait like three minutes before the answers load on the screen. Like we want it to be straight away. So that's very important for us. And the second thing is to closely follow the UI on Figma as much as possible. Okay. No problem for them.
+
+Speaker
+So if you could send me everything tonight that's needed, and then how would we set the contract up on Upwork? Have you already did this? No, no, no. You need to tell me how we want to do it. I think I can propose a contract for you. Let me see. No. I already have. Okay.
+
+Speaker
+no we uh i already have a proposal uh for you you can let me is that the one that's 20 hours for 22 for 22 but you said you'll do because you're going to do 40 hours but charge me 20 hours i will work full time uh
+
+Speaker
+Yeah, I will work full time. I will work hard, you know. I'm here to do that for you. And I can charge you just 20 hours. That's no problem for me. Okay. Well, if you send everything across, if you send me tonight the proposal again, maybe just share the link again in Upwork so I can see it. And then also send a list of all the things I need to sign up to.
+
+Speaker
+Okay. And then I can get that all set up either by tonight or by tomorrow morning. Okay. Okay. Sound good? How can I, how sounds your name? Ade. Ade. Ade. Okay. Yeah. Thanks.
+
+Speaker
+That's it. Let's get it done. I'll keep updating the Figma as well. So always keep checking the Figma. Yeah, I'll be adding more into there as well. Okay, let's get in touch. Yeah. All right. Brilliant. Nice one. Thank you, Milton. Thank you again. Thank you. Cheers. Thank you. Bye.
