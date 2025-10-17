@@ -5,6 +5,9 @@
 /dashboard/.next/
 /dashboard/dashboard/
 /dashboard/node_modules/
+/next-landing/node_modules/
+/next-landing/.next/
+
 # dependencies
 /node_modules
 /.pnp
