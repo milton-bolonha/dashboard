@@ -679,8 +679,8 @@ const FeaturesSection = () => {
               Customizable Dashboards
             </h3>
             <p className="text-gray-300">
-              Draggable and resizable tiles, customizable backgrounds.
-              Clone dashboards and apply to new companies with one click.
+              Draggable and resizable tiles, customizable backgrounds. Clone
+              dashboards and apply to new companies with one click.
             </p>
           </div>
 
@@ -718,8 +718,8 @@ const FeaturesSection = () => {
               CRM Integration
             </h3>
             <p className="text-gray-300">
-              Connect Salesforce, HubSpot and other CRMs in seconds.
-              Automatic synchronization of customer data and activities.
+              Connect Salesforce, HubSpot and other CRMs in seconds. Automatic
+              synchronization of customer data and activities.
             </p>
           </div>
 
@@ -836,8 +836,8 @@ const BenefitsSection = () => {
 
             <div className="mt-6 p-4 bg-green-900/20 border border-green-500/30 rounded-lg">
               <p className="text-green-300 text-sm">
-                💰 <strong>Typical result:</strong> Sales rep who makes $50k/month
-                now makes $150k/month with the same client base.
+                💰 <strong>Typical result:</strong> Sales rep who makes
+                $50k/month now makes $150k/month with the same client base.
               </p>
             </div>
           </div>
