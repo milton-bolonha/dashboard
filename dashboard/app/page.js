@@ -190,7 +190,7 @@ const Header = ({ isSignedIn }) => {
                     onClick={() => setIsMenuOpen(false)}
                     className="block w-full px-4 py-2 text-center text-black bg-[var(--cta-color)] rounded-md font-bold"
                   >
-                    Acessar Dashboard
+                    Access Dashboard
                   </Link>
                 </div>
               ) : (
@@ -676,11 +676,11 @@ const FeaturesSection = () => {
               <MessageSquare size={32} />
             </div>
             <h3 className="text-xl font-semibold text-white mb-3">
-              Dashboards Customizáveis
+              Customizable Dashboards
             </h3>
             <p className="text-gray-300">
-              Tiles arrastáveis e redimensionáveis, backgrounds personalizáveis.
-              Clone dashboards e aplique a novas empresas com um clique.
+              Draggable and resizable tiles, customizable backgrounds.
+              Clone dashboards and apply to new companies with one click.
             </p>
           </div>
 
@@ -689,11 +689,11 @@ const FeaturesSection = () => {
               <Target size={32} />
             </div>
             <h3 className="text-xl font-semibold text-white mb-3">
-              Outreach Automatizado
+              Automated Outreach
             </h3>
             <p className="text-gray-300">
-              Gere emails, scripts de ligação e LinkedIn DMs personalizados.
-              Upload de exemplos para a IA aprender seu estilo de escrita.
+              Generate personalized emails, call scripts and LinkedIn DMs.
+              Upload examples for AI to learn your writing style.
             </p>
           </div>
 
@@ -702,11 +702,11 @@ const FeaturesSection = () => {
               <BarChart3 size={32} />
             </div>
             <h3 className="text-xl font-semibold text-white mb-3">
-              Sistema de Créditos
+              Credit System
             </h3>
             <p className="text-gray-300">
-              Pague apenas pelo que usar. Cada geração de conteúdo consome
-              créditos. Escalável e sem desperdício de verba.
+              Pay only for what you use. Each content generation consumes
+              credits. Scalable and no budget waste.
             </p>
           </div>
 
@@ -715,11 +715,11 @@ const FeaturesSection = () => {
               <FileText size={32} />
             </div>
             <h3 className="text-xl font-semibold text-white mb-3">
-              Integração CRM
+              CRM Integration
             </h3>
             <p className="text-gray-300">
-              Conecte Salesforce, HubSpot e outros CRMs em segundos.
-              Sincronização automática de dados de clientes e atividades.
+              Connect Salesforce, HubSpot and other CRMs in seconds.
+              Automatic synchronization of customer data and activities.
             </p>
           </div>
 
@@ -731,8 +731,8 @@ const FeaturesSection = () => {
               Referral System
             </h3>
             <p className="text-gray-300">
-              Convide outros via link ou email. Ambos ganham créditos quando um
-              cadastro é completado. Sistema automático de tracking.
+              Invite others via link or email. Both earn credits when a
+              registration is completed. Automatic tracking system.
             </p>
           </div>
         </div>
@@ -836,9 +836,8 @@ const BenefitsSection = () => {
 
             <div className="mt-6 p-4 bg-green-900/20 border border-green-500/30 rounded-lg">
               <p className="text-green-300 text-sm">
-                💰 <strong>Resultado típico:</strong> Vendedor que fatura R$
-                50k/mês passa a faturar R$ 150k/mês com a mesma base de
-                clientes.
+                💰 <strong>Typical result:</strong> Sales rep who makes $50k/month
+                now makes $150k/month with the same client base.
               </p>
             </div>
           </div>
