@@ -52,14 +52,47 @@ Este documento define o plano completo para implementar uma landing page e siste
 
 ## 🔄 Fluxo de Onboarding
 
-### Etapa 1: Captura de Informações
+### Conceito Chave: Landing = Create Workspace
+
+**A mesma interface serve para dois propósitos:**
+
+1. **Landing pública** (não logado): Apresentar produto + capturar interesse
+2. **Create workspace** (logado sem workspace): Criar primeiro workspace
+
+**Componente único**: `HeroSection` reutilizado em ambos contextos
+
+### Etapa 1: Captura de Informações (Mesmo Layout)
 
 ```javascript
-// Dados capturados no hero
+// Dados capturados no hero/create workspace
 const userContext = {
-  role: "I am a sales rep at [empresa]",
-  solution: "I am selling solutions for [área]",
-  research: "I want to conduct research on [mercado/segmento]",
+  company: "I am a sales rep at [empresa]", // → workspace name
+  solution: "I am selling solutions for [área]", // → workspace context
+  research: "I want to conduct research on [mercado/segmento]", // → AI prompt
+};
+```
+
+**Diferença importante:**
+
+- **Landing**: Inputs capturam interesse, direcionam para sign up
+- **Create Workspace**: Inputs criam workspace real com nome baseado na empresa
+
+### Workspace Naming Logic
+
+```javascript
+// Nome do workspace vem do campo "sales rep at"
+const workspaceName = userContext.company; // Ex: "Acme Corp"
+
+// Validação: usuário logado não pode criar workspace com nome duplicado
+const validateWorkspaceName = async (name, userId) => {
+  const existing = await checkUserWorkspaces(userId, name);
+  if (existing) {
+    return {
+      valid: false,
+      message: "Você já tem um workspace com essa empresa",
+    };
+  }
+  return { valid: true };
 };
 ```
 
@@ -68,17 +101,47 @@ const userContext = {
 - **Connect CRM**: Integração com Salesforce, HubSpot, etc.
 - **Upload CSV**: Upload manual de dados de leads
 
-### Etapa 3: Setup do Workspace
+**Comportamento por contexto:**
 
-- Criação automática do workspace baseado nos dados capturados
-- Configuração inicial de dashboards
-- Tutorial interativo
+- **Landing**: Redireciona para sign up primeiro
+- **Dashboard**: Cria workspace imediatamente após clicar
+
+### Etapa 3: Setup do Workspace (Automático)
+
+```javascript
+const createWorkspaceFromInputs = async (userContext, userId) => {
+  // 1. Criar workspace com nome da empresa
+  const workspace = await createWorkspace({
+    name: userContext.company,
+    userId: userId,
+    metadata: {
+      solution: userContext.solution,
+      researchTarget: userContext.research,
+    },
+  });
+
+  // 2. Criar dashboard inicial com contexto
+  const dashboard = await createInitialDashboard(workspace.id, {
+    company: userContext.company,
+    solution: userContext.solution,
+    research: userContext.research,
+  });
+
+  // 3. Trigger pipeline de IA
+  await triggerResearchPipeline(workspace.id, {
+    target: userContext.research,
+    solution: userContext.solution,
+  });
+
+  return { workspace, dashboard };
+};
+```
 
 ### Etapa 4: Primeira Ação
 
-- Adicionar primeira empresa
-- Gerar primeiro email personalizado
-- Ver primeiro dashboard funcionando
+- Dashboard criado automaticamente
+- Pipeline de IA iniciado com base no research target
+- Sugestões de empresas para adicionar
 
 ## 🛠️ Implementação Técnica
 
@@ -87,35 +150,79 @@ const userContext = {
 #### 1. `dashboard/app/page.js` (Landing Principal)
 
 ```javascript
-// Substituir conteúdo atual por:
+// Landing pública - já implementado
 export default function LandingPage() {
+  const { isSignedIn, user } = useUser();
+
   return (
-    <div className="min-h-screen bg-gray-100">
-      <HeroSection />
-      {/* Resto das seções comentadas por enquanto */}
+    <div className="bg-white min-h-screen">
+      <Header isSignedIn={isSignedIn} />
+      <main>
+        <HeroSection isSignedIn={isSignedIn} user={user} />
+      </main>
+      <Footer />
     </div>
   );
 }
 ```
 
-#### 2. `dashboard/components/landing/HeroSection.jsx` (Novo)
+#### 2. `dashboard/app/dashboard/page.jsx` (Dashboard Principal)
 
 ```javascript
-// Componente principal do hero com:
-// - Título dinâmico com palavras rotativas
-// - 3 inputs com placeholders específicos
-// - 2 botões CTA
-// - Lógica de captura de dados
+// Dashboard detecta se usuário tem workspace
+export default function DashboardPage() {
+  const { user } = useUser();
+  const workspaces = await getUserWorkspaces(user.id);
+
+  // Se não tem workspace, mostra tela igual à landing
+  if (!workspaces || workspaces.length === 0) {
+    return <CreateWorkspaceScreen user={user} />;
+  }
+
+  // Se tem workspace, mostra dashboard normal
+  return <DashboardLayout workspaces={workspaces} />;
+}
 ```
 
-#### 3. `dashboard/components/landing/OnboardingFlow.jsx` (Novo)
+#### 3. `dashboard/components/CreateWorkspaceScreen.jsx` (Novo)
 
 ```javascript
-// Fluxo de onboarding com:
-// - Wizard de configuração
-// - Integração com CRM
-// - Upload de CSV
-// - Setup de workspace
+// Mesma interface da landing, mas com lógica de criação de workspace
+export default function CreateWorkspaceScreen({ user }) {
+  return (
+    <div className="bg-white min-h-screen">
+      <Header isSignedIn={true} user={user} />
+      <main>
+        <HeroSection
+          isSignedIn={true}
+          user={user}
+          mode="create-workspace" // Modo especial
+        />
+      </main>
+      <Footer />
+    </div>
+  );
+}
+```
+
+#### 4. Modificar `HeroSection` para aceitar dois modos
+
+```javascript
+const HeroSection = ({ isSignedIn, user, mode = "landing" }) => {
+  // mode pode ser: "landing" ou "create-workspace"
+
+  const handleConnectCRM = async () => {
+    if (mode === "landing" && !isSignedIn) {
+      // Redireciona para sign up
+      redirectToSignUp();
+    } else if (mode === "create-workspace") {
+      // Cria workspace real
+      await createWorkspaceFromInputs(userContext, user.id);
+    }
+  };
+
+  // Resto do componente igual
+};
 ```
 
 ### Estrutura de Dados

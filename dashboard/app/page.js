@@ -190,7 +190,13 @@ const HeroSectionBackup = ({ isSignedIn, user }) => {
 };
 
 // Novo Hero Section - Design Minimalista
-const HeroSection = ({ isSignedIn, user }) => {
+// mode: "landing" (não logado) ou "create-workspace" (logado sem workspace)
+const HeroSection = ({
+  isSignedIn,
+  user,
+  mode = "landing",
+  onWorkspaceCreated,
+}) => {
   const words = ["Duplicate", "Triplicate", "Multiple"];
   const [currentWord, setCurrentWord] = useState(words[0]);
   const [userContext, setUserContext] = useState({
@@ -198,6 +204,8 @@ const HeroSection = ({ isSignedIn, user }) => {
     solution: "",
     research: "",
   });
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -215,12 +223,90 @@ const HeroSection = ({ isSignedIn, user }) => {
     }));
   };
 
-  const handleConnectCRM = () => {
-    console.log("Connecting CRM with context:", userContext);
+  const validateInputs = () => {
+    if (!userContext.company.trim()) {
+      return "Please tell us which company you represent";
+    }
+    if (!userContext.solution.trim()) {
+      return "Please describe what you're selling";
+    }
+    if (!userContext.research.trim()) {
+      return "Please tell us what you want to research";
+    }
+    return null;
   };
 
-  const handleUploadCSV = () => {
-    console.log("Upload CSV with context:", userContext);
+  const handleConnectCRM = async () => {
+    const validationError = validateInputs();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    if (mode === "create-workspace") {
+      await createWorkspaceFromInputs();
+    } else {
+      // Landing mode: redireciona para sign up
+      console.log("Landing mode: redirecting to sign up");
+    }
+  };
+
+  const handleUploadCSV = async () => {
+    const validationError = validateInputs();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    if (mode === "create-workspace") {
+      await createWorkspaceFromInputs();
+    } else {
+      // Landing mode: redireciona para sign up
+      console.log("Landing mode: redirecting to sign up");
+    }
+  };
+
+  const createWorkspaceFromInputs = async () => {
+    try {
+      setCreating(true);
+      setError(null);
+
+      console.log("🚀 Creating workspace from inputs:", userContext);
+
+      const response = await fetch("/api/workspaces", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: userContext.company,
+          description: `Sales rep for ${userContext.solution}. Researching: ${userContext.research}`,
+          metadata: {
+            solution: userContext.solution,
+            researchTarget: userContext.research,
+            createdVia: "onboarding-flow",
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create workspace");
+      }
+
+      const result = await response.json();
+      console.log("✅ Workspace created:", result.workspace);
+
+      // Callback para notificar que workspace foi criado
+      if (onWorkspaceCreated) {
+        onWorkspaceCreated(result.workspace);
+      }
+    } catch (err) {
+      console.error("❌ Error creating workspace:", err);
+      setError(err.message);
+    } finally {
+      setCreating(false);
+    }
   };
 
   return (
@@ -285,22 +371,49 @@ const HeroSection = ({ isSignedIn, user }) => {
           Ask WebApp research your whole territory for you
         </p>
 
+        {/* Mensagem de Erro */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-600 max-w-2xl mx-auto">
+            {error}
+          </div>
+        )}
+
         {/* Botões CTA com Setas */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <button
             onClick={handleConnectCRM}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 flex items-center justify-center space-x-2"
+            disabled={creating}
+            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-8 py-4 rounded-xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 flex items-center justify-center space-x-2"
           >
-            <span>Connect CRM</span>
-            <ArrowRight className="w-5 h-5" />
+            {creating ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                <span>Creating...</span>
+              </>
+            ) : (
+              <>
+                <span>Connect CRM</span>
+                <ArrowRight className="w-5 h-5" />
+              </>
+            )}
           </button>
 
           <button
             onClick={handleUploadCSV}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 flex items-center justify-center space-x-2"
+            disabled={creating}
+            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-8 py-4 rounded-xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 flex items-center justify-center space-x-2"
           >
-            <span>Upload CSV</span>
-            <ArrowRight className="w-5 h-5" />
+            {creating ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                <span>Creating...</span>
+              </>
+            ) : (
+              <>
+                <span>Upload CSV</span>
+                <ArrowRight className="w-5 h-5" />
+              </>
+            )}
           </button>
         </div>
       </div>

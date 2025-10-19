@@ -3,9 +3,14 @@
 import { useState, useEffect } from "react";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { fetchWithWorkspace } from "@/lib/api";
+import CreateWorkspaceScreen from "@/components/CreateWorkspaceScreen";
 
 export default function DashboardPage() {
-  const { currentWorkspace } = useWorkspace();
+  const {
+    currentWorkspace,
+    workspaces,
+    loading: workspaceLoading,
+  } = useWorkspace();
   const [stats, setStats] = useState({
     sections: 0,
     items: 0,
@@ -206,7 +211,12 @@ export default function DashboardPage() {
     return colors[color];
   };
 
-  if (loading) {
+  // Se não tem workspace e não está carregando, mostrar tela de criação
+  if (!workspaceLoading && (!workspaces || workspaces.length === 0)) {
+    return <CreateWorkspaceScreen />;
+  }
+
+  if (loading || workspaceLoading) {
     return (
       <div className="space-y-6">
         <div>
