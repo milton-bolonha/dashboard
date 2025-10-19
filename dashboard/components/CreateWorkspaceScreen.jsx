@@ -1,9 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import HeroSection from "@/components/landing/HeroSection";
+import WorkspaceDuplicateModal from "@/components/WorkspaceDuplicateModal";
 
 /**
  * Tela de criação de workspace que replica o HeroSection da landing
@@ -11,11 +14,36 @@ import HeroSection from "@/components/landing/HeroSection";
  */
 export default function CreateWorkspaceScreen() {
   const { user } = useUser();
-  const { createWorkspace } = useWorkspace();
+  const { createWorkspace, workspaces, switchWorkspace } = useWorkspace();
+  const router = useRouter();
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [duplicateInfo, setDuplicateInfo] = useState(null);
+  const [pendingContext, setPendingContext] = useState(null);
 
   const handleCreateWorkspace = async (userContext) => {
     console.log("🚀 Creating workspace from inputs:", userContext);
 
+    // ⭐ NOVO: Validar duplicação client-side
+    const isDuplicate = workspaces.some(
+      (w) => w.name.toLowerCase() === userContext.company.trim().toLowerCase()
+    );
+
+    if (isDuplicate) {
+      // Encontrar workspace duplicado
+      const existing = workspaces.find(
+        (w) => w.name.toLowerCase() === userContext.company.trim().toLowerCase()
+      );
+
+      console.log("⚠️ Workspace duplicado encontrado:", existing.name);
+
+      // Salvar contexto e mostrar modal
+      setPendingContext(userContext);
+      setDuplicateInfo(existing);
+      setShowDuplicateModal(true);
+      return;
+    }
+
+    // Não é duplicado - criar normalmente
     await createWorkspace({
       name: userContext.company,
       description: `Sales rep for ${userContext.solution}. Researching: ${userContext.research}`,
@@ -28,6 +56,21 @@ export default function CreateWorkspaceScreen() {
 
     console.log("✅ Workspace created successfully!");
     // O WorkspaceContext já redireciona automaticamente após criar
+  };
+
+  const handleDuplicateChoice = (choice, existingWorkspace) => {
+    if (choice === "switch") {
+      // Ir para workspace existente
+      switchWorkspace(existingWorkspace);
+      router.push("/dashboard");
+    } else if (choice === "add-company") {
+      // TODO: Week 3 - Criar company
+      console.log("TODO: Criar company no workspace atual");
+    } else {
+      // Cancelar - apenas fecha modal
+      setPendingContext(null);
+      setDuplicateInfo(null);
+    }
   };
 
   return (
@@ -67,6 +110,17 @@ export default function CreateWorkspaceScreen() {
       <button className="fixed bottom-8 right-8 w-12 h-12 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow z-50">
         <span className="text-gray-600 font-semibold text-lg">?</span>
       </button>
+
+      {/* Modal de workspace duplicado */}
+      {showDuplicateModal && duplicateInfo && (
+        <WorkspaceDuplicateModal
+          isOpen={showDuplicateModal}
+          workspaceName={duplicateInfo.name}
+          existingWorkspace={duplicateInfo}
+          onChoice={handleDuplicateChoice}
+          onClose={() => setShowDuplicateModal(false)}
+        />
+      )}
     </div>
   );
 }

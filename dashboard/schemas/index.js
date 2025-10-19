@@ -210,6 +210,13 @@ export const WorkspaceSchema = {
     ownerId: { type: "string", required: true }, // Clerk User ID
     description: { type: "string" },
 
+    // ⭐ NOVO: Tipo de workspace (CMS ou Sales Assistant)
+    type: {
+      type: "string",
+      enum: ["cms", "sales-assistant"],
+      default: "cms",
+    },
+
     // Billing & Plans - Dinâmico
     planId: { type: "string", ref: "plans" }, // Referência ao plano no MongoDB
     planStatus: {
@@ -372,6 +379,57 @@ export const WorkspaceSchema = {
       allowedIPs: [{ type: "string" }],
       defaultVisibility: { type: "string", default: "workspace_member" },
       allowPublicSections: { type: "boolean", default: false },
+    },
+
+    // ⭐ NOVO: Contexto de onboarding (AI Sales Assistant)
+    onboarding: {
+      type: "object",
+      salesRepAt: { type: "string" }, // "I am a sales rep at [X]"
+      sellingSolutionsFor: { type: "string" }, // "I am selling solutions for [Y]"
+      researchTarget: { type: "string" }, // "I want to conduct research on [Z]"
+      source: {
+        type: "string",
+        enum: ["landing", "dashboard", "invite", "api"],
+        default: "dashboard",
+      },
+      completedSteps: {
+        type: "array",
+        items: { type: "string" },
+        default: [],
+      },
+      currentStep: { type: "string" }, // "analyzing-context", "seeding-templates", etc
+      capturedAt: { type: "date" },
+    },
+
+    // ⭐ NOVO: Contexto AI Sales Assistant
+    salesContext: {
+      type: "object",
+      industry: { type: "string" }, // Inferido via LLM
+      targetMarket: { type: "string" }, // Inferido via LLM
+      solution: { type: "string" },
+      suggestedTemplates: {
+        type: "array",
+        items: { type: "string" },
+        default: [],
+      },
+      pipelineStatus: {
+        type: "string",
+        enum: ["pending", "running", "completed", "failed"],
+        default: "pending",
+      },
+      pipelineJobId: { type: "string" }, // DeckEngine matchId
+      pipelineStartedAt: { type: "date" },
+      pipelineCompletedAt: { type: "date" },
+    },
+
+    // ⭐ NOVO: Credits para AI Operations
+    credits: {
+      type: "object",
+      plan: { type: "string", default: "free" },
+      quota: { type: "number", default: 1000 },
+      consumed: { type: "number", default: 0 },
+      resetsAt: { type: "date" },
+      lastDebit: { type: "date" },
     },
 
     isActive: { type: "boolean", default: true },

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ArrowUp, Check } from "lucide-react";
 
 /**
  * HeroSection compartilhado entre Landing e Create Workspace
@@ -20,6 +20,54 @@ export default function HeroSection({ mode = "landing", onCreateWorkspace }) {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
 
+  // ⭐ NOVO: Estados de progresso dos inputs
+  const [inputStates, setInputStates] = useState({
+    company: { focused: false, hasContent: false, isValid: false },
+    solution: { focused: false, hasContent: false, isValid: false },
+    research: { focused: false, hasContent: false, isValid: false },
+  });
+
+  // ⭐ NOVO: Detectar query params e preencher inputs
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+
+    if (params.has("rep") || params.has("solution") || params.has("target")) {
+      const company = decodeURIComponent(params.get("rep") || "");
+      const solution = decodeURIComponent(params.get("solution") || "");
+      const research = decodeURIComponent(params.get("target") || "");
+
+      setUserContext({
+        company,
+        solution,
+        research,
+      });
+
+      // Atualizar estados dos inputs também
+      const MIN_CHARS = 3;
+      setInputStates({
+        company: {
+          focused: false,
+          hasContent: company.trim().length > 0,
+          isValid: company.trim().length >= MIN_CHARS,
+        },
+        solution: {
+          focused: false,
+          hasContent: solution.trim().length > 0,
+          isValid: solution.trim().length >= MIN_CHARS,
+        },
+        research: {
+          focused: false,
+          hasContent: research.trim().length > 0,
+          isValid: research.trim().length >= MIN_CHARS,
+        },
+      });
+
+      console.log("✅ Query params detectados e inputs preenchidos");
+    }
+  }, []);
+
   // Rotacionar palavras dinâmicas
   useEffect(() => {
     const interval = setInterval(() => {
@@ -34,6 +82,31 @@ export default function HeroSection({ mode = "landing", onCreateWorkspace }) {
     setUserContext((prev) => ({
       ...prev,
       [field]: value,
+    }));
+
+    // ⭐ NOVO: Atualizar estado do input (mínimo 3 caracteres)
+    const MIN_CHARS = 3;
+    setInputStates((prev) => ({
+      ...prev,
+      [field]: {
+        ...prev[field],
+        hasContent: value.trim().length > 0,
+        isValid: value.trim().length >= MIN_CHARS,
+      },
+    }));
+  };
+
+  const handleInputFocus = (field) => {
+    setInputStates((prev) => ({
+      ...prev,
+      [field]: { ...prev[field], focused: true },
+    }));
+  };
+
+  const handleInputBlur = (field) => {
+    setInputStates((prev) => ({
+      ...prev,
+      [field]: { ...prev[field], focused: false },
     }));
   };
 
@@ -57,21 +130,113 @@ export default function HeroSection({ mode = "landing", onCreateWorkspace }) {
       return;
     }
 
+    setCreating(true);
+    setError(null);
+
     if (mode === "create-workspace" && onCreateWorkspace) {
-      setCreating(true);
-      setError(null);
       try {
         await onCreateWorkspace(userContext);
       } catch (err) {
         setError(err.message);
-      } finally {
         setCreating(false);
       }
+      // Não fazer finally aqui - deixa loading enquanto redireciona
+    } else if (mode === "landing") {
+      // ⭐ Landing mode - salvar contexto e redirecionar para sign up
+      if (typeof window !== "undefined") {
+        console.log("💾 Salvando contexto de onboarding...");
+        localStorage.setItem("onboarding_context", JSON.stringify(userContext));
+
+        console.log("🔄 Redirecionando para sign up...");
+        window.location.href = "/sign-up?redirect=/dashboard&onboarding=true";
+      }
     } else {
-      // Landing mode: poderia redirecionar para sign up
       console.log("Landing mode: ready to sign up with context:", userContext);
+      setCreating(false);
     }
   };
+
+  // ⭐ NOVO: Verifica se pode habilitar próximo input
+  const canEnableInput = (inputName) => {
+    if (inputName === "company") return true; // Primeiro sempre habilitado
+    if (inputName === "solution") return inputStates.company.isValid;
+    if (inputName === "research")
+      return inputStates.company.isValid && inputStates.solution.isValid;
+    return false;
+  };
+
+  // ⭐ NOVO: Renderiza ícone apropriado baseado no estado
+  const renderInputIcon = (inputName, isLastInput = false) => {
+    const state = inputStates[inputName];
+    const isEnabled = canEnableInput(inputName);
+
+    // Input desabilitado (cinza com bolinha)
+    if (!isEnabled) {
+      return (
+        <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center transition-all duration-300">
+          <div className="w-2 h-2 bg-white rounded-full"></div>
+        </div>
+      );
+    }
+
+    // ⭐ NOVO: Input válido E não é o último (verde com checkmark)
+    if (state.isValid && !isLastInput) {
+      return (
+        <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center transition-all duration-300">
+          <Check className="w-4 h-4 text-white" />
+        </div>
+      );
+    }
+
+    // ⭐ NOVO: Último input válido (verde com seta direita CLICÁVEL)
+    if (state.isValid && isLastInput && allInputsValid) {
+      return (
+        <button
+          type="button"
+          onClick={handleAction}
+          disabled={creating}
+          className="w-8 h-8 bg-green-500 hover:bg-green-600 rounded-full flex items-center justify-center transition-all duration-300 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {creating ? (
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+          ) : (
+            <ArrowRight className="w-4 h-4 text-white" />
+          )}
+        </button>
+      );
+    }
+
+    // Input com conteúdo válido mas ainda faltam outros (azul com seta cima)
+    if (state.isValid && isLastInput && !allInputsValid) {
+      return (
+        <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center transition-all duration-300">
+          <ArrowUp className="w-4 h-4 text-white" />
+        </div>
+      );
+    }
+
+    // Input focado ou com conteúdo mas não válido (azul com bolinha)
+    if (state.focused || state.hasContent) {
+      return (
+        <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center transition-all duration-300">
+          <div className="w-2 h-2 bg-white rounded-full"></div>
+        </div>
+      );
+    }
+
+    // Default: cinza com bolinha
+    return (
+      <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center transition-all duration-300">
+        <div className="w-2 h-2 bg-white rounded-full"></div>
+      </div>
+    );
+  };
+
+  // ⭐ NOVO: Verifica se todos inputs são válidos
+  const allInputsValid =
+    inputStates.company.isValid &&
+    inputStates.solution.isValid &&
+    inputStates.research.isValid;
 
   return (
     <section className="h-full bg-white flex items-center justify-center">
@@ -88,44 +253,66 @@ export default function HeroSection({ mode = "landing", onCreateWorkspace }) {
           sleep
         </p>
 
-        {/* Inputs de Contexto com Ícones */}
+        {/* Inputs de Contexto com Ícones Progressivos */}
         <div className="space-y-4 mb-8">
+          {/* Input 1: Company (sempre habilitado) */}
           <div className="max-w-2xl mx-auto relative">
             <input
               type="text"
               placeholder="I am a sales rep at"
               value={userContext.company}
               onChange={(e) => handleInputChange("company", e.target.value)}
-              className="w-full px-6 py-4 pr-16 text-lg border border-gray-200 rounded-xl bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-300"
+              onFocus={() => handleInputFocus("company")}
+              onBlur={() => handleInputBlur("company")}
+              disabled={creating}
+              className={`w-full px-6 py-4 pr-16 text-lg border border-gray-200 rounded-xl bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-300 ${
+                creating ? "opacity-60 cursor-not-allowed" : ""
+              }`}
             />
-            <div className="absolute right-4 top-1/2 transform -translate-y-1/2 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-              <div className="w-2 h-2 bg-white rounded-full"></div>
+            <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+              {renderInputIcon("company", false)}
             </div>
           </div>
 
+          {/* Input 2: Solution (habilita após company válido) */}
           <div className="max-w-2xl mx-auto relative">
             <input
               type="text"
               placeholder="I am selling solutions for"
               value={userContext.solution}
               onChange={(e) => handleInputChange("solution", e.target.value)}
-              className="w-full px-6 py-4 pr-16 text-lg border border-gray-200 rounded-xl bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-300"
+              onFocus={() => handleInputFocus("solution")}
+              onBlur={() => handleInputBlur("solution")}
+              disabled={!canEnableInput("solution") || creating}
+              className={`w-full px-6 py-4 pr-16 text-lg border rounded-xl shadow-sm outline-none transition-all duration-300 ${
+                canEnableInput("solution") && !creating
+                  ? "bg-white border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  : "bg-gray-50 border-gray-200 cursor-not-allowed text-gray-400"
+              }`}
             />
-            <div className="absolute right-4 top-1/2 transform -translate-y-1/2 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-              <div className="w-2 h-2 bg-white rounded-full"></div>
+            <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+              {renderInputIcon("solution", false)}
             </div>
           </div>
 
+          {/* Input 3: Research (habilita após company e solution válidos) */}
           <div className="max-w-2xl mx-auto relative">
             <input
               type="text"
               placeholder="I want to conduct research on"
               value={userContext.research}
               onChange={(e) => handleInputChange("research", e.target.value)}
-              className="w-full px-6 py-4 pr-16 text-lg border border-gray-200 rounded-xl bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-300"
+              onFocus={() => handleInputFocus("research")}
+              onBlur={() => handleInputBlur("research")}
+              disabled={!canEnableInput("research") || creating}
+              className={`w-full px-6 py-4 pr-16 text-lg border rounded-xl shadow-sm outline-none transition-all duration-300 ${
+                canEnableInput("research") && !creating
+                  ? "bg-white border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  : "bg-gray-50 border-gray-200 cursor-not-allowed text-gray-400"
+              }`}
             />
-            <div className="absolute right-4 top-1/2 transform -translate-y-1/2 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-              <div className="w-2 h-2 bg-white rounded-full"></div>
+            <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+              {renderInputIcon("research", true)}
             </div>
           </div>
         </div>
@@ -142,17 +329,17 @@ export default function HeroSection({ mode = "landing", onCreateWorkspace }) {
           </div>
         )}
 
-        {/* Botões CTA com Setas */}
+        {/* Botões CTA - Sempre Azuis (alternativa visual) */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <button
             onClick={handleAction}
             disabled={creating}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-8 py-4 rounded-xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 flex items-center justify-center space-x-2"
+            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-8 py-4 rounded-xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 flex items-center justify-center space-x-2"
           >
             {creating ? (
               <>
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                <span>Creating...</span>
+                <span>Processing...</span>
               </>
             ) : (
               <>
@@ -165,12 +352,12 @@ export default function HeroSection({ mode = "landing", onCreateWorkspace }) {
           <button
             onClick={handleAction}
             disabled={creating}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-8 py-4 rounded-xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 flex items-center justify-center space-x-2"
+            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-8 py-4 rounded-xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 flex items-center justify-center space-x-2"
           >
             {creating ? (
               <>
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                <span>Creating...</span>
+                <span>Processing...</span>
               </>
             ) : (
               <>

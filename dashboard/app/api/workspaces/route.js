@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { WorkspaceSchema, validateSchema } from "@/schemas/index.js";
+import { validateWorkspaceName } from "@/lib/workspace-validation";
 
 /**
  * GET /api/workspaces
@@ -57,15 +58,35 @@ export async function POST(request) {
     const data = await request.json();
     console.log("🚀 Criando workspace:", data);
 
+    // ⭐ NOVO: Validar nome duplicado ANTES de gerar slug
+    const nameValidation = await validateWorkspaceName(data.name, userId);
+    if (!nameValidation.valid) {
+      console.error("❌ Nome duplicado:", data.name);
+      return NextResponse.json(
+        {
+          error: nameValidation.error,
+          suggestion: nameValidation.suggestion,
+          existingId: nameValidation.existingId,
+        },
+        { status: 400 }
+      );
+    }
+
     // Gerar slug único para o usuário
     const baseSlug = data.slug || generateSlug(data.name);
     const uniqueSlug = await generateUniqueSlug(baseSlug, userId);
+
+    // ⭐ NOVO: Processar contexto de onboarding se fornecido
+    const hasOnboardingContext =
+      data.metadata?.solution && data.metadata?.researchTarget;
+    const workspaceType = hasOnboardingContext ? "sales-assistant" : "cms";
 
     // Preparar dados do workspace
     const workspaceData = {
       ...data,
       ownerId: userId,
       slug: uniqueSlug,
+      type: workspaceType,
       isActive: true,
       members: [
         {
@@ -79,6 +100,33 @@ export async function POST(request) {
           joinedAt: new Date(),
         },
       ],
+
+      // ⭐ NOVO: Inicializar onboarding se fornecido
+      ...(hasOnboardingContext && {
+        onboarding: {
+          salesRepAt: data.name,
+          sellingSolutionsFor: data.metadata.solution,
+          researchTarget: data.metadata.researchTarget,
+          source:
+            data.metadata.createdVia === "landing-onboarding"
+              ? "landing"
+              : "dashboard",
+          completedSteps: ["workspace-created"],
+          currentStep: "setup-dashboard",
+          capturedAt: new Date(),
+        },
+        salesContext: {
+          solution: data.metadata.solution,
+          pipelineStatus: "pending",
+        },
+        credits: {
+          plan: "free",
+          quota: 1000,
+          consumed: 0,
+          resetsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+        },
+      }),
+
       createdAt: new Date(),
       lastActivity: new Date(),
     };
@@ -102,9 +150,37 @@ export async function POST(request) {
       _id: result.insertedId,
     });
 
+    // ⭐ NOVO: Disparar pipeline de onboarding se for Sales Assistant
+    let pipelineInfo = null;
+    if (hasOnboardingContext) {
+      try {
+        const { executeOnboardingPipeline } = await import(
+          "@/lib/onboarding-pipeline"
+        );
+
+        const matchId = await executeOnboardingPipeline(
+          result.insertedId.toString(),
+          {
+            company: data.name,
+            solution: data.metadata.solution,
+            research: data.metadata.researchTarget,
+          },
+          userId
+        );
+
+        pipelineInfo = { started: true, matchId };
+        console.log("✅ Onboarding pipeline iniciado:", matchId);
+      } catch (pipelineError) {
+        console.error("⚠️ Erro ao iniciar pipeline:", pipelineError);
+        // Não falhar a criação do workspace por causa do pipeline
+        pipelineInfo = { started: false, error: pipelineError.message };
+      }
+    }
+
     return NextResponse.json({
       workspace: newWorkspace,
       message: "Workspace criado com sucesso",
+      ...(pipelineInfo && { pipeline: pipelineInfo }),
     });
   } catch (error) {
     console.error("❌ Erro ao criar workspace:", error);
