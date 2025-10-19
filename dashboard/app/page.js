@@ -42,11 +42,12 @@ export default function LandingPage() {
   const { isSignedIn, user, isLoaded } = useUser();
 
   return (
-    <div className="dark" style={{ backgroundColor: "var(--bg-primary)" }}>
+    <div className="bg-white min-h-screen">
       <Header isSignedIn={isSignedIn} />
       <main>
         <HeroSection isSignedIn={isSignedIn} user={user} />
-        <CapabilitiesSection />
+        {/* Outras seções comentadas temporariamente */}
+        {/* <CapabilitiesSection />
         <ProblemSection />
         <SolutionSection />
         <SocialProofSection />
@@ -54,75 +55,34 @@ export default function LandingPage() {
         <BenefitsSection />
         <PricingSection />
         <CtaSection />
-        <FaqSection />
+        <FaqSection /> */}
       </main>
       <Footer />
     </div>
   );
 }
 
-// Header otimizado mantendo tema existente
+// Header minimalista conforme especificação
 const Header = ({ isSignedIn }) => {
-  const { theme, systemTheme } = useTheme();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-
-  const menuItems = [
-    { name: "The Problem", href: "#problema" },
-    { name: "Our Solution", href: "#solucao" },
-    { name: "Pricing", href: "#precos" },
-    { name: "FAQ", href: "#faq" },
-  ];
-
   return (
-    <header
-      className="home-header sticky top-0 z-50 pb-[75px] md:pb-0"
-      style={{
-        zIndex: 9,
-        position: "relative",
-        backgroundColor: "transparent",
-      }}
-    >
+    <header className="bg-white border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-4">
+          {/* Logo WebApp */}
           <Link href="/" className="flex items-center space-x-2">
-            <div className="flex items-center justify-center w-40 sm:w-64">
-              <Image
-                src={`/images/logo-${
-                  (theme === "system" ? systemTheme : theme) === "dark"
-                    ? "dark"
-                    : "light"
-                }.png`}
-                alt="DashMaster.PRO"
-                width={256}
-                height={59}
-                className="object-contain"
-                style={{ width: "100%", height: "auto" }}
-                priority
-                quality={100}
-              />
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-sm">W</span>
             </div>
+            <span className="text-xl font-semibold text-black">WebApp</span>
           </Link>
 
-          {/* Desktop Menu */}
-          <nav className="hidden md:flex space-x-8">
-            {menuItems.map((item) => (
-              <a
-                key={item.name}
-                href={item.href}
-                className="text-base font-medium text-gray-300 hover:text-white transition-colors"
-              >
-                {item.name}
-              </a>
-            ))}
-          </nav>
-
-          {/* Desktop User Buttons */}
-          <div className="hidden md:flex items-center space-x-4">
+          {/* Botões Log in e Sign up */}
+          <div className="flex items-center space-x-4">
             {isSignedIn ? (
               <>
                 <Link
                   href="/dashboard"
-                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
                 >
                   Dashboard
                 </Link>
@@ -131,92 +91,26 @@ const Header = ({ isSignedIn }) => {
             ) : (
               <>
                 <SignInButton mode="modal">
-                  <button className="text-sm font-semibold text-gray-300 hover:text-white cursor-pointer transition-colors font-poppins">
-                    Sign In
+                  <button className="bg-black hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+                    Log in
                   </button>
                 </SignInButton>
                 <SignUpButton mode="modal">
-                  <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-bold shadow-md hover:shadow-lg transition-all duration-300 cursor-pointer">
-                    🚀 Start Free
+                  <button className="bg-white border border-gray-300 text-black px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-50 transition-colors">
+                    Sign up
                   </button>
                 </SignUpButton>
               </>
             )}
           </div>
-
-          {/* Mobile Menu Button */}
-          <div className="md:hidden flex items-center">
-            <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="p-2 rounded-lg text-white border border-white/30 hover:bg-white/20"
-            >
-              {isMenuOpen ? (
-                <X className="h-6 w-6" />
-              ) : (
-                <Menu className="h-6 w-6" />
-              )}
-            </button>
-          </div>
         </div>
       </div>
-
-      {/* Mobile Menu Panel */}
-      {isMenuOpen && (
-        <div className="md:hidden">
-          <nav className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-            {menuItems.map((item) => (
-              <a
-                key={item.name}
-                href={item.href}
-                onClick={() => setIsMenuOpen(false)}
-                className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:text-white hover:bg-gray-700"
-              >
-                {item.name}
-              </a>
-            ))}
-          </nav>
-          <div className="pt-4 pb-3 border-t border-gray-700">
-            <div className="px-5">
-              {isSignedIn ? (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <p className="text-base font-medium text-white">
-                      {user?.firstName}
-                    </p>
-                    <UserButton afterSignOutUrl="/" />
-                  </div>
-                  <Link
-                    href="/dashboard"
-                    onClick={() => setIsMenuOpen(false)}
-                    className="block w-full px-4 py-2 text-center text-black bg-[var(--cta-color)] rounded-md font-bold"
-                  >
-                    Access Dashboard
-                  </Link>
-                </div>
-              ) : (
-                <div className="flex flex-col space-y-3">
-                  <SignInButton mode="modal">
-                    <button className="w-full text-white font-medium p-2 rounded-md hover:bg-gray-700 text-left">
-                      Sign In
-                    </button>
-                  </SignInButton>
-                  <SignUpButton mode="modal">
-                    <button className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-bold shadow-md transition-colors">
-                      🚀 Start Free
-                    </button>
-                  </SignUpButton>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </header>
   );
 };
 
-// Hero Section otimizado para vendas
-const HeroSection = ({ isSignedIn, user }) => {
+// Hero Section Backup (comentado)
+const HeroSectionBackup = ({ isSignedIn, user }) => {
   const words = ["duplique", "triplique", "quadriplique", "multiplique"];
   const [currentWord, setCurrentWord] = useState(words[0]);
 
@@ -289,6 +183,125 @@ const HeroSection = ({ isSignedIn, user }) => {
         </div>
         <div className="mt-6 text-sm text-gray-400">
           ✅ No credit card required • ✅ Setup in 2 minutes • ✅ 24/7 support
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// Novo Hero Section - Design Minimalista
+const HeroSection = ({ isSignedIn, user }) => {
+  const words = ["Duplicate", "Triplicate", "Multiple"];
+  const [currentWord, setCurrentWord] = useState(words[0]);
+  const [userContext, setUserContext] = useState({
+    company: "",
+    solution: "",
+    research: "",
+  });
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const randomIndex = Math.floor(Math.random() * words.length);
+      setCurrentWord(words[randomIndex]);
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [words]);
+
+  const handleInputChange = (field, value) => {
+    setUserContext((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleConnectCRM = () => {
+    console.log("Connecting CRM with context:", userContext);
+  };
+
+  const handleUploadCSV = () => {
+    console.log("Upload CSV with context:", userContext);
+  };
+
+  return (
+    <section className="min-h-screen bg-white flex items-center justify-center py-20">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        {/* Título Principal */}
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-black tracking-tight mb-8">
+          Smarter Research. Faster Outreach.{" "}
+          <span className="text-black">{currentWord}</span> Selling
+        </h1>
+
+        {/* Subtítulo */}
+        <p className="text-xl text-gray-600 mb-16 max-w-2xl mx-auto">
+          WebApp is your personal research assistant that works even when you
+          sleep
+        </p>
+
+        {/* Inputs de Contexto com Ícones */}
+        <div className="space-y-6 mb-12">
+          <div className="max-w-2xl mx-auto relative">
+            <input
+              type="text"
+              placeholder="I am a sales rep at"
+              value={userContext.company}
+              onChange={(e) => handleInputChange("company", e.target.value)}
+              className="w-full px-6 py-4 pr-16 text-lg border border-gray-200 rounded-xl bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-300"
+            />
+            <div className="absolute right-4 top-1/2 transform -translate-y-1/2 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+              <div className="w-2 h-2 bg-white rounded-full"></div>
+            </div>
+          </div>
+
+          <div className="max-w-2xl mx-auto relative">
+            <input
+              type="text"
+              placeholder="I am selling solutions for"
+              value={userContext.solution}
+              onChange={(e) => handleInputChange("solution", e.target.value)}
+              className="w-full px-6 py-4 pr-16 text-lg border border-gray-200 rounded-xl bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-300"
+            />
+            <div className="absolute right-4 top-1/2 transform -translate-y-1/2 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+              <div className="w-2 h-2 bg-white rounded-full"></div>
+            </div>
+          </div>
+
+          <div className="max-w-2xl mx-auto relative">
+            <input
+              type="text"
+              placeholder="I want to conduct research on"
+              value={userContext.research}
+              onChange={(e) => handleInputChange("research", e.target.value)}
+              className="w-full px-6 py-4 pr-16 text-lg border border-gray-200 rounded-xl bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-300"
+            />
+            <div className="absolute right-4 top-1/2 transform -translate-y-1/2 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+              <div className="w-2 h-2 bg-white rounded-full"></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Instrução */}
+        <p className="text-lg text-black mb-12">
+          Ask WebApp research your whole territory for you
+        </p>
+
+        {/* Botões CTA com Setas */}
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <button
+            onClick={handleConnectCRM}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 flex items-center justify-center space-x-2"
+          >
+            <span>Connect CRM</span>
+            <ArrowRight className="w-5 h-5" />
+          </button>
+
+          <button
+            onClick={handleUploadCSV}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 flex items-center justify-center space-x-2"
+          >
+            <span>Upload CSV</span>
+            <ArrowRight className="w-5 h-5" />
+          </button>
         </div>
       </div>
     </section>
@@ -1069,96 +1082,15 @@ const FaqSection = () => {
   );
 };
 
-// Footer
+// Footer minimalista
 const Footer = () => {
   return (
-    <footer className="bg-black py-12">
+    <footer className="bg-white border-t border-gray-100 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid md:grid-cols-4 gap-8">
-          <div>
-            <div className="flex items-center space-x-2 mb-4">
-              <Image
-                src="/images/logo-dark.png"
-                alt="DashMaster.PRO"
-                width={120}
-                height={30}
-                className="object-contain"
-              />
-            </div>
-            <p className="text-gray-400 text-sm">
-              The AI platform that 10x your sales with automatic research and
-              personalized emails.
-            </p>
-          </div>
-
-          <div>
-            <h4 className="text-white font-semibold mb-4">Product</h4>
-            <ul className="space-y-2 text-sm">
-              <li>
-                <a href="#" className="text-gray-400 hover:text-white">
-                  Features
-                </a>
-              </li>
-              <li>
-                <a href="#" className="text-gray-400 hover:text-white">
-                  Pricing
-                </a>
-              </li>
-              <li>
-                <a href="#" className="text-gray-400 hover:text-white">
-                  API
-                </a>
-              </li>
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="text-white font-semibold mb-4">Support</h4>
-            <ul className="space-y-2 text-sm">
-              <li>
-                <a href="#" className="text-gray-400 hover:text-white">
-                  Help Center
-                </a>
-              </li>
-              <li>
-                <a href="#" className="text-gray-400 hover:text-white">
-                  Contact
-                </a>
-              </li>
-              <li>
-                <a href="#" className="text-gray-400 hover:text-white">
-                  Status
-                </a>
-              </li>
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="text-white font-semibold mb-4">Legal</h4>
-            <ul className="space-y-2 text-sm">
-              <li>
-                <a href="#" className="text-gray-400 hover:text-white">
-                  Privacy
-                </a>
-              </li>
-              <li>
-                <a href="#" className="text-gray-400 hover:text-white">
-                  Terms
-                </a>
-              </li>
-              <li>
-                <a href="#" className="text-gray-400 hover:text-white">
-                  Cookies
-                </a>
-              </li>
-            </ul>
-          </div>
-        </div>
-
-        <div className="border-t border-gray-800 mt-8 pt-8 text-center">
-          <p className="text-gray-400 text-sm">
-            © 2024 DashMaster.PRO. All rights reserved.
-          </p>
+        <div className="flex justify-end">
+          <button className="w-10 h-10 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm hover:shadow-md transition-shadow">
+            <span className="text-gray-600 font-semibold">?</span>
+          </button>
         </div>
       </div>
     </footer>
