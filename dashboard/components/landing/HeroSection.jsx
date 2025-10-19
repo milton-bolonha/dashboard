@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { ArrowRight, ArrowUp, Check } from "lucide-react";
+import { useUser } from "@clerk/nextjs";
 
 /**
  * HeroSection compartilhado entre Landing e Create Workspace
@@ -10,6 +11,7 @@ import { ArrowRight, ArrowUp, Check } from "lucide-react";
  * @param {Function} props.onCreateWorkspace - Callback para criar workspace (modo create-workspace)
  */
 export default function HeroSection({ mode = "landing", onCreateWorkspace }) {
+  const { isSignedIn, user } = useUser();
   const words = ["Duplicate", "Triplicate", "Multiple"];
   const [currentWord, setCurrentWord] = useState(words[0]);
   const [userContext, setUserContext] = useState({
@@ -142,13 +144,52 @@ export default function HeroSection({ mode = "landing", onCreateWorkspace }) {
       }
       // Não fazer finally aqui - deixa loading enquanto redireciona
     } else if (mode === "landing") {
-      // ⭐ Landing mode - salvar contexto e redirecionar para sign up
+      // ⭐ Landing mode
       if (typeof window !== "undefined") {
-        console.log("💾 Salvando contexto de onboarding...");
-        localStorage.setItem("onboarding_context", JSON.stringify(userContext));
+        // Se usuário JÁ está logado, criar workspace direto
+        if (isSignedIn && user) {
+          try {
+            console.log("✅ Usuário logado! Criando workspace direto...");
 
-        console.log("🔄 Redirecionando para sign up...");
-        window.location.href = "/sign-up?redirect=/dashboard&onboarding=true";
+            const response = await fetch("/api/workspaces", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name: userContext.company || "My Workspace",
+                onboarding: {
+                  salesRepAt: userContext.company,
+                  sellingSolutionsFor: userContext.solution,
+                  researchTarget: userContext.research,
+                },
+              }),
+            });
+
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.error || "Failed to create workspace");
+            }
+
+            const data = await response.json();
+            console.log("🎉 Workspace criado:", data.workspace);
+
+            // Redirecionar para dashboard com novo workspace
+            window.location.href = "/dashboard";
+          } catch (err) {
+            console.error("❌ Erro ao criar workspace:", err);
+            setError(err.message);
+            setCreating(false);
+          }
+        } else {
+          // Usuário NÃO logado - salvar contexto e redirecionar para sign up
+          console.log("💾 Salvando contexto de onboarding...");
+          localStorage.setItem(
+            "onboarding_context",
+            JSON.stringify(userContext)
+          );
+
+          console.log("🔄 Redirecionando para sign up...");
+          window.location.href = "/sign-up?redirect=/dashboard&onboarding=true";
+        }
       }
     } else {
       console.log("Landing mode: ready to sign up with context:", userContext);

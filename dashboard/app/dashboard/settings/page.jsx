@@ -52,8 +52,9 @@ export default function SettingsPage() {
       if (remainingWorkspaces.length > 0) {
         switchWorkspace(remainingWorkspaces[0]);
       } else {
-        // Se não houver mais workspaces, a UI deve lidar com este estado
-        window.location.reload(); // Recarregar para estado inicial
+        // Se não houver mais workspaces, redirecionar para /dashboard
+        // (vai mostrar tela de onboarding automaticamente)
+        window.location.href = "/dashboard";
       }
     } catch (err) {
       setError(err.message);
