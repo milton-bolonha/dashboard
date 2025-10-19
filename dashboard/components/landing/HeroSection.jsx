@@ -237,6 +237,11 @@ export default function HeroSection({ mode = "landing", onCreateWorkspace }) {
           onClick={handleAction}
           disabled={creating}
           className="w-8 h-8 bg-green-500 hover:bg-green-600 rounded-full flex items-center justify-center transition-all duration-300 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+          style={{
+            animation: creating
+              ? "none"
+              : "bouncePulse 4s ease-in-out infinite",
+          }}
         >
           {creating ? (
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -281,6 +286,32 @@ export default function HeroSection({ mode = "landing", onCreateWorkspace }) {
 
   return (
     <section className="h-full bg-white flex items-center justify-center">
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+          @keyframes bouncePulse {
+            0% {
+              transform: translateY(0);
+            }
+            5% {
+              transform: translateY(-8px);
+            }
+            10% {
+              transform: translateY(0);
+            }
+            15% {
+              transform: translateY(-4px);
+            }
+            20% {
+              transform: translateY(0);
+            }
+            100% {
+              transform: translateY(0);
+            }
+          }
+        `,
+        }}
+      />
       <div className="max-w-5xl mx-auto px-2 sm:px-6 lg:px-4 text-center">
         {/* Título Principal */}
         <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-black tracking-tight mb-4 mt-0">
