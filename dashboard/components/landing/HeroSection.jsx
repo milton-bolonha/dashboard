@@ -146,39 +146,17 @@ export default function HeroSection({ mode = "landing", onCreateWorkspace }) {
     } else if (mode === "landing") {
       // ⭐ Landing mode
       if (typeof window !== "undefined") {
-        // Se usuário JÁ está logado, criar workspace direto
+        // Se usuário JÁ está logado, salvar contexto e redirecionar
+        // (o DashboardProviders vai auto-criar e selecionar o workspace)
         if (isSignedIn && user) {
-          try {
-            console.log("✅ Usuário logado! Criando workspace direto...");
-
-            const response = await fetch("/api/workspaces", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                name: userContext.company || "My Workspace",
-                onboarding: {
-                  salesRepAt: userContext.company,
-                  sellingSolutionsFor: userContext.solution,
-                  researchTarget: userContext.research,
-                },
-              }),
-            });
-
-            if (!response.ok) {
-              const errorData = await response.json();
-              throw new Error(errorData.error || "Failed to create workspace");
-            }
-
-            const data = await response.json();
-            console.log("🎉 Workspace criado:", data.workspace);
-
-            // Redirecionar para dashboard com novo workspace
-            window.location.href = "/dashboard";
-          } catch (err) {
-            console.error("❌ Erro ao criar workspace:", err);
-            setError(err.message);
-            setCreating(false);
-          }
+          console.log(
+            "✅ Usuário logado! Salvando contexto para auto-criação..."
+          );
+          localStorage.setItem(
+            "onboarding_context",
+            JSON.stringify(userContext)
+          );
+          window.location.href = "/dashboard?onboarding=true";
         } else {
           // Usuário NÃO logado - salvar contexto e redirecionar para sign up
           console.log("💾 Salvando contexto de onboarding...");

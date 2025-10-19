@@ -19,47 +19,49 @@ function OnboardingAutoCreate({ children }) {
     // Detectar onboarding flag
     const params = new URLSearchParams(window.location.search);
     const isOnboarding = params.get("onboarding") === "true";
+    const saved = localStorage.getItem("onboarding_context");
 
-    if (isOnboarding && !currentWorkspace && workspaces.length === 0) {
-      const saved = localStorage.getItem("onboarding_context");
+    // ⭐ NOVO: Criar workspace se tem contexto de onboarding, independente de já ter workspaces
+    if (isOnboarding && saved) {
+      setAutoCreating(true);
 
-      if (saved) {
-        setAutoCreating(true);
+      (async () => {
+        try {
+          const context = JSON.parse(saved);
 
-        (async () => {
-          try {
-            const context = JSON.parse(saved);
+          console.log(
+            "🚀 Auto-criando workspace com contexto de onboarding..."
+          );
 
-            console.log(
-              "🚀 Auto-criando workspace com contexto de onboarding..."
-            );
-
-            await createWorkspace({
-              name: context.company,
-              description: `Sales rep for ${context.solution}. Research: ${context.research}`,
-              metadata: {
-                solution: context.solution,
+          await createWorkspace({
+            name: context.company || "My Workspace",
+            description: `Sales rep for ${context.solution}. Research: ${context.research}`,
+            metadata: {
+              onboarding: {
+                salesRepAt: context.company,
+                sellingSolutionsFor: context.solution,
                 researchTarget: context.research,
-                createdVia: "landing-onboarding",
               },
-            });
+              createdVia: "landing-onboarding",
+            },
+          });
 
-            // Limpar
-            localStorage.removeItem("onboarding_context");
+          // Limpar
+          localStorage.removeItem("onboarding_context");
 
-            // Remover query param
-            router.replace("/dashboard");
+          // Remover query param
+          router.replace("/dashboard");
 
-            console.log("✅ Workspace criado automaticamente via onboarding!");
-          } catch (err) {
-            console.error("❌ Failed to auto-create workspace:", err);
-          } finally {
-            setAutoCreating(false);
-          }
-        })();
-      }
+          console.log("✅ Workspace criado automaticamente via onboarding!");
+        } catch (err) {
+          console.error("❌ Failed to auto-create workspace:", err);
+          setAutoCreating(false);
+        } finally {
+          setAutoCreating(false);
+        }
+      })();
     }
-  }, [loading, currentWorkspace, workspaces, autoCreating]);
+  }, [loading, workspaces, autoCreating, createWorkspace, router]);
 
   if (autoCreating) {
     return (
