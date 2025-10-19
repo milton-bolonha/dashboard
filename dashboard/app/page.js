@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useUser, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
 import { useTheme } from "next-themes";
 import Link from "next/link";
@@ -112,7 +112,10 @@ const Header = ({ isSignedIn }) => {
 
 // Hero Section Backup (comentado)
 const HeroSectionBackup = ({ isSignedIn, user }) => {
-  const words = ["duplique", "triplique", "quadriplique", "multiplique"];
+  const words = useMemo(
+    () => ["duplique", "triplique", "quadriplique", "multiplique"],
+    []
+  );
   const [currentWord, setCurrentWord] = useState(words[0]);
 
   useEffect(() => {
@@ -146,7 +149,7 @@ const HeroSectionBackup = ({ isSignedIn, user }) => {
           your conversions
         </h1>
         <p className="mt-6 max-w-3xl mx-auto text-lg text-gray-300 font-poppins">
-          I'm your personal sales assistant that works 24/7. I research
+          I&apos;m your personal sales assistant that works 24/7. I research
           companies, analyze competitors, generate personalized emails and{" "}
           <strong className="text-green-400">
             turn cold leads into hot opportunities
@@ -169,7 +172,7 @@ const HeroSectionBackup = ({ isSignedIn, user }) => {
             <>
               <SignUpButton mode="modal" fallbackRedirectUrl="/dashboard">
                 <button className="bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-lg text-lg font-bold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 inline-flex items-center justify-center cursor-pointer">
-                  🚀 Start Now - It's Free!
+                  🚀 Start Now - It&apos;s Free!
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </button>
               </SignUpButton>
@@ -247,8 +250,8 @@ const CapabilitiesSection = () => {
             🎯 What can I do for you?
           </h2>
           <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-            I'm your personal sales assistant that works 24/7. Here are the main
-            capabilities I bring to life for your team:
+            I&apos;m your personal sales assistant that works 24/7. Here are the
+            main capabilities I bring to life for your team:
           </p>
         </div>
 
@@ -321,8 +324,9 @@ const ProblemSection = () => {
               Generic Outreach
             </h3>
             <p className="text-gray-300">
-              "Copy and paste" campaigns fail in <strong>95% of cases</strong>.
-              Manual personalization is impossible at scale.
+              &quot;Copy and paste&quot; campaigns fail in{" "}
+              <strong>95% of cases</strong>. Manual personalization is
+              impossible at scale.
             </p>
           </div>
 
@@ -475,9 +479,9 @@ const SocialProofSection = () => {
               </div>
             </div>
             <blockquote className="text-gray-300 mb-4">
-              "With AI Sales Dashboard, our team focused only on what matters:
-              selling. We saw meetings with major companies like L'Oreal and 99,
-              thanks to automated prospecting."
+              &quot;With AI Sales Dashboard, our team focused only on what
+              matters: selling. We saw meetings with major companies like
+              L&apos;Oreal and 99, thanks to automated prospecting.&quot;
             </blockquote>
             <div className="flex items-center">
               <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center text-white font-semibold">
@@ -499,8 +503,8 @@ const SocialProofSection = () => {
               </div>
             </div>
             <blockquote className="text-gray-300 mb-4">
-              "Before we saw hundreds of leads, now we only talk to those with
-              real potential. The difference was huge."
+              &quot;Before we saw hundreds of leads, now we only talk to those
+              with real potential. The difference was huge.&quot;
             </blockquote>
             <div className="flex items-center">
               <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
@@ -524,8 +528,8 @@ const SocialProofSection = () => {
               </div>
             </div>
             <blockquote className="text-gray-300 mb-4">
-              "The number of qualified meetings doubled after we started using
-              AI, and now we talk to the right people!"
+              &quot;The number of qualified meetings doubled after we started
+              using AI, and now we talk to the right people!&quot;
             </blockquote>
             <div className="flex items-center">
               <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
@@ -754,7 +758,7 @@ const PricingSection = () => {
             Plans that pay for themselves
           </h2>
           <p className="text-xl text-gray-300">
-            Start free, pay only when you're selling more
+            Start free, pay only when you&apos;re selling more
           </p>
         </div>
 
@@ -879,14 +883,14 @@ const CtaSection = () => {
           Ready to boost your sales?
         </h2>
         <p className="text-xl text-gray-300 mb-8">
-          Don't let your team get bogged down in manual tasks. Try AI Sales
+          Don&apos;t let your team get bogged down in manual tasks. Try AI Sales
           Dashboard and transform your sales process into a conversion machine.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <SignUpButton mode="modal">
             <button className="bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-lg text-lg font-bold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-              🚀 Start Now - It's Free!
+              🚀 Start Now - It&apos;s Free!
             </button>
           </SignUpButton>
           <button className="bg-white text-black px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-100 transition-all duration-300 transform hover:-translate-y-1 shadow-lg hover:shadow-xl">

@@ -4,7 +4,7 @@
  * Configura e inicializa todos os decks necessários para o sistema
  */
 
-import DeckEngineApp from "../deckEngine/index.js";
+import DeckEngineApp from "../../deckEngine/core/index.js";
 import { db } from "./db";
 import { ObjectId } from "mongodb";
 

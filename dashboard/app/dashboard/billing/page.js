@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useUser } from "@clerk/nextjs";
 
 export default function BillingPage() {
@@ -10,11 +10,7 @@ export default function BillingPage() {
   const [filter, setFilter] = useState("all");
   const [dateRange, setDateRange] = useState("30d");
 
-  useEffect(() => {
-    loadTransactions();
-  }, [filter, dateRange, loadTransactions]);
-
-  const loadTransactions = async () => {
+  const loadTransactions = useCallback(async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams({
@@ -32,7 +28,11 @@ export default function BillingPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filter, dateRange]);
+
+  useEffect(() => {
+    loadTransactions();
+  }, [loadTransactions]);
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat("pt-BR", {
