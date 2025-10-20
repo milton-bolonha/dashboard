@@ -385,6 +385,7 @@ export const WorkspaceSchema = {
     onboarding: {
       type: "object",
       salesRepAt: { type: "string" }, // "I am a sales rep at [X]"
+      companyUrl: { type: "string" }, // ⭐ NOVO: URL da empresa do vendedor (ex: "tesla.com")
       sellingSolutionsFor: { type: "string" }, // "I am selling solutions for [Y]"
       researchTarget: { type: "string" }, // "I want to conduct research on [Z]"
       source: {

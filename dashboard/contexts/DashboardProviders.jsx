@@ -39,6 +39,7 @@ function OnboardingAutoCreate({ children }) {
             metadata: {
               onboarding: {
                 salesRepAt: context.company,
+                companyUrl: context.companyUrl, // ⭐ NOVO: URL da empresa do vendedor
                 sellingSolutionsFor: context.solution,
                 researchTarget: context.research,
               },

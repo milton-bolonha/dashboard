@@ -16,15 +16,17 @@ export default function HeroSection({ mode = "landing", onCreateWorkspace }) {
   const [currentWord, setCurrentWord] = useState(words[0]);
   const [userContext, setUserContext] = useState({
     company: "",
+    companyUrl: "", // ⭐ NOVO: URL da empresa do vendedor
     solution: "",
     research: "",
   });
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
 
-  // ⭐ NOVO: Estados de progresso dos inputs
+  // ⭐ NOVO: Estados de progresso dos inputs (4 inputs agora)
   const [inputStates, setInputStates] = useState({
     company: { focused: false, hasContent: false, isValid: false },
+    companyUrl: { focused: false, hasContent: false, isValid: false }, // ⭐ NOVO
     solution: { focused: false, hasContent: false, isValid: false },
     research: { focused: false, hasContent: false, isValid: false },
   });
@@ -80,20 +82,42 @@ export default function HeroSection({ mode = "landing", onCreateWorkspace }) {
     return () => clearInterval(interval);
   }, []);
 
+  // ⭐ NOVO: Validação de URL
+  const isValidUrl = (url) => {
+    // Aceita: tesla.com, www.tesla.com, https://tesla.com
+    return /^(https?:\/\/)?([\w\-]+\.)+[\w\-]+/.test(url);
+  };
+
+  // ⭐ NOVO: Normalizar URL para salvar (remove protocolo, www, barra final)
+  const normalizeUrl = (url) => {
+    return url
+      .replace(/^https?:\/\//, "")
+      .replace(/^www\./, "")
+      .replace(/\/$/, "")
+      .toLowerCase();
+  };
+
   const handleInputChange = (field, value) => {
     setUserContext((prev) => ({
       ...prev,
       [field]: value,
     }));
 
-    // ⭐ NOVO: Atualizar estado do input (mínimo 3 caracteres)
+    // ⭐ NOVO: Atualizar estado do input
     const MIN_CHARS = 3;
+    let isValid = value.trim().length >= MIN_CHARS;
+
+    // ⭐ NOVO: Validação especial para URL
+    if (field === "companyUrl") {
+      isValid = value.trim().length > 0 && isValidUrl(value.trim());
+    }
+
     setInputStates((prev) => ({
       ...prev,
       [field]: {
         ...prev[field],
         hasContent: value.trim().length > 0,
-        isValid: value.trim().length >= MIN_CHARS,
+        isValid: isValid,
       },
     }));
   };
@@ -115,6 +139,12 @@ export default function HeroSection({ mode = "landing", onCreateWorkspace }) {
   const validateInputs = () => {
     if (!userContext.company.trim()) {
       return "Please tell us which company you represent";
+    }
+    if (!userContext.companyUrl.trim()) {
+      return "Please enter your company's website";
+    }
+    if (!isValidUrl(userContext.companyUrl.trim())) {
+      return "Please enter a valid URL (e.g., tesla.com)";
     }
     if (!userContext.solution.trim()) {
       return "Please describe what you're selling";
@@ -160,9 +190,14 @@ export default function HeroSection({ mode = "landing", onCreateWorkspace }) {
         } else {
           // Usuário NÃO logado - salvar contexto e redirecionar para sign up
           console.log("💾 Salvando contexto de onboarding...");
+          // ⭐ NOVO: Normalizar URL antes de salvar
+          const contextToSave = {
+            ...userContext,
+            companyUrl: normalizeUrl(userContext.companyUrl),
+          };
           localStorage.setItem(
             "onboarding_context",
-            JSON.stringify(userContext)
+            JSON.stringify(contextToSave)
           );
 
           console.log("🔄 Redirecionando para sign up...");
@@ -175,12 +210,13 @@ export default function HeroSection({ mode = "landing", onCreateWorkspace }) {
     }
   };
 
-  // ⭐ NOVO: Verifica se pode habilitar próximo input
+  // ⭐ NOVO: Verifica se pode habilitar próximo input (4 inputs agora)
   const canEnableInput = (inputName) => {
     if (inputName === "company") return true; // Primeiro sempre habilitado
-    if (inputName === "solution") return inputStates.company.isValid;
+    if (inputName === "companyUrl") return inputStates.company.isValid; // ⭐ NOVO
+    if (inputName === "solution") return inputStates.companyUrl.isValid; // ⭐ MUDOU
     if (inputName === "research")
-      return inputStates.company.isValid && inputStates.solution.isValid;
+      return inputStates.companyUrl.isValid && inputStates.solution.isValid; // ⭐ MUDOU
     return false;
   };
 
@@ -256,9 +292,10 @@ export default function HeroSection({ mode = "landing", onCreateWorkspace }) {
     );
   };
 
-  // ⭐ NOVO: Verifica se todos inputs são válidos
+  // ⭐ NOVO: Verifica se todos inputs são válidos (4 inputs agora)
   const allInputsValid =
     inputStates.company.isValid &&
+    inputStates.companyUrl.isValid && // ⭐ NOVO
     inputStates.solution.isValid &&
     inputStates.research.isValid;
 
@@ -324,7 +361,28 @@ export default function HeroSection({ mode = "landing", onCreateWorkspace }) {
             </div>
           </div>
 
-          {/* Input 2: Solution (habilita após company válido) */}
+          {/* Input 2: Company URL (habilita após company válido) ⭐ NOVO */}
+          <div className="max-w-2xl mx-auto relative">
+            <input
+              type="url"
+              placeholder="Enter your company's website (e.g., tesla.com)"
+              value={userContext.companyUrl}
+              onChange={(e) => handleInputChange("companyUrl", e.target.value)}
+              onFocus={() => handleInputFocus("companyUrl")}
+              onBlur={() => handleInputBlur("companyUrl")}
+              disabled={!canEnableInput("companyUrl") || creating}
+              className={`w-full px-6 py-4 pr-16 text-lg border rounded-xl shadow-sm outline-none transition-all duration-300 ${
+                canEnableInput("companyUrl") && !creating
+                  ? "bg-white border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  : "bg-gray-50 border-gray-200 cursor-not-allowed text-gray-400"
+              }`}
+            />
+            <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+              {renderInputIcon("companyUrl", false)}
+            </div>
+          </div>
+
+          {/* Input 3: Solution (habilita após company URL válido) */}
           <div className="max-w-2xl mx-auto relative">
             <input
               type="text"
@@ -345,7 +403,7 @@ export default function HeroSection({ mode = "landing", onCreateWorkspace }) {
             </div>
           </div>
 
-          {/* Input 3: Research (habilita após company e solution válidos) */}
+          {/* Input 4: Research (habilita após solution válido) */}
           <div className="max-w-2xl mx-auto relative">
             <input
               type="text"
