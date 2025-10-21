@@ -3,17 +3,21 @@
 import { useState, useEffect } from "react";
 import { ArrowRight, ArrowUp, Check } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
+import Image from "next/image";
 
 /**
  * HeroSection compartilhado entre Landing e Create Workspace
  * @param {Object} props
  * @param {string} props.mode - "landing" ou "create-workspace"
  * @param {Function} props.onCreateWorkspace - Callback para criar workspace (modo create-workspace)
+ * @param {string} props.styleMode - "default" ou "transparent" (estilo visual dos inputs)
  */
-export default function HeroSection({ mode = "landing", onCreateWorkspace }) {
+export default function HeroSection({
+  mode = "landing",
+  onCreateWorkspace,
+  styleMode = "default", // ⭐ NOVO: Sistema de estilos
+}) {
   const { isSignedIn, user } = useUser();
-  const words = ["Duplicate", "Triplicate", "Multiple"];
-  const [currentWord, setCurrentWord] = useState(words[0]);
   const [userContext, setUserContext] = useState({
     company: "",
     companyUrl: "", // ⭐ NOVO: URL da empresa do vendedor
@@ -72,15 +76,7 @@ export default function HeroSection({ mode = "landing", onCreateWorkspace }) {
     }
   }, []);
 
-  // Rotacionar palavras dinâmicas
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const randomIndex = Math.floor(Math.random() * words.length);
-      setCurrentWord(words[randomIndex]);
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, []);
+  // ⭐ REMOVIDO: Animação de palavras (agora é texto fixo "More Selling")
 
   // ⭐ NOVO: Validação de URL
   const isValidUrl = (url) => {
@@ -134,6 +130,29 @@ export default function HeroSection({ mode = "landing", onCreateWorkspace }) {
       ...prev,
       [field]: { ...prev[field], focused: false },
     }));
+  };
+
+  // ⭐ NOVO: Handler para Enter ir para próximo input
+  const handleKeyDown = (field, e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+
+      // Mapear próximo campo
+      const fieldOrder = ["company", "companyUrl", "solution", "research"];
+      const currentIndex = fieldOrder.indexOf(field);
+      const nextField = fieldOrder[currentIndex + 1];
+
+      // Se tem próximo campo e está habilitado, focar nele
+      if (nextField && canEnableInput(nextField)) {
+        const nextInput = document.querySelector(`input[name="${nextField}"]`);
+        if (nextInput) {
+          nextInput.focus();
+        }
+      } else if (!nextField && allInputsValid) {
+        // Se não tem próximo campo e todos válidos, submit
+        handleAction();
+      }
+    }
   };
 
   const validateInputs = () => {
@@ -225,32 +244,80 @@ export default function HeroSection({ mode = "landing", onCreateWorkspace }) {
     const state = inputStates[inputName];
     const isEnabled = canEnableInput(inputName);
 
-    // Input desabilitado (cinza com bolinha)
-    if (!isEnabled) {
+    // ============ MODO TRANSPARENT ============
+    if (styleMode === "transparent") {
+      // ÚLTIMO INPUT: Mantém seta verde pulsando (NUNCA some!)
+      if (isLastInput && state.isValid && allInputsValid) {
+        return (
+          <button
+            type="button"
+            onClick={handleAction}
+            disabled={creating}
+            className="w-8 h-8 bg-green-500 hover:bg-green-600 rounded-full flex items-center justify-center cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+            style={{
+              animation: creating
+                ? "none"
+                : "bouncePulse 4s ease-in-out infinite",
+            }}
+          >
+            {creating ? (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+            ) : (
+              <ArrowRight className="w-4 h-4 text-white" />
+            )}
+          </button>
+        );
+      }
+
+      // OUTROS INPUTS (não último): Some quando transparente (lápis vai inline)
+      if (!isLastInput && state.isValid && !state.focused && !creating) {
+        return null; // Some - lápis vai aparecer inline no texto
+      }
+
+      // INPUTS HABILITADOS (não transparentes ainda): Seta azul pra cima
+      if (isEnabled) {
+        return (
+          <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+            <ArrowUp className="w-4 h-4 text-white" />
+          </div>
+        );
+      }
+
+      // Input desabilitado: cinza com bolinha
       return (
-        <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center transition-all duration-300">
+        <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
           <div className="w-2 h-2 bg-white rounded-full"></div>
         </div>
       );
     }
 
-    // ⭐ NOVO: Input válido E não é o último (verde com checkmark)
+    // ============ MODO DEFAULT ============
+    // Input desabilitado (cinza com bolinha)
+    if (!isEnabled) {
+      return (
+        <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
+          <div className="w-2 h-2 bg-white rounded-full"></div>
+        </div>
+      );
+    }
+
+    // Input válido E não é o último (verde com checkmark)
     if (state.isValid && !isLastInput) {
       return (
-        <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center transition-all duration-300">
+        <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
           <Check className="w-4 h-4 text-white" />
         </div>
       );
     }
 
-    // ⭐ NOVO: Último input válido (verde com seta direita CLICÁVEL)
+    // Último input válido (verde com seta direita CLICÁVEL)
     if (state.isValid && isLastInput && allInputsValid) {
       return (
         <button
           type="button"
           onClick={handleAction}
           disabled={creating}
-          className="w-8 h-8 bg-green-500 hover:bg-green-600 rounded-full flex items-center justify-center transition-all duration-300 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+          className="w-8 h-8 bg-green-500 hover:bg-green-600 rounded-full flex items-center justify-center cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
           style={{
             animation: creating
               ? "none"
@@ -269,7 +336,7 @@ export default function HeroSection({ mode = "landing", onCreateWorkspace }) {
     // Input com conteúdo válido mas ainda faltam outros (azul com seta cima)
     if (state.isValid && isLastInput && !allInputsValid) {
       return (
-        <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center transition-all duration-300">
+        <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
           <ArrowUp className="w-4 h-4 text-white" />
         </div>
       );
@@ -278,7 +345,7 @@ export default function HeroSection({ mode = "landing", onCreateWorkspace }) {
     // Input focado ou com conteúdo mas não válido (azul com bolinha)
     if (state.focused || state.hasContent) {
       return (
-        <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center transition-all duration-300">
+        <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
           <div className="w-2 h-2 bg-white rounded-full"></div>
         </div>
       );
@@ -286,7 +353,7 @@ export default function HeroSection({ mode = "landing", onCreateWorkspace }) {
 
     // Default: cinza com bolinha
     return (
-      <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center transition-all duration-300">
+      <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
         <div className="w-2 h-2 bg-white rounded-full"></div>
       </div>
     );
@@ -299,8 +366,50 @@ export default function HeroSection({ mode = "landing", onCreateWorkspace }) {
     inputStates.solution.isValid &&
     inputStates.research.isValid;
 
+  // ⭐ NOVO: Helper para gerar classes dos inputs baseado no estilo
+  const getInputClasses = (inputName) => {
+    const isEnabled = canEnableInput(inputName);
+    const state = inputStates[inputName];
+
+    if (styleMode === "transparent") {
+      // Estilo 2 (Transparent): Fundo fica transparente APÓS blur quando válido
+      const isTransparent = state.isValid && !state.focused && !creating;
+
+      // Mantém border-radius só pro layout, mas tira borda e shadow quando transparente
+      // ⭐ NOVO: Mais padding-bottom para dar espaço ao placeholder persistente
+      return `w-full px-6 pt-4 pb-8 pr-16 text-lg border rounded-xl outline-none ${
+        isEnabled && !creating
+          ? isTransparent
+            ? "bg-transparent border-transparent shadow-none text-black" // ⭐ TOTALMENTE transparente
+            : "bg-white border-gray-200 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          : "bg-gray-50 border-gray-200 shadow-sm cursor-not-allowed text-gray-400"
+      }`;
+    }
+
+    // Estilo 1 (default): Com borda e fundo sempre (padding normal)
+    return `w-full px-6 py-4 pr-16 text-lg border rounded-xl shadow-sm outline-none ${
+      isEnabled && !creating
+        ? "bg-white border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        : "bg-gray-50 border-gray-200 cursor-not-allowed text-gray-400"
+    }`;
+  };
+
+  // ⭐ NOVO: Helper para placeholder baseado no estilo
+  const getPlaceholderText = (inputName) => {
+    const placeholders = {
+      company: "I am a sales rep at",
+      companyUrl: "Enter your company's website (e.g., tesla.com)",
+      solution: "I am selling solutions for",
+      research: "I want to conduct research on",
+    };
+    return placeholders[inputName] || "";
+  };
+
   return (
-    <section className="h-full bg-white flex items-center justify-center">
+    <section
+      className="h-full flex items-center justify-center"
+      style={{ backgroundColor: "#fcfcf9" }}
+    >
       <style
         dangerouslySetInnerHTML={{
           __html: `
@@ -329,9 +438,8 @@ export default function HeroSection({ mode = "landing", onCreateWorkspace }) {
       />
       <div className="max-w-5xl mx-auto px-2 sm:px-6 lg:px-4 text-center">
         {/* Título Principal */}
-        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-black tracking-tight mb-4 mt-0">
-          Smarter Research. Faster Outreach.{" "}
-          <span className="text-black">{currentWord}</span> Selling
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-black tracking-tight mb-4 mt-60">
+          Smarter Research. Faster Outreach. More Selling
         </h1>
 
         {/* Subtítulo */}
@@ -344,84 +452,228 @@ export default function HeroSection({ mode = "landing", onCreateWorkspace }) {
         <div className="space-y-4 mb-8">
           {/* Input 1: Company (sempre habilitado) */}
           <div className="max-w-2xl mx-auto relative">
-            <input
-              type="text"
-              placeholder="I am a sales rep at"
-              value={userContext.company}
-              onChange={(e) => handleInputChange("company", e.target.value)}
-              onFocus={() => handleInputFocus("company")}
-              onBlur={() => handleInputBlur("company")}
-              disabled={creating}
-              className={`w-full px-6 py-4 pr-16 text-lg border border-gray-200 rounded-xl bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-300 ${
-                creating ? "opacity-60 cursor-not-allowed" : ""
-              }`}
-            />
-            <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-              {renderInputIcon("company", false)}
-            </div>
+            {/* Modo transparent: Mostra texto + lápis inline quando válido e sem foco */}
+            {styleMode === "transparent" &&
+            inputStates.company.isValid &&
+            !inputStates.company.focused &&
+            !creating ? (
+              <div
+                className="w-full px-6 pt-4 pb-8 text-lg text-black flex items-center gap-2 cursor-pointer border border-transparent rounded-xl"
+                onClick={() => {
+                  handleInputFocus("company");
+                  document.querySelector('input[name="company"]')?.focus();
+                }}
+              >
+                <span>{userContext.company}</span>
+                <Image
+                  src="/images/logo-mark.svg"
+                  alt="Edit"
+                  width={13}
+                  height={13}
+                  className="opacity-60 hover:opacity-100 transition-opacity"
+                />
+              </div>
+            ) : (
+              <div className="relative">
+                <input
+                  type="text"
+                  name="company"
+                  placeholder={
+                    styleMode === "default" ? getPlaceholderText("company") : ""
+                  }
+                  value={userContext.company}
+                  onChange={(e) => handleInputChange("company", e.target.value)}
+                  onFocus={() => handleInputFocus("company")}
+                  onBlur={() => handleInputBlur("company")}
+                  onKeyDown={(e) => handleKeyDown("company", e)}
+                  disabled={creating}
+                  className={getInputClasses("company")}
+                />
+                {/* Placeholder persistente DENTRO do input (bottom) - sempre visível no transparent */}
+                {styleMode === "transparent" && (
+                  <div className="absolute bottom-2 left-6 text-xs text-gray-400 pointer-events-none z-10">
+                    {getPlaceholderText("company")}
+                  </div>
+                )}
+                <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+                  {renderInputIcon("company", false)}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Input 2: Company URL (habilita após company válido) ⭐ NOVO */}
           <div className="max-w-2xl mx-auto relative">
-            <input
-              type="url"
-              placeholder="Enter your company's website (e.g., tesla.com)"
-              value={userContext.companyUrl}
-              onChange={(e) => handleInputChange("companyUrl", e.target.value)}
-              onFocus={() => handleInputFocus("companyUrl")}
-              onBlur={() => handleInputBlur("companyUrl")}
-              disabled={!canEnableInput("companyUrl") || creating}
-              className={`w-full px-6 py-4 pr-16 text-lg border rounded-xl shadow-sm outline-none transition-all duration-300 ${
-                canEnableInput("companyUrl") && !creating
-                  ? "bg-white border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  : "bg-gray-50 border-gray-200 cursor-not-allowed text-gray-400"
-              }`}
-            />
-            <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-              {renderInputIcon("companyUrl", false)}
-            </div>
+            {/* Modo transparent: Mostra texto + lápis inline quando válido e sem foco */}
+            {styleMode === "transparent" &&
+            inputStates.companyUrl.isValid &&
+            !inputStates.companyUrl.focused &&
+            !creating ? (
+              <div
+                className="w-full px-6 pt-4 pb-8 text-lg text-black flex items-center gap-2 cursor-pointer border border-transparent rounded-xl"
+                onClick={() => {
+                  handleInputFocus("companyUrl");
+                  document.querySelector('input[name="companyUrl"]')?.focus();
+                }}
+              >
+                <span>{userContext.companyUrl}</span>
+                <Image
+                  src="/images/logo-mark.svg"
+                  alt="Edit"
+                  width={13}
+                  height={13}
+                  className="opacity-60 hover:opacity-100 transition-opacity"
+                />
+              </div>
+            ) : (
+              <div className="relative">
+                <input
+                  type="url"
+                  name="companyUrl"
+                  placeholder={
+                    styleMode === "default"
+                      ? getPlaceholderText("companyUrl")
+                      : ""
+                  }
+                  value={userContext.companyUrl}
+                  onChange={(e) =>
+                    handleInputChange("companyUrl", e.target.value)
+                  }
+                  onFocus={() => handleInputFocus("companyUrl")}
+                  onBlur={() => handleInputBlur("companyUrl")}
+                  onKeyDown={(e) => handleKeyDown("companyUrl", e)}
+                  disabled={!canEnableInput("companyUrl") || creating}
+                  className={getInputClasses("companyUrl")}
+                />
+                {/* Placeholder persistente DENTRO do input (bottom) - sempre visível no transparent */}
+                {styleMode === "transparent" && (
+                  <div className="absolute bottom-2 left-6 text-xs text-gray-400 pointer-events-none z-10">
+                    {getPlaceholderText("companyUrl")}
+                  </div>
+                )}
+                <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+                  {renderInputIcon("companyUrl", false)}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Input 3: Solution (habilita após company URL válido) */}
           <div className="max-w-2xl mx-auto relative">
-            <input
-              type="text"
-              placeholder="I am selling solutions for"
-              value={userContext.solution}
-              onChange={(e) => handleInputChange("solution", e.target.value)}
-              onFocus={() => handleInputFocus("solution")}
-              onBlur={() => handleInputBlur("solution")}
-              disabled={!canEnableInput("solution") || creating}
-              className={`w-full px-6 py-4 pr-16 text-lg border rounded-xl shadow-sm outline-none transition-all duration-300 ${
-                canEnableInput("solution") && !creating
-                  ? "bg-white border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  : "bg-gray-50 border-gray-200 cursor-not-allowed text-gray-400"
-              }`}
-            />
-            <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-              {renderInputIcon("solution", false)}
-            </div>
+            {/* Modo transparent: Mostra texto + lápis inline quando válido e sem foco */}
+            {styleMode === "transparent" &&
+            inputStates.solution.isValid &&
+            !inputStates.solution.focused &&
+            !creating ? (
+              <div
+                className="w-full px-6 pt-4 pb-8 text-lg text-black flex items-center gap-2 cursor-pointer border border-transparent rounded-xl"
+                onClick={() => {
+                  handleInputFocus("solution");
+                  document.querySelector('input[name="solution"]')?.focus();
+                }}
+              >
+                <span>{userContext.solution}</span>
+                <Image
+                  src="/images/logo-mark.svg"
+                  alt="Edit"
+                  width={13}
+                  height={13}
+                  className="opacity-60 hover:opacity-100 transition-opacity"
+                />
+              </div>
+            ) : (
+              <div className="relative">
+                <input
+                  type="text"
+                  name="solution"
+                  placeholder={
+                    styleMode === "default"
+                      ? getPlaceholderText("solution")
+                      : ""
+                  }
+                  value={userContext.solution}
+                  onChange={(e) =>
+                    handleInputChange("solution", e.target.value)
+                  }
+                  onFocus={() => handleInputFocus("solution")}
+                  onBlur={() => handleInputBlur("solution")}
+                  onKeyDown={(e) => handleKeyDown("solution", e)}
+                  disabled={!canEnableInput("solution") || creating}
+                  className={getInputClasses("solution")}
+                />
+                {/* Placeholder persistente DENTRO do input (bottom) - sempre visível no transparent */}
+                {styleMode === "transparent" && (
+                  <div className="absolute bottom-2 left-6 text-xs text-gray-400 pointer-events-none z-10">
+                    {getPlaceholderText("solution")}
+                  </div>
+                )}
+                <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+                  {renderInputIcon("solution", false)}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Input 4: Research (habilita após solution válido) */}
           <div className="max-w-2xl mx-auto relative">
-            <input
-              type="text"
-              placeholder="I want to conduct research on"
-              value={userContext.research}
-              onChange={(e) => handleInputChange("research", e.target.value)}
-              onFocus={() => handleInputFocus("research")}
-              onBlur={() => handleInputBlur("research")}
-              disabled={!canEnableInput("research") || creating}
-              className={`w-full px-6 py-4 pr-16 text-lg border rounded-xl shadow-sm outline-none transition-all duration-300 ${
-                canEnableInput("research") && !creating
-                  ? "bg-white border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  : "bg-gray-50 border-gray-200 cursor-not-allowed text-gray-400"
-              }`}
-            />
-            <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-              {renderInputIcon("research", true)}
-            </div>
+            {/* Modo transparent: Mostra texto + lápis inline quando válido e sem foco */}
+            {styleMode === "transparent" &&
+            inputStates.research.isValid &&
+            !inputStates.research.focused &&
+            !creating ? (
+              <div className="relative">
+                <div
+                  className="w-full px-6 pt-4 pb-8 text-lg text-black flex items-center gap-2 cursor-pointer border border-transparent rounded-xl"
+                  onClick={() => {
+                    handleInputFocus("research");
+                    document.querySelector('input[name="research"]')?.focus();
+                  }}
+                >
+                  <span>{userContext.research}</span>
+                  <Image
+                    src="/images/logo-mark.svg"
+                    alt="Edit"
+                    width={13}
+                    height={13}
+                    className="opacity-60 hover:opacity-100 transition-opacity"
+                  />
+                </div>
+                {/* Seta verde continua visível mesmo quando transparente */}
+                <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+                  {renderInputIcon("research", true)}
+                </div>
+              </div>
+            ) : (
+              <div className="relative">
+                <input
+                  type="text"
+                  name="research"
+                  placeholder={
+                    styleMode === "default"
+                      ? getPlaceholderText("research")
+                      : ""
+                  }
+                  value={userContext.research}
+                  onChange={(e) =>
+                    handleInputChange("research", e.target.value)
+                  }
+                  onFocus={() => handleInputFocus("research")}
+                  onBlur={() => handleInputBlur("research")}
+                  onKeyDown={(e) => handleKeyDown("research", e)}
+                  disabled={!canEnableInput("research") || creating}
+                  className={getInputClasses("research")}
+                />
+                {/* Placeholder persistente DENTRO do input (bottom) - sempre visível no transparent */}
+                {styleMode === "transparent" && (
+                  <div className="absolute bottom-2 left-6 text-xs text-gray-400 pointer-events-none z-10">
+                    {getPlaceholderText("research")}
+                  </div>
+                )}
+                <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+                  {renderInputIcon("research", true)}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

@@ -1,10 +1,12 @@
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import "@fontsource-variable/inter";
 
 export const metadata = {
-  title: "Dashboard Engine MVP",
-  description: "Plataforma SaaS para criar dashboards, CRMs, ERPs e CMSs",
+  title: "WebApp | AI Research Assistant",
+  description:
+    "WebApp is your personal research assistant that works even when you sleep",
 };
 
 export default function RootLayout({ children }) {

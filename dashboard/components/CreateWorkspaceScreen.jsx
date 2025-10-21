@@ -5,6 +5,7 @@ import { useUser } from "@clerk/nextjs";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import HeroSection from "@/components/landing/HeroSection";
 import WorkspaceDuplicateModal from "@/components/WorkspaceDuplicateModal";
 
@@ -75,24 +76,34 @@ export default function CreateWorkspaceScreen() {
 
   return (
     // Layout clean sem sidebar/topbar
-    <div className="fixed inset-0 bg-white z-50 flex flex-col">
+    <div
+      className="fixed inset-0 z-50 flex flex-col"
+      style={{ backgroundColor: "#fcfcf9" }}
+    >
       {/* Header minimalista */}
-      <header className="bg-white flex-shrink-0">
+      <header className="flex-shrink-0" style={{ backgroundColor: "#fcfcf9" }}>
         <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             {/* Logo WebApp */}
             <Link href="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">W</span>
-              </div>
+              <Image
+                src="/images/logo-mark.svg"
+                alt="WebApp"
+                width={24}
+                height={24}
+              />
               <span className="text-xl font-semibold text-black">WebApp</span>
             </Link>
 
-            {/* User info */}
-            <div className="flex items-center space-x-4">
+            {/* User info + Help button */}
+            <div className="flex items-center space-x-3">
               <span className="text-sm text-gray-600">
                 {user?.firstName || user?.emailAddresses[0]?.emailAddress}
               </span>
+              {/* Botão de Ajuda circular */}
+              <button className="w-8 h-8 bg-white border border-gray-300 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-colors">
+                <span className="text-sm font-semibold">?</span>
+              </button>
             </div>
           </div>
         </div>
