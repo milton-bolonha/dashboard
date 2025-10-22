@@ -125,6 +125,35 @@ export async function POST(req) {
       `✅ Company "${sanitized.companyName}" adicionada ao workspace!`
     );
 
+    // ⭐ NOVO: Disparar geração automática de tiles para nova company
+    // (similar ao pipeline do onboarding, mas para guest workspace)
+    try {
+      const { generateTilesForCompany } = await import(
+        "@/lib/guest-tile-pipeline"
+      );
+
+      // Executar geração em background (não bloquear resposta)
+      generateTilesForCompany(
+        guestId,
+        sanitized.companyName,
+        sanitized.companyUrl
+      )
+        .then(() => {
+          console.log(
+            `✅ Tiles gerados automaticamente para ${sanitized.companyName}`
+          );
+        })
+        .catch((error) => {
+          console.error(
+            `❌ Erro ao gerar tiles para ${sanitized.companyName}:`,
+            error
+          );
+        });
+    } catch (pipelineError) {
+      console.error("⚠️ Erro ao iniciar geração automática:", pipelineError);
+      // Não falhar a criação da company por causa do pipeline
+    }
+
     return NextResponse.json({
       success: true,
       company: newCompany,

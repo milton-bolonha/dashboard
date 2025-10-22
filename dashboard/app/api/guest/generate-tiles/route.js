@@ -29,7 +29,8 @@ async function updateCompanyTile(guest_id, companyName, tile) {
 
 /**
  * POST /api/guest/generate-tiles
- * Gera tiles para o guest workspace (chamado pelo frontend APÓS redirect)
+ * Gera tiles para uma company específica no guest workspace
+ * Body: { companyName?: string } - Se não informado, gera para companies[0]
  */
 export async function POST(req) {
   try {
@@ -53,8 +54,35 @@ export async function POST(req) {
       );
     }
 
+    // Pegar nome da company do body (opcional)
+    const body = await req.json().catch(() => ({}));
+    const targetCompanyName = body.companyName;
+
+    // Encontrar a company (por nome ou primeira)
+    let company;
+    let companyIndex;
+
+    if (targetCompanyName) {
+      companyIndex = guestWorkspace.workspace_data.companies.findIndex(
+        (c) => c.name === targetCompanyName
+      );
+      if (companyIndex === -1) {
+        return NextResponse.json(
+          { error: `Company "${targetCompanyName}" not found` },
+          { status: 404 }
+        );
+      }
+      company = guestWorkspace.workspace_data.companies[companyIndex];
+    } else {
+      company = guestWorkspace.workspace_data.companies[0];
+      companyIndex = 0;
+    }
+
+    console.log(
+      `🚀 Gerando tiles para company: "${company.name}" (index: ${companyIndex})`
+    );
+
     // Verificar se tiles já foram gerados
-    const company = guestWorkspace.workspace_data.companies[0];
     if (company.tiles_status === "completed") {
       return NextResponse.json({
         success: true,
@@ -74,28 +102,29 @@ export async function POST(req) {
     // Marcar como "generating"
     await db.updateOne(
       "guest_workspaces",
-      { guest_id: guestId },
+      {
+        guest_id: guestId,
+        "workspace_data.companies.name": company.name,
+      },
       {
         $set: {
-          "workspace_data.companies.0.tiles_status": "generating",
+          "workspace_data.companies.$.tiles_status": "generating",
         },
       }
     );
-
-    console.log(`🚀 Gerando tiles para guest: ${guestId}`);
 
     // Buscar template
     const template = getGuestTemplate(
       guestWorkspace.workspace_data.template_id
     );
 
-    // Gerar tiles via OpenAI
+    // Gerar tiles via OpenAI usando os dados da company específica
     const onboarding = guestWorkspace.workspace_data.onboarding;
     const context = {
       company: onboarding.salesRepAt,
       solution: onboarding.sellingSolutionsFor,
-      research: onboarding.researchTarget,
-      companyUrl: onboarding.targetCompanyUrl,
+      research: company.name, // ⭐ Usar nome da company sendo pesquisada
+      companyUrl: company.url, // ⭐ Usar URL da company sendo pesquisada
     };
 
     // Processar prompts do template
@@ -141,8 +170,13 @@ export async function POST(req) {
         // Marcar como completo
         await db.updateOne(
           "guest_workspaces",
-          { guest_id: guestId },
-          { $set: { "workspace_data.companies.$[].tiles_status": "completed" } }
+          {
+            guest_id: guestId,
+            "workspace_data.companies.name": company.name,
+          },
+          {
+            $set: { "workspace_data.companies.$.tiles_status": "completed" },
+          }
         );
         console.log(`✅ Todos os tiles para ${company.name} foram gerados.`);
       } catch (e) {
@@ -153,8 +187,13 @@ export async function POST(req) {
         // Marcar como falha para que o usuário possa tentar novamente
         await db.updateOne(
           "guest_workspaces",
-          { guest_id: guestId },
-          { $set: { "workspace_data.companies.$[].tiles_status": "failed" } }
+          {
+            guest_id: guestId,
+            "workspace_data.companies.name": company.name,
+          },
+          {
+            $set: { "workspace_data.companies.$.tiles_status": "failed" },
+          }
         );
       }
     })();

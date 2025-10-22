@@ -15,11 +15,14 @@ import Header from "@/components/layout/Header";
 import { Tile } from "@/components/ui/Tile";
 import { NotesSection } from "@/components/ui/NotesSection";
 import { FilesSection } from "@/components/ui/FilesSection";
-import { ContactsSection } from "@/components/ui/ContactsSection";
 import { DocModal } from "@/components/ui/DocModal";
 import { ContactModal } from "@/components/ui/ContactModal";
 import { AddCompanyModal } from "@/components/ui/AddCompanyModal";
 import { AddContactModal } from "@/components/ui/AddContactModal";
+import { AddPromptModal } from "@/components/ui/AddPromptModal";
+import { AddPromptTile } from "@/components/ui/AddPromptTile";
+import { LoadingTile } from "@/components/ui/LoadingTile";
+import { SortableTilesGrid } from "@/components/ui/SortableTilesGrid";
 import Image from "next/image";
 import LoadingModal from "@/components/ui/LoadingModal";
 export const dynamic = "force-dynamic";
@@ -45,6 +48,7 @@ export default function TrialDashboard() {
   // Estado para Add Company Modal
   const [isAddCompanyOpen, setIsAddCompanyOpen] = useState(false);
   const [isAddContactOpen, setIsAddContactOpen] = useState(false);
+  const [isAddPromptOpen, setIsAddPromptOpen] = useState(false);
 
   // Estado para Contact Modal
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
@@ -53,12 +57,22 @@ export default function TrialDashboard() {
   // Estado para navegação
   const [selectedCompany, setSelectedCompany] = useState(null);
 
-  // Auto-selecionar primeira company quando workspace carregar (só uma vez)
+  // Estado para tile customizado sendo gerado
+  const [isGeneratingCustomTile, setIsGeneratingCustomTile] = useState(false);
+
+  // Estado para ordenação dos tiles
+  const [tilesOrder, setTilesOrder] = useState([]);
+
+  // Auto-selecionar primeira company quando workspace carregar
   useEffect(() => {
     if (workspace?.workspace?.companies?.length > 0 && !selectedCompany) {
+      console.log(
+        "🎯 Auto-selecionando primeira company:",
+        workspace.workspace.companies[0].name
+      );
       setSelectedCompany(workspace.workspace.companies[0]);
     }
-  }, [workspace]);
+  }, [workspace, selectedCompany]);
 
   const handleTileClick = (tile) => {
     setSelectedTile(tile);
@@ -72,16 +86,27 @@ export default function TrialDashboard() {
 
   const handleAddCompany = async (data) => {
     console.log("✅ Company added:", data);
-    // Recarregar workspace para atualizar a lista
+
+    // Fechar modal imediatamente
+    setIsAddCompanyOpen(false);
+
+    // Recarregar workspace para ter os dados atualizados
     await loadGuestWorkspace();
 
-    // Selecionar a nova company e gerar tiles
-    if (data.company) {
-      setSelectedCompany(data.company);
+    // Buscar a company recém-adicionada e selecioná-la
+    if (data.company && workspace?.workspace?.companies) {
+      const updatedCompany = workspace.workspace.companies.find(
+        (c) => c.name === data.company.name
+      );
 
-      // Triggerar geração de tiles para a nova company
-      console.log("🤖 Triggerando geração de tiles para nova company...");
-      await generateTiles();
+      if (updatedCompany) {
+        console.log("🎯 Company encontrada no workspace:", updatedCompany);
+        setSelectedCompany(updatedCompany);
+
+        // ⭐ NOVO: Tiles serão gerados automaticamente em background
+        // Não precisa de LoadingModal manual - o polling vai detectar
+        setGeneratingTiles(true); // Ativar polling para detectar tiles
+      }
     }
   };
 
@@ -95,6 +120,47 @@ export default function TrialDashboard() {
     console.log("TODO: Implement AddNoteModal");
   };
 
+  const handleAddPrompt = async (data) => {
+    console.log("✅ Custom prompt added:", data);
+
+    if (!selectedCompany) {
+      console.error("❌ No company selected");
+      return;
+    }
+
+    try {
+      console.log("🔄 Ativando polling para detectar mudanças...");
+      // Ativar estados de loading
+      setIsGeneratingCustomTile(true);
+      setGeneratingTiles(true);
+
+      // Chamar API para gerar tile customizado
+      const response = await fetch("/api/guest/generate-custom-tile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyName: selectedCompany.name,
+          prompt: data.prompt,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to generate custom tile");
+      }
+
+      console.log("✅ Custom tile generated successfully");
+
+      // Recarregar workspace para mostrar o novo tile
+      await loadGuestWorkspace();
+    } catch (error) {
+      console.error("❌ Erro ao gerar tile customizado:", error);
+      setError("Failed to generate custom tile. Please try again.");
+      setIsGeneratingCustomTile(false);
+      setGeneratingTiles(false); // Parar polling em caso de erro
+      throw error; // Re-throw para o modal tratar
+    }
+  };
+
   const handleCompanyClick = (company) => {
     setSelectedCompany(company);
   };
@@ -102,6 +168,58 @@ export default function TrialDashboard() {
   const handleContactClick = (contact) => {
     setSelectedContactForModal(contact);
     setIsContactModalOpen(true);
+  };
+
+  const handleTilesReorder = async (newTiles) => {
+    console.log("🔄 Reordenando tiles:", newTiles);
+    const newOrder = newTiles.map((tile) => tile.id);
+    setTilesOrder(newOrder);
+
+    // ⭐ CRÍTICO: Atualizar estado local IMEDIATAMENTE para live data
+    if (selectedCompany) {
+      const updatedCompany = {
+        ...selectedCompany,
+        tiles: newTiles,
+      };
+      setSelectedCompany(updatedCompany);
+
+      // Também atualizar o workspace global para consistência
+      if (workspace?.workspace?.companies) {
+        const updatedWorkspace = {
+          ...workspace,
+          workspace: {
+            ...workspace.workspace,
+            companies: workspace.workspace.companies.map((company) =>
+              company.name === selectedCompany.name ? updatedCompany : company
+            ),
+          },
+        };
+        setWorkspace(updatedWorkspace);
+      }
+
+      console.log("✅ Estado local atualizado imediatamente");
+    }
+
+    // Salvar nova ordem no banco de dados (background)
+    try {
+      const response = await fetch("/api/guest/reorder-tiles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyName: selectedCompany.name,
+          tilesOrder: newOrder,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to save tiles order");
+      }
+
+      console.log("✅ Tiles order saved successfully");
+    } catch (error) {
+      console.error("❌ Erro ao salvar ordem dos tiles:", error);
+      setError("Failed to save tiles order. Please try again.");
+    }
   };
 
   useEffect(() => {
@@ -136,10 +254,60 @@ export default function TrialDashboard() {
       }
       const data = await response.json();
       console.log("✅ Workspace carregado:", data);
+
+      // ⭐ NOVO: Detectar mudanças nos tiles da company selecionada
+      if (selectedCompany && generatingTiles) {
+        console.log(
+          "🔍 Verificando mudanças para company:",
+          selectedCompany.name
+        );
+        const currentCompany = data.workspace?.companies?.find(
+          (c) => c.name === selectedCompany.name
+        );
+
+        if (currentCompany) {
+          const currentTilesCount = currentCompany.tiles?.length || 0;
+          const previousTilesCount = selectedCompany.tiles?.length || 0;
+
+          console.log(
+            `🔍 Tiles count: ${previousTilesCount} → ${currentTilesCount}`
+          );
+          console.log(`🔍 Polling ativo: ${generatingTiles}`);
+
+          // Se tiles foram adicionados, parar polling
+          if (currentTilesCount > previousTilesCount) {
+            console.log("✅ Novos tiles detectados, parando polling");
+            setGeneratingTiles(false);
+            setShowLoadingModal(false);
+            setIsGeneratingCustomTile(false); // Parar loading do tile customizado
+          }
+        } else {
+          console.log("❌ Company não encontrada no workspace atual");
+        }
+      } else {
+        console.log("🔍 Condições não atendidas:", {
+          selectedCompany: !!selectedCompany,
+          generatingTiles,
+        });
+      }
+
       setWorkspace(data);
       setLoading(false);
-      const company = data.workspace?.companies?.[0];
-      const status = company?.tiles_status;
+
+      // ⭐ CRÍTICO: Atualizar selectedCompany com dados mais recentes
+      if (selectedCompany) {
+        const updatedCompany = data.workspace?.companies?.find(
+          (c) => c.name === selectedCompany.name
+        );
+        if (updatedCompany) {
+          console.log("🔄 Atualizando selectedCompany com dados mais recentes");
+          setSelectedCompany(updatedCompany);
+        }
+      }
+
+      // Lógica original para primeira company (onboarding)
+      const firstCompany = data.workspace?.companies?.[0];
+      const status = firstCompany?.tiles_status;
 
       if (status === "pending" && !generatingTiles) {
         setShowLoadingModal(true); // Mostrar modal primeiro
@@ -177,19 +345,22 @@ export default function TrialDashboard() {
     }
   }
 
-  const handleAcceptLoadingModal = () => {
+  const handleAcceptLoadingModal = async () => {
     setShowLoadingModal(false);
-    // Iniciar geração após aceitar o modal
-    generateTiles();
+
+    // ⭐ NOVO: Tiles são gerados automaticamente agora
+    // Apenas ativar polling para detectar quando terminarem
+    setGeneratingTiles(true);
   };
 
   // Efeito para polling
   useEffect(() => {
     if (generatingTiles) {
+      console.log("🔄 Iniciando polling...");
       const intervalId = setInterval(() => {
         console.log("🔄 Polling for workspace updates...");
         loadGuestWorkspace();
-      }, 2500); // Sondagem a cada 2.5 segundos
+      }, 1500); // ⭐ Reduzido para 1.5s para resposta mais rápida
 
       setPollingInterval(intervalId);
 
@@ -265,6 +436,8 @@ export default function TrialDashboard() {
                 : workspace?.workspace?.name || "Trial Workspace"
             }
             workspaceName={workspace?.workspace?.name}
+            onRefresh={loadGuestWorkspace}
+            onSave={() => console.log("💾 Save dashboard changes")}
           />
         }
       >
@@ -292,46 +465,23 @@ export default function TrialDashboard() {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {selectedCompany.tiles?.length > 0 ? (
-                selectedCompany.tiles.map((tile) => (
-                  <div
-                    key={tile.id}
-                    onClick={() =>
-                      handleTileClick({
-                        ...tile,
-                        company: selectedCompany.name,
-                      })
-                    }
-                    className="cursor-pointer hover:shadow-md transition-shadow"
-                  >
-                    <Tile title={tile.title} excerpt={tile.excerpt} />
-                  </div>
-                ))
-              ) : selectedCompany.tiles_status === "generating" ? (
-                // Placeholders durante geração
-                Array.from({
-                  length: selectedCompany.tiles_to_generate || 6,
-                }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="bg-white rounded-lg p-5 h-48 animate-pulse shadow-sm"
-                  >
-                    <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
-                    <div className="space-y-2">
-                      <div className="h-3 bg-gray-200 rounded w-full"></div>
-                      <div className="h-3 bg-gray-200 rounded w-5/6"></div>
-                      <div className="h-3 bg-gray-200 rounded w-3/4"></div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                // Sem tiles
-                <div className="col-span-full text-center py-8 text-gray-500">
-                  No insights generated yet for {selectedCompany.name}
-                </div>
-              )}
-            </div>
+            <SortableTilesGrid
+              tiles={selectedCompany.tiles || []}
+              onTileClick={(tile) =>
+                handleTileClick({
+                  ...tile,
+                  company: selectedCompany.name,
+                })
+              }
+              onAddPrompt={() => {
+                console.log("🔍 AddPromptTile clicked, opening modal");
+                setIsAddPromptOpen(true);
+              }}
+              isGeneratingCustomTile={isGeneratingCustomTile}
+              isGeneratingTiles={selectedCompany.tiles_status === "generating"}
+              tilesToGenerate={selectedCompany.tiles_to_generate || 6}
+              onReorder={handleTilesReorder}
+            />
           </div>
         ) : (
           // Estado inicial - selecionar company
@@ -347,13 +497,13 @@ export default function TrialDashboard() {
           </div>
         )}
 
-        {/* Seção Notes, Contacts & Files */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Notes Section - Fora do wrapper, em linha */}
+        <div className="mb-8">
           <NotesSection onAddNote={handleAddNote} />
-          <ContactsSection
-            contacts={workspace?.workspace?.contacts || []}
-            onAddContact={() => setIsAddContactOpen(true)}
-          />
+        </div>
+
+        {/* Files Section */}
+        <div className="mb-8">
           <FilesSection />
         </div>
       </AppLayout>
@@ -376,6 +526,13 @@ export default function TrialDashboard() {
         onAdd={handleAddContact}
       />
 
+      <AddPromptModal
+        isOpen={isAddPromptOpen}
+        onClose={() => setIsAddPromptOpen(false)}
+        onAdd={handleAddPrompt}
+        companyName={selectedCompany?.name}
+      />
+
       <ContactModal
         isOpen={isContactModalOpen}
         onClose={() => setIsContactModalOpen(false)}
@@ -385,9 +542,7 @@ export default function TrialDashboard() {
       <LoadingModal
         isOpen={showLoadingModal}
         onAccept={handleAcceptLoadingModal}
-        companyName={
-          workspace?.workspace?.companies?.[0]?.name || "your company"
-        }
+        companyName={selectedCompany?.name || "your company"}
       />
     </>
   );

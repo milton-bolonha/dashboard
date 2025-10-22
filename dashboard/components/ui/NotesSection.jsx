@@ -14,27 +14,47 @@ const NoteCard = ({ title, content, date }) => (
 
 export function NotesSection({ onAddNote }) {
   return (
-    <div className="bg-white p-6 rounded-lg shadow-sm">
+    <div>
       <h3 className="text-lg font-semibold text-gray-900 mb-4">Notes</h3>
-      <div className="space-y-4">
+      <div className="flex flex-wrap gap-4">
         <button
           onClick={onAddNote}
-          className="w-full border-2 border-dashed border-gray-300 text-gray-500 rounded-lg py-3 flex items-center justify-center hover:bg-gray-50 transition-colors"
+          className="w-64 h-32 border-2 border-dashed border-gray-300 text-gray-500 rounded-lg flex items-center justify-center hover:bg-gray-50 transition-colors flex-shrink-0"
         >
-          <Plus className="w-4 h-4 mr-2" />
-          New Note
+          <div className="text-center">
+            <Plus className="w-6 h-6 mx-auto mb-2" />
+            <span className="text-sm">New Note</span>
+          </div>
         </button>
         {/* Mock Data */}
-        <NoteCard
-          title="Call Notes 21/9"
-          content="On the phone with the manager for 3 mins. Not the decision maker..."
-          date="2 hours ago"
-        />
-        <NoteCard
-          title="Cold Call Notes 10/9"
-          content="Initial contact, seemed interested in the analytics part. Follow up next week."
-          date="3 days ago"
-        />
+        <div className="w-64 flex-shrink-0">
+          <NoteCard
+            title="Call Notes 21/9"
+            content="On the phone with the manager for 3 mins. Not the decision maker..."
+            date="2 hours ago"
+          />
+        </div>
+        <div className="w-64 flex-shrink-0">
+          <NoteCard
+            title="Cold Call Notes 10/9"
+            content="Initial contact, seemed interested in the analytics part. Follow up next week."
+            date="3 days ago"
+          />
+        </div>
+        <div className="w-64 flex-shrink-0">
+          <NoteCard
+            title="Meeting Notes 15/9"
+            content="Discussed pricing and implementation timeline. Very positive response."
+            date="1 week ago"
+          />
+        </div>
+        <div className="w-64 flex-shrink-0">
+          <NoteCard
+            title="Follow-up 12/9"
+            content="Sent proposal and waiting for feedback. They mentioned budget approval needed."
+            date="2 weeks ago"
+          />
+        </div>
       </div>
     </div>
   );
