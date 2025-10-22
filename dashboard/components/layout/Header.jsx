@@ -32,7 +32,10 @@ export default function Header({
   };
 
   return (
-    <header className="bg-main-bg flex-shrink-0" style={{ height: "72px" }}>
+    <header
+      className="flex-shrink-0"
+      style={{ height: "72px", background: "#fcfcf9" }}
+    >
       <div className="flex items-center justify-between h-full px-6">
         <div className="flex items-center space-x-4">
           {/* Breadcrumb */}
@@ -79,12 +82,6 @@ export default function Header({
             {/* Dashboard Templates Dropdown */}
             <div className="relative">
               <button className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
-                <Image
-                  src="/images/template-icon.svg"
-                  width={16}
-                  height={16}
-                  alt="Templates"
-                />
                 <span>Templates</span>
                 <Image
                   src="/images/down-arrow.svg"

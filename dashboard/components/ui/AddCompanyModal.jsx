@@ -12,10 +12,10 @@ export function AddCompanyModal({ isOpen, onClose, onAdd, userContext }) {
 
   // Preencher researcherUrl com o contexto do usuário se disponível
   React.useEffect(() => {
-    if (userContext?.salesRepWebsite && !researcherUrl) {
+    if (userContext?.salesRepWebsite) {
       setResearcherUrl(userContext.salesRepWebsite);
     }
-  }, [userContext, researcherUrl]);
+  }, [userContext]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -136,7 +136,7 @@ export function AddCompanyModal({ isOpen, onClose, onAdd, userContext }) {
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md disabled:opacity-50"
+              className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md disabled:opacity-50 cursor-pointer"
               disabled={loading}
             >
               {loading ? "Adding..." : "Add Company"}

@@ -22,7 +22,10 @@ export default function AppLayout({ sidebar, header, children }) {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* TODO: Passar toggle para o Header também se necessário */}
         {header}
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-main-bg">
+        <main
+          className="flex-1 overflow-x-hidden overflow-y-auto"
+          style={{ background: "#fcfcf9" }}
+        >
           <div className="container mx-auto px-6 py-8">{children}</div>
         </main>
       </div>

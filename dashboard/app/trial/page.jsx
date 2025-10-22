@@ -97,23 +97,32 @@ export default function TrialDashboard() {
     // Usar o workspace atualizado após loadGuestWorkspace
     if (data.company) {
       // Aguardar um pouco para o workspace ser atualizado
-      setTimeout(() => {
-        // Usar o workspace mais recente do estado
-        const currentWorkspace = workspace;
-        if (currentWorkspace?.workspace?.companies) {
-          const updatedCompany = currentWorkspace.workspace.companies.find(
-            (c) => c.name === data.company.name
-          );
+      setTimeout(async () => {
+        // Recarregar workspace novamente para garantir dados frescos
+        await loadGuestWorkspace();
 
-          if (updatedCompany) {
-            console.log("🎯 Company encontrada no workspace:", updatedCompany);
-            setSelectedCompany(updatedCompany);
+        // Aguardar um pouco mais para o estado ser atualizado
+        setTimeout(() => {
+          // Usar o workspace mais recente do estado
+          const currentWorkspace = workspace;
+          if (currentWorkspace?.workspace?.companies) {
+            const updatedCompany = currentWorkspace.workspace.companies.find(
+              (c) => c.name === data.company.name
+            );
 
-            // ⭐ NOVO: Tiles serão gerados automaticamente em background
-            // Não precisa de LoadingModal manual - o polling vai detectar
-            setGeneratingTiles(true); // Ativar polling para detectar tiles
+            if (updatedCompany) {
+              console.log(
+                "🎯 Company encontrada no workspace:",
+                updatedCompany
+              );
+              setSelectedCompany(updatedCompany);
+
+              // ⭐ NOVO: Tiles serão gerados automaticamente em background
+              // Não precisa de LoadingModal manual - o polling vai detectar
+              setGeneratingTiles(true); // Ativar polling para detectar tiles
+            }
           }
-        }
+        }, 100);
       }, 200);
     }
   };

@@ -130,6 +130,10 @@ export async function POST(req) {
       );
     }
 
+    // Buscar template para definir tiles_to_generate
+    const { getGuestTemplate } = await import("@/lib/guest-templates");
+    const template = getGuestTemplate(workspace.workspace_data.template_id);
+
     // Adicionar nova company
     const newCompany = {
       name: sanitized.companyName,
@@ -137,7 +141,7 @@ export async function POST(req) {
       added_at: new Date(),
       tiles: [],
       tiles_status: "pending",
-      tiles_to_generate: 6, // Template 1 padrão
+      tiles_to_generate: template.tiles.length, // Usar template correto
     };
 
     await db.updateOne(
