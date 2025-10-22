@@ -1,19 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { X } from "lucide-react";
 
-export function AddCompanyModal({ isOpen, onClose, onAdd }) {
+export function AddCompanyModal({ isOpen, onClose, onAdd, userContext }) {
   const [companyName, setCompanyName] = useState("");
   const [companyUrl, setCompanyUrl] = useState("");
+  const [researcherUrl, setResearcherUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Preencher researcherUrl com o contexto do usuário se disponível
+  React.useEffect(() => {
+    if (userContext?.salesRepWebsite && !researcherUrl) {
+      setResearcherUrl(userContext.salesRepWebsite);
+    }
+  }, [userContext, researcherUrl]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!companyName.trim() || !companyUrl.trim()) {
-      setError("Both company name and URL are required");
+      setError("Company name and website URL are required");
       return;
     }
 
@@ -27,6 +35,7 @@ export function AddCompanyModal({ isOpen, onClose, onAdd }) {
         body: JSON.stringify({
           companyName: companyName.trim(),
           companyUrl: companyUrl.trim(),
+          researcherUrl: researcherUrl.trim(),
         }),
       });
 
@@ -49,6 +58,7 @@ export function AddCompanyModal({ isOpen, onClose, onAdd }) {
   const handleClose = () => {
     setCompanyName("");
     setCompanyUrl("");
+    setResearcherUrl("");
     setError("");
     onClose();
   };
@@ -86,14 +96,28 @@ export function AddCompanyModal({ isOpen, onClose, onAdd }) {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Company Website
+                Company Website URL
               </label>
               <input
                 type="url"
                 value={companyUrl}
                 onChange={(e) => setCompanyUrl(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="e.g., tesla.com or https://tesla.com"
+                placeholder="e.g., www.tesla.com or https://www.tesla.com"
+                disabled={loading}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Your Company Website (Optional)
+              </label>
+              <input
+                type="url"
+                value={researcherUrl}
+                onChange={(e) => setResearcherUrl(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="e.g., www.yourcompany.com"
                 disabled={loading}
               />
             </div>

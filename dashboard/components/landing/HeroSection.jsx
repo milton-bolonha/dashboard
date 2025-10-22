@@ -19,10 +19,11 @@ export default function HeroSection({
 }) {
   const { isSignedIn, user } = useUser();
   const [userContext, setUserContext] = useState({
-    company: "",
-    companyUrl: "", // ⭐ NOVO: URL da empresa do vendedor
-    solution: "",
-    research: "",
+    company: "", // Empresa que o user representa
+    companyWebsite: "", // Website da empresa que o user representa
+    solution: "", // O que ele está vendendo
+    researchTarget: "", // Nome da empresa a ser pesquisada
+    researchWebsite: "", // Website da empresa a ser pesquisada (ÚLTIMO INPUT ESPECIAL)
   });
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
@@ -39,12 +40,13 @@ export default function HeroSection({
     }
   };
 
-  // ⭐ NOVO: Estados de progresso dos inputs (4 inputs agora)
+  // ⭐ NOVO: Estados de progresso dos inputs (5 inputs na ordem correta)
   const [inputStates, setInputStates] = useState({
-    company: { focused: false, hasContent: false, isValid: false },
-    companyUrl: { focused: false, hasContent: false, isValid: false }, // ⭐ NOVO
-    solution: { focused: false, hasContent: false, isValid: false },
-    research: { focused: false, hasContent: false, isValid: false },
+    company: { focused: false, hasContent: false, isValid: false }, // 1º: Empresa que representa
+    companyWebsite: { focused: false, hasContent: false, isValid: false }, // 2º: Website da empresa
+    solution: { focused: false, hasContent: false, isValid: false }, // 3º: O que vende
+    researchTarget: { focused: false, hasContent: false, isValid: false }, // 4º: Empresa a pesquisar
+    researchWebsite: { focused: false, hasContent: false, isValid: false }, // 5º: Website da empresa a pesquisar (ESPECIAL)
   });
 
   // ⭐ NOVO: Detectar query params e preencher inputs
@@ -56,12 +58,14 @@ export default function HeroSection({
     if (params.has("rep") || params.has("solution") || params.has("target")) {
       const company = decodeURIComponent(params.get("rep") || "");
       const solution = decodeURIComponent(params.get("solution") || "");
-      const research = decodeURIComponent(params.get("target") || "");
+      const researchTarget = decodeURIComponent(params.get("target") || "");
 
       setUserContext({
         company,
+        companyWebsite: "",
         solution,
-        research,
+        researchTarget,
+        researchWebsite: "",
       });
 
       // Atualizar estados dos inputs também
@@ -72,15 +76,25 @@ export default function HeroSection({
           hasContent: company.trim().length > 0,
           isValid: company.trim().length >= MIN_CHARS,
         },
+        companyWebsite: {
+          focused: false,
+          hasContent: false,
+          isValid: false,
+        },
         solution: {
           focused: false,
           hasContent: solution.trim().length > 0,
           isValid: solution.trim().length >= MIN_CHARS,
         },
-        research: {
+        researchTarget: {
           focused: false,
-          hasContent: research.trim().length > 0,
-          isValid: research.trim().length >= MIN_CHARS,
+          hasContent: researchTarget.trim().length > 0,
+          isValid: researchTarget.trim().length >= MIN_CHARS,
+        },
+        researchWebsite: {
+          focused: false,
+          hasContent: false,
+          isValid: false,
         },
       });
 
@@ -115,8 +129,8 @@ export default function HeroSection({
     const MIN_CHARS = 3;
     let isValid = value.trim().length >= MIN_CHARS;
 
-    // ⭐ NOVO: Validação especial para URL
-    if (field === "companyUrl") {
+    // ⭐ NOVO: Validação especial para URLs
+    if (field === "companyWebsite" || field === "researchWebsite") {
       isValid = value.trim().length > 0 && isValidUrl(value.trim());
     }
 
@@ -149,8 +163,14 @@ export default function HeroSection({
     if (e.key === "Enter") {
       e.preventDefault();
 
-      // Mapear próximo campo (ORDEM CORRETA: company → solution → url → research)
-      const fieldOrder = ["company", "solution", "companyUrl", "research"];
+      // Mapear próximo campo (ORDEM CORRETA: company → companyWebsite → solution → researchTarget → researchWebsite)
+      const fieldOrder = [
+        "company",
+        "companyWebsite",
+        "solution",
+        "researchTarget",
+        "researchWebsite",
+      ];
       const currentIndex = fieldOrder.indexOf(field);
       const nextField = fieldOrder[currentIndex + 1];
 
@@ -171,17 +191,23 @@ export default function HeroSection({
     if (!userContext.company.trim()) {
       return "Please tell us which company you represent";
     }
-    if (!userContext.companyUrl.trim()) {
-      return "Please enter your company's website";
+    if (!userContext.companyWebsite.trim()) {
+      return "Please enter your company website";
     }
-    if (!isValidUrl(userContext.companyUrl.trim())) {
-      return "Please enter a valid URL (e.g., tesla.com)";
+    if (!isValidUrl(userContext.companyWebsite.trim())) {
+      return "Please enter a valid company website (e.g., www.microsoft.com)";
     }
     if (!userContext.solution.trim()) {
       return "Please describe what you're selling";
     }
-    if (!userContext.research.trim()) {
-      return "Please tell us what you want to research";
+    if (!userContext.researchTarget.trim()) {
+      return "Please tell us which company you want to research";
+    }
+    if (!userContext.researchWebsite.trim()) {
+      return "Please enter the company website to research";
+    }
+    if (!isValidUrl(userContext.researchWebsite.trim())) {
+      return "Please enter a valid research website (e.g., www.tesla.com)";
     }
     return null;
   };
@@ -226,7 +252,8 @@ export default function HeroSection({
             // Salvar contexto no localStorage (caso guest queira fazer signup depois)
             const contextToSave = {
               ...userContext,
-              companyUrl: normalizeUrl(userContext.companyUrl),
+              companyWebsite: normalizeUrl(userContext.companyWebsite),
+              researchWebsite: normalizeUrl(userContext.researchWebsite),
             };
             localStorage.setItem(
               "onboarding_context",
@@ -276,13 +303,14 @@ export default function HeroSection({
     }
   };
 
-  // ⭐ NOVO: Verifica se pode habilitar próximo input (4 inputs agora)
+  // ⭐ NOVO: Verifica se pode habilitar próximo input (5 inputs na ordem correta)
   const canEnableInput = (inputName) => {
     if (inputName === "company") return true; // 1º sempre habilitado
-    if (inputName === "solution") return inputStates.company.isValid; // 2º após company
-    if (inputName === "companyUrl") return inputStates.solution.isValid; // 3º após solution
-    if (inputName === "research")
-      return inputStates.companyUrl.isValid && inputStates.solution.isValid; // 4º após url
+    if (inputName === "companyWebsite") return inputStates.company.isValid; // 2º após company
+    if (inputName === "solution") return inputStates.companyWebsite.isValid; // 3º após companyWebsite
+    if (inputName === "researchTarget") return inputStates.solution.isValid; // 4º após solution
+    if (inputName === "researchWebsite")
+      return inputStates.researchTarget.isValid; // 5º após researchTarget (ESPECIAL)
     return false;
   };
 
@@ -406,12 +434,13 @@ export default function HeroSection({
     );
   };
 
-  // ⭐ NOVO: Verifica se todos inputs são válidos (4 inputs agora)
+  // ⭐ NOVO: Verifica se todos inputs são válidos (5 inputs na ordem correta)
   const allInputsValid =
     inputStates.company.isValid &&
-    inputStates.companyUrl.isValid && // ⭐ NOVO
+    inputStates.companyWebsite.isValid &&
     inputStates.solution.isValid &&
-    inputStates.research.isValid;
+    inputStates.researchTarget.isValid &&
+    inputStates.researchWebsite.isValid;
 
   // ⭐ NOVO: Helper para gerar classes dos inputs baseado no estilo
   const getInputClasses = (inputName) => {
@@ -444,10 +473,11 @@ export default function HeroSection({
   // ⭐ NOVO: Helper para placeholder baseado no estilo
   const getPlaceholderText = (inputName) => {
     const placeholders = {
-      company: "I am a sales rep at",
-      solution: "I am selling solutions for",
-      companyUrl: "Company to research (website, e.g., tesla.com)",
-      research: "I want to conduct research on",
+      company: "I am a sales rep at", // Empresa que representa
+      companyWebsite: "My company website (e.g., www.microsoft.com)", // Website da empresa
+      solution: "I am selling solutions for", // O que vende
+      researchTarget: "I want to research this company", // Nome da empresa a pesquisar
+      researchWebsite: "Company website to research (e.g., www.tesla.com)", // Website da empresa a pesquisar (ESPECIAL)
     };
     return placeholders[inputName] || "";
   };
@@ -549,7 +579,65 @@ export default function HeroSection({
             )}
           </div>
 
-          {/* Input 2: Solution (habilita após company válido) */}
+          {/* Input 2: Company Website (habilita após company válido) */}
+          <div className="max-w-2xl mx-auto relative">
+            {/* Modo transparent: Mostra texto + lápis inline quando válido e sem foco */}
+            {styleMode === "transparent" &&
+            inputStates.companyWebsite.isValid &&
+            !inputStates.companyWebsite.focused &&
+            !creating ? (
+              <div
+                className="w-full px-6 pt-4 pb-8 text-lg text-black flex items-center gap-2 cursor-pointer border border-transparent rounded-xl"
+                onClick={() => {
+                  handleInputFocus("companyWebsite");
+                  document
+                    .querySelector('input[name="companyWebsite"]')
+                    ?.focus();
+                }}
+              >
+                <span>{userContext.companyWebsite}</span>
+                <Image
+                  src="/images/logo-mark.svg"
+                  alt="Edit"
+                  width={13}
+                  height={13}
+                  className="opacity-60 hover:opacity-100 transition-opacity"
+                />
+              </div>
+            ) : (
+              <div className="relative">
+                <input
+                  type="url"
+                  name="companyWebsite"
+                  placeholder={
+                    styleMode === "default"
+                      ? getPlaceholderText("companyWebsite")
+                      : ""
+                  }
+                  value={userContext.companyWebsite}
+                  onChange={(e) =>
+                    handleInputChange("companyWebsite", e.target.value)
+                  }
+                  onFocus={() => handleInputFocus("companyWebsite")}
+                  onBlur={() => handleInputBlur("companyWebsite")}
+                  onKeyDown={(e) => handleKeyDown("companyWebsite", e)}
+                  disabled={!canEnableInput("companyWebsite") || creating}
+                  className={getInputClasses("companyWebsite")}
+                />
+                {/* Placeholder persistente DENTRO do input (bottom) - sempre visível no transparent */}
+                {styleMode === "transparent" && (
+                  <div className="absolute bottom-2 left-6 text-xs text-gray-400 pointer-events-none z-10">
+                    {getPlaceholderText("companyWebsite")}
+                  </div>
+                )}
+                <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+                  {renderInputIcon("companyWebsite", false)}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Input 3: Solution (habilita após companyWebsite válido) */}
           <div className="max-w-2xl mx-auto relative">
             {/* Modo transparent: Mostra texto + lápis inline quando válido e sem foco */}
             {styleMode === "transparent" &&
@@ -605,78 +693,24 @@ export default function HeroSection({
             )}
           </div>
 
-          {/* Input 3: Company URL (habilita após solution válido) ⭐ EMPRESA PESQUISADA */}
+          {/* Input 4: Research Target (habilita após solution válido) */}
           <div className="max-w-2xl mx-auto relative">
             {/* Modo transparent: Mostra texto + lápis inline quando válido e sem foco */}
             {styleMode === "transparent" &&
-            inputStates.companyUrl.isValid &&
-            !inputStates.companyUrl.focused &&
-            !creating ? (
-              <div
-                className="w-full px-6 pt-4 pb-8 text-lg text-black flex items-center gap-2 cursor-pointer border border-transparent rounded-xl"
-                onClick={() => {
-                  handleInputFocus("companyUrl");
-                  document.querySelector('input[name="companyUrl"]')?.focus();
-                }}
-              >
-                <span>{userContext.companyUrl}</span>
-                <Image
-                  src="/images/logo-mark.svg"
-                  alt="Edit"
-                  width={13}
-                  height={13}
-                  className="opacity-60 hover:opacity-100 transition-opacity"
-                />
-              </div>
-            ) : (
-              <div className="relative">
-                <input
-                  type="url"
-                  name="companyUrl"
-                  placeholder={
-                    styleMode === "default"
-                      ? getPlaceholderText("companyUrl")
-                      : ""
-                  }
-                  value={userContext.companyUrl}
-                  onChange={(e) =>
-                    handleInputChange("companyUrl", e.target.value)
-                  }
-                  onFocus={() => handleInputFocus("companyUrl")}
-                  onBlur={() => handleInputBlur("companyUrl")}
-                  onKeyDown={(e) => handleKeyDown("companyUrl", e)}
-                  disabled={!canEnableInput("companyUrl") || creating}
-                  className={getInputClasses("companyUrl")}
-                />
-                {/* Placeholder persistente DENTRO do input (bottom) - sempre visível no transparent */}
-                {styleMode === "transparent" && (
-                  <div className="absolute bottom-2 left-6 text-xs text-gray-400 pointer-events-none z-10">
-                    {getPlaceholderText("companyUrl")}
-                  </div>
-                )}
-                <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-                  {renderInputIcon("companyUrl", false)}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Input 4: Research (habilita após solution válido) */}
-          <div className="max-w-2xl mx-auto relative">
-            {/* Modo transparent: Mostra texto + lápis inline quando válido e sem foco */}
-            {styleMode === "transparent" &&
-            inputStates.research.isValid &&
-            !inputStates.research.focused &&
+            inputStates.researchTarget.isValid &&
+            !inputStates.researchTarget.focused &&
             !creating ? (
               <div className="relative">
                 <div
                   className="w-full px-6 pt-4 pb-8 text-lg text-black flex items-center gap-2 cursor-pointer border border-transparent rounded-xl"
                   onClick={() => {
-                    handleInputFocus("research");
-                    document.querySelector('input[name="research"]')?.focus();
+                    handleInputFocus("researchTarget");
+                    document
+                      .querySelector('input[name="researchTarget"]')
+                      ?.focus();
                   }}
                 >
-                  <span>{userContext.research}</span>
+                  <span>{userContext.researchTarget}</span>
                   <Image
                     src="/images/logo-mark.svg"
                     alt="Edit"
@@ -687,37 +721,101 @@ export default function HeroSection({
                 </div>
                 {/* Seta verde continua visível mesmo quando transparente */}
                 <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-                  {renderInputIcon("research", true)}
+                  {renderInputIcon("researchTarget", false)}
                 </div>
               </div>
             ) : (
               <div className="relative">
                 <input
                   type="text"
-                  name="research"
+                  name="researchTarget"
                   placeholder={
                     styleMode === "default"
-                      ? getPlaceholderText("research")
+                      ? getPlaceholderText("researchTarget")
                       : ""
                   }
-                  value={userContext.research}
+                  value={userContext.researchTarget}
                   onChange={(e) =>
-                    handleInputChange("research", e.target.value)
+                    handleInputChange("researchTarget", e.target.value)
                   }
-                  onFocus={() => handleInputFocus("research")}
-                  onBlur={() => handleInputBlur("research")}
-                  onKeyDown={(e) => handleKeyDown("research", e)}
-                  disabled={!canEnableInput("research") || creating}
-                  className={getInputClasses("research")}
+                  onFocus={() => handleInputFocus("researchTarget")}
+                  onBlur={() => handleInputBlur("researchTarget")}
+                  onKeyDown={(e) => handleKeyDown("researchTarget", e)}
+                  disabled={!canEnableInput("researchTarget") || creating}
+                  className={getInputClasses("researchTarget")}
                 />
                 {/* Placeholder persistente DENTRO do input (bottom) - sempre visível no transparent */}
                 {styleMode === "transparent" && (
                   <div className="absolute bottom-2 left-6 text-xs text-gray-400 pointer-events-none z-10">
-                    {getPlaceholderText("research")}
+                    {getPlaceholderText("researchTarget")}
                   </div>
                 )}
                 <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-                  {renderInputIcon("research", true)}
+                  {renderInputIcon("researchTarget", false)}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Input 5: Research Website (habilita após researchTarget válido) - ÚLTIMO INPUT ESPECIAL */}
+          <div className="max-w-2xl mx-auto relative">
+            {/* Modo transparent: Mostra texto + lápis inline quando válido e sem foco */}
+            {styleMode === "transparent" &&
+            inputStates.researchWebsite.isValid &&
+            !inputStates.researchWebsite.focused &&
+            !creating ? (
+              <div className="relative">
+                <div
+                  className="w-full px-6 pt-4 pb-8 text-lg text-black flex items-center gap-2 cursor-pointer border border-transparent rounded-xl"
+                  onClick={() => {
+                    handleInputFocus("researchWebsite");
+                    document
+                      .querySelector('input[name="researchWebsite"]')
+                      ?.focus();
+                  }}
+                >
+                  <span>{userContext.researchWebsite}</span>
+                  <Image
+                    src="/images/logo-mark.svg"
+                    alt="Edit"
+                    width={13}
+                    height={13}
+                    className="opacity-60 hover:opacity-100 transition-opacity"
+                  />
+                </div>
+                {/* Seta verde continua visível mesmo quando transparente */}
+                <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+                  {renderInputIcon("researchWebsite", true)}
+                </div>
+              </div>
+            ) : (
+              <div className="relative">
+                <input
+                  type="url"
+                  name="researchWebsite"
+                  placeholder={
+                    styleMode === "default"
+                      ? getPlaceholderText("researchWebsite")
+                      : ""
+                  }
+                  value={userContext.researchWebsite}
+                  onChange={(e) =>
+                    handleInputChange("researchWebsite", e.target.value)
+                  }
+                  onFocus={() => handleInputFocus("researchWebsite")}
+                  onBlur={() => handleInputBlur("researchWebsite")}
+                  onKeyDown={(e) => handleKeyDown("researchWebsite", e)}
+                  disabled={!canEnableInput("researchWebsite") || creating}
+                  className={getInputClasses("researchWebsite")}
+                />
+                {/* Placeholder persistente DENTRO do input (bottom) - sempre visível no transparent */}
+                {styleMode === "transparent" && (
+                  <div className="absolute bottom-2 left-6 text-xs text-gray-400 pointer-events-none z-10">
+                    {getPlaceholderText("researchWebsite")}
+                  </div>
+                )}
+                <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+                  {renderInputIcon("researchWebsite", true)}
                 </div>
               </div>
             )}

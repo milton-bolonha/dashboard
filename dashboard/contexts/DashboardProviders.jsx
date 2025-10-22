@@ -43,13 +43,14 @@ function OnboardingAutoCreate({ children }) {
 
           await createWorkspace({
             name: context.company || "My Workspace",
-            description: `Sales rep for ${context.solution}. Research: ${context.research}`,
+            description: `Sales rep for ${context.solution}. Research: ${context.researchTarget}`,
             metadata: {
               onboarding: {
                 salesRepAt: context.company,
-                companyUrl: context.companyUrl, // ⭐ NOVO: URL da empresa do vendedor
+                salesRepWebsite: context.companyWebsite, // ⭐ NOVO: Website da empresa do vendedor
                 sellingSolutionsFor: context.solution,
-                researchTarget: context.research,
+                researchTarget: context.researchTarget,
+                targetCompanyUrl: context.researchWebsite, // ⭐ NOVO: Website da empresa a pesquisar
               },
               createdVia: "landing-onboarding",
             },

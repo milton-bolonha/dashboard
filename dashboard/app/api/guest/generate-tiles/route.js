@@ -121,10 +121,11 @@ export async function POST(req) {
     // Gerar tiles via OpenAI usando os dados da company específica
     const onboarding = guestWorkspace.workspace_data.onboarding;
     const context = {
-      company: onboarding.salesRepAt,
-      solution: onboarding.sellingSolutionsFor,
-      research: company.name, // ⭐ Usar nome da company sendo pesquisada
-      companyUrl: company.url, // ⭐ Usar URL da company sendo pesquisada
+      company: onboarding.salesRepAt || "Unknown Company",
+      companyWebsite: onboarding.salesRepWebsite || "", // ⭐ NOVO: Website da empresa do vendedor
+      solution: onboarding.sellingSolutionsFor || "Unknown Solution",
+      researchTarget: company.name, // ⭐ NOVO: Usar nome da company sendo pesquisada
+      researchWebsite: company.url, // ⭐ NOVO: Usar URL da company sendo pesquisada
     };
 
     // Processar prompts do template

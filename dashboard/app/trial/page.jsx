@@ -94,19 +94,27 @@ export default function TrialDashboard() {
     await loadGuestWorkspace();
 
     // Buscar a company recém-adicionada e selecioná-la
-    if (data.company && workspace?.workspace?.companies) {
-      const updatedCompany = workspace.workspace.companies.find(
-        (c) => c.name === data.company.name
-      );
+    // Usar o workspace atualizado após loadGuestWorkspace
+    if (data.company) {
+      // Aguardar um pouco para o workspace ser atualizado
+      setTimeout(() => {
+        // Usar o workspace mais recente do estado
+        const currentWorkspace = workspace;
+        if (currentWorkspace?.workspace?.companies) {
+          const updatedCompany = currentWorkspace.workspace.companies.find(
+            (c) => c.name === data.company.name
+          );
 
-      if (updatedCompany) {
-        console.log("🎯 Company encontrada no workspace:", updatedCompany);
-        setSelectedCompany(updatedCompany);
+          if (updatedCompany) {
+            console.log("🎯 Company encontrada no workspace:", updatedCompany);
+            setSelectedCompany(updatedCompany);
 
-        // ⭐ NOVO: Tiles serão gerados automaticamente em background
-        // Não precisa de LoadingModal manual - o polling vai detectar
-        setGeneratingTiles(true); // Ativar polling para detectar tiles
-      }
+            // ⭐ NOVO: Tiles serão gerados automaticamente em background
+            // Não precisa de LoadingModal manual - o polling vai detectar
+            setGeneratingTiles(true); // Ativar polling para detectar tiles
+          }
+        }
+      }, 200);
     }
   };
 
@@ -150,9 +158,6 @@ export default function TrialDashboard() {
 
       console.log("✅ Custom tile generated successfully");
 
-      // Fechar modal imediatamente quando tile começar a ser gerado
-      setIsAddPromptOpen(false);
-
       // Recarregar workspace para mostrar o novo tile
       await loadGuestWorkspace();
     } catch (error) {
@@ -160,7 +165,7 @@ export default function TrialDashboard() {
       setError("Failed to generate custom tile. Please try again.");
       setIsGeneratingCustomTile(false);
       setGeneratingTiles(false); // Parar polling em caso de erro
-      throw error; // Re-throw para o modal tratar
+      // Não fazer throw - deixar o modal fechar
     }
   };
 
@@ -319,6 +324,10 @@ export default function TrialDashboard() {
           console.log("🔄 Atualizando selectedCompany com dados mais recentes");
           setSelectedCompany(updatedCompany);
         }
+      } else if (data.workspace?.companies?.length > 0) {
+        // Se não há company selecionada, selecionar a primeira
+        console.log("🎯 Auto-selecionando primeira company após atualização");
+        setSelectedCompany(data.workspace.companies[0]);
       }
 
       // Lógica para geração automática de tiles
@@ -388,14 +397,31 @@ export default function TrialDashboard() {
     setGeneratingTiles(true);
   };
 
-  // Efeito para polling
+  // Efeito para polling com segurança
   useEffect(() => {
     if (generatingTiles) {
       console.log("🔄 Iniciando polling...");
+      let pollCount = 0;
+      const maxPolls = 30; // ⭐ Limite de segurança: máximo 30 polls (1 minuto)
+
       const intervalId = setInterval(() => {
-        console.log("🔄 Polling for workspace updates...");
+        pollCount++;
+        console.log(
+          `🔄 Polling for workspace updates... (${pollCount}/${maxPolls})`
+        );
+
+        // Parar polling se exceder limite de segurança
+        if (pollCount >= maxPolls) {
+          console.log("⚠️ Limite de polling atingido, parando por segurança");
+          setGeneratingTiles(false);
+          setShowLoadingModal(false);
+          clearInterval(intervalId);
+          setPollingInterval(null);
+          return;
+        }
+
         loadGuestWorkspace();
-      }, 1500); // ⭐ Reduzido para 1.5s para resposta mais rápida
+      }, 2000); // ⭐ 2s para reduzir carga no servidor
 
       setPollingInterval(intervalId);
 
@@ -565,6 +591,7 @@ export default function TrialDashboard() {
         isOpen={isAddCompanyOpen}
         onClose={() => setIsAddCompanyOpen(false)}
         onAdd={handleAddCompany}
+        userContext={workspace?.workspace?.onboarding}
       />
 
       <AddContactModal

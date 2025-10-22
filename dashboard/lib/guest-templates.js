@@ -233,16 +233,22 @@ export function listGuestTemplates() {
  * - companyUrl: URL da empresa A PESQUISAR (ex: "tesla.com")
  */
 export function processPromptVariables(prompt, context) {
-  // Parse research (pode ser "Tesla" ou "Tesla in Automotive")
-  const targetCompany = context.research.split(" in ")[0].trim();
-  const researchFocus = context.research.includes(" in ")
-    ? context.research.split(" in ")[1].trim()
-    : context.research;
+  // Validar se context.researchTarget existe
+  if (!context.researchTarget) {
+    console.error("❌ context.researchTarget is undefined:", context);
+    throw new Error("researchTarget is required in context");
+  }
+
+  // Parse researchTarget (pode ser "Tesla" ou "Tesla in Automotive")
+  const targetCompany = context.researchTarget.split(" in ")[0].trim();
+  const researchFocus = context.researchTarget.includes(" in ")
+    ? context.researchTarget.split(" in ")[1].trim()
+    : context.researchTarget;
 
   return prompt
     .replace(/{sales_rep_company}/g, context.company) // Empresa do vendedor
     .replace(/{user_solution}/g, context.solution) // O que vende
     .replace(/{target_company}/g, targetCompany) // Empresa a pesquisar
-    .replace(/{target_url}/g, context.companyUrl) // URL da empresa pesquisada
+    .replace(/{target_url}/g, context.researchWebsite) // URL da empresa pesquisada
     .replace(/{research_focus}/g, researchFocus); // Foco da pesquisa
 }

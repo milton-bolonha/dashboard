@@ -35,9 +35,9 @@ export async function generateTileContent(tilePrompt, context) {
           content: `You are an expert sales research assistant helping sales professionals.
 
 Context about the sales rep:
-- Works at: ${context.company}
+- Works at: ${context.company} (${context.companyWebsite})
 - Sells: ${context.solution}
-- Researching: ${context.research}
+- Researching: ${context.researchTarget} (${context.researchWebsite})
 
 Provide detailed, actionable insights focused on sales opportunities.
 Format your answers in clear, well-structured markdown.

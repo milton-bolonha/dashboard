@@ -24,10 +24,10 @@ const createWorkspaceSchema = Joi.object({
   template_id: Joi.string().valid("template_1", "template_2").required(),
   context: Joi.object({
     company: Joi.string().max(100).trim().required(),
+    companyWebsite: Joi.string().max(200).trim().required(), // ⭐ NOVO: Website da empresa do vendedor
     solution: Joi.string().max(500).trim().required(),
-    // ⭐ Aceita URL simples (tesla.com) ou completa (https://tesla.com)
-    companyUrl: Joi.string().max(200).trim().required(),
-    research: Joi.string().max(500).trim().required(),
+    researchTarget: Joi.string().max(100).trim().required(), // ⭐ NOVO: Nome da empresa a pesquisar
+    researchWebsite: Joi.string().max(200).trim().required(), // ⭐ NOVO: Website da empresa a pesquisar
   }).required(),
 }).strict();
 
@@ -67,9 +67,16 @@ export async function POST(req) {
       template_id: value.template_id,
       context: {
         company: sanitizeHtml(value.context.company, { allowedTags: [] }),
+        companyWebsite: sanitizeHtml(value.context.companyWebsite, {
+          allowedTags: [],
+        }), // ⭐ NOVO
         solution: sanitizeHtml(value.context.solution, { allowedTags: [] }),
-        companyUrl: sanitizeHtml(value.context.companyUrl, { allowedTags: [] }),
-        research: sanitizeHtml(value.context.research, { allowedTags: [] }),
+        researchTarget: sanitizeHtml(value.context.researchTarget, {
+          allowedTags: [],
+        }), // ⭐ NOVO
+        researchWebsite: sanitizeHtml(value.context.researchWebsite, {
+          allowedTags: [],
+        }), // ⭐ NOVO
       },
     };
     console.log("✅ Inputs sanitizados!");
@@ -113,7 +120,7 @@ export async function POST(req) {
     const template = getGuestTemplate(sanitized.template_id);
 
     console.log(
-      `🚀 Criando guest workspace VAZIO para: ${sanitized.context.research}`
+      `🚀 Criando guest workspace VAZIO para: ${sanitized.context.researchTarget}`
     );
 
     // ⭐ MUDANÇA: NÃO gerar tiles aqui! Frontend vai gerar depois
@@ -130,16 +137,17 @@ export async function POST(req) {
         // Contexto do onboarding (para conversão futura)
         onboarding: {
           salesRepAt: sanitized.context.company,
+          salesRepWebsite: sanitized.context.companyWebsite, // ⭐ NOVO: Website da empresa do vendedor
           sellingSolutionsFor: sanitized.context.solution,
-          researchTarget: sanitized.context.research,
-          targetCompanyUrl: sanitized.context.companyUrl, // URL da empresa PESQUISADA
+          researchTarget: sanitized.context.researchTarget, // ⭐ NOVO: Nome da empresa a pesquisar
+          targetCompanyUrl: sanitized.context.researchWebsite, // ⭐ NOVO: Website da empresa a pesquisar
         },
 
         // Empresas pesquisadas
         companies: [
           {
-            name: sanitized.context.research,
-            url: sanitized.context.companyUrl,
+            name: sanitized.context.researchTarget, // ⭐ NOVO: Nome da empresa a pesquisar
+            url: sanitized.context.researchWebsite, // ⭐ NOVO: Website da empresa a pesquisar
             added_at: new Date(),
             tiles: [], // ⭐ VAZIO! Frontend vai gerar
             tiles_status: "pending", // ⭐ Status: pending, generating, completed

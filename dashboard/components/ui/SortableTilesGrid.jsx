@@ -82,9 +82,9 @@ export function SortableTilesGrid({
         {/* LoadingTiles durante geração automática */}
         {isGeneratingTiles &&
           !isGeneratingCustomTile &&
-          Array.from({ length: tilesToGenerate }).map((_, i) => (
-            <LoadingTile key={i} index={i} />
-          ))}
+          Array.from({
+            length: Math.max(0, tilesToGenerate - tiles.length),
+          }).map((_, i) => <LoadingTile key={`loading-${i}`} index={i} />)}
 
         {/* Add Prompt Tile - sempre no final */}
         <AddPromptTile onClick={onAddPrompt} />

@@ -38,6 +38,37 @@ const addCompanySchema = Joi.object({
       "any.invalid":
         "Please enter a valid website (e.g., site.com or www.site.com)",
     }),
+  researcherUrl: Joi.string()
+    .max(200)
+    .trim()
+    .optional()
+    .allow("")
+    .custom((value, helpers) => {
+      if (!value || value.trim() === "") {
+        return value; // Campo opcional
+      }
+
+      let url = value.trim();
+
+      // Se não começar com http/https/www, adicionar https://
+      if (!url.match(/^(https?:\/\/|www\.)/)) {
+        url = `https://${url}`;
+      } else if (url.startsWith("www.")) {
+        url = `https://${url}`;
+      }
+
+      // Validar se é uma URL válida
+      try {
+        new URL(url);
+        return url;
+      } catch (err) {
+        return helpers.error("any.invalid");
+      }
+    })
+    .messages({
+      "any.invalid":
+        "Please enter a valid website (e.g., site.com or www.site.com)",
+    }),
 }).strict();
 
 export async function POST(req) {
@@ -71,6 +102,9 @@ export async function POST(req) {
     const sanitized = {
       companyName: sanitizeHtml(value.companyName, { allowedTags: [] }),
       companyUrl: value.companyUrl, // Já validada e com https://
+      researcherUrl: value.researcherUrl
+        ? sanitizeHtml(value.researcherUrl, { allowedTags: [] })
+        : "",
     };
 
     // Buscar workspace

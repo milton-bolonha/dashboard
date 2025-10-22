@@ -25,6 +25,11 @@ export async function generateTilesForCompany(
     console.log(
       `🚀 Iniciando geração automática de tiles para: ${companyName}`
     );
+    console.log(`🔍 Contexto disponível:`, {
+      guestId,
+      companyName,
+      companyUrl,
+    });
 
     // Buscar guest workspace
     const guestWorkspace = await db.findOne("guest_workspaces", {
@@ -56,12 +61,17 @@ export async function generateTilesForCompany(
 
     // Preparar contexto para geração
     const onboarding = guestWorkspace.workspace_data.onboarding;
+    console.log(`🔍 Onboarding data:`, onboarding);
+
     const context = {
-      company: onboarding.salesRepAt,
-      solution: onboarding.sellingSolutionsFor,
-      research: companyName, // Company sendo pesquisada
-      companyUrl: companyUrl, // URL da company sendo pesquisada
+      company: onboarding.salesRepAt || "Unknown Company",
+      companyWebsite: onboarding.salesRepWebsite || "", // ⭐ NOVO: Website da empresa do vendedor
+      solution: onboarding.sellingSolutionsFor || "Unknown Solution",
+      researchTarget: companyName, // ⭐ NOVO: Company sendo pesquisada
+      researchWebsite: companyUrl, // ⭐ NOVO: URL da company sendo pesquisada
     };
+
+    console.log(`🔍 Contexto construído:`, context);
 
     // Processar prompts do template
     const prompts = template.tiles.map((tile) => ({
