@@ -34,7 +34,7 @@ export function DraggableTile({ tile, onClick, isDisabled = false }) {
       {...attributes}
       {...listeners}
       onClick={onClick}
-      className={`hover:shadow-md transition-all duration-200 ${
+      className={`transition-all duration-200 ${
         isDragging
           ? "cursor-grabbing shadow-2xl scale-105"
           : "cursor-grab hover:scale-102"

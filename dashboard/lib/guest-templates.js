@@ -32,185 +32,167 @@ export const GUEST_DASHBOARD_TEMPLATES = {
     // OpenAI vai PREENCHER automaticamente baseado no company context
     tiles: [
       {
-        id: "company_overview",
-        title: "Company Overview",
+        id: "company_description",
+        title: "What They Do",
         prompt:
-          "Provide a comprehensive overview of {target_company} (website: {target_url}). Include: industry, size, revenue, key products/services, and recent developments.",
+          "Succinctly describe what {target_company} does. Provide a clear, concise overview of their business, products, and services.",
         category: "basic",
         order: 1,
         defaultSize: { w: 4, h: 2 },
       },
       {
-        id: "competitors",
-        title: "Top Competitors",
+        id: "revenue_model",
+        title: "Revenue Generation",
         prompt:
-          "Who are the main competitors of {target_company}? List the top 5 competitors with brief descriptions of how they compete in the market.",
-        category: "market",
+          "How does {target_company} generate revenue? Explain their business model, revenue streams, and monetization strategies.",
+        category: "financial",
         order: 2,
         defaultSize: { w: 4, h: 2 },
       },
       {
-        id: "funding",
-        title: "Funding & Financials",
+        id: "international_offices",
+        title: "International Presence",
         prompt:
-          "What is the funding history and financial status of {target_company}? Include recent funding rounds, valuation, and key investors if available.",
-        category: "financial",
+          "Do {target_company} have international offices? List their global locations, international operations, and expansion strategy.",
+        category: "market",
         order: 3,
         defaultSize: { w: 4, h: 2 },
       },
       {
-        id: "expansion_plans",
-        title: "Expansion & Growth",
+        id: "business_goals_2025",
+        title: "2025 Business Goals",
         prompt:
-          "What are {target_company}'s recent expansion plans, new markets, or growth initiatives? Include any new products, partnerships, or geographic expansion.",
-        category: "growth",
+          "What are {target_company}'s business goals or priorities for 2025? Provide 3 goals and provide sources and links to articles or quotes from the company for each goal. Articles need to be dated later than January 2025. Provide each answer in detail.",
+        category: "strategy",
         order: 4,
         defaultSize: { w: 4, h: 2 },
       },
       {
-        id: "challenges",
-        title: "Key Challenges & Pain Points",
+        id: "business_challenges",
+        title: "2025 Business Challenges",
         prompt:
-          "What are the main challenges or pain points facing {target_company}? As someone from {sales_rep_company} selling {user_solution}, what problems could we potentially help solve?",
-        category: "pain_points",
+          "What are the business challenges for {target_company} this calendar year? Identify key obstacles, market pressures, and operational difficulties they are facing.",
+        category: "insights",
         order: 5,
         defaultSize: { w: 4, h: 2 },
       },
       {
-        id: "recent_news",
-        title: "Recent News",
+        id: "solution_need",
+        title: "Solution Need",
         prompt:
-          "What are the most recent and relevant news articles about {target_company}? Summarize the top 3-5 news items from the last 30 days.",
-        category: "insights",
+          "Why may {target_company} be in need of {user_solution}? Analyze their current situation and explain how our solutions could address their specific needs and challenges.",
+        category: "sales",
         order: 6,
+        defaultSize: { w: 4, h: 2 },
+      },
+      {
+        id: "ceo_info",
+        title: "CEO Information",
+        prompt:
+          "Who is the CEO of {target_company}? Provide their name, background, tenure, and any relevant information about their leadership style and priorities.",
+        category: "people",
+        order: 7,
+        defaultSize: { w: 4, h: 2 },
+      },
+      {
+        id: "sales_email",
+        title: "CEO Sales Email",
+        prompt:
+          "Based on what we know about {target_company} from the other prompts, write a sales email to their CEO pitching {user_solution}. Needs to make reference to their business goals. Must include bullet points. Maximum 120 words.",
+        category: "sales",
+        order: 8,
         defaultSize: { w: 4, h: 2 },
       },
     ],
   },
 
-  // Template 2: Deep Research (12 tiles avançados)
+  // Template 2: Dashboard Template 2 (9 tiles específicos)
   template_2: {
     id: "template_2",
-    name: "Deep Research",
-    description: "12 tiles completos para análise profunda",
+    name: "Dashboard Template 2",
+    description: "9 tiles específicos para análise de vendas",
     icon: "🔍",
 
     tiles: [
-      // Basic Info
       {
-        id: "company_profile",
-        title: "Company Profile",
+        id: "company_description_2",
+        title: "What They Do",
         prompt:
-          "Generate a detailed company profile for {target_company} ({target_url}). Include: founding year, headquarters, CEO, employee count, annual revenue, and company mission.",
+          "Succinctly describe what {target_company} does. Provide a clear, concise overview of their business, products, and services.",
         category: "basic",
         order: 1,
         defaultSize: { w: 4, h: 2 },
       },
       {
-        id: "products_services",
-        title: "Products & Services",
+        id: "revenue_model_2",
+        title: "Revenue Generation",
         prompt:
-          "What are the main products and services offered by {target_company}? Describe each and their market positioning.",
-        category: "basic",
+          "How does {target_company} generate revenue? Explain their business model, revenue streams, and monetization strategies.",
+        category: "financial",
         order: 2,
         defaultSize: { w: 4, h: 2 },
       },
-
-      // Market Analysis
       {
-        id: "market_position",
-        title: "Market Position",
+        id: "biggest_goal_2025",
+        title: "Biggest 2025 Goal",
         prompt:
-          "What is {target_company}'s position in their market? Include market share, competitive advantages, and industry ranking.",
-        category: "market",
+          "What is {target_company}'s biggest business goal or priority for 2025 and beyond? Provide 1 goal and provide sources and links to articles or quotes from the company for goal. Articles need to be dated later than January 2025. Provide each answer in detail. Max 75 words.",
+        category: "strategy",
         order: 3,
         defaultSize: { w: 4, h: 2 },
       },
       {
-        id: "competitors_deep",
-        title: "Competitive Landscape",
+        id: "industry_challenges",
+        title: "Industry Challenges",
         prompt:
-          "Analyze the competitive landscape for {target_company}. Who are their top 5 competitors and how do they compare in terms of market share, pricing, and product offerings?",
-        category: "market",
+          "What are the challenges facing {target_company}'s industry during this calendar year? Identify key industry-wide obstacles, market pressures, and sector-specific difficulties.",
+        category: "insights",
         order: 4,
-        defaultSize: { w: 4, h: 3 },
+        defaultSize: { w: 4, h: 2 },
       },
       {
-        id: "market_trends",
-        title: "Market Trends",
+        id: "solution_need_2",
+        title: "Solution Need",
         prompt:
-          "What are the key market trends affecting {target_company}'s industry in {research_focus}? How is the company positioned to take advantage of these trends?",
-        category: "market",
+          "Why may {target_company} be in need of {user_solution}? Analyze their current situation and explain how our solutions could address their specific needs and challenges.",
+        category: "sales",
         order: 5,
         defaultSize: { w: 4, h: 2 },
       },
-
-      // Financial & Growth
       {
-        id: "funding_history",
-        title: "Funding History",
+        id: "top_competitors",
+        title: "Top 10 Competitors",
         prompt:
-          "Detail the complete funding history of {target_company}. Include all rounds, investors, valuations, and dates.",
-        category: "financial",
+          "Who are {target_company}'s 10 closest competitors? List them with brief descriptions of how they compete in the market.",
+        category: "market",
         order: 6,
         defaultSize: { w: 4, h: 2 },
       },
       {
-        id: "growth_metrics",
-        title: "Growth Metrics",
+        id: "holding_company",
+        title: "Holding Company",
         prompt:
-          "What are the key growth metrics for {target_company}? Include revenue growth, customer acquisition, market expansion, and employee growth.",
-        category: "growth",
+          "Do {target_company} have a holding company or investment firm that owns them? Identify their parent company, investors, and ownership structure.",
+        category: "financial",
         order: 7,
         defaultSize: { w: 4, h: 2 },
       },
       {
-        id: "expansion_strategy",
-        title: "Expansion Strategy",
+        id: "ceo_info_2",
+        title: "CEO Information",
         prompt:
-          "What is {target_company}'s expansion strategy? Include new markets, products in development, and strategic partnerships.",
-        category: "growth",
+          "Who is the CEO of {target_company}? Provide their name, background, tenure, and any relevant information about their leadership style and priorities.",
+        category: "people",
         order: 8,
         defaultSize: { w: 4, h: 2 },
       },
-
-      // Challenges & Opportunities
       {
-        id: "pain_points",
-        title: "Pain Points & Challenges",
+        id: "cold_call_scripts",
+        title: "Cold Call Scripts",
         prompt:
-          "What are the main pain points and challenges facing {target_company}? Consider operational, financial, and market challenges. Focus on aspects relevant to {research_focus}.",
-        category: "pain_points",
+          "Based on what we know about {target_company}, provide 2 cold call opening scripts I can use as a salesperson pitching {user_solution} to their CEO. The script needs to make reference to their business goals or business challenges.",
+        category: "sales",
         order: 9,
-        defaultSize: { w: 4, h: 2 },
-      },
-      {
-        id: "sales_opportunities",
-        title: "Sales Opportunities",
-        prompt:
-          "I'm from {sales_rep_company} and we sell {user_solution}. Based on {target_company}'s challenges, what are the key sales opportunities? How can our solution help them?",
-        category: "opportunities",
-        order: 10,
-        defaultSize: { w: 4, h: 3 },
-      },
-
-      // Recent Activity
-      {
-        id: "recent_news",
-        title: "Recent News & Events",
-        prompt:
-          "What are the most recent news, events, and announcements from {target_company}? Focus on the last 60 days and highlight anything relevant to {research_focus}.",
-        category: "insights",
-        order: 11,
-        defaultSize: { w: 4, h: 2 },
-      },
-      {
-        id: "decision_makers",
-        title: "Key Decision Makers",
-        prompt:
-          "Who are the key decision makers at {target_company}? List executives and their roles, focusing on those who would be interested in {user_solution}.",
-        category: "contacts",
-        order: 12,
         defaultSize: { w: 4, h: 2 },
       },
     ],

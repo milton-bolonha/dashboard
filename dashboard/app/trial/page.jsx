@@ -150,6 +150,9 @@ export default function TrialDashboard() {
 
       console.log("✅ Custom tile generated successfully");
 
+      // Fechar modal imediatamente quando tile começar a ser gerado
+      setIsAddPromptOpen(false);
+
       // Recarregar workspace para mostrar o novo tile
       await loadGuestWorkspace();
     } catch (error) {
@@ -274,12 +277,25 @@ export default function TrialDashboard() {
           );
           console.log(`🔍 Polling ativo: ${generatingTiles}`);
 
-          // Se tiles foram adicionados, parar polling
+          // Se tiles foram adicionados, atualizar UI imediatamente
           if (currentTilesCount > previousTilesCount) {
-            console.log("✅ Novos tiles detectados, parando polling");
-            setGeneratingTiles(false);
-            setShowLoadingModal(false);
-            setIsGeneratingCustomTile(false); // Parar loading do tile customizado
+            console.log("✅ Novos tiles detectados, atualizando UI");
+
+            // Atualizar selectedCompany com novos tiles
+            setSelectedCompany(currentCompany);
+
+            // Se todos os tiles foram gerados, parar polling
+            if (currentCompany.tiles_status === "completed") {
+              console.log("✅ Todos os tiles gerados, parando polling");
+              setGeneratingTiles(false);
+              setShowLoadingModal(false);
+            }
+
+            // Parar loading do tile customizado quando novos tiles aparecem
+            if (isGeneratingCustomTile) {
+              console.log("✅ Tile customizado gerado, removendo loading");
+              setIsGeneratingCustomTile(false);
+            }
           }
         } else {
           console.log("❌ Company não encontrada no workspace atual");
@@ -305,16 +321,35 @@ export default function TrialDashboard() {
         }
       }
 
-      // Lógica original para primeira company (onboarding)
-      const firstCompany = data.workspace?.companies?.[0];
-      const status = firstCompany?.tiles_status;
+      // Lógica para geração automática de tiles
+      const currentCompany = selectedCompany
+        ? data.workspace?.companies?.find(
+            (c) => c.name === selectedCompany.name
+          )
+        : data.workspace?.companies?.[0];
+
+      const status = currentCompany?.tiles_status;
 
       if (status === "pending" && !generatingTiles) {
+        console.log(
+          "🚀 Iniciando geração automática de tiles para:",
+          currentCompany?.name
+        );
         setShowLoadingModal(true); // Mostrar modal primeiro
         setGeneratingTiles(true);
+
+        // Disparar geração automática
+        generateTiles();
       } else if (status === "generating") {
+        console.log("🔄 Tiles sendo gerados para:", currentCompany?.name);
         setGeneratingTiles(true);
+
+        // Se há tiles sendo gerados, ativar polling para detectar tiles individuais
+        if (!generatingTiles) {
+          setGeneratingTiles(true);
+        }
       } else if (status === "completed" || status === "failed") {
+        console.log("✅ Geração de tiles finalizada:", status);
         setGeneratingTiles(false);
         setShowLoadingModal(false);
       }
@@ -372,6 +407,18 @@ export default function TrialDashboard() {
       setPollingInterval(null);
     }
   }, [generatingTiles]);
+
+  // Efeito adicional para garantir que polling continue enquanto há tiles sendo gerados
+  useEffect(() => {
+    if (
+      selectedCompany &&
+      selectedCompany.tiles_status === "generating" &&
+      !generatingTiles
+    ) {
+      console.log("🔄 Reativando polling para tiles em geração...");
+      setGeneratingTiles(true);
+    }
+  }, [selectedCompany, generatingTiles]);
 
   // --- Render States ---
 
