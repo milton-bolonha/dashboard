@@ -27,6 +27,18 @@ export default function HeroSection({
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
 
+  // ⭐ DEBUG: Reset guest session
+  const handleResetGuest = async () => {
+    if (!confirm("Reset guest session?")) return;
+    try {
+      await fetch("/api/guest/reset", { method: "DELETE" });
+      alert("Guest session resetada! Recarregue a página.");
+      window.location.reload();
+    } catch (err) {
+      alert("Erro: " + err.message);
+    }
+  };
+
   // ⭐ NOVO: Estados de progresso dos inputs (4 inputs agora)
   const [inputStates, setInputStates] = useState({
     company: { focused: false, hasContent: false, isValid: false },
@@ -137,8 +149,8 @@ export default function HeroSection({
     if (e.key === "Enter") {
       e.preventDefault();
 
-      // Mapear próximo campo
-      const fieldOrder = ["company", "companyUrl", "solution", "research"];
+      // Mapear próximo campo (ORDEM CORRETA: company → solution → url → research)
+      const fieldOrder = ["company", "solution", "companyUrl", "research"];
       const currentIndex = fieldOrder.indexOf(field);
       const nextField = fieldOrder[currentIndex + 1];
 
@@ -207,20 +219,55 @@ export default function HeroSection({
           );
           window.location.href = "/dashboard?onboarding=true";
         } else {
-          // Usuário NÃO logado - salvar contexto e redirecionar para sign up
-          console.log("💾 Salvando contexto de onboarding...");
-          // ⭐ NOVO: Normalizar URL antes de salvar
-          const contextToSave = {
-            ...userContext,
-            companyUrl: normalizeUrl(userContext.companyUrl),
-          };
-          localStorage.setItem(
-            "onboarding_context",
-            JSON.stringify(contextToSave)
-          );
+          // ⭐ Usuário NÃO logado: GUEST MODE (criar guest workspace)
+          console.log("🎉 Não logado! Criando guest workspace...");
 
-          console.log("🔄 Redirecionando para sign up...");
-          window.location.href = "/sign-up?redirect=/dashboard&onboarding=true";
+          try {
+            // Salvar contexto no localStorage (caso guest queira fazer signup depois)
+            const contextToSave = {
+              ...userContext,
+              companyUrl: normalizeUrl(userContext.companyUrl),
+            };
+            localStorage.setItem(
+              "onboarding_context",
+              JSON.stringify(contextToSave)
+            );
+
+            // Criar guest workspace via API
+            const response = await fetch("/api/guest/workspace", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                template_id: "template_1",
+                context: contextToSave,
+              }),
+            });
+
+            if (!response.ok) {
+              const errorData = await response.json();
+
+              // Se já existe guest session, redirecionar direto!
+              if (errorData.redirect) {
+                console.log("✅ Guest session já existe, redirecionando...");
+                window.location.href = "/trial";
+                return;
+              }
+
+              throw new Error(
+                errorData.error || "Failed to create trial workspace"
+              );
+            }
+
+            const data = await response.json();
+            console.log("✅ Guest workspace criado!", data);
+
+            // Redirecionar para trial dashboard
+            window.location.href = "/trial";
+          } catch (err) {
+            console.error("❌ Erro ao criar guest workspace:", err);
+            setError(err.message);
+            setCreating(false);
+          }
         }
       }
     } else {
@@ -231,11 +278,11 @@ export default function HeroSection({
 
   // ⭐ NOVO: Verifica se pode habilitar próximo input (4 inputs agora)
   const canEnableInput = (inputName) => {
-    if (inputName === "company") return true; // Primeiro sempre habilitado
-    if (inputName === "companyUrl") return inputStates.company.isValid; // ⭐ NOVO
-    if (inputName === "solution") return inputStates.companyUrl.isValid; // ⭐ MUDOU
+    if (inputName === "company") return true; // 1º sempre habilitado
+    if (inputName === "solution") return inputStates.company.isValid; // 2º após company
+    if (inputName === "companyUrl") return inputStates.solution.isValid; // 3º após solution
     if (inputName === "research")
-      return inputStates.companyUrl.isValid && inputStates.solution.isValid; // ⭐ MUDOU
+      return inputStates.companyUrl.isValid && inputStates.solution.isValid; // 4º após url
     return false;
   };
 
@@ -398,8 +445,8 @@ export default function HeroSection({
   const getPlaceholderText = (inputName) => {
     const placeholders = {
       company: "I am a sales rep at",
-      companyUrl: "Enter your company's website (e.g., tesla.com)",
       solution: "I am selling solutions for",
+      companyUrl: "Company to research (website, e.g., tesla.com)",
       research: "I want to conduct research on",
     };
     return placeholders[inputName] || "";
@@ -502,63 +549,7 @@ export default function HeroSection({
             )}
           </div>
 
-          {/* Input 2: Company URL (habilita após company válido) ⭐ NOVO */}
-          <div className="max-w-2xl mx-auto relative">
-            {/* Modo transparent: Mostra texto + lápis inline quando válido e sem foco */}
-            {styleMode === "transparent" &&
-            inputStates.companyUrl.isValid &&
-            !inputStates.companyUrl.focused &&
-            !creating ? (
-              <div
-                className="w-full px-6 pt-4 pb-8 text-lg text-black flex items-center gap-2 cursor-pointer border border-transparent rounded-xl"
-                onClick={() => {
-                  handleInputFocus("companyUrl");
-                  document.querySelector('input[name="companyUrl"]')?.focus();
-                }}
-              >
-                <span>{userContext.companyUrl}</span>
-                <Image
-                  src="/images/logo-mark.svg"
-                  alt="Edit"
-                  width={13}
-                  height={13}
-                  className="opacity-60 hover:opacity-100 transition-opacity"
-                />
-              </div>
-            ) : (
-              <div className="relative">
-                <input
-                  type="url"
-                  name="companyUrl"
-                  placeholder={
-                    styleMode === "default"
-                      ? getPlaceholderText("companyUrl")
-                      : ""
-                  }
-                  value={userContext.companyUrl}
-                  onChange={(e) =>
-                    handleInputChange("companyUrl", e.target.value)
-                  }
-                  onFocus={() => handleInputFocus("companyUrl")}
-                  onBlur={() => handleInputBlur("companyUrl")}
-                  onKeyDown={(e) => handleKeyDown("companyUrl", e)}
-                  disabled={!canEnableInput("companyUrl") || creating}
-                  className={getInputClasses("companyUrl")}
-                />
-                {/* Placeholder persistente DENTRO do input (bottom) - sempre visível no transparent */}
-                {styleMode === "transparent" && (
-                  <div className="absolute bottom-2 left-6 text-xs text-gray-400 pointer-events-none z-10">
-                    {getPlaceholderText("companyUrl")}
-                  </div>
-                )}
-                <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-                  {renderInputIcon("companyUrl", false)}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Input 3: Solution (habilita após company URL válido) */}
+          {/* Input 2: Solution (habilita após company válido) */}
           <div className="max-w-2xl mx-auto relative">
             {/* Modo transparent: Mostra texto + lápis inline quando válido e sem foco */}
             {styleMode === "transparent" &&
@@ -609,6 +600,62 @@ export default function HeroSection({
                 )}
                 <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
                   {renderInputIcon("solution", false)}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Input 3: Company URL (habilita após solution válido) ⭐ EMPRESA PESQUISADA */}
+          <div className="max-w-2xl mx-auto relative">
+            {/* Modo transparent: Mostra texto + lápis inline quando válido e sem foco */}
+            {styleMode === "transparent" &&
+            inputStates.companyUrl.isValid &&
+            !inputStates.companyUrl.focused &&
+            !creating ? (
+              <div
+                className="w-full px-6 pt-4 pb-8 text-lg text-black flex items-center gap-2 cursor-pointer border border-transparent rounded-xl"
+                onClick={() => {
+                  handleInputFocus("companyUrl");
+                  document.querySelector('input[name="companyUrl"]')?.focus();
+                }}
+              >
+                <span>{userContext.companyUrl}</span>
+                <Image
+                  src="/images/logo-mark.svg"
+                  alt="Edit"
+                  width={13}
+                  height={13}
+                  className="opacity-60 hover:opacity-100 transition-opacity"
+                />
+              </div>
+            ) : (
+              <div className="relative">
+                <input
+                  type="url"
+                  name="companyUrl"
+                  placeholder={
+                    styleMode === "default"
+                      ? getPlaceholderText("companyUrl")
+                      : ""
+                  }
+                  value={userContext.companyUrl}
+                  onChange={(e) =>
+                    handleInputChange("companyUrl", e.target.value)
+                  }
+                  onFocus={() => handleInputFocus("companyUrl")}
+                  onBlur={() => handleInputBlur("companyUrl")}
+                  onKeyDown={(e) => handleKeyDown("companyUrl", e)}
+                  disabled={!canEnableInput("companyUrl") || creating}
+                  className={getInputClasses("companyUrl")}
+                />
+                {/* Placeholder persistente DENTRO do input (bottom) - sempre visível no transparent */}
+                {styleMode === "transparent" && (
+                  <div className="absolute bottom-2 left-6 text-xs text-gray-400 pointer-events-none z-10">
+                    {getPlaceholderText("companyUrl")}
+                  </div>
+                )}
+                <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+                  {renderInputIcon("companyUrl", false)}
                 </div>
               </div>
             )}
@@ -725,6 +772,14 @@ export default function HeroSection({
                 <ArrowRight className="w-5 h-5" />
               </>
             )}
+          </button>
+
+          {/* ⭐ DEBUG: Reset Button (remover depois!) */}
+          <button
+            onClick={handleResetGuest}
+            className="mt-4 text-xs text-red-600 hover:text-red-700 underline"
+          >
+            🗑️ Reset Guest Session (DEBUG)
           </button>
         </div>
       </div>

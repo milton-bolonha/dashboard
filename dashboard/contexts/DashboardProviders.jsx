@@ -16,7 +16,15 @@ function OnboardingAutoCreate({ children }) {
     if (loading || autoCreating) return;
     if (typeof window === "undefined") return;
 
-    // Detectar onboarding flag
+    // ⭐ NOVO: Verificar guest conversion PRIMEIRO (prioridade)
+    const guestId = getCookie("guest_id");
+    if (guestId) {
+      console.log("🔍 Guest session detectada, iniciando conversão...");
+      convertGuestWorkspace(guestId);
+      return; // Parar aqui - não processar onboarding normal
+    }
+
+    // Detectar onboarding flag (fluxo normal - sem guest)
     const params = new URLSearchParams(window.location.search);
     const isOnboarding = params.get("onboarding") === "true";
     const saved = localStorage.getItem("onboarding_context");
@@ -63,6 +71,51 @@ function OnboardingAutoCreate({ children }) {
       })();
     }
   }, [loading, workspaces, autoCreating, createWorkspace, router]);
+
+  // ⭐ NOVO: Função para ler cookie no client
+  function getCookie(name) {
+    if (typeof document === "undefined") return null;
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(";").shift();
+    return null;
+  }
+
+  // ⭐ NOVO: Converter guest workspace para usuário real
+  async function convertGuestWorkspace(guestId) {
+    setAutoCreating(true);
+
+    try {
+      console.log("🔄 Convertendo guest workspace para usuário...");
+
+      const response = await fetch("/api/guest/convert", { method: "POST" });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to convert guest");
+      }
+
+      const result = await response.json();
+
+      console.log("✅ Guest convertido com sucesso!", result.workspace);
+
+      // Limpar cookie guest
+      document.cookie = "guest_id=; Max-Age=0; Path=/";
+
+      // Limpar localStorage se existir
+      localStorage.removeItem("onboarding_context");
+
+      // Aguardar um pouco para o workspace ser criado
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Recarregar página para WorkspaceContext buscar o novo workspace
+      window.location.reload();
+    } catch (err) {
+      console.error("❌ Erro ao converter guest:", err);
+      setError(err.message);
+      setAutoCreating(false);
+    }
+  }
 
   if (autoCreating) {
     return (

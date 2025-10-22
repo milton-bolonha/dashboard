@@ -11,6 +11,13 @@
  * - Frente: Pergunta + Resposta da OpenAI
  * - Verso: Chatbox para follow-up
  * - Drag & drop, resize
+ *
+ * ✅ CONTEXTO CORRETO (do onboarding):
+ * - {sales_rep_company} = Empresa do vendedor (ex: "Acme Corp")
+ * - {user_solution} = O que vende (ex: "AI Sales Tools")
+ * - {target_company} = Empresa a pesquisar (ex: Tesla, SpaceX, etc) ← VARIÁVEL!
+ * - {target_url} = URL da empresa pesquisada (ex: tesla.com)
+ * - {research_focus} = Foco (ex: "Automotive Industry")
  */
 
 export const GUEST_DASHBOARD_TEMPLATES = {
@@ -28,16 +35,16 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "company_overview",
         title: "Company Overview",
         prompt:
-          "Provide a comprehensive overview of {company_name}. Include: industry, size, revenue, key products/services, and recent developments.",
+          "Provide a comprehensive overview of {target_company} (website: {target_url}). Include: industry, size, revenue, key products/services, and recent developments.",
         category: "basic",
         order: 1,
-        defaultSize: { w: 4, h: 2 }, // Grid units
+        defaultSize: { w: 4, h: 2 },
       },
       {
         id: "competitors",
         title: "Top Competitors",
         prompt:
-          "Who are the main competitors of {company_name}? List the top 5 competitors with brief descriptions of how they compete.",
+          "Who are the main competitors of {target_company}? List the top 5 competitors with brief descriptions of how they compete in the market.",
         category: "market",
         order: 2,
         defaultSize: { w: 4, h: 2 },
@@ -46,7 +53,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "funding",
         title: "Funding & Financials",
         prompt:
-          "What is the funding history and financial status of {company_name}? Include recent rounds, valuation, and key investors if available.",
+          "What is the funding history and financial status of {target_company}? Include recent funding rounds, valuation, and key investors if available.",
         category: "financial",
         order: 3,
         defaultSize: { w: 4, h: 2 },
@@ -55,16 +62,16 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "expansion_plans",
         title: "Expansion & Growth",
         prompt:
-          "What are {company_name}'s recent expansion plans, new markets, or growth initiatives? Include any new products or geographic expansion.",
+          "What are {target_company}'s recent expansion plans, new markets, or growth initiatives? Include any new products, partnerships, or geographic expansion.",
         category: "growth",
         order: 4,
         defaultSize: { w: 4, h: 2 },
       },
       {
         id: "challenges",
-        title: "Key Challenges",
+        title: "Key Challenges & Pain Points",
         prompt:
-          "What are the main challenges or pain points facing {company_name}? Consider market conditions, competition, and operational challenges.",
+          "What are the main challenges or pain points facing {target_company}? As someone from {sales_rep_company} selling {user_solution}, what problems could we potentially help solve?",
         category: "pain_points",
         order: 5,
         defaultSize: { w: 4, h: 2 },
@@ -73,7 +80,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "recent_news",
         title: "Recent News",
         prompt:
-          "What are the most recent and relevant news articles about {company_name}? Summarize the top 3-5 news items from the last 30 days.",
+          "What are the most recent and relevant news articles about {target_company}? Summarize the top 3-5 news items from the last 30 days.",
         category: "insights",
         order: 6,
         defaultSize: { w: 4, h: 2 },
@@ -94,7 +101,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "company_profile",
         title: "Company Profile",
         prompt:
-          "Generate a detailed company profile for {company_name}. Include: founding year, headquarters, CEO, employee count, annual revenue, and company mission.",
+          "Generate a detailed company profile for {target_company} ({target_url}). Include: founding year, headquarters, CEO, employee count, annual revenue, and company mission.",
         category: "basic",
         order: 1,
         defaultSize: { w: 4, h: 2 },
@@ -103,7 +110,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "products_services",
         title: "Products & Services",
         prompt:
-          "What are the main products and services offered by {company_name}? Describe each and their market positioning.",
+          "What are the main products and services offered by {target_company}? Describe each and their market positioning.",
         category: "basic",
         order: 2,
         defaultSize: { w: 4, h: 2 },
@@ -114,7 +121,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "market_position",
         title: "Market Position",
         prompt:
-          "What is {company_name}'s position in their market? Include market share, competitive advantages, and industry ranking.",
+          "What is {target_company}'s position in their market? Include market share, competitive advantages, and industry ranking.",
         category: "market",
         order: 3,
         defaultSize: { w: 4, h: 2 },
@@ -123,7 +130,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "competitors_deep",
         title: "Competitive Landscape",
         prompt:
-          "Analyze the competitive landscape for {company_name}. Who are their top 5 competitors and how do they compare in terms of market share, pricing, and product offerings?",
+          "Analyze the competitive landscape for {target_company}. Who are their top 5 competitors and how do they compare in terms of market share, pricing, and product offerings?",
         category: "market",
         order: 4,
         defaultSize: { w: 4, h: 3 },
@@ -132,7 +139,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "market_trends",
         title: "Market Trends",
         prompt:
-          "What are the key market trends affecting {company_name}'s industry? How is the company positioned to take advantage of these trends?",
+          "What are the key market trends affecting {target_company}'s industry in {research_focus}? How is the company positioned to take advantage of these trends?",
         category: "market",
         order: 5,
         defaultSize: { w: 4, h: 2 },
@@ -143,7 +150,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "funding_history",
         title: "Funding History",
         prompt:
-          "Detail the complete funding history of {company_name}. Include all rounds, investors, valuations, and dates.",
+          "Detail the complete funding history of {target_company}. Include all rounds, investors, valuations, and dates.",
         category: "financial",
         order: 6,
         defaultSize: { w: 4, h: 2 },
@@ -152,7 +159,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "growth_metrics",
         title: "Growth Metrics",
         prompt:
-          "What are the key growth metrics for {company_name}? Include revenue growth, customer acquisition, market expansion, and employee growth.",
+          "What are the key growth metrics for {target_company}? Include revenue growth, customer acquisition, market expansion, and employee growth.",
         category: "growth",
         order: 7,
         defaultSize: { w: 4, h: 2 },
@@ -161,7 +168,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "expansion_strategy",
         title: "Expansion Strategy",
         prompt:
-          "What is {company_name}'s expansion strategy? Include new markets, products in development, and strategic partnerships.",
+          "What is {target_company}'s expansion strategy? Include new markets, products in development, and strategic partnerships.",
         category: "growth",
         order: 8,
         defaultSize: { w: 4, h: 2 },
@@ -172,7 +179,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "pain_points",
         title: "Pain Points & Challenges",
         prompt:
-          "What are the main pain points and challenges facing {company_name}? Consider operational, financial, and market challenges.",
+          "What are the main pain points and challenges facing {target_company}? Consider operational, financial, and market challenges. Focus on aspects relevant to {research_focus}.",
         category: "pain_points",
         order: 9,
         defaultSize: { w: 4, h: 2 },
@@ -181,7 +188,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "sales_opportunities",
         title: "Sales Opportunities",
         prompt:
-          "Based on {company_name}'s challenges and our solution ({user_solution}), what are the key sales opportunities? How can we help them?",
+          "I'm from {sales_rep_company} and we sell {user_solution}. Based on {target_company}'s challenges, what are the key sales opportunities? How can our solution help them?",
         category: "opportunities",
         order: 10,
         defaultSize: { w: 4, h: 3 },
@@ -192,7 +199,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "recent_news",
         title: "Recent News & Events",
         prompt:
-          "What are the most recent news, events, and announcements from {company_name}? Focus on the last 60 days.",
+          "What are the most recent news, events, and announcements from {target_company}? Focus on the last 60 days and highlight anything relevant to {research_focus}.",
         category: "insights",
         order: 11,
         defaultSize: { w: 4, h: 2 },
@@ -201,7 +208,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "decision_makers",
         title: "Key Decision Makers",
         prompt:
-          "Who are the key decision makers at {company_name}? List executives and their roles, focusing on those relevant to {user_solution}.",
+          "Who are the key decision makers at {target_company}? List executives and their roles, focusing on those who would be interested in {user_solution}.",
         category: "contacts",
         order: 12,
         defaultSize: { w: 4, h: 2 },
@@ -235,13 +242,25 @@ export function listGuestTemplates() {
 
 /**
  * Processa template variables em prompts
- * {company_name} → "Tesla"
- * {user_solution} → "AI Sales Tools"
+ * ✅ CORRIGIDO: Variáveis do contexto do onboarding
+ *
+ * Onboarding captura:
+ * - company: Empresa do vendedor (ex: "Acme Corp")
+ * - solution: O que vende (ex: "AI Sales Tools")
+ * - research: Empresa a pesquisar + foco (ex: "Tesla in Automotive")
+ * - companyUrl: URL da empresa A PESQUISAR (ex: "tesla.com")
  */
 export function processPromptVariables(prompt, context) {
+  // Parse research (pode ser "Tesla" ou "Tesla in Automotive")
+  const targetCompany = context.research.split(" in ")[0].trim();
+  const researchFocus = context.research.includes(" in ")
+    ? context.research.split(" in ")[1].trim()
+    : context.research;
+
   return prompt
-    .replace(/{company_name}/g, context.company)
-    .replace(/{company_url}/g, context.companyUrl)
-    .replace(/{user_solution}/g, context.solution)
-    .replace(/{research_target}/g, context.research);
+    .replace(/{sales_rep_company}/g, context.company) // Empresa do vendedor
+    .replace(/{user_solution}/g, context.solution) // O que vende
+    .replace(/{target_company}/g, targetCompany) // Empresa a pesquisar
+    .replace(/{target_url}/g, context.companyUrl) // URL da empresa pesquisada
+    .replace(/{research_focus}/g, researchFocus); // Foco da pesquisa
 }

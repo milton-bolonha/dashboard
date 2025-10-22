@@ -59,7 +59,7 @@ export const db = {
 
   async insertMany(collection, docs) {
     const coll = await getCollection(collection);
-    const docsWithTimestamps = docs.map(doc => ({
+    const docsWithTimestamps = docs.map((doc) => ({
       ...doc,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -70,12 +70,14 @@ export const db = {
 
   async updateOne(collection, filter, update) {
     const coll = await getCollection(collection);
-    const result = await coll.updateOne(filter, {
-      $set: {
-        ...update,
-        updatedAt: new Date(),
-      },
-    });
+    // CORREÇÃO: O `update` já deve conter o operador $set.
+    // Esta função não deve adicionar um $set próprio.
+    // O chamador é responsável por formatar o update corretamente.
+    // Apenas adicionamos o updatedAt para consistência, se for um update com $set.
+    if (update.$set && !update.$set.updatedAt) {
+      update.$set.updatedAt = new Date();
+    }
+    const result = await coll.updateOne(filter, update);
     return result;
   },
 

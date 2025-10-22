@@ -3,9 +3,13 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 // Define as rotas que não exigem autenticação
 const isPublicRoute = createRouteMatcher([
   "/",
+  "/trial(.*)", // ⭐ NOVO
+  "/sign-in(.*)",
+  "/sign-up(.*)",
   "/api/webhooks(.*)",
   "/api/public(.*)",
   "/api/deploy/webhook",
+  "/api/guest(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
@@ -17,26 +21,9 @@ export default clerkMiddleware(async (auth, req) => {
 
 export const config = {
   matcher: [
-    // Roda o middleware em todas as rotas, exceto a raiz, arquivos estáticos E rotas públicas
-    "/((?!^/$|.+\\.[\\w]+$|_next|api/public|api/deploy/webhook).*)",
-    // Proteger todas as APIs privadas (lista explícita em vez de negative lookahead)
-    "/api/access(.*)",
-    "/api/admin(.*)",
-    "/api/auth(.*)",
-    "/api/billing(.*)",
-    "/api/content-types(.*)",
-    "/api/dashboard(.*)",
-    "/api/debug(.*)",
-    "/api/deploy(.*)",
-    "/api/importer(.*)",
-    "/api/migrate(.*)",
-    "/api/plans(.*)",
-    "/api/sections(.*)",
-    "/api/sync(.*)",
-    "/api/test-items(.*)",
-    "/api/upload(.*)",
-    "/api/users(.*)",
-    "/api/workspaces(.*)",
-    "/(trpc)(.*)",
+    // Roda o middleware em todas as rotas, exceto arquivos estáticos e _next
+    "/((?!.+\\.[\\w]+$|_next).*)",
+    // Sempre roda nas rotas de API
+    "/api/(.*)",
   ],
 };
