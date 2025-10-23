@@ -5,7 +5,7 @@ import Link from "next/link";
 import Button from "@/components/ui/Button";
 import { PencilIcon, TrashIcon } from "@heroicons/react/24/solid";
 import { useTableColumns } from "@/hooks/useTableColumns";
-import { buildUrl } from "@/lib/cloudinary";
+import { buildUrl } from "@/lib/cloudinary-urls";
 
 export function ModernItemsTable({
   items = [],

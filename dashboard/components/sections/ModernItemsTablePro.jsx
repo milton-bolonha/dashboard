@@ -5,7 +5,7 @@ import get from "lodash.get";
 import Button from "@/components/ui/Button";
 import Link from "next/link";
 import { useTableColumns } from "@/hooks/useTableColumns";
-import { buildUrl } from "@/lib/cloudinary";
+import { buildUrl } from "@/lib/cloudinary-urls";
 
 export function ModernItemsTablePro({
   items = [],
