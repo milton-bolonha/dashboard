@@ -15,11 +15,13 @@ import { generateTileWithOpenAI } from "./ai-tile-generator";
  * @param {string} guestId - ID da sessão guest
  * @param {string} companyName - Nome da company
  * @param {string} companyUrl - URL da company
+ * @param {object} template - Template a ser aplicado (opcional)
  */
 export async function generateTilesForCompany(
   guestId,
   companyName,
-  companyUrl
+  companyUrl,
+  template = null
 ) {
   try {
     console.log(
@@ -54,10 +56,13 @@ export async function generateTilesForCompany(
       }
     );
 
-    // Buscar template
-    const template = getGuestTemplate(
-      guestWorkspace.workspace_data.template_id
-    );
+    // Usar template fornecido ou buscar do workspace
+    let templateToUse = template;
+    if (!templateToUse) {
+      templateToUse = getGuestTemplate(
+        guestWorkspace.workspace_data.template_id
+      );
+    }
 
     // Preparar contexto para geração
     const onboarding = guestWorkspace.workspace_data.onboarding;
@@ -74,7 +79,7 @@ export async function generateTilesForCompany(
     console.log(`🔍 Contexto construído:`, context);
 
     // Processar prompts do template
-    const prompts = template.tiles.map((tile) => ({
+    const prompts = templateToUse.tiles.map((tile) => ({
       id: tile.id,
       title: tile.title,
       prompt: processPromptVariables(tile.prompt, context),

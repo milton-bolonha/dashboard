@@ -1,124 +1,266 @@
 /**
- * Helpers para Cloudinary
+ * Cloudinary Integration
+ * Sistema de upload e gestão de arquivos
  */
 
-const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+import { v2 as cloudinary } from "cloudinary";
+
+// Configurar Cloudinary
+cloudinary.config({
+  cloud_name:
+    process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ||
+    process.env.CLOUDINARY_CLOUD_NAME ||
+    "demo",
+  api_key: process.env.CLOUDINARY_API_KEY || "demo",
+  api_secret: process.env.CLOUDINARY_API_SECRET || "demo",
+});
 
 /**
- * Constrói URL de imagem do Cloudinary com transformações
- * @param {string} publicId - ID público da imagem
- * @param {object} options - Opções de transformação
- * @returns {string|null} URL da imagem ou null se inválido
+ * Upload de arquivo para Cloudinary
+ * @param {Buffer} fileBuffer - Buffer do arquivo
+ * @param {string} fileName - Nome do arquivo
+ * @param {string} folder - Pasta de destino
+ * @param {object} options - Opções adicionais
  */
-export function buildUrl(publicId, options = {}) {
-  if (!publicId || !CLOUD_NAME) return null;
+export async function uploadFile(fileBuffer, fileName, folder, options = {}) {
+  try {
+    console.log(`📤 Uploading file: ${fileName} to folder: ${folder}`);
 
-  const {
-    width,
-    height,
-    crop = "fill",
-    quality = "auto",
-    format = "auto",
-    gravity = "auto",
-    ...otherOptions
-  } = options;
+    // Verificar se Cloudinary está configurado
+    const cloudName =
+      process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ||
+      process.env.CLOUDINARY_CLOUD_NAME;
+    if (!cloudName || cloudName === "demo") {
+      console.log("⚠️ Cloudinary not configured, returning mock success");
+      return {
+        success: true,
+        file: {
+          id: `mock_${Date.now()}`,
+          url: `https://via.placeholder.com/300x200?text=${fileName}`,
+          publicId: `mock_${Date.now()}`,
+          format: fileName.split(".").pop(),
+          size: fileBuffer.length,
+          width: 300,
+          height: 200,
+          folder: folder,
+          createdAt: new Date(),
+        },
+      };
+    }
 
-  let transformations = [];
+    const result = await cloudinary.uploader.upload(
+      `data:application/octet-stream;base64,${fileBuffer.toString("base64")}`,
+      {
+        public_id: `${folder}/${fileName}`,
+        resource_type: "auto",
+        folder: folder,
+        ...options,
+      }
+    );
 
-  // Transformations básicas
-  if (width || height) {
-    let sizeTransform = [];
-    if (crop) sizeTransform.push(`c_${crop}`);
-    if (width) sizeTransform.push(`w_${width}`);
-    if (height) sizeTransform.push(`h_${height}`);
-    if (gravity && crop === "fill") sizeTransform.push(`g_${gravity}`);
-    transformations.push(sizeTransform.join(","));
+    console.log(`✅ File uploaded successfully: ${result.public_id}`);
+    return {
+      success: true,
+      file: {
+        id: result.public_id,
+        url: result.secure_url,
+        publicId: result.public_id,
+        format: result.format,
+        size: result.bytes,
+        width: result.width,
+        height: result.height,
+        folder: result.folder,
+        createdAt: new Date(),
+      },
+    };
+  } catch (error) {
+    console.error("❌ Erro ao fazer upload:", error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+}
+
+/**
+ * Deletar arquivo do Cloudinary
+ * @param {string} publicId - ID público do arquivo
+ */
+export async function deleteFile(publicId) {
+  try {
+    console.log(`🗑️ Deleting file: ${publicId}`);
+
+    const result = await cloudinary.uploader.destroy(publicId);
+
+    if (result.result === "ok") {
+      console.log(`✅ File deleted successfully: ${publicId}`);
+      return { success: true };
+    } else {
+      console.log(`⚠️ File not found: ${publicId}`);
+      return { success: false, error: "File not found" };
+    }
+  } catch (error) {
+    console.error("❌ Erro ao deletar arquivo:", error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+}
+
+/**
+ * Listar arquivos de uma pasta
+ * @param {string} folder - Pasta para listar
+ */
+export async function listFiles(folder) {
+  try {
+    console.log(`📁 Listing files in folder: ${folder}`);
+
+    // Verificar se Cloudinary está configurado
+    const cloudName =
+      process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ||
+      process.env.CLOUDINARY_CLOUD_NAME;
+    if (!cloudName || cloudName === "demo") {
+      console.log("⚠️ Cloudinary not configured, returning empty list");
+      return {
+        success: true,
+        files: [],
+      };
+    }
+
+    const result = await cloudinary.search
+      .expression(`folder:${folder}`)
+      .max_results(100)
+      .execute();
+
+    console.log(`✅ Found ${result.resources.length} files in ${folder}`);
+    return {
+      success: true,
+      files: result.resources.map((resource) => ({
+        id: resource.public_id,
+        url: resource.secure_url,
+        publicId: resource.public_id,
+        format: resource.format,
+        size: resource.bytes,
+        width: resource.width,
+        height: resource.height,
+        folder: resource.folder,
+        createdAt: new Date(resource.created_at),
+      })),
+    };
+  } catch (error) {
+    console.error("❌ Erro ao listar arquivos:", error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+}
+
+/**
+ * Gerar URL de upload assinada
+ * @param {string} folder - Pasta de destino
+ * @param {string} fileName - Nome do arquivo
+ */
+export function generateUploadUrl(folder, fileName) {
+  try {
+    const timestamp = Math.round(new Date().getTime() / 1000);
+    const publicId = `${folder}/${fileName}`;
+
+    const signature = cloudinary.utils.api_sign_request(
+      {
+        public_id: publicId,
+        timestamp: timestamp,
+      },
+      process.env.CLOUDINARY_API_SECRET
+    );
+
+    const cloudName =
+      process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ||
+      process.env.CLOUDINARY_CLOUD_NAME;
+    return {
+      success: true,
+      uploadUrl: `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,
+      params: {
+        public_id: publicId,
+        timestamp: timestamp,
+        signature: signature,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        folder: folder,
+      },
+    };
+  } catch (error) {
+    console.error("❌ Erro ao gerar URL de upload:", error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+}
+
+/**
+ * Validar tipo de arquivo
+ * @param {string} fileName - Nome do arquivo
+ * @param {string} mimeType - Tipo MIME
+ */
+export function validateFileType(fileName, mimeType) {
+  const allowedTypes = {
+    // Documentos
+    "application/pdf": [".pdf"],
+    "application/msword": [".doc"],
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [
+      ".docx",
+    ],
+    "application/vnd.ms-excel": [".xls"],
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [
+      ".xlsx",
+    ],
+    "text/csv": [".csv"],
+    "text/plain": [".txt"],
+
+    // Imagens
+    "image/jpeg": [".jpg", ".jpeg"],
+    "image/png": [".png"],
+    "image/gif": [".gif"],
+    "image/webp": [".webp"],
+
+    // Outros
+    "application/zip": [".zip"],
+    "application/x-rar-compressed": [".rar"],
+  };
+
+  const extension = fileName.toLowerCase().substring(fileName.lastIndexOf("."));
+
+  if (allowedTypes[mimeType] && allowedTypes[mimeType].includes(extension)) {
+    return { valid: true, type: getFileCategory(mimeType) };
   }
 
-  // Qualidade e formato
-  if (quality) transformations.push(`q_${quality}`);
-  if (format) transformations.push(`f_${format}`);
-
-  // Outras transformações customizadas
-  Object.entries(otherOptions).forEach(([key, value]) => {
-    if (value !== undefined) {
-      transformations.push(`${key}_${value}`);
-    }
-  });
-
-  const transformString =
-    transformations.length > 0 ? `/${transformations.join("/")}` : "";
-
-  return `https://res.cloudinary.com/${CLOUD_NAME}/image/upload${transformString}/${publicId}`;
+  return { valid: false, type: "unknown" };
 }
 
 /**
- * Gera diferentes tamanhos de uma imagem
- * @param {string} publicId
- * @returns {object} URLs para diferentes tamanhos
+ * Categorizar tipo de arquivo
+ * @param {string} mimeType - Tipo MIME
  */
-export function getImageSizes(publicId) {
-  if (!publicId) return {};
-
-  return {
-    thumbnail: buildUrl(publicId, { width: 100, height: 100, crop: "fill" }),
-    small: buildUrl(publicId, { width: 300, height: 200, crop: "fill" }),
-    medium: buildUrl(publicId, { width: 600, height: 400, crop: "fill" }),
-    large: buildUrl(publicId, { width: 1200, height: 800, crop: "fill" }),
-    original: buildUrl(publicId),
-  };
+function getFileCategory(mimeType) {
+  if (mimeType.startsWith("image/")) return "image";
+  if (mimeType.startsWith("application/pdf")) return "document";
+  if (
+    mimeType.includes("word") ||
+    mimeType.includes("excel") ||
+    mimeType.includes("csv")
+  )
+    return "document";
+  if (mimeType.includes("zip") || mimeType.includes("rar")) return "archive";
+  return "other";
 }
 
 /**
- * Extrai informações de um public_id
- * @param {string} publicId
- * @returns {object} Informações extraídas
+ * Gerar nome de pasta para arquivo
+ * @param {string} guestId - ID da sessão guest
+ * @param {string} companyId - ID da company
+ * @param {string} category - Categoria do arquivo
  */
-export function parsePublicId(publicId) {
-  if (!publicId) return {};
-
-  const parts = publicId.split("/");
-  const filename = parts[parts.length - 1];
-  const folder = parts.slice(0, -1).join("/");
-
-  return {
-    folder,
-    filename,
-    extension: filename.split(".").pop(),
-    nameWithoutExtension: filename.split(".").slice(0, -1).join("."),
-  };
+export function generateFolderPath(guestId, companyId, category = "documents") {
+  return `workspaces/${guestId}/companies/${companyId}/${category}`;
 }
-
-/**
- * Valida se um public_id é válido
- * @param {string} publicId
- * @returns {boolean}
- */
-export function isValidPublicId(publicId) {
-  if (!publicId || typeof publicId !== "string") return false;
-
-  // Regex básico para validar formato do public_id
-  const validFormat = /^[a-zA-Z0-9_\-\/]+$/;
-  return validFormat.test(publicId) && publicId.length > 0;
-}
-
-/**
- * Gera URL para deletar imagem (uso interno)
- * @param {string} publicId
- * @returns {string}
- */
-export function getDeleteUrl(publicId) {
-  // Esta função seria usada em um endpoint server-side
-  // para deletar imagens órfãs
-  return `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/destroy`;
-}
-
-const cloudinaryHelpers = {
-  buildUrl,
-  getImageSizes,
-  parsePublicId,
-  isValidPublicId,
-  getDeleteUrl,
-};
-
-export default cloudinaryHelpers;

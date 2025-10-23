@@ -13,11 +13,12 @@ import Header from "@/components/layout/Header";
 
 // UI Components
 import { Tile } from "@/components/ui/Tile";
-import { NotesSection } from "@/components/ui/NotesSection";
-import { FilesSection } from "@/components/ui/FilesSection";
+import NotesEditor from "@/components/ui/NotesEditor";
+import FilesManager from "@/components/ui/FilesManager";
 import { DocModal } from "@/components/ui/DocModal";
 import { ContactModal } from "@/components/ui/ContactModal";
-import { AddCompanyModal } from "@/components/ui/AddCompanyModal";
+import { AddCompanyModalWithTemplate } from "@/components/ui/AddCompanyModalWithTemplate";
+import SaveTemplateModal from "@/components/ui/SaveTemplateModal";
 import { AddContactModal } from "@/components/ui/AddContactModal";
 import { AddPromptModal } from "@/components/ui/AddPromptModal";
 import { AddPromptTile } from "@/components/ui/AddPromptTile";
@@ -49,6 +50,9 @@ export default function TrialDashboard() {
   const [isAddCompanyOpen, setIsAddCompanyOpen] = useState(false);
   const [isAddContactOpen, setIsAddContactOpen] = useState(false);
   const [isAddPromptOpen, setIsAddPromptOpen] = useState(false);
+
+  // Estado para Save Template Modal
+  const [isSaveTemplateOpen, setIsSaveTemplateOpen] = useState(false);
 
   // Estado para Contact Modal
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
@@ -135,6 +139,29 @@ export default function TrialDashboard() {
 
   const handleAddNote = () => {
     console.log("TODO: Implement AddNoteModal");
+  };
+
+  const handleSaveTemplate = async (templateData) => {
+    try {
+      const response = await fetch("/api/guest/templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(templateData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to save template");
+      }
+
+      console.log("✅ Template saved successfully:", data.template);
+      // Recarregar workspace para mostrar mudanças
+      await loadGuestWorkspace();
+    } catch (error) {
+      console.error("❌ Erro ao salvar template:", error);
+      throw error;
+    }
   };
 
   const handleAddPrompt = async (data) => {
@@ -273,7 +300,7 @@ export default function TrialDashboard() {
       console.log("✅ Workspace carregado:", data);
 
       // ⭐ NOVO: Detectar mudanças nos tiles da company selecionada
-      if (selectedCompany && generatingTiles) {
+      if (selectedCompany) {
         console.log(
           "🔍 Verificando mudanças para company:",
           selectedCompany.name
@@ -290,6 +317,7 @@ export default function TrialDashboard() {
             `🔍 Tiles count: ${previousTilesCount} → ${currentTilesCount}`
           );
           console.log(`🔍 Polling ativo: ${generatingTiles}`);
+          console.log(`🔍 Custom tile loading: ${isGeneratingCustomTile}`);
 
           // Se tiles foram adicionados, atualizar UI imediatamente
           if (currentTilesCount > previousTilesCount) {
@@ -298,27 +326,24 @@ export default function TrialDashboard() {
             // Atualizar selectedCompany com novos tiles
             setSelectedCompany(currentCompany);
 
+            // Parar loading do tile customizado quando novos tiles aparecem
+            if (isGeneratingCustomTile) {
+              console.log("✅ Tile customizado gerado, removendo loading");
+              setIsGeneratingCustomTile(false);
+            }
+
             // Se todos os tiles foram gerados, parar polling
             if (currentCompany.tiles_status === "completed") {
               console.log("✅ Todos os tiles gerados, parando polling");
               setGeneratingTiles(false);
               setShowLoadingModal(false);
             }
-
-            // Parar loading do tile customizado quando novos tiles aparecem
-            if (isGeneratingCustomTile) {
-              console.log("✅ Tile customizado gerado, removendo loading");
-              setIsGeneratingCustomTile(false);
-            }
           }
         } else {
           console.log("❌ Company não encontrada no workspace atual");
         }
       } else {
-        console.log("🔍 Condições não atendidas:", {
-          selectedCompany: !!selectedCompany,
-          generatingTiles,
-        });
+        console.log("🔍 Nenhuma company selecionada");
       }
 
       setWorkspace(data);
@@ -408,7 +433,7 @@ export default function TrialDashboard() {
 
   // Efeito para polling com segurança
   useEffect(() => {
-    if (generatingTiles) {
+    if (generatingTiles || isGeneratingCustomTile) {
       console.log("🔄 Iniciando polling...");
       let pollCount = 0;
       const maxPolls = 30; // ⭐ Limite de segurança: máximo 30 polls (1 minuto)
@@ -424,6 +449,7 @@ export default function TrialDashboard() {
           console.log("⚠️ Limite de polling atingido, parando por segurança");
           setGeneratingTiles(false);
           setShowLoadingModal(false);
+          setIsGeneratingCustomTile(false);
           clearInterval(intervalId);
           setPollingInterval(null);
           return;
@@ -441,7 +467,7 @@ export default function TrialDashboard() {
       clearInterval(pollingInterval);
       setPollingInterval(null);
     }
-  }, [generatingTiles]);
+  }, [generatingTiles, isGeneratingCustomTile]);
 
   // Efeito adicional para garantir que polling continue enquanto há tiles sendo gerados
   useEffect(() => {
@@ -542,9 +568,17 @@ export default function TrialDashboard() {
                   />
                 </button>
               </div>
-              <button className="text-[16px] font-semibold bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors">
-                Bulk Upload Your Prompts
-              </button>
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => setIsSaveTemplateOpen(true)}
+                  className="text-[16px] font-semibold bg-green-600 text-white px-5 py-2.5 rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  Save as Template
+                </button>
+                <button className="text-[16px] font-semibold bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors">
+                  Bulk Upload Your Prompts
+                </button>
+              </div>
             </div>
 
             <SortableTilesGrid
@@ -580,14 +614,24 @@ export default function TrialDashboard() {
         )}
 
         {/* Notes Section - Fora do wrapper, em linha */}
-        <div className="mb-8">
-          <NotesSection onAddNote={handleAddNote} />
-        </div>
+        {selectedCompany && (
+          <div className="mb-8">
+            <NotesEditor
+              companyId={selectedCompany.name}
+              companyName={selectedCompany.name}
+            />
+          </div>
+        )}
 
         {/* Files Section */}
-        <div className="mb-8">
-          <FilesSection />
-        </div>
+        {selectedCompany && (
+          <div className="mb-8">
+            <FilesManager
+              companyId={selectedCompany.name}
+              companyName={selectedCompany.name}
+            />
+          </div>
+        )}
       </AppLayout>
 
       <DocModal
@@ -596,7 +640,7 @@ export default function TrialDashboard() {
         tile={selectedTile}
       />
 
-      <AddCompanyModal
+      <AddCompanyModalWithTemplate
         isOpen={isAddCompanyOpen}
         onClose={() => setIsAddCompanyOpen(false)}
         onAdd={handleAddCompany}
@@ -626,6 +670,13 @@ export default function TrialDashboard() {
         isOpen={showLoadingModal}
         onAccept={handleAcceptLoadingModal}
         companyName={selectedCompany?.name || "your company"}
+      />
+
+      <SaveTemplateModal
+        isOpen={isSaveTemplateOpen}
+        onClose={() => setIsSaveTemplateOpen(false)}
+        onSave={handleSaveTemplate}
+        currentTiles={selectedCompany?.tiles || []}
       />
     </>
   );
