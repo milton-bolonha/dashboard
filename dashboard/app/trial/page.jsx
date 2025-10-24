@@ -725,7 +725,7 @@ export default function TrialDashboard() {
             onAddCompany={() => setIsAddCompanyOpen(true)}
             onAddContact={() => setIsAddContactOpen(true)}
             companies={workspace?.workspace?.companies || []}
-            contacts={workspace?.workspace?.contacts || []}
+            contacts={selectedCompany?.contacts || []}
             selectedCompany={selectedCompany}
             selectedContact={null}
             onCompanyClick={handleCompanyClick}

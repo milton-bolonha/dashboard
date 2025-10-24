@@ -22,28 +22,26 @@ export function OutreachTiles({ contact, company, context = {} }) {
 
   if (!outreachTiles) {
     return (
-      <div className="p-6 text-center text-gray-500">
+      <div className="text-center text-gray-500 py-4">
         <p>Outreach tiles have not been generated for this contact yet.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 p-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Tile
-          title={outreachTiles.contactInsights?.title || "Contact Insights"}
-          excerpt={outreachTiles.contactInsights?.answer || "No content."}
-        />
-        <Tile
-          title={outreachTiles.emailPitch?.title || "Email Pitch"}
-          excerpt={outreachTiles.emailPitch?.answer || "No content."}
-        />
-        <Tile
-          title={outreachTiles.coldCallScript?.title || "Cold Call Script"}
-          excerpt={outreachTiles.coldCallScript?.answer || "No content."}
-        />
-      </div>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <Tile
+        title={outreachTiles.contactInsights?.title || "Contact Insights"}
+        excerpt={outreachTiles.contactInsights?.answer || "No content."}
+      />
+      <Tile
+        title={outreachTiles.emailPitch?.title || "Email Pitch"}
+        excerpt={outreachTiles.emailPitch?.answer || "No content."}
+      />
+      <Tile
+        title={outreachTiles.coldCallScript?.title || "Cold Call Script"}
+        excerpt={outreachTiles.coldCallScript?.answer || "No content."}
+      />
     </div>
   );
 }

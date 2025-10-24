@@ -79,35 +79,26 @@ export function ContactModal({ isOpen, onClose, contact, company, context }) {
                 </span>
               </div>
 
-              {/* Contact Outreach Tiles (Coming Soon) */}
-              <div className="space-y-4">
-                <h4 className="font-medium text-gray-900 text-lg border-b pb-2">
-                  Contact Outreach
-                </h4>
-                <div className="bg-blue-50 p-6 rounded-lg text-center">
-                  <p className="text-gray-700 mb-2">
-                    🚀 <strong>Coming Soon:</strong> AI-Generated Outreach
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Outreach Tiles Section */}
-            {company && (
-              <div className="flex-1 overflow-y-auto px-6 py-4">
-                <OutreachTiles
-                  contact={contact}
-                  company={company}
-                  context={
-                    context || {
-                      companyTiles: company.tiles || [],
-                      uploadedFiles: [],
-                      notes: [],
+              {/* Outreach Tiles Section */}
+              {company && (
+                <div className="space-y-4">
+                  <h4 className="font-medium text-gray-900 text-lg border-b pb-2">
+                    Contact Outreach
+                  </h4>
+                  <OutreachTiles
+                    contact={contact}
+                    company={company}
+                    context={
+                      context || {
+                        companyTiles: company.tiles || [],
+                        uploadedFiles: [],
+                        notes: [],
+                      }
                     }
-                  }
-                />
-              </div>
-            )}
+                  />
+                </div>
+              )}
+            </div>
           </motion.div>
         </motion.div>
       )}
