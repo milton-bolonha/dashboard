@@ -22,6 +22,7 @@ export function SortableTilesGrid({
   tiles = [],
   onTileClick,
   onAddPrompt,
+  onDeleteTile,
   isGeneratingCustomTile = false,
   isGeneratingTiles = false,
   tilesToGenerate = 6,
@@ -56,7 +57,7 @@ export function SortableTilesGrid({
       collisionDetection={closestCenter}
       onDragEnd={handleDragEnd}
     >
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-[192px]">
         {/* Tiles existentes */}
         {tiles.length > 0 && (
           <SortableContext
@@ -68,6 +69,7 @@ export function SortableTilesGrid({
                 key={tile.id}
                 tile={tile}
                 onClick={() => onTileClick(tile)}
+                onDelete={() => onDeleteTile?.(tile.id)}
                 isDisabled={isGeneratingTiles || isGeneratingCustomTile}
               />
             ))}

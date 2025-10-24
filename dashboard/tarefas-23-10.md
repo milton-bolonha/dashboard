@@ -1,253 +1,331 @@
-# 📋 Tarefas 23 de Outubro - Finalizar Trial & Dashboard Templates
+# 📋 Tarefas 23 de Outubro - AI Sales Assistant
 
 **Data:** 23 de Outubro de 2025  
-**Objetivo:** Finalizar sistema de trial e implementar dashboard templates  
-**Status:** 🟡 **EM ANDAMENTO**
+**Objetivo:** Completar sistema de templates e dashboards + novas funcionalidades
 
 ---
 
-## 🎯 **STATUS ATUAL vs. META DO DIA**
+## 🎯 Status Atual vs. Meta do Dia
 
 ### ✅ **JÁ IMPLEMENTADO (Base Sólida)**
 
-- ✅ **Sistema de Trial/Guest Workspace** (100% funcional)
-- ✅ **AI Generation com OpenAI** (100% funcional)
-- ✅ **Sistema Multi-tenant** (100% funcional)
-- ✅ **Autenticação Clerk** (100% funcional)
-- ✅ **Database MongoDB** (100% funcional)
-- ✅ **API Routes Estruturadas** (100% funcional)
-- ✅ **Templates Básicos** (template_1 e template_2)
+- ✅ **Sistema de Workspace Multi-tenant** (Clerk + MongoDB)
+- ✅ **Sistema de Autenticação** (`getCurrentAuth()` centralizado)
+- ✅ **Guest Workspace** (trial mode) com tiles funcionais
+- ✅ **Sistema de Tiles** com AI generation (OpenAI)
+- ✅ **UI Components** (Tile, LoadingTile, AddPromptTile, Modals)
+- ✅ **DeckEngine** para jobs/bulk operations
+- ✅ **Sistema de Companies** (add/view/select)
+- ✅ **Sistema de Contacts** (add/view)
+- ✅ **API Routes** (`/api/guest/*`)
+- ✅ **Sistema de Notas** (cards laranjinhas)
+- ✅ **Sistema de Files** (Cloudinary)
+- ✅ **Sistema de Templates** (básico)
 
 ### ❌ **FALTANDO PARA HOJE**
 
 ---
 
-## 🚀 **TAREFAS CRÍTICAS - 23 DE OUTUBRO**
+## 🚀 **TAREFAS CRÍTICAS - 23/10**
 
 ### **1. Dashboard Templates System (PRIORIDADE ALTA)**
 
-**Objetivo:** Sistema completo de salvamento e aplicação de templates
+**Objetivo:** Sistema completo de templates de dashboard
 
-#### **1.1. Salvar Dashboard como Template**
+#### **A. Header Dashboard Template Dropdown**
 
 ```javascript
-// Arquivo: lib/dashboard-templates.js
-- [ ] Função para salvar organização atual como template
-- [ ] Nomear template customizado
-- [ ] Salvar layout de tiles
-- [ ] Salvar prompts customizados
-- [ ] Salvar configurações de company
+// components/dashboard/DashboardHeader.jsx
+- [ ] Dropdown com templates disponíveis
+- [ ] Templates padrão (template_1, template_2)
+- [ ] Templates do usuário (customizados)
+- [ ] Opção "Create Blank Dashboard"
+- [ ] Visualização dos prompts de cada template
+- [ ] Aplicar template ao workspace atual
 ```
 
-#### **1.2. Aplicar Template ao Criar Nova Company**
+#### **B. Template Management**
 
 ```javascript
-// Arquivo: app/api/guest/add-company/route.js
-- [ ] Seleção de template no modal
-- [ ] Aplicar template ao criar company
-- [ ] Gerar tiles baseado no template selecionado
+// lib/dashboard-templates.js
+- [ ] CRUD completo de templates
+- [ ] Preview de prompts antes de aplicar
+- [ ] Clone de templates existentes
+- [ ] Categorização de templates
+- [ ] Variáveis dinâmicas ({{company_name}}, {{industry}})
 ```
 
-#### **1.3. Interface de Gerenciamento de Templates**
+#### **C. Template Preview Modal**
 
 ```javascript
-// Arquivo: components/ui/TemplateManager.jsx
-- [ ] Listar templates disponíveis
-- [ ] Criar novo template
-- [ ] Editar template existente
-- [ ] Deletar template
-- [ ] Preview do template
+// components/ui/TemplatePreviewModal.jsx
+- [ ] Modal ou tooltipo viewer para visualizar prompts do template
+- [ ] Lista de tiles que serão criados
+- [ ] Preview do layout do dashboard
+- [ ] Botão "Apply Template"
 ```
 
-### **2. File Management System (PRIORIDADE MÉDIA)**
+### **2. Dashboard Customization (PRIORIDADE ALTA)**
 
-**Objetivo:** Sistema de upload e organização de arquivos
-
-#### **2.1. Cloudinary Integration**
+#### **A. Background Customization**
 
 ```javascript
-// Arquivo: lib/cloudinary.js
-- [ ] Configurar Cloudinary
-- [ ] Função de upload
-- [ ] Organização por workspace/company
-- [ ] Geração de URLs seguras
+// components/dashboard/BackgroundCustomizer.jsx
+- [ ] Seletor de cores sólidas
+- [ ] Galeria de backgrounds pré-definidos
+- [ ] Upload de imagem personalizada
+- [ ] Preview em tempo real
+- [ ] Persistência no banco de dados
 ```
 
-#### **2.2. File Upload Component**
+#### **B. Tile Management**
 
 ```javascript
-// Arquivo: components/ui/FileUpload.jsx
-- [ ] Drag & drop interface
-- [ ] Preview de arquivos
-- [ ] Progress bar
-- [ ] Error handling
+// components/dashboard/TileManager.jsx
+- [x] Drag-and-drop para reordenar tiles
+- [ ] Resize tiles arrastando cantos
+- [ ] Auto-ajuste de outros tiles
+- [ ] Full-screen tile mode
+- [ ] Save layout como template
 ```
 
-#### **2.3. File Management API**
+### **3. Contact Outreach Tiles (PRIORIDADE ALTA)**
+
+#### **A. Auto-Generation System**
 
 ```javascript
-// Arquivo: app/api/guest/files/route.js
-- [ ] POST: Upload file
-- [ ] GET: List files
-- [ ] DELETE: Remove file
-- [ ] Organização por company
+// lib/contact-outreach-generator.js
+- [ ] Contact Insights Tile (role, KPIs, challenges)
+- [ ] Email Pitch Tile (cold email personalizado)
+- [ ] Cold Call Script Tile (script estruturado)
+- [ ] Context awareness (company + contact data)
+- [ ] Refinement e regeneration
+- [ ] Save variants
 ```
 
-### **3. Notes System (PRIORIDADE BAIXA)**
-
-**Objetivo:** Sistema de notas associadas a companies
-
-#### **3.1. Notes API**
+#### **B. Outreach Tiles UI**
 
 ```javascript
-// Arquivo: app/api/guest/notes/route.js
-- [ ] POST: Create note
-- [ ] GET: List notes
-- [ ] PUT: Update note
-- [ ] DELETE: Delete note
+// components/contacts/OutreachTiles.jsx
+- [ ] 3 tiles automáticos por contato, row no main para tile de contato
+- [ ] Regenerate individual tiles
+- [ ] Edit e refine prompts
+- [ ] Save como variants
+- [ ] Export functionality
 ```
 
-#### **3.2. Notes Component**
+### **4. Mobile Responsiveness (PRIORIDADE ALTA)**
+
+#### **A. Dashboard Mobile**
 
 ```javascript
-// Arquivo: components/ui/NotesEditor.jsx
-- [ ] Rich text editor
-- [ ] Auto-save
-- [ ] Associação com company
+// components/dashboard/DashboardMobile.jsx
+- [ ] Layout responsivo para mobile
+- [ ] Touch gestures para drag-and-drop
+- [ ] Mobile-optimized tile sizes
+- [ ] Swipe navigation
+- [ ] Mobile-specific modals
+```
+
+#### **B. Template Selection Mobile**
+
+```javascript
+// components/dashboard/TemplateSelectorMobile.jsx
+- [ ] Mobile-friendly template grid
+- [ ] Touch-optimized preview
+- [ ] Swipe between templates
+- [ ] Mobile template creation flow
+```
+
+### **5. API Routes - Dashboard Templates (PRIORIDADE MÉDIA)**
+
+```javascript
+// Estrutura necessária:
+app/api/dashboard-templates/
+├── route.js (GET, POST)
+├── [id]/route.js (GET, PUT, DELETE)
+├── [id]/apply/route.js (POST - aplicar template)
+├── [id]/clone/route.js (POST - clonar template)
+└── preview/route.js (GET - preview sem aplicar)
+```
+
+### **6. API Routes - Contact Outreach (PRIORIDADE MÉDIA)**
+
+```javascript
+// Estrutura necessária:
+app/api/contacts/
+├── [id]/outreach/route.js (GET - buscar outreach tiles)
+├── [id]/outreach/generate/route.js (POST - gerar tiles)
+├── [id]/outreach/[tileId]/route.js (PUT, DELETE - editar tiles)
+└── [id]/outreach/regenerate/route.js (POST - regenerar)
 ```
 
 ---
 
 ## 🔧 **TAREFAS TÉCNICAS DETALHADAS**
 
-### **A. Dashboard Templates Implementation**
-
-#### **A.1. Database Schema**
+### **A. Dashboard Header Component**
 
 ```javascript
-// Adicionar ao WorkspaceSchema
-dashboardTemplates: [
-  {
-    id: String,
-    name: String,
-    description: String,
-    tiles: [
-      {
-        id: String,
-        title: String,
-        prompt: String,
-        category: String,
-        order: Number,
-        defaultSize: Object,
-      },
-    ],
-    createdAt: Date,
-    isDefault: Boolean,
-  },
-];
+// components/dashboard/DashboardHeader.jsx
+export function DashboardHeader({ currentTemplate, onTemplateChange }) {
+  const [templates, setTemplates] = useState([]);
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
+
+  return (
+    <div className="dashboard-header">
+      <div className="template-selector">
+        <button onClick={() => setShowTemplateSelector(true)}>
+          {currentTemplate?.name || "Select Template"} ▼
+        </button>
+      </div>
+
+      <div className="dashboard-actions">
+        <button>Create Blank</button>
+        <button>Save as Template</button>
+        <button>Clone Dashboard</button>
+      </div>
+    </div>
+  );
+}
 ```
 
-#### **A.2. API Routes**
-
-```
-app/api/guest/templates/
-├── route.js (GET, POST)
-├── [id]/route.js (GET, PUT, DELETE)
-└── apply/route.js (POST - aplicar template)
-```
-
-#### **A.3. UI Components**
-
-```
-components/ui/
-├── TemplateManager.jsx
-├── TemplateSelector.jsx
-├── TemplateEditor.jsx
-└── TemplatePreview.jsx
-```
-
-### **B. File Management Implementation**
-
-#### **B.1. Cloudinary Setup**
+### **B. Template Preview System**
 
 ```javascript
-// lib/cloudinary.js
-const cloudinary = require("cloudinary").v2;
+// components/ui/TemplatePreviewModal.jsx
+export function TemplatePreviewModal({ template, isOpen, onClose, onApply }) {
+  return (
+    <Modal isOpen={isOpen} onClose={onClose}>
+      <div className="template-preview">
+        <h3>{template.name}</h3>
+        <p>{template.description}</p>
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+        <div className="tiles-preview">
+          {template.tiles.map((tile) => (
+            <div key={tile.id} className="tile-preview">
+              <h4>{tile.title}</h4>
+              <p>{tile.prompt}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="actions">
+          <button onClick={onClose}>Cancel</button>
+          <button onClick={() => onApply(template)}>Apply Template</button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
 ```
 
-#### **B.2. File Organization**
-
-```
-cloudinary/
-├── workspaces/
-│   └── {workspaceId}/
-│       ├── companies/
-│       │   └── {companyId}/
-│       │       ├── documents/
-│       │       └── images/
-│       └── shared/
-```
-
-### **C. Notes System Implementation**
-
-#### **C.1. Database Schema**
+### **C. Contact Outreach Generator**
 
 ```javascript
-// Adicionar ao GuestWorkspaceSchema
-notes: [
-  {
-    id: String,
-    companyId: String,
-    title: String,
-    content: String,
-    createdAt: Date,
-    updatedAt: Date,
-  },
-];
+// lib/contact-outreach-generator.js
+export async function generateContactOutreach(contactId, companyData) {
+  const contact = await getContact(contactId);
+  const company = await getCompany(companyData.id);
+
+  const outreachTiles = await Promise.all([
+    generateContactInsights(contact, company),
+    generateEmailPitch(contact, company),
+    generateColdCallScript(contact, company),
+  ]);
+
+  return {
+    contactInsights: outreachTiles[0],
+    emailPitch: outreachTiles[1],
+    coldCallScript: outreachTiles[2],
+  };
+}
+
+async function generateContactInsights(contact, company) {
+  const prompt = `
+    Analyze this contact for outreach:
+    Contact: ${contact.name} (${contact.role}) at ${company.name}
+    Company: ${company.industry}
+    
+    Generate insights including:
+    - Role summary and KPIs
+    - Likely challenges and pain points
+    - Triggers and motivations
+    - Best approach for outreach
+  `;
+
+  return await generateTileWithOpenAI(prompt, "Contact Insights");
+}
 ```
 
-#### **C.2. Rich Text Editor**
+### **D. Background Customizer**
 
 ```javascript
-// Usar react-quill ou similar
-import ReactQuill from "react-quill";
-import "react-quill/dist/quill.snow.css";
+// components/dashboard/BackgroundCustomizer.jsx
+export function BackgroundCustomizer({
+  currentBackground,
+  onBackgroundChange,
+}) {
+  const [selectedType, setSelectedType] = useState("solid");
+  const [selectedColor, setSelectedColor] = useState("#ffffff");
+  const [selectedImage, setSelectedImage] = useState(null);
+
+  return (
+    <div className="background-customizer">
+      <div className="background-types">
+        <button
+          className={selectedType === "solid" ? "active" : ""}
+          onClick={() => setSelectedType("solid")}
+        >
+          Solid Color
+        </button>
+        <button
+          className={selectedType === "preset" ? "active" : ""}
+          onClick={() => setSelectedType("preset")}
+        >
+          Preset Images
+        </button>
+        <button
+          className={selectedType === "upload" ? "active" : ""}
+          onClick={() => setSelectedType("upload")}
+        >
+          Upload Image
+        </button>
+      </div>
+
+      {selectedType === "solid" && (
+        <ColorPicker value={selectedColor} onChange={setSelectedColor} />
+      )}
+
+      {selectedType === "preset" && (
+        <PresetImageGallery onSelect={setSelectedImage} />
+      )}
+
+      {selectedType === "upload" && <ImageUpload onUpload={setSelectedImage} />}
+    </div>
+  );
+}
 ```
 
 ---
 
-## 📊 **CRITÉRIOS DE ACEITAÇÃO - 23 DE OUTUBRO**
+## 📊 **CRITÉRIOS DE ACEITAÇÃO - 23/10**
 
-### **V0.1 Must Have (Trial Complete):**
+### **Must Have:**
 
-- [x] ✅ Guest workspace creation
-- [x] ✅ AI tile generation
-- [x] ✅ Company management
-- [x] ✅ Contact management
-- [x] ✅ Custom prompt creation
-- [x] ✅ Drag & drop tiles
-- [x] ✅ Real-time updates
+- [ ] ✅ Dashboard header com dropdown de templates
+- [ ] ✅ Preview de templates antes de aplicar
+- [ ] ✅ Background customization (cores + imagens)
+- [ ] ✅ Drag-and-drop de tiles
+- [ ] ✅ Contact outreach tiles automáticos
+- [ ] ✅ Mobile responsiveness completa
 
-### **V0.2 Must Have (Dashboard Templates):**
+### **Nice to Have:**
 
-- [ ] ✅ Save current dashboard as template
-- [ ] ✅ Apply template when creating new company
-- [ ] ✅ Template management interface
-- [ ] ✅ Template preview
-- [ ] ✅ Default templates (template_1, template_2)
-
-### **V0.2 Nice to Have:**
-
-- [ ] ✅ File upload system
-- [ ] ✅ Notes system
-- [ ] ✅ Template sharing
-- [ ] ✅ Template categories
+- [ ] ✅ Full-screen tile mode
+- [ ] ✅ Template cloning
+- [ ] ✅ Outreach tile variants
+- [ ] ✅ Advanced background options
 
 ---
 
@@ -255,83 +333,53 @@ import "react-quill/dist/quill.snow.css";
 
 ### **Dependências Externas:**
 
-- [x] MongoDB connection (já configurado)
-- [x] Clerk authentication (já configurado)
-- [x] OpenAI API key (já configurado)
-- [ ] **Cloudinary account** (para files)
-- [ ] **Rich text editor library** (para notes)
+- [ ] Cloudinary para upload de backgrounds
+- [ ] OpenAI para outreach generation
+- [ ] MongoDB para persistência
 
 ### **Dependências Internas:**
 
-- [x] `lib/db.js` (já existe)
-- [x] `lib/auth.js` (já existe)
-- [x] `lib/ai-tile-generator.js` (já existe)
-- [x] `components/ui/*` (já existem)
-- [ ] **lib/cloudinary.js** (criar)
-- [ ] **lib/dashboard-templates.js** (criar)
+- [ ] `lib/ai-tile-generator.js` (já existe)
+- [ ] `components/ui/Modal.jsx` (já existe)
+- [ ] `lib/cloudinary.js` (já existe)
 
 ---
 
 ## 📅 **CRONOGRAMA DO DIA**
 
-### **Manhã (9h-12h): Dashboard Templates**
+### **Manhã (9h-12h):**
 
-- [ ] **9h-10h:** Database schema para templates
-- [ ] **10h-11h:** API routes para templates
-- [ ] **11h-12h:** UI components básicos
+- [ ] Dashboard header com template dropdown
+- [ ] Template preview modal
+- [ ] Background customizer básico
 
-### **Tarde (14h-18h): File Management**
+### **Tarde (14h-17h):**
 
-- [ ] **14h-15h:** Cloudinary setup
-- [ ] **15h-16h:** File upload component
-- [ ] **16h-17h:** File management API
-- [ ] **17h-18h:** Integration testing
+- [ ] Contact outreach tiles
+- [ ] Drag-and-drop de tiles
+- [ ] Mobile responsiveness
 
-### **Noite (19h-21h): Notes System**
+### **Noite (19h-21h):**
 
-- [ ] **19h-20h:** Notes API
-- [ ] **20h-21h:** Notes UI component
+- [ ] Testing e polish
+- [ ] Documentação
+- [ ] Deploy
 
 ---
 
 ## 🎯 **META FINAL DO DIA**
 
-**"Usuário pode salvar sua organização de dashboard como template, aplicar templates ao criar nova company, e gerenciar arquivos e notas."**
+**"Usuário pode selecionar templates de dashboard no header, customizar background, arrastar tiles, e cada contato gera automaticamente 3 tiles de outreach personalizados."**
 
-**Resultado:** V0.2 funcional com dashboard templates, file management e notes system.
+**Resultado:** Sistema completo de dashboards com templates, customization e outreach automático.
 
 ---
 
 ## 📝 **NOTAS IMPORTANTES**
 
-1. **Focar em dashboard templates** - Prioridade máxima
-2. **File management** - Cloudinary integration
-3. **Notes system** - Rich text editor
-4. **Manter compatibilidade** com sistema atual
-5. **Testar tudo** antes de finalizar
+1. **Focar na UX**: Header dropdown deve ser intuitivo
+2. **Mobile-first**: Responsividade é crítica
+3. **Performance**: Outreach tiles devem ser rápidos
+4. **Reutilizar**: Aproveitar componentes existentes
 
-**Status:** 🟡 **EM ANDAMENTO** - Base sólida existe, falta implementar templates
-
----
-
-## 🔍 **DEBUGGING TIPS**
-
-### **Templates não salvam:**
-
-- Verificar database schema
-- Verificar API routes
-- Verificar UI state management
-
-### **Files não upload:**
-
-- Verificar Cloudinary config
-- Verificar file size limits
-- Verificar CORS settings
-
-### **Notes não salvam:**
-
-- Verificar rich text editor
-- Verificar auto-save
-- Verificar database updates
-
-**Status:** 🟡 **EM ANDAMENTO** - Implementando funcionalidades V0.2
+**Status:** 🟡 **EM ANDAMENTO** - Base sólida existe, focar em templates e outreach

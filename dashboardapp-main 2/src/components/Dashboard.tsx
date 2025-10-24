@@ -15,7 +15,14 @@ import { BulkUploadModal } from "@/components/BulkUploadModal";
 import { FileUpload, FileList } from "@/components/FileUpload";
 import { useDashboard } from "@/hooks/useDashboard";
 import { toast } from "react-hot-toast";
-import { XMarkIcon, ArrowPathIcon, BookmarkSquareIcon, ChevronDownIcon, EllipsisHorizontalIcon, PlusIcon } from "@heroicons/react/24/outline";
+import {
+  XMarkIcon,
+  ArrowPathIcon,
+  BookmarkSquareIcon,
+  ChevronDownIcon,
+  EllipsisHorizontalIcon,
+  PlusIcon,
+} from "@heroicons/react/24/outline";
 import { PlusIcon as PlusIconSolid } from "@heroicons/react/24/solid";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
@@ -71,10 +78,12 @@ export default function Dashboard({
   const [showContactDropdown, setShowContactDropdown] = useState(false);
   const [files, setFiles] = useState<any[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [editingContact, setEditingContact] = useState<Contact | null>(null)
+  const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [companyList, setCompanyList] = useState<Company[]>(companies);
-  const [recentlyVisitedCompanies, setRecentlyVisitedCompanies] = useState<Company[]>([]);
+  const [recentlyVisitedCompanies, setRecentlyVisitedCompanies] = useState<
+    Company[]
+  >([]);
   const [companiesLoading, setCompaniesLoading] = useState(true);
   const [recentlyVisitedLoaded, setRecentlyVisitedLoaded] = useState(false);
   const [dashboards, setDashboards] = useState<DashboardType[]>([]);
@@ -82,9 +91,9 @@ export default function Dashboard({
   const [tilesLoading, setTilesLoading] = useState(false);
   const [showDashDropdown, setShowDashDropdown] = useState(false);
   const [newDashName, setNewDashName] = useState("");
-  const [viewMode, setViewMode] = useState<"dashboard" | "companies" | "contacts">(
-    "dashboard"
-  );
+  const [viewMode, setViewMode] = useState<
+    "dashboard" | "companies" | "contacts"
+  >("dashboard");
   const [showDashPanel, setShowDashPanel] = useState(false);
   const [dashSearch, setDashSearch] = useState("");
   const dashDropdownRef = useRef<HTMLDivElement | null>(null);
@@ -127,13 +136,13 @@ export default function Dashboard({
       if (root && !root.contains(target)) setShowCompanyDropdown(false);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setShowCompanyDropdown(false);
+      if (e.key === "Escape") setShowCompanyDropdown(false);
     };
-    document.addEventListener('mousedown', onDocClick);
-    document.addEventListener('keydown', onKey);
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
     return () => {
-      document.removeEventListener('mousedown', onDocClick);
-      document.removeEventListener('keydown', onKey);
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
     };
   }, [showCompanyDropdown]);
 
@@ -169,23 +178,29 @@ export default function Dashboard({
   useEffect(() => {
     const loadRecentlyVisited = async () => {
       if (!user.id || companyList.length === 0 || recentlyVisitedLoaded) return;
-      
+
       try {
-        console.log('Loading recently visited companies for user:', user.id);
-        const userDocRef = doc(db, 'users', user.id);
+        console.log("Loading recently visited companies for user:", user.id);
+        const userDocRef = doc(db, "users", user.id);
         const userDoc = await getDoc(userDocRef);
-        
+
         if (userDoc.exists()) {
           const userData = userDoc.data();
           const recentCompanyIds = userData.recentlyVisitedCompanies || [];
-          console.log('Found recent company IDs in database:', recentCompanyIds);
-          
+          console.log(
+            "Found recent company IDs in database:",
+            recentCompanyIds
+          );
+
           if (recentCompanyIds.length > 0) {
             // Get company details for the recent company IDs
-            const recentCompanies = companyList.filter(company => 
+            const recentCompanies = companyList.filter((company) =>
               recentCompanyIds.includes(company.id)
             );
-            console.log('Found recent companies:', recentCompanies.map(c => c.name));
+            console.log(
+              "Found recent companies:",
+              recentCompanies.map((c) => c.name)
+            );
             if (recentCompanies.length > 0) {
               setRecentlyVisitedCompanies(recentCompanies);
               setRecentlyVisitedLoaded(true);
@@ -193,13 +208,13 @@ export default function Dashboard({
             }
           }
         }
-        
+
         // If no recent companies in database or user document doesn't exist, use first 5 from company list
-        console.log('No recent companies found, using first 5 companies');
+        console.log("No recent companies found, using first 5 companies");
         setRecentlyVisitedCompanies(companyList.slice(0, 5));
         setRecentlyVisitedLoaded(true);
       } catch (error) {
-        console.error('Error loading recently visited companies:', error);
+        console.error("Error loading recently visited companies:", error);
         // Fallback to first 5 companies
         setRecentlyVisitedCompanies(companyList.slice(0, 5));
         setRecentlyVisitedLoaded(true);
@@ -284,7 +299,10 @@ export default function Dashboard({
               return timestamp.toDate().getTime();
             } else if (timestamp && timestamp.seconds) {
               // Firestore Timestamp with seconds
-              return timestamp.seconds * 1000 + (timestamp.nanoseconds || 0) / 1000000;
+              return (
+                timestamp.seconds * 1000 +
+                (timestamp.nanoseconds || 0) / 1000000
+              );
             } else {
               return new Date(timestamp).getTime();
             }
@@ -303,7 +321,10 @@ export default function Dashboard({
           const { TEMPLATE_1, TEMPLATE_2 } = require("@/lib/templates");
 
           // Helper function to generate dynamic title
-          const generateDynamicTitle = async (prompt: string, companyName: string): Promise<string> => {
+          const generateDynamicTitle = async (
+            prompt: string,
+            companyName: string
+          ): Promise<string> => {
             try {
               const titlePrompt = `Based on this prompt: "${prompt}" for company "${companyName}", generate a concise, professional title (maximum 4 words) that captures the essence of what this prompt is asking for. Return only the title, no quotes or extra text.`;
 
@@ -316,7 +337,7 @@ export default function Dashboard({
               if (resp.ok) {
                 const data = await resp.json();
                 if (typeof data?.content === "string") {
-                  return data.content.trim().replace(/['"]/g, '');
+                  return data.content.trim().replace(/['"]/g, "");
                 }
               }
             } catch (_) {
@@ -326,24 +347,27 @@ export default function Dashboard({
           };
 
           // Create tiles for Template 1
-        await Promise.all(
+          await Promise.all(
             TEMPLATE_1.map(async (t: any, idx: number) => {
-              const dynamicTitle = await generateDynamicTitle(t.prompt, selectedCompany.name);
+              const dynamicTitle = await generateDynamicTitle(
+                t.prompt,
+                selectedCompany.name
+              );
 
               const createdRef = await addDoc(collection(db, "tiles"), {
                 title: dynamicTitle,
-              prompt: t.prompt,
-              content: null,
-              position: idx,
+                prompt: t.prompt,
+                content: null,
+                position: idx,
                 size: "medium",
                 type: "prompt",
                 color: "white",
-              isFlipped: false,
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-              userId: user.id,
+                isFlipped: false,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+                userId: user.id,
                 dashboardId: ref.id,
-              companyId: selectedCompany.id,
+                companyId: selectedCompany.id,
               });
 
               // Generate AI content for this tile
@@ -387,14 +411,17 @@ export default function Dashboard({
                     companyId: selectedCompany.id,
                   }
                 );
-              } catch (_) { }
+              } catch (_) {}
             })
           );
 
           // Create tiles for Template 2
           await Promise.all(
             TEMPLATE_2.map(async (t: any, idx: number) => {
-              const dynamicTitle = await generateDynamicTitle(t.prompt, selectedCompany.name);
+              const dynamicTitle = await generateDynamicTitle(
+                t.prompt,
+                selectedCompany.name
+              );
 
               const createdRef = await addDoc(collection(db, "tiles"), {
                 title: dynamicTitle,
@@ -453,10 +480,10 @@ export default function Dashboard({
                     companyId: selectedCompany.id,
                   }
                 );
-              } catch (_) { }
+              } catch (_) {}
             })
           );
-        } catch (_) { }
+        } catch (_) {}
 
         // After tile generation completes, keep the current view mode
         setDashboardsLoading(false);
@@ -478,7 +505,9 @@ export default function Dashboard({
             return timestamp.toDate().getTime();
           } else if (timestamp && timestamp.seconds) {
             // Firestore Timestamp with seconds
-            return timestamp.seconds * 1000 + (timestamp.nanoseconds || 0) / 1000000;
+            return (
+              timestamp.seconds * 1000 + (timestamp.nanoseconds || 0) / 1000000
+            );
           } else {
             return new Date(timestamp).getTime();
           }
@@ -516,10 +545,10 @@ export default function Dashboard({
       const mapped = snap.docs
         .map((d) => ({ id: d.id, ...(d.data() as any) }))
         .sort((a: any, b: any) => {
-          const aAsk = a.prompt === '__bulk__' ? -1 : 0
-          const bAsk = b.prompt === '__bulk__' ? -1 : 0
-          if (aAsk !== bAsk) return aAsk - bAsk
-          return (a.position ?? 0) - (b.position ?? 0)
+          const aAsk = a.prompt === "__bulk__" ? -1 : 0;
+          const bAsk = b.prompt === "__bulk__" ? -1 : 0;
+          if (aAsk !== bAsk) return aAsk - bAsk;
+          return (a.position ?? 0) - (b.position ?? 0);
         });
       updateTiles(mapped as any);
       // Ensure there is always a blank chat tile as the first tile
@@ -541,21 +570,21 @@ export default function Dashboard({
             isFlipped: false,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
-        userId: user.id,
+            userId: user.id,
             dashboardId: selectedDashboard.id,
-        companyId: selectedCompany.id,
+            companyId: selectedCompany.id,
           });
           askEnsuredRef.current[dashId] = true;
-        } catch (_) { }
+        } catch (_) {}
       }
       // If we just asked something, show it as a bubble in the Ask tile placeholder
       try {
-        const last = localStorage.getItem(`ask:last:${selectedDashboard.id}`)
+        const last = localStorage.getItem(`ask:last:${selectedDashboard.id}`);
         if (last) {
           // No-op here; Ask tile component renders from history; we simply clear the flag
-          localStorage.removeItem(`ask:last:${selectedDashboard.id}`)
+          localStorage.removeItem(`ask:last:${selectedDashboard.id}`);
         }
-      } catch (_) { }
+      } catch (_) {}
       setTilesLoading(false);
     });
     return () => unsub();
@@ -604,7 +633,7 @@ export default function Dashboard({
           }
         });
         return () => unsub();
-      } catch (_) { }
+      } catch (_) {}
     };
     load();
   }, [user.id, refreshKey]);
@@ -622,16 +651,18 @@ export default function Dashboard({
     // Live Firestore subscription for contacts
     (async () => {
       try {
-        const { collection, query, where, onSnapshot, orderBy } = await import('firebase/firestore')
-        const { db } = await import('@/lib/firebase')
+        const { collection, query, where, onSnapshot, orderBy } = await import(
+          "firebase/firestore"
+        );
+        const { db } = await import("@/lib/firebase");
         const qy = query(
-          collection(db, 'contacts'),
-          where('companyId', '==', selectedCompany.id)
-        )
+          collection(db, "contacts"),
+          where("companyId", "==", selectedCompany.id)
+        );
         // unsubscribe previous?
         onSnapshot(qy, (snap) => {
-          const list: Contact[] = snap.docs.map(d => {
-            const data = d.data() as any
+          const list: Contact[] = snap.docs.map((d) => {
+            const data = d.data() as any;
             return {
               id: d.id,
               name: data.name,
@@ -643,12 +674,12 @@ export default function Dashboard({
               updatedAt: new Date(),
               userId: data.userId,
               companyId: data.companyId,
-            }
-          })
-          setContacts(list)
-        })
-      } catch (_) { }
-    })()
+            };
+          });
+          setContacts(list);
+        });
+      } catch (_) {}
+    })();
   };
 
   const handleCompanySelect = async (company: Company) => {
@@ -656,34 +687,43 @@ export default function Dashboard({
     setSelectedCompany(company);
     setSelectedContact(undefined);
     setViewMode("dashboard");
-    
+
     // Update recently visited companies (keep only 5 most recent)
     const updatedRecentCompanies = (() => {
       // Remove company if it already exists in the list
-      const filtered = recentlyVisitedCompanies.filter(c => c.id !== company.id);
+      const filtered = recentlyVisitedCompanies.filter(
+        (c) => c.id !== company.id
+      );
       // Add company to the beginning and keep only 5
       return [company, ...filtered].slice(0, 5);
     })();
-    
-    console.log('Updated recent companies:', updatedRecentCompanies.map(c => c.name));
+
+    console.log(
+      "Updated recent companies:",
+      updatedRecentCompanies.map((c) => c.name)
+    );
     setRecentlyVisitedCompanies(updatedRecentCompanies);
-    
+
     // Save recently visited companies to database
     try {
-      const userDocRef = doc(db, 'users', user.id);
-      const recentCompanyIds = updatedRecentCompanies.map(c => c.id);
-      console.log('Saving recent company IDs to database:', recentCompanyIds);
-      
-      await setDoc(userDocRef, {
-        recentlyVisitedCompanies: recentCompanyIds,
-        updatedAt: serverTimestamp(),
-      }, { merge: true });
-      
-      console.log('Successfully saved recently visited companies to database');
+      const userDocRef = doc(db, "users", user.id);
+      const recentCompanyIds = updatedRecentCompanies.map((c) => c.id);
+      console.log("Saving recent company IDs to database:", recentCompanyIds);
+
+      await setDoc(
+        userDocRef,
+        {
+          recentlyVisitedCompanies: recentCompanyIds,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      console.log("Successfully saved recently visited companies to database");
     } catch (error) {
-      console.error('Error saving recently visited companies:', error);
+      console.error("Error saving recently visited companies:", error);
     }
-    
+
     // Immediately set a minimal dashboard so the main area isn't blank
     setSelectedDashboard({
       id: `dash-${company.id}`,
@@ -708,23 +748,29 @@ export default function Dashboard({
   // Function to clear recently visited companies (for testing)
   const clearRecentlyVisited = async () => {
     try {
-      const userDocRef = doc(db, 'users', user.id);
-      await setDoc(userDocRef, {
-        recentlyVisitedCompanies: [],
-        updatedAt: serverTimestamp(),
-      }, { merge: true });
+      const userDocRef = doc(db, "users", user.id);
+      await setDoc(
+        userDocRef,
+        {
+          recentlyVisitedCompanies: [],
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
       setRecentlyVisitedCompanies([]);
       setRecentlyVisitedLoaded(false);
-      console.log('Cleared recently visited companies');
+      console.log("Cleared recently visited companies");
     } catch (error) {
-      console.error('Error clearing recently visited companies:', error);
+      console.error("Error clearing recently visited companies:", error);
     }
   };
 
   // Function to reload recently visited companies (for testing)
   const reloadRecentlyVisited = async () => {
     setRecentlyVisitedLoaded(false);
-    console.log('Reset recently visited loaded flag, will reload on next effect');
+    console.log(
+      "Reset recently visited loaded flag, will reload on next effect"
+    );
   };
 
   const handleAddCompany = () => {
@@ -736,26 +782,31 @@ export default function Dashboard({
   };
 
   const handleBulkUpload = async () => {
-    if (!selectedCompany || !selectedDashboard) return
+    if (!selectedCompany || !selectedDashboard) return;
     try {
-      const hasBlank = tiles?.some(t => t.dashboardId === selectedDashboard.id && t.companyId === selectedCompany.id && t.prompt === '__bulk__')
-      if (hasBlank) return
-    await addDoc(collection(db, 'tiles'), {
-      title: '',
-      prompt: '__bulk__',
-      content: null,
+      const hasBlank = tiles?.some(
+        (t) =>
+          t.dashboardId === selectedDashboard.id &&
+          t.companyId === selectedCompany.id &&
+          t.prompt === "__bulk__"
+      );
+      if (hasBlank) return;
+      await addDoc(collection(db, "tiles"), {
+        title: "",
+        prompt: "__bulk__",
+        content: null,
         position: -1,
-      size: 'medium',
-      type: 'prompt',
-        color: 'white',
-      isFlipped: false,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      userId: user.id,
+        size: "medium",
+        type: "prompt",
+        color: "white",
+        isFlipped: false,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        userId: user.id,
         dashboardId: selectedDashboard.id,
-      companyId: selectedCompany.id,
-    })
-    } catch (_) { }
+        companyId: selectedCompany.id,
+      });
+    } catch (_) {}
   };
 
   const handleFileUpload = () => {
@@ -764,7 +815,7 @@ export default function Dashboard({
 
   const loadFiles = () => {
     if (!selectedCompany) return;
-    
+
     // Use mock data directly
     const { mockFiles } = require("@/lib/mockData");
     setFiles(
@@ -782,12 +833,12 @@ export default function Dashboard({
 
   if (error) {
     return (
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center">
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
           <h2 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-4">
             Error
           </h2>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">{error}</p>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">{error}</p>
           <button
             onClick={() => window.location.reload()}
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
@@ -803,15 +854,16 @@ export default function Dashboard({
     <div className="h-screen bg-white dark:bg-gray-900 flex flex-col">
       {/* Top Header Bar - Fixed */}
       <header
-        className={`bg-white dark:bg-gray-900 px-6 py-4 flex-shrink-0 transition-all duration-300 ${sidebarOpen ? "lg:ml-[235.8px] max-[1260px]:ml-0" : "ml-0"
-          } ${showDashPanel ? "lg:mr-80" : "mr-0"}`}
+        className={`bg-white dark:bg-gray-900 px-6 py-4 flex-shrink-0 transition-all duration-300 ${
+          sidebarOpen ? "lg:ml-[235.8px] max-[1260px]:ml-0" : "ml-0"
+        } ${showDashPanel ? "lg:mr-80" : "mr-0"}`}
       >
         <div className="flex items-center justify-between max-[600px]:flex-col max-[600px]:space-y-3 max-[900px]:justify-center">
           {/* Left side - Hamburger menu and breadcrumbs */}
           <div className="flex items-center space-x-4 max-[600px]:justify-center max-[600px]:w-full max-[900px]:justify-center">
             {!sidebarOpen && (
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
                 className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               >
                 <svg
@@ -826,12 +878,12 @@ export default function Dashboard({
                     strokeWidth={2}
                     d="M4 6h16M4 12h16M4 18h16"
                   />
-              </svg>
-            </button>
+                </svg>
+              </button>
             )}
-            
+
             {viewMode === "companies" ? (
-            <div className="flex items-center space-x-2 text-sm">
+              <div className="flex items-center space-x-2 text-sm">
                 <span className="text-gray-900 dark:text-gray-100 font-medium">
                   Companies
                 </span>
@@ -839,17 +891,17 @@ export default function Dashboard({
             ) : (
               selectedCompany && (
                 <div className="flex items-center space-x-2 text-sm">
-                  <button 
+                  <button
                     onClick={() => setViewMode("companies")}
                     className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 cursor-pointer transition-colors"
                   >
                     Companies
                   </button>
-              <span className="text-gray-400 dark:text-gray-500">/</span>
+                  <span className="text-gray-400 dark:text-gray-500">/</span>
                   <span className="text-gray-900 dark:text-gray-100 font-medium">
                     {selectedCompany.name}
                   </span>
-            </div>
+                </div>
               )
             )}
           </div>
@@ -868,8 +920,9 @@ export default function Dashboard({
                   }}
                 >
                   <ArrowPathIcon
-                    className={`h-5 w-5 text-gray-600 ${refreshing ? "animate-spin" : ""
-                      }`}
+                    className={`h-5 w-5 text-gray-600 ${
+                      refreshing ? "animate-spin" : ""
+                    }`}
                   />
                 </button>
                 <button
@@ -915,10 +968,11 @@ export default function Dashboard({
                               setSelectedDashboard(d);
                               setShowDashDropdown(false);
                             }}
-                            className={`w-full text-left px-4 py-2 rounded-md hover:bg-gray-50 text-[15px] ${selectedDashboard?.id === d.id
-                              ? "font-bold text-blue-700"
-                              : "text-gray-700"
-                              }`}
+                            className={`w-full text-left px-4 py-2 rounded-md hover:bg-gray-50 text-[15px] ${
+                              selectedDashboard?.id === d.id
+                                ? "font-bold text-blue-700"
+                                : "text-gray-700"
+                            }`}
                           >
                             {d.name}
                           </button>
@@ -962,18 +1016,22 @@ export default function Dashboard({
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-            {/* Left Sidebar - Responsive */}
+        {/* Left Sidebar - Responsive */}
         <div
-          className={`bg-gray-200 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
-            } fixed inset-y-0 left-0 z-40 flex flex-col`}
-          style={{ width: '235.8px' }}
+          className={`bg-gray-200 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-300 ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          } fixed inset-y-0 left-0 z-40 flex flex-col`}
+          style={{ width: "235.8px" }}
         >
-              <div className="flex flex-col h-full" style={{backgroundColor: '#EFEFEF'}}>
+          <div
+            className="flex flex-col h-full"
+            style={{ backgroundColor: "#EFEFEF" }}
+          >
             {/* Sidebar Top Bar with brand and menu */}
             <div className="flex items-center justify-between p-4">
               <div className="flex items-center space-x-2 px-4">
                 <span className="text-lg font-bold text-gray-800 dark:text-gray-200">
-                  Deel
+                  loading...
                 </span>
                 <svg
                   className="h-4 w-4 text-gray-500"
@@ -989,8 +1047,8 @@ export default function Dashboard({
                   />
                 </svg>
               </div>
-                    <button
-                      onClick={() => setSidebarOpen(false)}
+              <button
+                onClick={() => setSidebarOpen(false)}
                 className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                 aria-label="Close sidebar"
               >
@@ -1006,9 +1064,9 @@ export default function Dashboard({
                     strokeWidth={2}
                     d="M4 6h16M4 12h16M4 18h16"
                   />
-                    </svg>
-                  </button>
-                </div>
+                </svg>
+              </button>
+            </div>
 
             {/* Quick Actions - Earn Credits (styled like sections) */}
             <div className="mx-3 mb-3">
@@ -1028,10 +1086,15 @@ export default function Dashboard({
                     <path d="M5.5 9.2v3.2c0 1.4 2.9 2.6 6.5 2.6s6.5-1.2 6.5-2.6V9.2"></path>
                     <path d="M5.5 12.4V15c0 1.4 2.9 2.6 6.5 2.6S18.5 16.4 18.5 15v-2.6"></path>
                   </svg>
-                  <h3 className="text-base font-medium text-gray-500 dark:text-gray-500">Earn Credits</h3>
+                  <h3 className="text-base font-medium text-gray-500 dark:text-gray-500">
+                    Earn Credits
+                  </h3>
                 </div>
               </div>
-              <div className="px-3 pb-2 space-y-0.5" style={{paddingLeft: 24}}>
+              <div
+                className="px-3 pb-2 space-y-0.5"
+                style={{ paddingLeft: 24 }}
+              >
                 <button
                   onClick={() => toast("Invite Friends coming soon")}
                   className="w-full text-left px-6 py-1 text-base font-medium rounded-md transition-colors hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center space-x-2 text-gray-500 dark:text-gray-500"
@@ -1046,11 +1109,11 @@ export default function Dashboard({
                 </button>
               </div>
             </div>
-                
-                {/* Main Content - Fixed height container */}
+
+            {/* Main Content - Fixed height container */}
             <div className="flex-1 px-4 pb-4 pt-2 flex flex-col min-h-0">
-                  {/* Companies Section - Exactly Half Height */}
-                  <div className="flex-1 flex flex-col mb-4 min-h-0">
+              {/* Companies Section - Exactly Half Height */}
+              <div className="flex-1 flex flex-col mb-4 min-h-0">
                 <div
                   className="flex items-center justify-between mb-3 px-3 py-2 flex-shrink-0 cursor-pointer"
                   onClick={() => setViewMode("companies")}
@@ -1069,39 +1132,45 @@ export default function Dashboard({
                       <path d="M4 20h13M8 9h2M8 12h2M8 15h2M12 9h2M12 12h2M12 15h2" />
                     </svg>
                     <h3 className="text-base font-medium text-gray-500 dark:text-gray-500">
-                        Companies
-                      </h3>
+                      Companies
+                    </h3>
                   </div>
-                      <button
-                    onClick={(e) => { e.stopPropagation(); setShowAddCompany(true); }}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowAddCompany(true);
+                    }}
                     className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
                     title="Add Company"
-                      >
+                  >
                     <PlusIcon className="h-4 w-4 text-gray-600" />
+                  </button>
+                </div>
+                <div className="flex-1 space-y-0.5" style={{ paddingLeft: 24 }}>
+                  {recentlyVisitedCompanies.length > 0 ? (
+                    recentlyVisitedCompanies.map((company) => (
+                      <button
+                        key={company.id}
+                        onClick={() => handleCompanySelect(company)}
+                        className="w-full text-left px-6 py-1 text-base font-medium rounded-md transition-colors hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-500"
+                      >
+                        {company.name}
                       </button>
+                    ))
+                  ) : (
+                    <div className="px-6 py-1 text-sm text-gray-400">
+                      No recent companies
                     </div>
-                <div className="flex-1 space-y-0.5" style={{paddingLeft: 24}}>
-                      {recentlyVisitedCompanies.length > 0 ? (
-                        recentlyVisitedCompanies.map((company) => (
-                          <button
-                            key={company.id}
-                            onClick={() => handleCompanySelect(company)}
-                            className="w-full text-left px-6 py-1 text-base font-medium rounded-md transition-colors hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-500"
-                          >
-                            {company.name}
-                          </button>
-                        ))
-                      ) : (
-                        <div className="px-6 py-1 text-sm text-gray-400">
-                          No recent companies
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  )}
+                </div>
+              </div>
 
-                  {/* Contacts Section - Exactly Half Height */}
-                  <div className="flex-1 flex flex-col min-h-0">
-                <div className="flex items-center justify-between mb-3 px-3 py-2 flex-shrink-0 cursor-pointer" onClick={() => setViewMode('contacts')}>
+              {/* Contacts Section - Exactly Half Height */}
+              <div className="flex-1 flex flex-col min-h-0">
+                <div
+                  className="flex items-center justify-between mb-3 px-3 py-2 flex-shrink-0 cursor-pointer"
+                  onClick={() => setViewMode("contacts")}
+                >
                   <div className="flex items-center space-x-2 select-none">
                     <svg
                       className="h-4 w-4 text-green-500"
@@ -1118,42 +1187,55 @@ export default function Dashboard({
                       <path d="M5 8h-1M5 12h-1M5 16h-1" />
                     </svg>
                     <h3 className="text-base font-medium text-gray-500 dark:text-gray-500">
-                        Contacts
-                      </h3>
+                      Contacts
+                    </h3>
                   </div>
-                      <button
+                  <button
                     onClick={() => setShowAddContact(true)}
                     className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
                     title="Add Contact"
-                      >
+                  >
                     <PlusIcon className="h-4 w-4 text-gray-600" />
-                      </button>
-                    </div>
-                <div className="flex-1 overflow-y-auto space-y-0.5 min-h-0 scrollbar-hide" style={{paddingLeft: 24}}>
-                      {contacts.map((contact) => (
-                        <button
-                          key={contact.id}
-                          onClick={() => {
+                  </button>
+                </div>
+                <div
+                  className="flex-1 overflow-y-auto space-y-0.5 min-h-0 scrollbar-hide"
+                  style={{ paddingLeft: 24 }}
+                >
+                  {contacts.map((contact) => (
+                    <button
+                      key={contact.id}
+                      onClick={() => {
                         handleContactSelect(contact);
                         setShowContactDropdown(false);
                       }}
                       className="w-full text-left px-6 py-1 text-base font-medium rounded-md transition-colors hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-500"
-                        >
-                          {contact.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                    >
+                      {contact.name}
+                    </button>
+                  ))}
                 </div>
+              </div>
+            </div>
 
-                {/* User Section - Distinguished from other sections */}
-            <div className="p-4 flex-shrink-0 dark:border-gray-700 bg-gray-200 dark:bg-gray-800" style={{backgroundColor: '#EFEFEF'}}>
-                  <div className="flex flex-col space-y-3">
+            {/* User Section - Distinguished from other sections */}
+            <div
+              className="p-4 flex-shrink-0 dark:border-gray-700 bg-gray-200 dark:bg-gray-800"
+              style={{ backgroundColor: "#EFEFEF" }}
+            >
+              <div className="flex flex-col space-y-3">
                 <UserMenu
                   userName={user?.name}
                   userEmail={user?.email}
-                  onProfile={() => router.push('/profile')}
-                  onSignOut={async () => { try { await signOutUser(); router.push('/auth/signin') } catch { toast.error('Failed to unsubscribe') } }}
+                  onProfile={() => router.push("/profile")}
+                  onSignOut={async () => {
+                    try {
+                      await signOutUser();
+                      router.push("/auth/signin");
+                    } catch {
+                      toast.error("Failed to unsubscribe");
+                    }
+                  }}
                 />
                 {/* Settings Icon with Text */}
                 <button className="flex items-center space-x-3 p-3 rounded-lg hover:bg-white dark:hover:bg-gray-600 hover:shadow-sm transition-all duration-200 border border-transparent hover:border-gray-200 dark:hover:border-gray-600">
@@ -1176,32 +1258,41 @@ export default function Dashboard({
                         strokeWidth={2}
                         d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
                       />
-                          </svg>
-                        </div>
+                    </svg>
+                  </div>
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300 text-left">
                     Settings
-                          </span>
-                      </button>
-                          </div>
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Main Content - Scrollable */}
         <div
-          className={`flex-1 flex flex-col overflow-hidden ${sidebarOpen ? "lg:ml-[235.8px] max-[1260px]:ml-0" : "ml-0"
-            } ${showDashPanel ? "lg:mr-80" : "mr-0"}`}
+          className={`flex-1 flex flex-col overflow-hidden ${
+            sidebarOpen ? "lg:ml-[235.8px] max-[1260px]:ml-0" : "ml-0"
+          } ${showDashPanel ? "lg:mr-80" : "mr-0"}`}
         >
           {/* Dashboard Content - Scrollable */}
           <main className="flex-1 overflow-y-auto bg-white dark:bg-gray-900 scrollbar-hide">
-            <div className={`${sidebarOpen ? 'pl-32 max-[1260px]:pl-0' : 'pl-32 max-[1260px]:pl-0'}`}>
+            <div
+              className={`${
+                sidebarOpen
+                  ? "pl-32 max-[1260px]:pl-0"
+                  : "pl-32 max-[1260px]:pl-0"
+              }`}
+            >
               {companiesLoading || dashboardsLoading || tilesLoading ? (
                 <div className="flex items-center justify-center h-64 text-gray-600">
                   Loading…
                 </div>
               ) : viewMode === "companies" ? (
                 <div className="space-y-2">
-                  <h1 className="text-xl font-semibold text-gray-900 ml-32 max-[1260px]:ml-0">Companies</h1>
+                  <h1 className="text-xl font-semibold text-gray-900 ml-32 max-[1260px]:ml-0">
+                    Companies
+                  </h1>
                   <div className="max-w-3xl ml-36 max-[1260px]:ml-0">
                     <CompaniesTable
                       companies={companyList}
@@ -1209,7 +1300,9 @@ export default function Dashboard({
                       onEdit={(c) => setEditCompany(c)}
                       onDelete={async (c) => {
                         try {
-                          const { deleteDoc, doc } = await import("firebase/firestore");
+                          const { deleteDoc, doc } = await import(
+                            "firebase/firestore"
+                          );
                           await deleteDoc(doc(db, "companies", c.id));
                           toast.success("Company deleted");
                         } catch (_) {
@@ -1218,11 +1311,13 @@ export default function Dashboard({
                       }}
                       onSelect={handleCompanySelect}
                     />
-                          </div>
-                        </div>
-              ) : viewMode === 'contacts' ? (
+                  </div>
+                </div>
+              ) : viewMode === "contacts" ? (
                 <div className="space-y-2">
-                  <h1 className="text-xl font-semibold text-gray-900 ml-32 max-[1260px]:ml-0">Contacts</h1>
+                  <h1 className="text-xl font-semibold text-gray-900 ml-32 max-[1260px]:ml-0">
+                    Contacts
+                  </h1>
                   <div className="max-w-3xl ml-36 max-[1260px]:ml-0">
                     <ContactsTable
                       contacts={contacts}
@@ -1230,122 +1325,226 @@ export default function Dashboard({
                       onEdit={(c) => setEditingContact(c)}
                       onDelete={async (c) => {
                         try {
-                          const { deleteDoc, doc } = await import('firebase/firestore')
-                          const { db } = await import('@/lib/firebase')
-                          await deleteDoc(doc(db, 'contacts', c.id))
-                        } catch (_) { }
+                          const { deleteDoc, doc } = await import(
+                            "firebase/firestore"
+                          );
+                          const { db } = await import("@/lib/firebase");
+                          await deleteDoc(doc(db, "contacts", c.id));
+                        } catch (_) {}
                       }}
                     />
-                    </div>
-                      </div>
+                  </div>
+                </div>
               ) : selectedCompany && selectedDashboard ? (
                 <div className="space-y-6">
                   {/* Company selector and Contacts Dropdown */}
                   <div className="mb-6">
                     <div className="flex items-center gap-4 mb-4 max-[900px]:justify-center">
                       {/* Company Dropdown */}
-                      <div className="relative inline-block" ref={companyDropdownRef}>
+                      <div
+                        className="relative inline-block"
+                        ref={companyDropdownRef}
+                      >
                         <button
-                          onClick={() => setShowCompanyDropdown(v => !v)}
+                          onClick={() => setShowCompanyDropdown((v) => !v)}
                           className="inline-flex items-center text-2xl font-bold text-gray-900 dark:text-gray-100"
                         >
-                          <span className="truncate max-w-[380px]">{selectedCompany?.name ? capitalizeWords(selectedCompany.name) : 'Select Company'}</span>
-                          <svg className={`h-5 w-5 ml-2 transition-transform ${showCompanyDropdown ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                          <span className="truncate max-w-[380px]">
+                            {selectedCompany?.name
+                              ? capitalizeWords(selectedCompany.name)
+                              : "Select Company"}
+                          </span>
+                          <svg
+                            className={`h-5 w-5 ml-2 transition-transform ${
+                              showCompanyDropdown ? "rotate-180" : ""
+                            }`}
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M19 9l-7 7-7-7"
+                            />
+                          </svg>
                           {selectedCompany && (
-                            <span className="ml-3 inline-flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-bold" style={{
-                              backgroundColor: (() => {
-                                const score = (() => {
-                                  const anyC: any = selectedCompany as any;
-                                  if (typeof anyC.score === 'number' && anyC.score > 0) return Math.max(1, Math.min(5, Math.floor(anyC.score)));
-                                  let sum = 0;
-                                  for (let i = 0; i < selectedCompany.name.length; i++) sum = (sum + selectedCompany.name.charCodeAt(i)) % 97;
-                                  return (sum % 5) + 1;
-                                })();
-                                switch (score) {
-                                  case 1:
-                                  case 2:
-                                    return '#F77969';
-                                  case 3:
-                                    return '#E8D20A';
-                                  case 4:
-                                  case 5:
-                                    return '#0FB22A';
-                                  default:
-                                    return '#F77969';
-                                }
-                              })()
-                            }}>
+                            <span
+                              className="ml-3 inline-flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-bold"
+                              style={{
+                                backgroundColor: (() => {
+                                  const score = (() => {
+                                    const anyC: any = selectedCompany as any;
+                                    if (
+                                      typeof anyC.score === "number" &&
+                                      anyC.score > 0
+                                    )
+                                      return Math.max(
+                                        1,
+                                        Math.min(5, Math.floor(anyC.score))
+                                      );
+                                    let sum = 0;
+                                    for (
+                                      let i = 0;
+                                      i < selectedCompany.name.length;
+                                      i++
+                                    )
+                                      sum =
+                                        (sum +
+                                          selectedCompany.name.charCodeAt(i)) %
+                                        97;
+                                    return (sum % 5) + 1;
+                                  })();
+                                  switch (score) {
+                                    case 1:
+                                    case 2:
+                                      return "#F77969";
+                                    case 3:
+                                      return "#E8D20A";
+                                    case 4:
+                                    case 5:
+                                      return "#0FB22A";
+                                    default:
+                                      return "#F77969";
+                                  }
+                                })(),
+                              }}
+                            >
                               {(() => {
                                 const anyC: any = selectedCompany as any;
-                                if (typeof anyC.score === 'number' && anyC.score > 0) return Math.max(1, Math.min(5, Math.floor(anyC.score)));
+                                if (
+                                  typeof anyC.score === "number" &&
+                                  anyC.score > 0
+                                )
+                                  return Math.max(
+                                    1,
+                                    Math.min(5, Math.floor(anyC.score))
+                                  );
                                 let sum = 0;
-                                for (let i = 0; i < selectedCompany.name.length; i++) sum = (sum + selectedCompany.name.charCodeAt(i)) % 97;
+                                for (
+                                  let i = 0;
+                                  i < selectedCompany.name.length;
+                                  i++
+                                )
+                                  sum =
+                                    (sum + selectedCompany.name.charCodeAt(i)) %
+                                    97;
                                 return (sum % 5) + 1;
                               })()}
-                      </span>
+                            </span>
                           )}
-                    </button>
+                        </button>
                         {showCompanyDropdown && (
                           <div className="absolute top-full left-0 mt-2 w-80 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-xl z-50 p-2">
                             <div className="relative mb-2">
                               <input
                                 value={companySearch}
-                                onChange={(e) => setCompanySearch(e.target.value)}
+                                onChange={(e) =>
+                                  setCompanySearch(e.target.value)
+                                }
                                 placeholder="Search..."
                                 className="w-full pl-8 pr-3 py-2 rounded-md bg-white dark:bg-gray-800 dark:text-gray-100"
-                                style={{ color: '#7F7F7F' }}
+                                style={{ color: "#7F7F7F" }}
                               />
-                              <svg className="h-4 w-4 text-gray-400 absolute left-2 top-1/2 -translate-y-1/2" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                  </div>
+                              <svg
+                                className="h-4 w-4 text-gray-400 absolute left-2 top-1/2 -translate-y-1/2"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="2"
+                                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                                />
+                              </svg>
+                            </div>
                             <div className="max-h-64 overflow-y-auto scrollbar-hide">
                               {companySearch.trim().length === 0 ? (
-                                <div className="px-3 py-2 text-sm text-gray-500">Type to search companies…</div>
+                                <div className="px-3 py-2 text-sm text-gray-500">
+                                  Type to search companies…
+                                </div>
                               ) : (
                                 (() => {
-                                  const q = companySearch.trim().toLowerCase()
-                                  const results = companyList.filter(c => c.name.toLowerCase().includes(q))
+                                  const q = companySearch.trim().toLowerCase();
+                                  const results = companyList.filter((c) =>
+                                    c.name.toLowerCase().includes(q)
+                                  );
                                   if (results.length === 0) {
-                                    return <div className="px-3 py-2 text-sm text-gray-500">No results</div>
+                                    return (
+                                      <div className="px-3 py-2 text-sm text-gray-500">
+                                        No results
+                                      </div>
+                                    );
                                   }
-                                  return results.map(c => (
+                                  return results.map((c) => (
                                     <button
                                       key={c.id}
-                                      onClick={() => { handleCompanySelect(c); setShowCompanyDropdown(false); setCompanySearch(''); }}
-                                      className={`w-full text-left px-3 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center space-x-2 ${selectedCompany?.id === c.id ? 'font-semibold' : 'text-gray-800 dark:text-gray-200'}`}
-                                      style={selectedCompany?.id === c.id ? { color: '#C6C6C6' } : {}}
+                                      onClick={() => {
+                                        handleCompanySelect(c);
+                                        setShowCompanyDropdown(false);
+                                        setCompanySearch("");
+                                      }}
+                                      className={`w-full text-left px-3 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center space-x-2 ${
+                                        selectedCompany?.id === c.id
+                                          ? "font-semibold"
+                                          : "text-gray-800 dark:text-gray-200"
+                                      }`}
+                                      style={
+                                        selectedCompany?.id === c.id
+                                          ? { color: "#C6C6C6" }
+                                          : {}
+                                      }
                                     >
-                                      <svg className="h-4 w-4" style={{ color: '#FFA492' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20V6a2 2 0 012-2h7a2 2 0 012 2v14" /><path d="M4 20h13M8 9h2M8 12h2M8 15h2M12 9h2M12 12h2M12 15h2" /></svg>
+                                      <svg
+                                        className="h-4 w-4"
+                                        style={{ color: "#FFA492" }}
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="1.6"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                      >
+                                        <path d="M4 20V6a2 2 0 012-2h7a2 2 0 012 2v14" />
+                                        <path d="M4 20h13M8 9h2M8 12h2M8 15h2M12 9h2M12 12h2M12 15h2" />
+                                      </svg>
                                       <span className="truncate">{c.name}</span>
                                     </button>
-                                  ))
+                                  ));
                                 })()
                               )}
-                </div>
+                            </div>
                             {/* Inline ask shortcut inside menu (optional) */}
                           </div>
                         )}
-              </div>
-            </div>
-                        
-                        {/* Contacts Dropdown */}
+                      </div>
+                    </div>
+
+                    {/* Contacts Dropdown */}
                     <div className="relative inline-block contacts-dropdown max-[900px]:justify-center">
-                          <button
+                      <button
                         onClick={() =>
                           setShowContactDropdown(!showContactDropdown)
                         }
                         className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent flex items-center space-x-2"
                         style={{
-                          minWidth: '123.73px',
-                          width: 'auto',
-                          height: '26.97px',
-                          color: '#7F7F7F',
-                          fontSize: '12px'
+                          minWidth: "123.73px",
+                          width: "auto",
+                          height: "26.97px",
+                          color: "#7F7F7F",
+                          fontSize: "12px",
                         }}
                       >
-                        <span className="whitespace-nowrap">{selectedContact?.name || "Contacts"}</span>
+                        <span className="whitespace-nowrap">
+                          {selectedContact?.name || "Contacts"}
+                        </span>
                         <svg
-                          className={`h-4 w-4 transition-transform flex-shrink-0 ${showContactDropdown ? "rotate-180" : ""
-                            }`}
+                          className={`h-4 w-4 transition-transform flex-shrink-0 ${
+                            showContactDropdown ? "rotate-180" : ""
+                          }`}
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -1356,101 +1555,132 @@ export default function Dashboard({
                             strokeWidth={2}
                             d="M19 9l-7 7-7-7"
                           />
-                            </svg>
-                          </button>
-                          
-                          {/* Contacts Dropdown Panel */}
-                          {showContactDropdown && (
-                            <div className="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg shadow-lg z-50">
+                        </svg>
+                      </button>
+
+                      {/* Contacts Dropdown Panel */}
+                      {showContactDropdown && (
+                        <div className="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg shadow-lg z-50">
                           <div className="max-h-64 overflow-y-auto scrollbar-hide">
-                                {contacts.length > 0 ? (
-                                  contacts.map((contact) => (
-                                    <button
-                                      key={contact.id}
-                                      onClick={() => {
+                            {contacts.length > 0 ? (
+                              contacts.map((contact) => (
+                                <button
+                                  key={contact.id}
+                                  onClick={() => {
                                     handleContactSelect(contact);
                                     setShowContactDropdown(false);
                                   }}
-                                  className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${selectedContact?.id === contact.id
-                                    ? "bg-green-50 dark:bg-green-900 text-green-700 dark:text-green-300 border-l-2 border-green-500"
-                                    : "text-gray-700 dark:text-gray-300"
-                                        }`}
-                                    >
-                                      {contact.name}
-                                    </button>
-                                  ))
-                                ) : (
-                                  <div className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
-                                    No contacts found
-                                  </div>
-                                )}
+                                  className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
+                                    selectedContact?.id === contact.id
+                                      ? "bg-green-50 dark:bg-green-900 text-green-700 dark:text-green-300 border-l-2 border-green-500"
+                                      : "text-gray-700 dark:text-gray-300"
+                                  }`}
+                                >
+                                  {contact.name}
+                                </button>
+                              ))
+                            ) : (
+                              <div className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
+                                No contacts found
                               </div>
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </div>
-                      </div>
+                      )}
+                    </div>
+                  </div>
 
-                      {/* Action Buttons and Search */}
+                  {/* Action Buttons and Search */}
                   <div className="mb-6 flex flex-row items-center justify-between gap-3 max-[900px]:flex-col max-[900px]:items-center">
                     <div className="flex flex-row gap-3 max-[900px]:flex-col max-[900px]:items-center">
                       <button
                         onClick={handleFileUpload}
                         className="px-4 bg-transparent text-gray-900 rounded-lg hover:bg-gray-100 transition-colors"
-                        style={{ fontSize: '14px', height: '26.98px', fontWeight: 'bold' }}
+                        style={{
+                          fontSize: "14px",
+                          height: "26.98px",
+                          fontWeight: "bold",
+                        }}
                       >
-                          + Upload Files
-                        </button>
+                        + Upload Files
+                      </button>
                       <button
                         onClick={handleBulkUpload}
                         className="px-4 text-white rounded-lg transition-colors w-auto max-[900px]:w-full"
-                        style={{ fontSize: '14px', height: '26.98px', backgroundColor: '#3165DB', fontWeight: 'bold' }}
-                        onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#2A5BC7'}
-                        onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#3165DB'}
+                        style={{
+                          fontSize: "14px",
+                          height: "26.98px",
+                          backgroundColor: "#3165DB",
+                          fontWeight: "bold",
+                        }}
+                        onMouseEnter={(e) =>
+                          ((
+                            e.target as HTMLButtonElement
+                          ).style.backgroundColor = "#2A5BC7")
+                        }
+                        onMouseLeave={(e) =>
+                          ((
+                            e.target as HTMLButtonElement
+                          ).style.backgroundColor = "#3165DB")
+                        }
                       >
-                          Bulk Upload Prompts
-                        </button>
+                        Bulk Upload Prompts
+                      </button>
                       <button
                         className="px-4 text-white rounded-lg transition-colors w-auto max-[900px]:w-full"
-                        style={{ fontSize: '14px', height: '26.98px', backgroundColor: '#D37B11', fontWeight: 'bold' }}
-                        onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#C16A0A'}
-                        onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#D37B11'}
+                        style={{
+                          fontSize: "14px",
+                          height: "26.98px",
+                          backgroundColor: "#D37B11",
+                          fontWeight: "bold",
+                        }}
+                        onMouseEnter={(e) =>
+                          ((
+                            e.target as HTMLButtonElement
+                          ).style.backgroundColor = "#C16A0A")
+                        }
+                        onMouseLeave={(e) =>
+                          ((
+                            e.target as HTMLButtonElement
+                          ).style.backgroundColor = "#D37B11")
+                        }
                         onClick={async () => {
-                          if (!selectedCompany || !selectedDashboard) return
+                          if (!selectedCompany || !selectedDashboard) return;
                           try {
-                            const ref = await addDoc(collection(db, 'tiles'), {
-                              title: 'Note',
+                            const ref = await addDoc(collection(db, "tiles"), {
+                              title: "Note",
                               prompt: null,
-                              content: '',
-                              position: (tiles?.length || 0),
-                              size: 'medium',
-                              type: 'note',
-                              color: 'green',
+                              content: "",
+                              position: tiles?.length || 0,
+                              size: "medium",
+                              type: "note",
+                              color: "green",
                               isFlipped: false,
                               createdAt: serverTimestamp(),
                               updatedAt: serverTimestamp(),
                               userId: user.id,
                               dashboardId: selectedDashboard.id,
                               companyId: selectedCompany.id,
-                            })
-                            toast.success('Note tile added')
+                            });
+                            toast.success("Note tile added");
                           } catch (_) {
-                            toast.error('Failed to add note tile')
+                            toast.error("Failed to add note tile");
                           }
                         }}
                       >
                         Add Notes Tile
                       </button>
                     </div>
-                        {/* Search Field */}
+                    {/* Search Field */}
                     <div className="relative w-[320px] max-[900px]:w-full mr-24 max-[900px]:mr-0">
-                          <input
-                            type="text"
+                      <input
+                        type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="Find on page..."
                         className="pl-8 pr-4 py-2 w-full border-0 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                          />
-                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      />
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <svg
                           className="h-4 w-4 text-gray-400 dark:text-gray-500"
                           fill="none"
@@ -1463,9 +1693,9 @@ export default function Dashboard({
                             strokeWidth={2}
                             d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                           />
-                            </svg>
-                          </div>
-                        </div>
+                        </svg>
+                      </div>
+                    </div>
 
                     {/* Dashboard Switcher moved to far right */}
                     {/* <div className="ml-auto relative">
@@ -1518,7 +1748,7 @@ export default function Dashboard({
                             </div>
                           )}
                         </div> */}
-                      </div>
+                  </div>
 
                   <TileGrid
                     tiles={tiles}
@@ -1529,44 +1759,47 @@ export default function Dashboard({
                     searchQuery={searchQuery}
                     gridColsClass=""
                   />
-                  
+
                   {/* Notes Section */}
                   <div className="mt-8">
-                    <h3 
+                    <h3
                       className="text-gray-900 dark:text-gray-100 mb-4"
-                      style={{ 
-                        fontSize: '18.18px',
-                        fontFamily: 'SF Pro, -apple-system, BlinkMacSystemFont, system-ui, sans-serif',
-                        fontWeight: '590',
-                        lineHeight: '100%',
-                        letterSpacing: '0%',
-                        color: '#333333'
+                      style={{
+                        fontSize: "18.18px",
+                        fontFamily:
+                          "SF Pro, -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
+                        fontWeight: "590",
+                        lineHeight: "100%",
+                        letterSpacing: "0%",
+                        color: "#333333",
                       }}
                     >
                       Notes
                     </h3>
-                    <div 
+                    <div
                       className="w-full overflow-x-auto overflow-y-hidden scrollbar-hide"
-                      style={{
-                        '--tile-width': '300px',
-                        '--tile-height': '218.52px',
-                        width: '100%',
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(5, 300px)',
-                        gap: '24px',
-                        gridAutoRows: '218.52px',
-                      } as React.CSSProperties}
+                      style={
+                        {
+                          "--tile-width": "300px",
+                          "--tile-height": "218.52px",
+                          width: "100%",
+                          display: "grid",
+                          gridTemplateColumns: "repeat(5, 300px)",
+                          gap: "24px",
+                          gridAutoRows: "218.52px",
+                        } as React.CSSProperties
+                      }
                     >
                       {/* Note Tiles - Filter tiles to show only note type */}
                       {tiles
-                        .filter(tile => tile.type === 'note')
+                        .filter((tile) => tile.type === "note")
                         .map((tile) => (
                           <div
                             key={tile.id}
                             className="transition-transform duration-200"
                             style={{
-                              width: '300px',
-                              height: '218.52px',
+                              width: "300px",
+                              height: "218.52px",
                             }}
                           >
                             <TileComponent
@@ -1576,54 +1809,59 @@ export default function Dashboard({
                               user={user}
                               onUpdate={async (updates) => {
                                 try {
-                                  const { updateDoc, doc } = await import('firebase/firestore')
-                                  await updateDoc(doc(db, 'tiles', tile.id), {
+                                  const { updateDoc, doc } = await import(
+                                    "firebase/firestore"
+                                  );
+                                  await updateDoc(doc(db, "tiles", tile.id), {
                                     ...updates,
                                     updatedAt: serverTimestamp(),
-                                  })
+                                  });
                                 } catch (error) {
-                                  console.error('Error updating tile:', error)
+                                  console.error("Error updating tile:", error);
                                 }
                               }}
                               onDelete={async () => {
                                 try {
-                                  const { deleteDoc, doc } = await import('firebase/firestore')
-                                  await deleteDoc(doc(db, 'tiles', tile.id))
-                                  toast.success('Note deleted')
+                                  const { deleteDoc, doc } = await import(
+                                    "firebase/firestore"
+                                  );
+                                  await deleteDoc(doc(db, "tiles", tile.id));
+                                  toast.success("Note deleted");
                                 } catch (error) {
-                                  console.error('Error deleting tile:', error)
-                                  toast.error('Failed to delete note')
+                                  console.error("Error deleting tile:", error);
+                                  toast.error("Failed to delete note");
                                 }
                               }}
                             />
                           </div>
                         ))}
-                      
+
                       {/* Always show at least one empty note tile if no note tiles exist */}
-                      {tiles.filter(tile => tile.type === 'note').length === 0 && (
+                      {tiles.filter((tile) => tile.type === "note").length ===
+                        0 && (
                         <div
                           className="transition-transform duration-200"
                           style={{
-                            width: '300px',
-                            height: '218.52px',
+                            width: "300px",
+                            height: "218.52px",
                           }}
                         >
                           <TileComponent
                             tile={{
-                              id: 'empty-note-tile',
-                              title: 'Note',
+                              id: "empty-note-tile",
+                              title: "Note",
                               prompt: null,
-                              content: 'Add new note...',
+                              content: "Add new note...",
                               position: 0,
-                              size: 'medium',
-                              type: 'note',
-                              color: 'green',
+                              size: "medium",
+                              type: "note",
+                              color: "green",
                               isFlipped: false,
                               createdAt: new Date(),
                               updatedAt: new Date(),
                               userId: user.id,
-                              dashboardId: selectedDashboard?.id || '',
-                              companyId: selectedCompany?.id || '',
+                              dashboardId: selectedDashboard?.id || "",
+                              companyId: selectedCompany?.id || "",
                             }}
                             company={selectedCompany}
                             contact={selectedContact}
@@ -1632,26 +1870,30 @@ export default function Dashboard({
                               // Handle empty tile updates - could create a new tile
                               if (updates.content && updates.content.trim()) {
                                 try {
-                                  const { addDoc, collection, serverTimestamp } = await import('firebase/firestore')
-                                  await addDoc(collection(db, 'tiles'), {
-                                    title: updates.title || 'Note',
+                                  const {
+                                    addDoc,
+                                    collection,
+                                    serverTimestamp,
+                                  } = await import("firebase/firestore");
+                                  await addDoc(collection(db, "tiles"), {
+                                    title: updates.title || "Note",
                                     prompt: null,
                                     content: updates.content,
-                                    position: (tiles?.length || 0),
-                                    size: 'medium',
-                                    type: 'note',
-                                    color: 'green',
+                                    position: tiles?.length || 0,
+                                    size: "medium",
+                                    type: "note",
+                                    color: "green",
                                     isFlipped: false,
                                     createdAt: serverTimestamp(),
                                     updatedAt: serverTimestamp(),
                                     userId: user.id,
                                     dashboardId: selectedDashboard?.id,
                                     companyId: selectedCompany?.id,
-                                  })
-                                  toast.success('Note created')
+                                  });
+                                  toast.success("Note created");
                                 } catch (error) {
-                                  console.error('Error creating note:', error)
-                                  toast.error('Failed to create note')
+                                  console.error("Error creating note:", error);
+                                  toast.error("Failed to create note");
                                 }
                               }
                             }}
@@ -1663,7 +1905,7 @@ export default function Dashboard({
                       )}
                     </div>
                   </div>
-                  
+
                   {/* File Attachments Section */}
                   <div className="mt-8">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
@@ -1675,18 +1917,25 @@ export default function Dashboard({
               ) : !selectedCompany ? (
                 <div className="flex items-center justify-center h-[60vh]">
                   <div className="text-center">
-                    <h3 className="text-gray-900 dark:text-gray-100 mb-3 font-bold" style={{ fontSize: '28px', fontFamily: 'SF Pro, -apple-system, BlinkMacSystemFont, system-ui, sans-serif' }}>
+                    <h3
+                      className="text-gray-900 dark:text-gray-100 mb-3 font-bold"
+                      style={{
+                        fontSize: "28px",
+                        fontFamily:
+                          "SF Pro, -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
+                      }}
+                    >
                       Add Companies to Research
                     </h3>
                     <div className="flex flex-col items-center space-y-2">
                       <button
                         onClick={() => setShowAddCompany(true)}
                         className="text-white rounded-md font-bold"
-                        style={{ 
-                          backgroundColor: '#3165DB', 
-                          width: '210px', 
-                          fontSize: '26.51px',
-                          padding: '12px 16px'
+                        style={{
+                          backgroundColor: "#3165DB",
+                          width: "210px",
+                          fontSize: "26.51px",
+                          padding: "12px 16px",
                         }}
                       >
                         Quick Add
@@ -1694,11 +1943,11 @@ export default function Dashboard({
                       <button
                         onClick={() => toast("CSV upload coming soon")}
                         className="text-white rounded-md font-bold"
-                        style={{ 
-                          backgroundColor: '#3165DB', 
-                          width: '210px', 
-                          fontSize: '26.51px',
-                          padding: '12px 16px'
+                        style={{
+                          backgroundColor: "#3165DB",
+                          width: "210px",
+                          fontSize: "26.51px",
+                          padding: "12px 16px",
                         }}
                       >
                         CSV Upload
@@ -1706,11 +1955,11 @@ export default function Dashboard({
                       <button
                         onClick={() => toast("Connect CRM coming soon")}
                         className="text-white rounded-md font-bold"
-                        style={{ 
-                          backgroundColor: '#3165DB', 
-                          width: '210px', 
-                          fontSize: '26.51px',
-                          padding: '12px 16px'
+                        style={{
+                          backgroundColor: "#3165DB",
+                          width: "210px",
+                          fontSize: "26.51px",
+                          padding: "12px 16px",
                         }}
                       >
                         Connect CRM
@@ -1738,32 +1987,82 @@ export default function Dashboard({
           <aside className="w-80 fixed right-0 top-0 bottom-0 bg-white border-l border-gray-200 z-40 shadow-xl flex flex-col">
             <div className="p-3 flex items-center justify-between border-b border-gray-200">
               <div className="text-lg font-bold text-gray-900">Dashboards</div>
-              <button onClick={() => setShowDashPanel(false)} className="p-1 rounded hover:bg-gray-100">
-                <svg className="h-5 w-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+              <button
+                onClick={() => setShowDashPanel(false)}
+                className="p-1 rounded hover:bg-gray-100"
+              >
+                <svg
+                  className="h-5 w-5 text-gray-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
               </button>
             </div>
             <div className="p-3">
               <div className="relative">
-                <input value={dashSearch} onChange={e => setDashSearch(e.target.value)} placeholder="Search..." className="w-full pl-8 pr-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500" style={{ border: 'none' }} />
-                <svg className="h-4 w-4 text-gray-400 absolute left-2 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                <input
+                  value={dashSearch}
+                  onChange={(e) => setDashSearch(e.target.value)}
+                  placeholder="Search..."
+                  className="w-full pl-8 pr-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
+                  style={{ border: "none" }}
+                />
+                <svg
+                  className="h-4 w-4 text-gray-400 absolute left-2 top-1/2 -translate-y-1/2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-1 scrollbar-hide">
-              {dashboards.filter(d => d.name.toLowerCase().includes(dashSearch.toLowerCase())).map(d => (
-                <button key={d.id} onClick={() => { setSelectedDashboard(d); setShowDashPanel(false); }} className={`w-full text-left px-3 py-2 rounded hover:bg-gray-50 ${selectedDashboard?.id === d.id ? 'font-semibold text-blue-600' : 'text-gray-800'}`}>{d.name}</button>
-              ))}
+              {dashboards
+                .filter((d) =>
+                  d.name.toLowerCase().includes(dashSearch.toLowerCase())
+                )
+                .map((d) => (
+                  <button
+                    key={d.id}
+                    onClick={() => {
+                      setSelectedDashboard(d);
+                      setShowDashPanel(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded hover:bg-gray-50 ${
+                      selectedDashboard?.id === d.id
+                        ? "font-semibold text-blue-600"
+                        : "text-gray-800"
+                    }`}
+                  >
+                    {d.name}
+                  </button>
+                ))}
             </div>
           </aside>
         )}
       </div>
 
-          {/* Mobile overlay - Only on small screens */}
-          {sidebarOpen && (
-            <div
-              className="fixed inset-0 bg-black bg-opacity-50 dark:bg-black dark:bg-opacity-70 z-30 lg:hidden"
-              onClick={() => setSidebarOpen(false)}
-            />
-          )}
+      {/* Mobile overlay - Only on small screens */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 dark:bg-black dark:bg-opacity-70 z-30 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
       {/* Modals */}
       <AddCompanyModal
@@ -1786,7 +2085,9 @@ export default function Dashboard({
         onSave={async (updates) => {
           if (!editCompany) return;
           try {
-            const { updateDoc, doc, serverTimestamp } = await import("firebase/firestore");
+            const { updateDoc, doc, serverTimestamp } = await import(
+              "firebase/firestore"
+            );
             await updateDoc(doc(db, "companies", editCompany.id), {
               ...updates,
               updatedAt: serverTimestamp(),
@@ -1831,10 +2132,14 @@ export default function Dashboard({
       {/* File Upload Modal */}
       {selectedCompany && (
         <div
-          className={`fixed inset-0 bg-black bg-opacity-50 dark:bg-black dark:bg-opacity-70 flex items-center justify-center z-50 p-4 ${showFileUpload ? "block" : "hidden"
-            }`}
+          className={`fixed inset-0 bg-black bg-opacity-50 dark:bg-black dark:bg-opacity-70 flex items-center justify-center z-50 p-4 ${
+            showFileUpload ? "block" : "hidden"
+          }`}
         >
-          <div className="w-full max-w-2xl rounded-lg shadow-lg" style={{ backgroundColor: '#C6C6C6' }}>
+          <div
+            className="w-full max-w-2xl rounded-lg shadow-lg"
+            style={{ backgroundColor: "#C6C6C6" }}
+          >
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-semibold text-gray-900">
@@ -1847,7 +2152,7 @@ export default function Dashboard({
                   <XMarkIcon className="h-6 w-6" />
                 </button>
               </div>
-              
+
               {/* Upload Options */}
               <div className="flex flex-col space-x-4">
                 <div className="flex">
@@ -1855,36 +2160,68 @@ export default function Dashboard({
                   <div
                     className="flex items-center space-x-2 rounded-lg cursor-pointer"
                     style={{
-                      width: '150px',
-                      height: '31.19px',
-                      padding: '0 12px'
+                      width: "150px",
+                      height: "31.19px",
+                      padding: "0 12px",
                     }}
                   >
-                    <svg className="h-4 w-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    <svg
+                      className="h-4 w-4 text-gray-700"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                      />
                     </svg>
-                    <span className="text-gray-700 font-medium" style={{ fontSize: '12px' }}>Copy & Paste</span>
+                    <span
+                      className="text-gray-700 font-medium"
+                      style={{ fontSize: "12px" }}
+                    >
+                      Copy & Paste
+                    </span>
                   </div>
 
                   {/* Upload File Option (Selected) */}
                   <div
                     className="flex items-center space-x-3 rounded-lg border border-blue-300 cursor-pointer"
                     style={{
-                      width: '150px',
-                      height: '31.2px',
-                      backgroundColor: '#D1D1D1',
-                      padding: '0 12px'
+                      width: "150px",
+                      height: "31.2px",
+                      backgroundColor: "#D1D1D1",
+                      padding: "0 12px",
                     }}
                     onClick={() => {
                       // Trigger file input when Upload File is clicked
-                      const fileInput = document.getElementById('file-upload-input') as HTMLInputElement;
+                      const fileInput = document.getElementById(
+                        "file-upload-input"
+                      ) as HTMLInputElement;
                       fileInput?.click();
                     }}
                   >
-                    <svg className="h-4 w-4 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                    <svg
+                      className="h-4 w-4 text-black"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                      />
                     </svg>
-                    <span className="font-medium" style={{ fontSize: '12px', color: 'black' }}>Upload File</span>
+                    <span
+                      className="font-medium"
+                      style={{ fontSize: "12px", color: "black" }}
+                    >
+                      Upload File
+                    </span>
                   </div>
                 </div>
 
@@ -1905,37 +2242,48 @@ export default function Dashboard({
 
                 {/* File Types List */}
                 <div className="mt-4">
-                  <p className="text-sm text-gray-600 mb-3">Upload any of the following file types:</p>
-                  <div className="text-sm" style={{ color: '#7F7F7F', letterSpacing: '-0.5px' }}>
+                  <p className="text-sm text-gray-600 mb-3">
+                    Upload any of the following file types:
+                  </p>
+                  <div
+                    className="text-sm"
+                    style={{ color: "#7F7F7F", letterSpacing: "-0.5px" }}
+                  >
                     <div>PDF (.pdf)</div>
                     <div>Word (.docx)</div>
                     <div>PowerPoint (.pptx)</div>
                     <div>Text (.txt)</div>
                     <div>Excel (.xlsx)</div>
                     <div>CSV (.csv)</div>
-            </div>
+                  </div>
                 </div>
 
                 {/* Selected Files Display */}
                 {selectedFiles.length > 0 && (
                   <div className="mt-4">
-                    <p className="text-sm text-gray-600 mb-2">Selected files:</p>
+                    <p className="text-sm text-gray-600 mb-2">
+                      Selected files:
+                    </p>
                     <div className="space-y-1">
                       {selectedFiles.map((file, index) => (
-                        <div key={index} className="text-sm text-gray-700 bg-gray-50 p-2 rounded">
-                          {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                        <div
+                          key={index}
+                          className="text-sm text-gray-700 bg-gray-50 p-2 rounded"
+                        >
+                          {file.name} ({(file.size / 1024 / 1024).toFixed(2)}{" "}
+                          MB)
                         </div>
                       ))}
-          </div>
-        </div>
-      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Add Files Button */}
                 <div className="flex justify-start mt-6">
                   <button
                     onClick={async () => {
                       if (selectedFiles.length === 0) {
-                        toast.error('Please select files first');
+                        toast.error("Please select files first");
                         return;
                       }
 
@@ -1943,57 +2291,67 @@ export default function Dashboard({
                         setIsUploading(true);
 
                         // Upload files to Cloudinary
-                        const uploadPromises = selectedFiles.map(async (file) => {
-                          const formData = new FormData();
-                          formData.append('file', file);
+                        const uploadPromises = selectedFiles.map(
+                          async (file) => {
+                            const formData = new FormData();
+                            formData.append("file", file);
 
-                          const response = await fetch('/api/uploads/cloudinary', {
-                            method: 'POST',
-                            body: formData,
-                          });
+                            const response = await fetch(
+                              "/api/uploads/cloudinary",
+                              {
+                                method: "POST",
+                                body: formData,
+                              }
+                            );
 
-                          if (!response.ok) {
-                            throw new Error(`Failed to upload ${file.name}`);
+                            if (!response.ok) {
+                              throw new Error(`Failed to upload ${file.name}`);
+                            }
+
+                            const data = await response.json();
+                            return {
+                              id: data.public_id,
+                              name: file.name,
+                              url: data.secure_url,
+                              type: file.type,
+                              size: file.size,
+                              createdAt: new Date(),
+                              updatedAt: new Date(),
+                              userId: user.id,
+                              companyId: selectedCompany?.id || "",
+                              dashboardId: selectedDashboard?.id || "",
+                            };
                           }
-
-                          const data = await response.json();
-                          return {
-                            id: data.public_id,
-                            name: file.name,
-                            url: data.secure_url,
-                            type: file.type,
-                            size: file.size,
-                            createdAt: new Date(),
-                            updatedAt: new Date(),
-                            userId: user.id,
-                            companyId: selectedCompany?.id || '',
-                            dashboardId: selectedDashboard?.id || '',
-                          };
-                        });
+                        );
 
                         const uploadedFiles = await Promise.all(uploadPromises);
 
                         // Save to Firestore
-                        const { addDoc, collection, serverTimestamp } = await import('firebase/firestore');
-                        const { db } = await import('@/lib/firebase');
+                        const { addDoc, collection, serverTimestamp } =
+                          await import("firebase/firestore");
+                        const { db } = await import("@/lib/firebase");
 
                         for (const file of uploadedFiles) {
-                          await addDoc(collection(db, 'files'), {
+                          await addDoc(collection(db, "files"), {
                             ...file,
                             createdAt: serverTimestamp(),
                             updatedAt: serverTimestamp(),
                           });
                         }
 
-                        toast.success(`${uploadedFiles.length} file(s) uploaded successfully`);
+                        toast.success(
+                          `${uploadedFiles.length} file(s) uploaded successfully`
+                        );
                         setShowFileUpload(false);
                         setSelectedFiles([]);
 
                         // Refresh files list
-                        uploadedFiles.forEach(file => handleFileUploaded(file));
+                        uploadedFiles.forEach((file) =>
+                          handleFileUploaded(file)
+                        );
                       } catch (error) {
-                        console.error('Upload error:', error);
-                        toast.error('Failed to upload files');
+                        console.error("Upload error:", error);
+                        toast.error("Failed to upload files");
                       } finally {
                         setIsUploading(false);
                       }
@@ -2001,14 +2359,14 @@ export default function Dashboard({
                     disabled={selectedFiles.length === 0 || isUploading}
                     className="flex items-center justify-center bg-black text-white hover:bg-gray-800 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                     style={{
-                      width: '81.44px',
-                      height: '26.75px',
-                      fontSize: '12px'
+                      width: "81.44px",
+                      height: "26.75px",
+                      fontSize: "12px",
                     }}
                   >
-                    {isUploading ? '...' : '+ Add Files'}
+                    {isUploading ? "..." : "+ Add Files"}
                   </button>
-    </div>
+                </div>
               </div>
             </div>
           </div>
@@ -2080,7 +2438,11 @@ export default function Dashboard({
           </div>
         </div>
       </Modal>
-      <EditContactModal isOpen={!!editingContact} contact={editingContact || undefined} onClose={() => setEditingContact(null)} />
+      <EditContactModal
+        isOpen={!!editingContact}
+        contact={editingContact || undefined}
+        onClose={() => setEditingContact(null)}
+      />
     </div>
   );
 }

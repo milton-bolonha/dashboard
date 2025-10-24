@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 
-export function AddContactModal({ isOpen, onClose, onAdd }) {
+export function AddContactModal({ isOpen, onClose, onAdd, companyName }) {
   const [contactName, setContactName] = useState("");
   const [jobTitle, setJobTitle] = useState("");
   const [linkedinUrl, setLinkedinUrl] = useState("");
@@ -26,9 +26,10 @@ export function AddContactModal({ isOpen, onClose, onAdd }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contactName: contactName.trim(),
-          jobTitle: jobTitle.trim(),
-          linkedinUrl: linkedinUrl.trim() || null,
+          contactName,
+          jobTitle,
+          linkedinUrl,
+          companyName,
         }),
       });
 

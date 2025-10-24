@@ -119,20 +119,30 @@ export async function POST(req) {
     );
 
     // Gerar tiles via OpenAI usando os dados da company específica
-    const onboarding = guestWorkspace.workspace_data.onboarding;
-    const context = {
-      company: onboarding.salesRepAt || "Unknown Company",
-      companyWebsite: onboarding.salesRepWebsite || "", // ⭐ NOVO: Website da empresa do vendedor
-      solution: onboarding.sellingSolutionsFor || "Unknown Solution",
-      researchTarget: company.name, // ⭐ NOVO: Usar nome da company sendo pesquisada
-      researchWebsite: company.url, // ⭐ NOVO: Usar URL da company sendo pesquisada
+    const context = guestWorkspace.context || {};
+    const tileContext = {
+      company: context.company || "Unknown Company",
+      companyWebsite: context.companyWebsite || "",
+      solution: context.solution || "Unknown Solution",
+      researchTarget: company.name,
+      researchWebsite: company.website || context.researchWebsite || "",
     };
+
+    console.log("🔍 Contexto para geração de tiles:");
+    console.log("- Empresa do vendedor:", tileContext.company);
+    console.log("- Website do vendedor:", tileContext.companyWebsite);
+    console.log("- Solução vendida:", tileContext.solution);
+    console.log("- Empresa a pesquisar:", tileContext.researchTarget);
+    console.log(
+      "- Website da empresa pesquisada:",
+      tileContext.researchWebsite
+    );
 
     // Processar prompts do template
     const prompts = template.tiles.map((tile) => ({
       id: tile.id,
       title: tile.title,
-      prompt: processPromptVariables(tile.prompt, context),
+      prompt: processPromptVariables(tile.prompt, tileContext),
       category: tile.category,
     }));
 

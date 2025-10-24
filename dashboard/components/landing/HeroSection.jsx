@@ -249,6 +249,16 @@ export default function HeroSection({
           console.log("🎉 Não logado! Criando guest workspace...");
 
           try {
+            // Gerar guest_id único
+            const guestId = `guest_${Date.now()}_${Math.random()
+              .toString(36)
+              .substr(2, 9)}`;
+
+            // Definir cookie guest_id
+            document.cookie = `guest_id=${guestId}; Path=/; Max-Age=86400`; // 24 horas
+
+            console.log("🍪 Guest ID definido:", guestId);
+
             // Salvar contexto no localStorage (caso guest queira fazer signup depois)
             const contextToSave = {
               ...userContext,

@@ -43,8 +43,6 @@ export default function LoadingModal({ isOpen, onAccept, companyName }) {
         {/* Info */}
         <div className="bg-blue-50 rounded-lg p-4 mb-6">
           <p className="text-sm text-blue-800 text-center">
-            ⏱️ This typically takes 1-2 minutes
-            <br />
             📊 Tiles will appear as they're generated
           </p>
         </div>

@@ -8,18 +8,18 @@ import { db } from "@/lib/db";
 import { cookies } from "next/headers";
 import Joi from "joi";
 import sanitizeHtml from "sanitize-html";
+import { generateContactOutreachOnServer } from "@/lib/contact-outreach-generator";
 
 const addContactSchema = Joi.object({
   contactName: Joi.string().max(100).trim().required(),
   jobTitle: Joi.string().max(100).trim().required(),
   linkedinUrl: Joi.string().max(200).trim().allow(null, ""),
+  companyName: Joi.string().max(100).required(),
 }).strict();
 
 export async function POST(req) {
   try {
     console.log("📥 POST /api/guest/add-contact - Iniciando...");
-
-    // ⭐ Next.js 15: await cookies()
     const cookieStore = await cookies();
     const guestId = cookieStore.get("guest_id")?.value;
 
@@ -31,9 +31,6 @@ export async function POST(req) {
     }
 
     const body = await req.json();
-    console.log("📦 Body:", JSON.stringify(body, null, 2));
-
-    // Validar input
     const { error, value } = addContactSchema.validate(body);
     if (error) {
       return NextResponse.json(
@@ -42,53 +39,70 @@ export async function POST(req) {
       );
     }
 
-    // Sanitizar inputs
     const sanitized = {
-      contactName: sanitizeHtml(value.contactName, { allowedTags: [] }),
-      jobTitle: sanitizeHtml(value.jobTitle, { allowedTags: [] }),
-      linkedinUrl: value.linkedinUrl || null,
+      contactName: sanitizeHtml(value.contactName),
+      jobTitle: sanitizeHtml(value.jobTitle),
+      linkedinUrl: sanitizeHtml(value.linkedinUrl || ""),
     };
 
-    // Buscar workspace
-    const workspace = await db.findOne("guest_workspaces", {
+    const guestWorkspace = await db.findOne("guest_workspaces", {
       guest_id: guestId,
     });
-    if (!workspace) {
+    if (!guestWorkspace) {
       return NextResponse.json(
-        { error: "Workspace not found" },
+        { error: "Guest workspace not found" },
         { status: 404 }
       );
     }
 
-    // Adicionar novo contact
+    const companyIndex = guestWorkspace.workspace_data.companies.findIndex(
+      (c) => c.name === value.companyName
+    );
+
+    if (companyIndex === -1) {
+      return NextResponse.json({ error: "Company not found" }, { status: 404 });
+    }
+
     const newContact = {
+      id: `contact_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       name: sanitized.contactName,
-      jobTitle: sanitized.jobTitle,
-      linkedinUrl: sanitized.linkedinUrl,
-      added_at: new Date(),
-      insights: [], // Para futuras funcionalidades
-      outreach: [], // Para futuras funcionalidades
+      title: sanitized.jobTitle,
+      linkedin: sanitized.linkedinUrl,
+      createdAt: new Date().toISOString(),
+      outreachTiles: null,
     };
+
+    // Generate outreach tiles
+    console.log(`🚀 Gerando tiles de outreach para: ${value.contactName}`);
+    const company = guestWorkspace.workspace_data.companies[companyIndex];
+    const outreachTiles = await generateContactOutreachOnServer(
+      newContact,
+      company,
+      guestWorkspace.context
+    );
+    newContact.outreachTiles = outreachTiles;
+    console.log("✅ Tiles de outreach gerados.");
+
+    guestWorkspace.workspace_data.companies[companyIndex].contacts.push(
+      newContact
+    );
 
     await db.updateOne(
       "guest_workspaces",
       { guest_id: guestId },
       {
-        $push: { "workspace_data.contacts": newContact },
         $set: {
-          "usage.last_activity": new Date(),
+          "workspace_data.companies": guestWorkspace.workspace_data.companies,
+          updatedAt: new Date(),
         },
       }
     );
 
     console.log(
-      `✅ Contact "${sanitized.contactName}" adicionado ao workspace!`
+      `✅ Contato "${newContact.name}" adicionado com tiles à company "${company.name}"!`
     );
 
-    return NextResponse.json({
-      success: true,
-      contact: newContact,
-    });
+    return NextResponse.json({ success: true, contact: newContact });
   } catch (error) {
     console.error("❌ Erro ao adicionar contact:", error);
     return NextResponse.json(

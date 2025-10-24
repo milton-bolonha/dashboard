@@ -163,7 +163,7 @@ export function DocModal({ isOpen, onClose, tile }) {
             </div>
 
             {/* --- Chat Area (Scrollable) --- */}
-            <div className="flex-grow px-8 py-6 overflow-y-auto bg-white space-y-8">
+            <div className="flex-grow px-8 py-8 overflow-y-auto bg-white space-y-8">
               {/* User Question (Prompt) */}
               <div className="flex justify-end">
                 <div className="bg-gray-200 rounded-2xl px-4 py-3 max-w-lg">
@@ -189,13 +189,27 @@ export function DocModal({ isOpen, onClose, tile }) {
               <div className="relative">
                 <textarea
                   placeholder="Ask more..."
-                  className="w-full min-h-[72px] resize-none rounded-xl border border-gray-300 py-3 pl-4 pr-20 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  rows={2}
+                  className="w-full min-h-[96px] resize-none rounded-xl border border-gray-300 py-3 pl-4 pr-16 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  rows={3}
                 />
-                <div className="absolute right-4 top-4 flex items-center space-x-2">
-                  <Paperclip className="w-5 h-5 text-gray-500" />
-                  <button className="bg-black text-white rounded-full p-2 hover:bg-gray-800 transition-colors">
-                    <ArrowUp className="w-5 h-5" />
+                <div className="absolute right-3 bottom-3 flex items-center space-x-1">
+                  <button
+                    onClick={() =>
+                      console.log("📎 Anexar arquivo ao tile:", tile?.id)
+                    }
+                    className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
+                    title="Anexar arquivo"
+                  >
+                    <Paperclip className="w-4 h-4 text-gray-500" />
+                  </button>
+                  <button
+                    onClick={() =>
+                      console.log("📤 Enviar mensagem para tile:", tile?.id)
+                    }
+                    className="bg-black text-white rounded-full p-1.5 hover:bg-gray-800 transition-colors"
+                    title="Enviar mensagem"
+                  >
+                    <ArrowUp className="w-4 h-4" />
                   </button>
                 </div>
               </div>

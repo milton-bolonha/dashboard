@@ -24,7 +24,7 @@ export default function SaveTemplateModal({
     try {
       const template = {
         name: name.trim(),
-        description: description.trim(),
+        description: description.trim() || `Template with ${currentTiles.length} tiles`,
         tiles: currentTiles.map((tile) => ({
           id: tile.id,
           title: tile.title,

@@ -3,8 +3,9 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronLeft, Linkedin } from "lucide-react";
 import Image from "next/image";
+import { OutreachTiles } from "@/components/contacts/OutreachTiles";
 
-export function ContactModal({ isOpen, onClose, contact }) {
+export function ContactModal({ isOpen, onClose, contact, company, context }) {
   if (!isOpen || !contact) return null;
 
   return (
@@ -14,7 +15,7 @@ export function ContactModal({ isOpen, onClose, contact }) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/30 z-40"
+          className="fixed inset-0 bg-black/30 z-40 cursor-pointer"
           onClick={onClose}
         >
           <motion.div
@@ -87,22 +88,26 @@ export function ContactModal({ isOpen, onClose, contact }) {
                   <p className="text-gray-700 mb-2">
                     🚀 <strong>Coming Soon:</strong> AI-Generated Outreach
                   </p>
-                  <p className="text-sm text-gray-600">
-                    When you add a contact, the system will automatically
-                    generate:
-                  </p>
-                  <ul className="text-sm text-gray-600 mt-2 space-y-1">
-                    <li>
-                      • Contact Insights (role summary, pain points, triggers)
-                    </li>
-                    <li>• Email Outreach (personalized cold email)</li>
-                    <li>
-                      • Cold Call Script (call opener and discovery questions)
-                    </li>
-                  </ul>
                 </div>
               </div>
             </div>
+
+            {/* Outreach Tiles Section */}
+            {company && (
+              <div className="flex-1 overflow-y-auto px-6 py-4">
+                <OutreachTiles
+                  contact={contact}
+                  company={company}
+                  context={
+                    context || {
+                      companyTiles: company.tiles || [],
+                      uploadedFiles: [],
+                      notes: [],
+                    }
+                  }
+                />
+              </div>
+            )}
           </motion.div>
         </motion.div>
       )}

@@ -7,9 +7,13 @@ import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
 
 // Layout Components
-import AppLayout from "@/components/layout/AppLayout";
-import Sidebar from "@/components/layout/Sidebar";
-import Header from "@/components/layout/Header";
+import { AppLayout } from "@/components/layout/AppLayout";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { Header } from "@/components/layout/Header";
+import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import { TemplatePreviewModal } from "@/components/ui/TemplatePreviewModal";
+import { BackgroundCustomizer } from "@/components/dashboard/BackgroundCustomizer";
+import { OutreachTiles } from "@/components/contacts/OutreachTiles";
 
 // UI Components
 import { Tile } from "@/components/ui/Tile";
@@ -66,6 +70,16 @@ export default function TrialDashboard() {
 
   // Estado para ordenação dos tiles
   const [tilesOrder, setTilesOrder] = useState([]);
+
+  // Estado para Dashboard Header
+  const [currentTemplate, setCurrentTemplate] = useState(null);
+  const [showTemplatePreview, setShowTemplatePreview] = useState(false);
+  const [showBackgroundCustomizer, setShowBackgroundCustomizer] =
+    useState(false);
+  const [dashboardBackground, setDashboardBackground] = useState({
+    type: "solid",
+    value: "#ffffff",
+  });
 
   // Auto-selecionar primeira company quando workspace carregar
   useEffect(() => {
@@ -141,7 +155,7 @@ export default function TrialDashboard() {
     console.log("TODO: Implement AddNoteModal");
   };
 
-  const handleSaveTemplate = async (templateData) => {
+  const handleSaveTemplateData = async (templateData) => {
     try {
       const response = await fetch("/api/guest/templates", {
         method: "POST",
@@ -266,6 +280,164 @@ export default function TrialDashboard() {
     }
   };
 
+  // Handlers para Dashboard Header
+  const handleTemplateChange = (template) => {
+    console.log("🎯 Template selecionado:", template);
+    setCurrentTemplate(template);
+    setShowTemplatePreview(true);
+  };
+
+  const handleTemplateApply = async (template) => {
+    console.log("✅ Aplicando template:", template);
+    // TODO: Implementar aplicação de template
+    setShowTemplatePreview(false);
+  };
+
+  const handleSaveTemplate = () => {
+    console.log("💾 Salvando como template");
+    setIsSaveTemplateOpen(true);
+  };
+
+  const handleCloneDashboard = () => {
+    console.log("📋 Clonando dashboard");
+    if (selectedCompany && selectedCompany.tiles.length > 0) {
+      // Criar uma cópia dos tiles atuais
+      const clonedTiles = selectedCompany.tiles.map((tile) => ({
+        ...tile,
+        id: `tile_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        title: `${tile.title} (Copy)`,
+        createdAt: new Date().toISOString(),
+      }));
+
+      const updatedCompany = {
+        ...selectedCompany,
+        tiles: [...selectedCompany.tiles, ...clonedTiles],
+      };
+      setSelectedCompany(updatedCompany);
+
+      // Atualizar workspace global
+      if (workspace?.workspace?.companies) {
+        const updatedWorkspace = {
+          ...workspace,
+          workspace: {
+            ...workspace.workspace,
+            companies: workspace.workspace.companies.map((company) =>
+              company.name === selectedCompany.name ? updatedCompany : company
+            ),
+          },
+        };
+        setWorkspace(updatedWorkspace);
+      }
+
+      console.log("✅ Dashboard clonado com", clonedTiles.length, "tiles");
+    } else {
+      console.log("⚠️ Nenhum tile para clonar");
+    }
+  };
+
+  const handleCreateBlank = () => {
+    console.log("📄 Criando dashboard em branco");
+    if (selectedCompany) {
+      // Limpar tiles da company atual
+      const updatedCompany = {
+        ...selectedCompany,
+        tiles: [],
+      };
+      setSelectedCompany(updatedCompany);
+
+      // Atualizar workspace global
+      if (workspace?.workspace?.companies) {
+        const updatedWorkspace = {
+          ...workspace,
+          workspace: {
+            ...workspace.workspace,
+            companies: workspace.workspace.companies.map((company) =>
+              company.name === selectedCompany.name ? updatedCompany : company
+            ),
+          },
+        };
+        setWorkspace(updatedWorkspace);
+      }
+
+      console.log("✅ Dashboard em branco criado");
+    }
+  };
+
+  const handleBackgroundChange = async (background) => {
+    console.log("🎨 Background alterado:", background);
+    setDashboardBackground(background);
+
+    // Salvar background no banco de dados
+    try {
+      const response = await fetch("/api/guest/workspace", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          dashboardBackground: background,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        console.log("✅ Background salvo no banco");
+      } else {
+        console.error("❌ Erro ao salvar background:", data.error);
+      }
+    } catch (error) {
+      console.error("❌ Erro ao salvar background:", error);
+    }
+  };
+
+  const handleDeleteTile = async (tileId) => {
+    if (!selectedCompany) return;
+
+    try {
+      console.log("🗑️ Deletando tile:", tileId);
+
+      // Atualizar estado local imediatamente
+      const updatedTiles = selectedCompany.tiles.filter(
+        (tile) => tile.id !== tileId
+      );
+      const updatedCompany = {
+        ...selectedCompany,
+        tiles: updatedTiles,
+      };
+      setSelectedCompany(updatedCompany);
+
+      // Atualizar workspace global
+      if (workspace?.workspace?.companies) {
+        const updatedWorkspace = {
+          ...workspace,
+          workspace: {
+            ...workspace.workspace,
+            companies: workspace.workspace.companies.map((company) =>
+              company.name === selectedCompany.name ? updatedCompany : company
+            ),
+          },
+        };
+        setWorkspace(updatedWorkspace);
+      }
+
+      // Chamar API para deletar do banco de dados
+      const response = await fetch(`/api/guest/tiles/${tileId}`, {
+        method: "DELETE",
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        console.log("✅ Tile deletado do banco:", tileId);
+      } else {
+        console.error("❌ Erro ao deletar tile do banco:", data.error);
+        // Reverter mudanças locais se falhar
+        await loadGuestWorkspace();
+      }
+    } catch (error) {
+      console.error("❌ Erro ao deletar tile:", error);
+    }
+  };
+
   useEffect(() => {
     console.log("🔍 Trial useEffect executado:", { isLoaded, isSignedIn });
     if (isLoaded && isSignedIn) {
@@ -298,6 +470,15 @@ export default function TrialDashboard() {
       }
       const data = await response.json();
       console.log("✅ Workspace carregado:", data);
+
+      // Carregar background customizado se existir
+      if (data.workspace?.dashboardBackground) {
+        setDashboardBackground(data.workspace.dashboardBackground);
+        console.log(
+          "🎨 Background carregado:",
+          data.workspace.dashboardBackground
+        );
+      }
 
       // ⭐ NOVO: Detectar mudanças nos tiles da company selecionada
       if (selectedCompany) {
@@ -349,8 +530,16 @@ export default function TrialDashboard() {
       setWorkspace(data);
       setLoading(false);
 
-      // ⭐ CRÍTICO: Atualizar selectedCompany com dados mais recentes
-      if (selectedCompany) {
+      // ⭐ CRÍTICO: Selecionar automaticamente a primeira company se não há nenhuma selecionada
+      if (!selectedCompany && data.workspace?.companies?.length > 0) {
+        const firstCompany = data.workspace.companies[0];
+        console.log(
+          "🎯 Auto-selecionando primeira company:",
+          firstCompany.name
+        );
+        setSelectedCompany(firstCompany);
+      } else if (selectedCompany) {
+        // Atualizar selectedCompany com dados mais recentes
         const updatedCompany = data.workspace?.companies?.find(
           (c) => c.name === selectedCompany.name
         );
@@ -372,6 +561,12 @@ export default function TrialDashboard() {
         : data.workspace?.companies?.[0];
 
       const status = currentCompany?.tiles_status;
+
+      console.log("🔍 Debug geração automática:");
+      console.log("- currentCompany:", currentCompany?.name);
+      console.log("- status:", status);
+      console.log("- generatingTiles:", generatingTiles);
+      console.log("- showLoadingModal:", showLoadingModal);
 
       if (status === "pending" && !generatingTiles) {
         console.log(
@@ -523,6 +718,7 @@ export default function TrialDashboard() {
   return (
     <>
       <AppLayout
+        background={dashboardBackground}
         sidebar={
           <Sidebar
             workspaceName={workspace?.workspace?.name}
@@ -534,6 +730,7 @@ export default function TrialDashboard() {
             selectedContact={null}
             onCompanyClick={handleCompanyClick}
             onContactClick={handleContactClick}
+            backgroundColor={dashboardBackground}
           />
         }
         header={
@@ -546,13 +743,39 @@ export default function TrialDashboard() {
             workspaceName={workspace?.workspace?.name}
             onRefresh={loadGuestWorkspace}
             onSave={() => console.log("💾 Save dashboard changes")}
+            onCustomizeBackground={() => {
+              console.log("🎨 Abrindo customize background");
+              console.log(
+                "🎨 showBackgroundCustomizer antes:",
+                showBackgroundCustomizer
+              );
+              setShowBackgroundCustomizer(true);
+              console.log("🎨 showBackgroundCustomizer depois:", true);
+            }}
+            onSaveTemplate={() => setIsSaveTemplateOpen(true)}
+            onCloneDashboard={() => console.log("📋 Clone dashboard")}
+            onCreateBlank={handleCreateBlank}
           />
         }
       >
         {/* Dashboard baseado no ViewMode */}
         {selectedCompany ? (
           // Vista de Company com tiles
-          <div className="mb-12">
+          <div
+            className="mb-12 min-h-screen"
+            style={{
+              backgroundColor:
+                dashboardBackground.type === "solid"
+                  ? dashboardBackground.value
+                  : undefined,
+              backgroundImage:
+                dashboardBackground.type === "image"
+                  ? `url(${dashboardBackground.value})`
+                  : undefined,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }}
+          >
             {/* Company Header com Bulk Upload */}
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center space-x-3">
@@ -569,12 +792,6 @@ export default function TrialDashboard() {
                 </button>
               </div>
               <div className="flex items-center space-x-3">
-                <button
-                  onClick={() => setIsSaveTemplateOpen(true)}
-                  className="text-[16px] font-semibold bg-green-600 text-white px-5 py-2.5 rounded-lg hover:bg-green-700 transition-colors"
-                >
-                  Save as Template
-                </button>
                 <button className="text-[16px] font-semibold bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors">
                   Bulk Upload Your Prompts
                 </button>
@@ -593,6 +810,7 @@ export default function TrialDashboard() {
                 console.log("🔍 AddPromptTile clicked, opening modal");
                 setIsAddPromptOpen(true);
               }}
+              onDeleteTile={handleDeleteTile}
               isGeneratingCustomTile={isGeneratingCustomTile}
               isGeneratingTiles={selectedCompany.tiles_status === "generating"}
               tilesToGenerate={selectedCompany.tiles_to_generate || 6}
@@ -626,8 +844,12 @@ export default function TrialDashboard() {
         {/* Files Section */}
         {selectedCompany && (
           <div className="mb-8">
+            {console.log("🔍 FilesManager props:", {
+              companyId: selectedCompany.id,
+              companyName: selectedCompany.name,
+            })}
             <FilesManager
-              companyId={selectedCompany.name}
+              companyId={selectedCompany.id}
               companyName={selectedCompany.name}
             />
           </div>
@@ -651,6 +873,7 @@ export default function TrialDashboard() {
         isOpen={isAddContactOpen}
         onClose={() => setIsAddContactOpen(false)}
         onAdd={handleAddContact}
+        companyName={selectedCompany?.name}
       />
 
       <AddPromptModal
@@ -664,6 +887,12 @@ export default function TrialDashboard() {
         isOpen={isContactModalOpen}
         onClose={() => setIsContactModalOpen(false)}
         contact={selectedContactForModal}
+        company={selectedCompany}
+        context={{
+          companyTiles: selectedCompany?.tiles || [],
+          uploadedFiles: [],
+          notes: [],
+        }}
       />
 
       <LoadingModal
@@ -675,9 +904,52 @@ export default function TrialDashboard() {
       <SaveTemplateModal
         isOpen={isSaveTemplateOpen}
         onClose={() => setIsSaveTemplateOpen(false)}
-        onSave={handleSaveTemplate}
+        onSave={handleSaveTemplateData}
         currentTiles={selectedCompany?.tiles || []}
       />
+
+      {/* Template Preview Modal */}
+      <TemplatePreviewModal
+        template={currentTemplate}
+        isOpen={showTemplatePreview}
+        onClose={() => setShowTemplatePreview(false)}
+        onApply={handleTemplateApply}
+      />
+
+      {/* Background Customizer Modal */}
+      {showBackgroundCustomizer && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Customize Background</h2>
+              <button
+                onClick={() => setShowBackgroundCustomizer(false)}
+                className="text-gray-500 hover:text-gray-700 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <BackgroundCustomizer
+              currentBackground={dashboardBackground}
+              onBackgroundChange={handleBackgroundChange}
+            />
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => setShowBackgroundCustomizer(false)}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => setShowBackgroundCustomizer(false)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 cursor-pointer"
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

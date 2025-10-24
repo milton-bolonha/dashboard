@@ -62,7 +62,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "business_goals_2025",
         title: "2025 Business Goals",
         prompt:
-          "What are {target_company}'s business goals or priorities for 2025? Provide 3 goals and provide sources and links to articles or quotes from the company for each goal. Articles need to be dated later than January 2025. Provide each answer in detail.",
+          "What are {target_company}'s business goals or priorities for 2025? Research their website ({target_url}) and provide 3 goals with sources and links to articles or quotes from the company for each goal. Articles need to be dated later than January 2025. Provide each answer in detail.",
         category: "strategy",
         order: 4,
         defaultSize: { w: 4, h: 2 },
@@ -71,7 +71,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "business_challenges",
         title: "2025 Business Challenges",
         prompt:
-          "What are the business challenges for {target_company} this calendar year? Identify key obstacles, market pressures, and operational difficulties they are facing.",
+          "What are the business challenges for {target_company} this calendar year? Research their website ({target_url}) and identify key obstacles, market pressures, and operational difficulties they are facing.",
         category: "insights",
         order: 5,
         defaultSize: { w: 4, h: 2 },
@@ -98,7 +98,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "sales_email",
         title: "CEO Sales Email",
         prompt:
-          "Based on what we know about {target_company} from the other prompts, write a sales email to their CEO pitching {user_solution}. Needs to make reference to their business goals. Must include bullet points. Maximum 120 words.",
+          "Based on what we know about {target_company} from the other prompts, write a sales email to their CEO pitching {user_solution} from {sales_rep_company} ({sales_rep_website}). Needs to make reference to their business goals. Must include bullet points. Maximum 120 words.",
         category: "sales",
         order: 8,
         defaultSize: { w: 4, h: 2 },
@@ -247,6 +247,7 @@ export function processPromptVariables(prompt, context) {
 
   return prompt
     .replace(/{sales_rep_company}/g, context.company) // Empresa do vendedor
+    .replace(/{sales_rep_website}/g, context.companyWebsite || "") // Website da empresa do vendedor
     .replace(/{user_solution}/g, context.solution) // O que vende
     .replace(/{target_company}/g, targetCompany) // Empresa a pesquisar
     .replace(/{target_url}/g, context.researchWebsite) // URL da empresa pesquisada

@@ -1,99 +1,202 @@
 import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
-import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { ChevronDown, Plus, Save, Copy, Settings } from "lucide-react";
+import { LoadingSpinner } from "../ui/LoadingSpinner";
 
-export default function Header({
-  breadcrumb,
+export function Header({
+  title,
   workspaceName,
-  onRefresh,
-  onSave,
+  isLoading,
+  onCustomizeBackground,
+  onSaveTemplate,
+  onCloneDashboard,
+  onCreateBlank,
 }) {
   const { isSignedIn } = useUser();
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const [templates, setTemplates] = useState([]);
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
+  const [showDashboardSelector, setShowDashboardSelector] = useState(false);
+  const [isTemplatesLoading, setIsTemplatesLoading] = useState(false);
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
+  useEffect(() => {
+    loadTemplates();
+  }, []);
+
+  const loadTemplates = async () => {
+    setIsTemplatesLoading(true);
     try {
-      await onRefresh?.();
+      const response = await fetch("/api/guest/templates");
+      const data = await response.json();
+      setTemplates(data.templates || []);
+    } catch (error) {
+      console.error("❌ Erro ao carregar templates:", error);
     } finally {
-      setTimeout(() => setIsRefreshing(false), 1000);
+      setIsTemplatesLoading(false);
     }
   };
 
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      await onSave?.();
-    } finally {
-      setTimeout(() => setIsSaving(false), 1000);
-    }
+  const handleTemplateSelect = (template) => {
+    console.log("📋 Template selecionado:", template);
+    setShowTemplateSelector(false);
+    // TODO: Aplicar template
   };
 
   return (
-    <header
-      className="flex-shrink-0"
-      style={{ height: "72px", background: "#fcfcf9" }}
-    >
+    <header className="flex-shrink-0" style={{ height: "72px" }}>
       <div className="flex items-center justify-between h-full px-6">
-        <div className="flex items-center space-x-4">
-          {/* Breadcrumb */}
-          <div className="font-semibold text-breadcrumb-text text-[16px]">
-            {breadcrumb}
-          </div>
+        <div>
+          {isLoading ? (
+            <LoadingSpinner text="Loading..." />
+          ) : (
+            <h1 className="text-2xl font-semibold text-gray-800">
+              {workspaceName || "Trial Workspace"}
+            </h1>
+          )}
+          <div className="text-sm text-gray-500">{title}</div>
         </div>
 
         <div className="flex items-center space-x-4">
-          {/* Dashboard Actions */}
           <div className="flex items-center space-x-2">
-            {/* Refresh Button */}
-            <button
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
-              title="Refresh Dashboard"
-            >
-              <Image
-                src="/images/reset.svg"
-                width={20}
-                height={20}
-                alt="Refresh"
-                className={isRefreshing ? "animate-spin" : ""}
-              />
-            </button>
-
-            {/* Save Button */}
-            <button
-              onClick={handleSave}
-              disabled={isSaving}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
-              title="Save Changes"
-            >
-              <Image
-                src="/images/save-icon.svg"
-                width={20}
-                height={20}
-                alt="Save"
-                className={isSaving ? "animate-pulse" : ""}
-              />
-            </button>
-
-            {/* Dashboard Templates Dropdown */}
-            <div className="relative">
-              <button className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
-                <span>Templates</span>
-                <Image
-                  src="/images/down-arrow.svg"
-                  width={12}
-                  height={12}
-                  alt="Dropdown"
-                />
+            {onCustomizeBackground && (
+              <button
+                onClick={onCustomizeBackground}
+                className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
+                title="Customize Background"
+              >
+                <Settings className="w-5 h-5 text-gray-600" />
               </button>
+            )}
+
+            {/* Dashboards Dropdown Restaurado */}
+            <div className="relative">
+              <button
+                onClick={() => setShowDashboardSelector(!showDashboardSelector)}
+                className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                <span>Dashboards</span>
+                <ChevronDown className="w-4 h-4" />
+              </button>
+              {showDashboardSelector && (
+                <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                  <div className="p-4">
+                    <div className="space-y-2">
+                      <button
+                        onClick={() => {
+                          onCreateBlank?.();
+                          setShowDashboardSelector(false);
+                        }}
+                        className="w-full text-left p-3 hover:bg-gray-50 rounded-lg border border-gray-100 transition-colors group"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-medium text-gray-900">
+                              Create Blank Dashboard
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              Start with an empty dashboard
+                            </div>
+                          </div>
+                          <Plus className="w-4 h-4 text-gray-400" />
+                        </div>
+                      </button>
+                      <div className="border-t border-gray-200 my-2"></div>
+                      <div className="text-xs text-gray-500 mb-2">
+                        Available Dashboards:
+                      </div>
+                      <div className="text-sm text-gray-400 italic">
+                        No saved dashboards yet
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Templates Dropdown Restaurado */}
+            <div className="relative">
+              <button
+                onClick={() => setShowTemplateSelector(!showTemplateSelector)}
+                className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                <span>Templates</span>
+                <ChevronDown className="w-4 h-4" />
+              </button>
+              {showTemplateSelector && (
+                <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                  <div className="p-4">
+                    <div className="space-y-2">
+                      {isTemplatesLoading ? (
+                        <p className="text-center text-gray-500">Loading...</p>
+                      ) : (
+                        templates
+                          .filter((t) => t.isDefault)
+                          .map((template) => (
+                            <button
+                              key={template.id}
+                              onClick={() => handleTemplateSelect(template)}
+                              className="w-full text-left p-3 hover:bg-gray-50 rounded-lg border border-gray-100 transition-colors group"
+                              title={`${template.tiles?.length || 0} tiles`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <div className="font-medium text-gray-900">
+                                    {template.name}
+                                  </div>
+                                  <div className="text-sm text-gray-500">
+                                    {template.description}
+                                  </div>
+                                </div>
+                                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                              </div>
+                            </button>
+                          ))
+                      )}
+                      <div className="border-t border-gray-200 my-2"></div>
+                      <button
+                        onClick={() => {
+                          onSaveTemplate?.();
+                          setShowTemplateSelector(false);
+                        }}
+                        className="w-full text-left p-3 hover:bg-gray-50 rounded-lg border border-gray-100 transition-colors group"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-medium text-gray-900">
+                              Save as Template
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              Save current dashboard
+                            </div>
+                          </div>
+                          <Save className="w-4 h-4 text-gray-400" />
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => {
+                          onCloneDashboard?.();
+                          setShowTemplateSelector(false);
+                        }}
+                        className="w-full text-left p-3 hover:bg-gray-50 rounded-lg border border-gray-100 transition-colors group"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-medium text-gray-900">
+                              Clone Dashboard
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              Duplicate current dashboard
+                            </div>
+                          </div>
+                          <Copy className="w-4 h-4 text-gray-400" />
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-
-          {/* Auth Buttons */}
           {!isSignedIn && (
             <>
               <Link

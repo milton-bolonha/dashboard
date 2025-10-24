@@ -1,33 +1,27 @@
 /**
  * Guest Files API
  * GET: Lista arquivos de uma company
- * POST: Upload de arquivo
+ * POST: Salva arquivo no banco de dados
  */
 
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
-import {
-  uploadFile,
-  listFiles,
-  generateFolderPath,
-  validateFileType,
-} from "@/lib/cloudinary";
 import Joi from "joi";
-import sanitizeHtml from "sanitize-html";
 
-const uploadFileSchema = Joi.object({
-  companyId: Joi.string().required(),
-  fileName: Joi.string().max(200).trim().required(),
-  fileData: Joi.string().required(), // Base64
-  mimeType: Joi.string().required(),
+const fileSchema = Joi.object({
+  companyName: Joi.string().required().max(100),
+  fileName: Joi.string().required().max(255),
+  fileUrl: Joi.string().required().uri(),
+  fileType: Joi.string().required().max(50),
+  fileSize: Joi.number().required().min(0),
   category: Joi.string()
-    .valid("documents", "images", "archives")
+    .valid("documents", "images", "audio", "video")
     .default("documents"),
 }).strict();
 
 /**
- * GET /api/guest/files?companyId=xxx
+ * GET /api/guest/files
  * Lista arquivos de uma company específica
  */
 export async function GET(req) {
@@ -38,16 +32,25 @@ export async function GET(req) {
     const guestId = cookieStore.get("guest_id")?.value;
 
     if (!guestId) {
-      return NextResponse.json({ error: "No guest session" }, { status: 401 });
+      return NextResponse.json(
+        { success: false, error: "Guest session not found" },
+        { status: 401 }
+      );
     }
 
     const { searchParams } = new URL(req.url);
-    const companyId = searchParams.get("companyId");
-    const category = searchParams.get("category") || "documents";
+    const companyName = searchParams.get("companyName");
 
-    if (!companyId) {
+    console.log("📁 API Files - companyName recebido:", companyName);
+    console.log(
+      "📁 API Files - searchParams:",
+      Object.fromEntries(searchParams.entries())
+    );
+
+    if (!companyName) {
+      console.log("❌ API Files - companyName é undefined/null");
       return NextResponse.json(
-        { error: "Company ID is required" },
+        { success: false, error: "Company name is required" },
         { status: 400 }
       );
     }
@@ -59,48 +62,37 @@ export async function GET(req) {
 
     if (!guestWorkspace) {
       return NextResponse.json(
-        { error: "Guest workspace not found" },
+        { success: false, error: "Guest workspace not found" },
         { status: 404 }
       );
     }
 
-    // Buscar company específica
+    // Encontrar a company
     const company = guestWorkspace.workspace_data.companies.find(
-      (c) => c.name === companyId || c.id === companyId
+      (c) => c.name === companyName
     );
 
     if (!company) {
-      return NextResponse.json({ error: "Company not found" }, { status: 404 });
-    }
-
-    // Listar arquivos do Cloudinary
-    const folderPath = generateFolderPath(guestId, company.name, category);
-    const cloudinaryResult = await listFiles(folderPath);
-
-    if (!cloudinaryResult.success) {
       return NextResponse.json(
-        { error: "Failed to list files" },
-        { status: 500 }
+        { success: false, error: `Company "${companyName}" not found` },
+        { status: 404 }
       );
     }
 
     console.log(
-      `✅ ${cloudinaryResult.files.length} arquivos encontrados para ${company.name}`
+      `📁 Arquivos encontrados para ${companyName}:`,
+      company.files?.length || 0
     );
 
     return NextResponse.json({
       success: true,
-      files: cloudinaryResult.files,
-      company: {
-        id: company.name,
-        name: company.name,
-      },
-      category,
+      files: company.files || [],
+      message: "Files retrieved successfully",
     });
   } catch (error) {
-    console.error("❌ Erro ao buscar arquivos:", error);
+    console.error("❌ Erro ao listar arquivos:", error);
     return NextResponse.json(
-      { error: "Failed to fetch files" },
+      { success: false, error: "Failed to list files" },
       { status: 500 }
     );
   }
@@ -108,7 +100,7 @@ export async function GET(req) {
 
 /**
  * POST /api/guest/files
- * Upload de arquivo para uma company
+ * Salva arquivo no banco de dados
  */
 export async function POST(req) {
   try {
@@ -118,41 +110,20 @@ export async function POST(req) {
     const guestId = cookieStore.get("guest_id")?.value;
 
     if (!guestId) {
-      return NextResponse.json({ error: "No guest session" }, { status: 401 });
-    }
-
-    const body = await req.json();
-    console.log(
-      "📦 Body:",
-      JSON.stringify({ ...body, fileData: "[BASE64_DATA]" }, null, 2)
-    );
-
-    // Validar input
-    const { error, value } = uploadFileSchema.validate(body);
-    if (error) {
       return NextResponse.json(
-        { error: error.details[0].message },
-        { status: 400 }
+        { success: false, error: "Guest session not found" },
+        { status: 401 }
       );
     }
 
-    // Sanitizar inputs
-    const sanitized = {
-      companyId: sanitizeHtml(value.companyId, { allowedTags: [] }),
-      fileName: sanitizeHtml(value.fileName, { allowedTags: [] }),
-      fileData: value.fileData,
-      mimeType: sanitizeHtml(value.mimeType, { allowedTags: [] }),
-      category: sanitizeHtml(value.category, { allowedTags: [] }),
-    };
+    const body = await req.json();
+    console.log("📦 Body:", JSON.stringify(body, null, 2));
 
-    // Validar tipo de arquivo
-    const fileValidation = validateFileType(
-      sanitized.fileName,
-      sanitized.mimeType
-    );
-    if (!fileValidation.valid) {
+    // Validar input
+    const { error, value } = fileSchema.validate(body);
+    if (error) {
       return NextResponse.json(
-        { error: "File type not allowed" },
+        { error: error.details[0].message },
         { status: 400 }
       );
     }
@@ -164,96 +135,61 @@ export async function POST(req) {
 
     if (!guestWorkspace) {
       return NextResponse.json(
-        { error: "Guest workspace not found" },
+        { success: false, error: "Guest workspace not found" },
         { status: 404 }
       );
     }
 
-    // Buscar company específica
-    const company = guestWorkspace.workspace_data.companies.find(
-      (c) => c.name === sanitized.companyId || c.id === sanitized.companyId
+    // Encontrar a company
+    const companyIndex = guestWorkspace.workspace_data.companies.findIndex(
+      (c) => c.name === value.companyName
     );
 
-    if (!company) {
-      return NextResponse.json({ error: "Company not found" }, { status: 404 });
-    }
-
-    // Converter base64 para buffer
-    const fileBuffer = Buffer.from(sanitized.fileData, "base64");
-
-    // Gerar nome único para o arquivo
-    const timestamp = Date.now();
-    const fileExtension = sanitized.fileName.substring(
-      sanitized.fileName.lastIndexOf(".")
-    );
-    const uniqueFileName = `${sanitized.fileName.replace(
-      fileExtension,
-      ""
-    )}_${timestamp}${fileExtension}`;
-
-    // Upload para Cloudinary
-    const folderPath = generateFolderPath(
-      guestId,
-      company.name,
-      sanitized.category
-    );
-    const uploadResult = await uploadFile(
-      fileBuffer,
-      uniqueFileName,
-      folderPath
-    );
-
-    if (!uploadResult.success) {
+    if (companyIndex === -1) {
       return NextResponse.json(
-        { error: uploadResult.error || "Failed to upload file" },
-        { status: 500 }
+        { success: false, error: `Company "${value.companyName}" not found` },
+        { status: 404 }
       );
     }
 
-    // Salvar referência do arquivo no banco
-    const fileRecord = {
-      id: uploadResult.file.id,
-      fileName: sanitized.fileName,
-      originalName: sanitized.fileName,
-      cloudinaryId: uploadResult.file.publicId,
-      url: uploadResult.file.url,
-      size: uploadResult.file.size,
-      format: uploadResult.file.format,
-      category: sanitized.category,
-      type: fileValidation.type,
-      uploadedAt: new Date(),
+    // Criar objeto do arquivo
+    const newFile = {
+      id: `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      fileName: value.fileName,
+      fileUrl: value.fileUrl,
+      fileType: value.fileType,
+      fileSize: value.fileSize,
+      category: value.category,
+      uploadedAt: new Date().toISOString(),
     };
 
-    // Adicionar arquivo à company
-    const companyIndex = guestWorkspace.workspace_data.companies.findIndex(
-      (c) => c.name === sanitized.companyId || c.id === sanitized.companyId
-    );
-
+    // Salvar arquivo no banco
     await db.updateOne(
       "guest_workspaces",
-      { guest_id: guestId },
       {
-        $push: {
-          [`workspace_data.companies.${companyIndex}.files`]: fileRecord,
-        },
-        $set: {
-          "usage.last_activity": new Date(),
-        },
+        guest_id: guestId,
+        "workspace_data.companies.name": value.companyName,
+      },
+      {
+        $push: { "workspace_data.companies.$.files": newFile },
+        $set: { updatedAt: new Date() },
       }
     );
 
     console.log(
-      `✅ Arquivo uploadado: ${sanitized.fileName} para ${sanitized.companyId}`
+      `✅ Arquivo salvo para ${value.companyName}:`,
+      newFile.fileName
     );
 
     return NextResponse.json({
       success: true,
-      file: fileRecord,
+      file: newFile,
+      message: "File saved successfully",
     });
   } catch (error) {
-    console.error("❌ Erro ao fazer upload:", error);
+    console.error("❌ Erro ao salvar arquivo:", error);
     return NextResponse.json(
-      { error: "Failed to upload file" },
+      { success: false, error: "Failed to save file" },
       { status: 500 }
     );
   }

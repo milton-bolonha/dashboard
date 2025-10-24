@@ -36,6 +36,7 @@ export async function uploadFile(fileBuffer, fileName, folder, options = {}) {
         success: true,
         file: {
           id: `mock_${Date.now()}`,
+          secure_url: `https://via.placeholder.com/300x200?text=${fileName}`,
           url: `https://via.placeholder.com/300x200?text=${fileName}`,
           publicId: `mock_${Date.now()}`,
           format: fileName.split(".").pop(),
@@ -63,6 +64,7 @@ export async function uploadFile(fileBuffer, fileName, folder, options = {}) {
       success: true,
       file: {
         id: result.public_id,
+        secure_url: result.secure_url,
         url: result.secure_url,
         publicId: result.public_id,
         format: result.format,

@@ -5,8 +5,8 @@ import { Plus } from "lucide-react";
 import { CompanyList } from "@/components/ui/CompanyList";
 import { ContactList } from "@/components/ui/ContactList";
 
-export default function Sidebar({
-  workspaceName = "Deel",
+export function Sidebar({
+  workspaceName = "loading...",
   isCollapsed,
   toggle,
   onAddCompany,
@@ -17,6 +17,7 @@ export default function Sidebar({
   selectedContact,
   onCompanyClick,
   onContactClick,
+  backgroundColor,
 }) {
   const { isSignedIn } = useUser();
 
@@ -124,6 +125,7 @@ export default function Sidebar({
                 companies={companies}
                 selectedCompany={selectedCompany}
                 onCompanyClick={onCompanyClick}
+                backgroundColor={backgroundColor}
               />
             </div>
           )}

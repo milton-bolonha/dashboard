@@ -4,6 +4,7 @@ export function CompanyList({
   companies = [],
   selectedCompany,
   onCompanyClick,
+  backgroundColor,
 }) {
   if (companies.length === 0) return null;
 
@@ -23,8 +24,11 @@ export function CompanyList({
           >
             <div
               className={`w-2 h-2 rounded-full ${
-                isSelected ? "bg-green-500" : "bg-green-500 opacity-30"
+                isSelected ? "opacity-100" : "opacity-30"
               }`}
+              style={{
+                backgroundColor: backgroundColor?.value || "#10b981"
+              }}
             ></div>
             <span className={isSelected ? "font-medium" : ""}>
               {company.name}

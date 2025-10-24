@@ -29,20 +29,29 @@ export default function FilesManager({ companyId, companyName }) {
   ];
 
   useEffect(() => {
-    if (companyId) {
+    if (companyName) {
       loadFiles();
+    } else {
+      console.warn("FilesManager: companyName is missing, cannot load files.");
     }
-  }, [companyId, selectedCategory]);
+  }, [companyName, selectedCategory]);
 
   const loadFiles = async () => {
     setIsLoading(true);
     try {
+      console.log("📁 Carregando arquivos para:", companyName);
+      console.log("📁 Categoria:", selectedCategory);
+
       const response = await fetch(
-        `/api/guest/files?companyId=${companyId}&category=${selectedCategory}`
+        `/api/guest/files?companyName=${companyName}&category=${selectedCategory}`
       );
       const data = await response.json();
 
       if (data.success) {
+        console.log(
+          "📁 Arquivos carregados do banco:",
+          data.files?.length || 0
+        );
         setFiles(data.files || []);
       } else {
         setError(data.error || "Failed to load files");
@@ -63,6 +72,13 @@ export default function FilesManager({ companyId, companyName }) {
   };
 
   const uploadFile = async (file) => {
+    if (!companyName) {
+      setError("Cannot upload: Company name is missing.");
+      console.error(
+        "FilesManager: uploadFile aborted, companyName is missing."
+      );
+      return;
+    }
     // Validar tamanho do arquivo (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
       setError("File size must be less than 10MB");
@@ -73,39 +89,64 @@ export default function FilesManager({ companyId, companyName }) {
     setError("");
 
     try {
-      // Converter para base64
       const reader = new FileReader();
       reader.onload = async (e) => {
         const base64Data = e.target.result.split(",")[1];
 
-        const response = await fetch("/api/guest/files", {
+        // Step 1: Upload to Cloudinary via our new endpoint
+        const uploadResponse = await fetch("/api/guest/upload", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            companyId,
-            fileName: file.name,
             fileData: base64Data,
-            mimeType: file.type,
+            fileName: file.name,
+            companyName: companyName,
             category: selectedCategory,
           }),
         });
 
-        const data = await response.json();
+        const uploadData = await uploadResponse.json();
 
-        if (data.success) {
-          setFiles([...files, data.file]);
-          if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-          }
+        if (!uploadData.success) {
+          throw new Error(uploadData.error || "Failed to upload file");
+        }
+
+        console.log("✅ Arquivo enviado para Cloudinary:", uploadData.file);
+
+        // Step 2: Save metadata to our database
+        const saveResponse = await fetch("/api/guest/files", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            companyName: companyName,
+            fileName: file.name,
+            fileUrl: uploadData.file.secure_url,
+            fileType: file.type,
+            fileSize: file.size,
+            category: selectedCategory,
+          }),
+        });
+
+        const saveData = await saveResponse.json();
+
+        if (saveData.success) {
+          console.log(
+            "✅ Metadados do arquivo salvos no banco:",
+            saveData.file
+          );
+          setFiles((prevFiles) => [...prevFiles, saveData.file]);
         } else {
-          setError(data.error || "Failed to upload file");
+          throw new Error(saveData.error || "Failed to save file metadata.");
+        }
+
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
         }
       };
-
       reader.readAsDataURL(file);
     } catch (error) {
-      console.error("❌ Erro ao fazer upload:", error);
-      setError("Failed to upload file");
+      console.error("❌ Erro no processo de upload:", error);
+      setError(error.message);
     } finally {
       setIsUploading(false);
     }
@@ -238,7 +279,10 @@ export default function FilesManager({ companyId, companyName }) {
       ) : (
         <div className="space-y-3">
           {files.map((file) => {
-            const FileIcon = getFileIcon(file.format, file.type);
+            const FileIcon = getFileIcon(
+              file.fileName.split(".").pop(),
+              file.fileType
+            );
             return (
               <div
                 key={file.id}
@@ -247,12 +291,11 @@ export default function FilesManager({ companyId, companyName }) {
                 <div className="flex items-center space-x-3">
                   <FileIcon className="w-8 h-8 text-gray-400" />
                   <div>
-                    <p className="font-medium text-gray-900">
-                      {file.originalName}
-                    </p>
+                    <p className="font-medium text-gray-900">{file.fileName}</p>
                     <p className="text-sm text-gray-500">
-                      {formatFileSize(file.size)} • {file.format.toUpperCase()}{" "}
-                      • {file.type}
+                      {formatFileSize(file.fileSize)} •{" "}
+                      {file.fileName.split(".").pop().toUpperCase()} •{" "}
+                      {file.fileType}
                     </p>
                     <p className="text-xs text-gray-400">
                       Uploaded: {new Date(file.uploadedAt).toLocaleString()}
@@ -261,14 +304,14 @@ export default function FilesManager({ companyId, companyName }) {
                 </div>
                 <div className="flex items-center space-x-2">
                   <button
-                    onClick={() => window.open(file.url, "_blank")}
+                    onClick={() => window.open(file.fileUrl, "_blank")}
                     className="p-2 text-gray-400 hover:text-blue-600"
                     title="View file"
                   >
                     <Eye className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => window.open(file.url, "_blank")}
+                    onClick={() => window.open(file.fileUrl, "_blank")}
                     className="p-2 text-gray-400 hover:text-green-600"
                     title="Download file"
                   >
