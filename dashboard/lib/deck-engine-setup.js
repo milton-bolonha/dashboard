@@ -7,6 +7,7 @@
 import DeckEngineApp from "../../deckEngine/core/index.js";
 import { db } from "./db";
 import { ObjectId } from "mongodb";
+import { initializeAITilesDeck } from "./deck-engine-ai-pipeline";
 
 // Singleton do engine
 let engineInstance = null;
@@ -178,10 +179,13 @@ function initializeDecks(engine) {
 
   console.log("✅ Deck 'onboarding-pipeline' criado");
 
-  // ===== DECK 2: BULK RESEARCH (Placeholder) =====
+  // ===== DECK 2: AI TILES GENERATION =====
+  initializeAITilesDeck(engine);
+  
+  // ===== DECK 3: BULK RESEARCH (Placeholder) =====
   // TODO: Implementar quando tiver companies collection (Week 3)
 
-  // ===== DECK 3: COMPANY RESEARCH (Placeholder) =====
+  // ===== DECK 4: COMPANY RESEARCH (Placeholder) =====
   // TODO: Implementar quando tiver companies e templates (Week 3)
 }
 

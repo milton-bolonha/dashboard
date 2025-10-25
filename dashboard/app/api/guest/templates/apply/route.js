@@ -93,6 +93,49 @@ export async function POST(req) {
       );
     }
 
+    // 🔧 MIGRAÇÃO: Adicionar limits/usage se não existirem (workspaces antigos)
+    if (!guestWorkspace.limits || !guestWorkspace.usage) {
+      const currentCompaniesCount =
+        guestWorkspace.workspace_data?.companies?.length || 1;
+
+      await db.updateOne(
+        "guest_workspaces",
+        { guest_id: guestId },
+        {
+          $set: {
+            limits: {
+              max_companies: 3,
+              max_tiles_per_company: 10,
+              max_templates: 5,
+            },
+            usage: {
+              companies_count: currentCompaniesCount,
+              companies_remaining: 3 - currentCompaniesCount,
+              total_tiles_generated: 0,
+              templates_created: 0,
+              last_activity: new Date(),
+            },
+          },
+        }
+      );
+
+      // Buscar novamente após update
+      guestWorkspace.limits = {
+        max_companies: 3,
+        max_tiles_per_company: 10,
+        max_templates: 5,
+      };
+      guestWorkspace.usage = {
+        companies_count: currentCompaniesCount,
+        companies_remaining: 3 - currentCompaniesCount,
+        total_tiles_generated: 0,
+        templates_created: 0,
+        last_activity: new Date(),
+      };
+
+      console.log(`🔄 Workspace migrado: limits e usage adicionados`);
+    }
+
     // Verificar limite de companies
     if (
       guestWorkspace.usage.companies_count >=
@@ -103,6 +146,7 @@ export async function POST(req) {
           error: "Company limit reached",
           limit: guestWorkspace.limits.max_companies,
           current: guestWorkspace.usage.companies_count,
+          remaining: guestWorkspace.usage.companies_remaining,
         },
         { status: 403 }
       );

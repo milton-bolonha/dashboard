@@ -7,7 +7,9 @@
 
 import { db } from "./db";
 import { getGuestTemplate, processPromptVariables } from "./guest-templates";
-import { generateTileWithOpenAI } from "./ai-tile-generator";
+import { generateAllTilesOptimized } from "./ai-tile-generator-optimized";
+import { optimizeTiles } from "./prompt-optimizer";
+import { createPipelineContext } from "./ai-pipeline-logger";
 
 /**
  * Gera tiles automaticamente para uma company em guest workspace
@@ -65,63 +67,87 @@ export async function generateTilesForCompany(
     }
 
     // Preparar contexto para geração
-    const onboarding = guestWorkspace.workspace_data.onboarding;
-    console.log(`🔍 Onboarding data:`, onboarding);
+    // Usar context diretamente do guestWorkspace (schema novo)
+    const workspaceContext = guestWorkspace.context || {};
+    console.log(`🔍 Workspace context:`, workspaceContext);
 
     const context = {
-      company: onboarding.salesRepAt || "Unknown Company",
-      companyWebsite: onboarding.salesRepWebsite || "", // ⭐ NOVO: Website da empresa do vendedor
-      solution: onboarding.sellingSolutionsFor || "Unknown Solution",
-      researchTarget: companyName, // ⭐ NOVO: Company sendo pesquisada
-      researchWebsite: companyUrl, // ⭐ NOVO: URL da company sendo pesquisada
+      company: workspaceContext.company || "Unknown Company",
+      companyWebsite: workspaceContext.companyWebsite || "",
+      solution: workspaceContext.solution || "Unknown Solution",
+      researchTarget: companyName,
+      researchWebsite: companyUrl,
     };
 
     console.log(`🔍 Contexto construído:`, context);
 
-    // Processar prompts do template
-    const prompts = templateToUse.tiles.map((tile) => ({
+    // Criar contexto de logging
+    const pipelineLogger = createPipelineContext({
+      guestId,
+      companyName: companyName,
+    });
+
+    // Preparar tiles com otimização
+    const baseTiles = templateToUse.tiles.map((tile) => ({
       id: tile.id,
       title: tile.title,
-      prompt: processPromptVariables(tile.prompt, context),
+      prompt: tile.prompt,
       category: tile.category,
+      order: tile.order,
     }));
 
-    console.log(`🤖 Gerando ${prompts.length} tiles para ${companyName}...`);
+    // Otimizar tiles
+    const optimizedTiles = optimizeTiles(baseTiles, context);
 
-    // Gerar cada tile
-    for (const prompt of prompts) {
-      console.log(`   - Gerando tile: ${prompt.title}`);
+    console.log(
+      `🤖 Gerando ${optimizedTiles.length} tiles otimizados para ${companyName}...`
+    );
 
-      const { answer, excerpt } = await generateTileWithOpenAI(
-        prompt.prompt,
-        companyName,
-        companyUrl
-      );
+    // Callback para salvar cada tile individualmente
+    const saveTileCallback = async (tile) => {
+      try {
+        console.log(`   💾 Salvando tile "${tile.title}" no banco...`);
 
-      const newTile = {
-        id: prompt.id,
-        title: prompt.title,
-        question: prompt.prompt,
-        answer: answer,
-        excerpt: excerpt,
-        category: prompt.category,
-        created_at: new Date().toISOString(),
-      };
+        const newTile = {
+          id: tile.id,
+          title: tile.title,
+          question: tile.optimizedPrompt || tile.prompt,
+          answer: tile.answer,
+          excerpt: tile.excerpt,
+          category: tile.category,
+          created_at: new Date().toISOString(),
+          metrics: tile.metrics, // Incluir métricas
+        };
 
-      // Salvar tile no banco
-      await db.updateOne(
-        "guest_workspaces",
-        {
-          guest_id: guestId,
-          "workspace_data.companies.name": companyName,
-        },
-        {
-          $push: { "workspace_data.companies.$.tiles": newTile },
-        }
-      );
+        const result = await db.updateOne(
+          "guest_workspaces",
+          {
+            guest_id: guestId,
+            "workspace_data.companies.name": companyName,
+          },
+          {
+            $push: { "workspace_data.companies.$.tiles": newTile },
+          }
+        );
 
-      console.log(`   ✅ Tile "${prompt.title}" salvo.`);
-    }
+        console.log(
+          `   ✅ Tile "${tile.title}" salvo no DB. Resultado:`,
+          result
+        );
+      } catch (saveError) {
+        console.error(`   ❌ Erro ao salvar tile "${tile.title}":`, saveError);
+        // Não propagar erro, continuar gerando outros tiles
+      }
+    };
+
+    // Gerar todos os tiles com estratégia híbrida
+    const results = await generateAllTilesOptimized(optimizedTiles, context, {
+      pipelineLogger,
+      batchSize: 2,
+      onTileCompleted: saveTileCallback,
+    });
+
+    console.log(`✅ ${results.length} tiles gerados com sucesso`);
 
     // Marcar como completo
     await db.updateOne(
@@ -141,7 +167,7 @@ export async function generateTilesForCompany(
       `✅ Todos os tiles para ${companyName} foram gerados automaticamente!`
     );
 
-    return { success: true, tilesGenerated: prompts.length };
+    return { success: true, tilesGenerated: results.length };
   } catch (error) {
     console.error(`❌ Erro ao gerar tiles para ${companyName}:`, error);
 

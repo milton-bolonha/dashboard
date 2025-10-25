@@ -9,6 +9,7 @@ import {
   Save,
   FileText,
   Bot,
+  Info,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -113,6 +114,23 @@ const AIMessage = ({ content }) => {
   );
 };
 
+const MetricsInfo = ({ metrics }) => {
+  if (!metrics || !metrics.generation_duration_ms) return null;
+
+  const duration = metrics.generation_duration_ms;
+  const formatDuration = (ms) => {
+    if (ms < 1000) return `${ms}ms`;
+    return `${(ms / 1000).toFixed(1)}s`;
+  };
+
+  return (
+    <div className="flex items-center gap-1 text-gray-400 text-xs mt-3">
+      <Info className="w-3 h-3" />
+      <span>Gerado em {formatDuration(duration)}</span>
+    </div>
+  );
+};
+
 export function DocModal({ isOpen, onClose, tile }) {
   if (!isOpen || !tile) return null;
 
@@ -172,7 +190,10 @@ export function DocModal({ isOpen, onClose, tile }) {
               </div>
 
               {/* AI Response - Formato Blog */}
-              <AIMessage content={tile.answer} />
+              <div>
+                <AIMessage content={tile.answer} />
+                {tile.metrics && <MetricsInfo metrics={tile.metrics} />}
+              </div>
 
               {/* Example of user question */}
               {/*

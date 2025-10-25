@@ -12,6 +12,9 @@ import {
   processPromptVariables,
 } from "@/lib/guest-templates";
 import { generateTileWithOpenAI } from "@/lib/ai-tile-generator";
+import { generateAllTilesOptimized } from "@/lib/ai-tile-generator-optimized";
+import { optimizeTiles } from "@/lib/prompt-optimizer";
+import { createPipelineContext } from "@/lib/ai-pipeline-logger";
 
 // Helper function to update a single tile in the nested array
 async function updateCompanyTile(guest_id, companyName, tile) {
@@ -148,35 +151,64 @@ export async function POST(req) {
 
     // --- Geração Assíncrona de Tiles ---
 
+    // Criar contexto de logging
+    const pipelineLogger = createPipelineContext({
+      guestId,
+      companyName: company.name,
+    });
+
+    // Logar início da geração
+    await pipelineLogger.logTilesGenerationStarted(
+      template.id,
+      template.tiles.length
+    );
+
+    // Preparar tiles com otimização
+    const baseTiles = template.tiles.map((tile) => ({
+      id: tile.id,
+      title: tile.title,
+      prompt: tile.prompt,
+      category: tile.category,
+      order: tile.order,
+    }));
+
+    // Otimizar tiles
+    const optimizedTiles = optimizeTiles(baseTiles, tileContext);
+
     // Não bloquear a resposta. Gerar em segundo plano.
     (async () => {
       try {
         console.log(
-          `🤖 Iniciando geração de ${prompts.length} tiles em background para ${company.name}...`
+          `🤖 Iniciando geração otimizada de ${optimizedTiles.length} tiles em background para ${company.name}...`
         );
 
-        for (const prompt of prompts) {
-          console.log(`   - Gerando tile: ${prompt.title}`);
-          const { answer, excerpt } = await generateTileWithOpenAI(
-            prompt.prompt,
-            company.name,
-            company.url
-          );
-
+        // Callback para salvar cada tile individualmente
+        const saveTileCallback = async (tile) => {
           const newTile = {
-            id: prompt.id,
-            title: prompt.title,
-            question: prompt.prompt,
-            answer: answer,
-            excerpt: excerpt, // Salvar o excerpt
-            category: prompt.category,
+            id: tile.id,
+            title: tile.title,
+            question: tile.optimizedPrompt || tile.prompt,
+            answer: tile.answer,
+            excerpt: tile.excerpt,
+            category: tile.category,
             created_at: new Date().toISOString(),
+            metrics: tile.metrics,
           };
 
-          // Salvar cada tile no banco de dados individualmente
           await updateCompanyTile(guestId, company.name, newTile);
-          console.log(`   ✅ Tile "${prompt.title}" salvo no DB.`);
-        }
+          console.log(`   ✅ Tile "${tile.title}" salvo no DB imediatamente.`);
+        };
+
+        // Gerar todos os tiles com estratégia híbrida
+        const results = await generateAllTilesOptimized(
+          optimizedTiles,
+          tileContext,
+          {
+            pipelineLogger,
+            batchSize: 2, // 2 tiles em paralelo
+            onTileCompleted: saveTileCallback, // Callback para salvar imediatamente
+          }
+        );
 
         // Marcar como completo
         await db.updateOne(

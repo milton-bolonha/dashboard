@@ -52,11 +52,58 @@ export async function GET(req) {
       );
     }
 
+    // 🔧 MIGRAÇÃO: Adicionar limits/usage se não existirem (workspaces antigos)
+    if (!guestWorkspace.limits || !guestWorkspace.usage) {
+      const currentCompaniesCount =
+        guestWorkspace.workspace_data?.companies?.length || 1;
+
+      await db.updateOne(
+        "guest_workspaces",
+        { guest_id: guestId },
+        {
+          $set: {
+            limits: {
+              max_companies: 3,
+              max_tiles_per_company: 10,
+              max_templates: 5,
+            },
+            usage: {
+              companies_count: currentCompaniesCount,
+              companies_remaining: 3 - currentCompaniesCount,
+              total_tiles_generated: 0,
+              templates_created: 0,
+              last_activity: new Date(),
+            },
+          },
+        }
+      );
+
+      // Atualizar objeto local
+      guestWorkspace.limits = {
+        max_companies: 3,
+        max_tiles_per_company: 10,
+        max_templates: 5,
+      };
+      guestWorkspace.usage = {
+        companies_count: currentCompaniesCount,
+        companies_remaining: 3 - currentCompaniesCount,
+        total_tiles_generated: 0,
+        templates_created: 0,
+        last_activity: new Date(),
+      };
+
+      console.log(`🔄 Workspace migrado: limits e usage adicionados`);
+    }
+
     console.log("✅ Workspace encontrado");
 
     return NextResponse.json({
       success: true,
-      workspace: guestWorkspace.workspace_data,
+      workspace: {
+        ...guestWorkspace.workspace_data,
+        limits: guestWorkspace.limits,
+        usage: guestWorkspace.usage,
+      },
       message: "Workspace retrieved successfully",
     });
   } catch (error) {
@@ -139,6 +186,20 @@ export async function POST(req) {
       },
       template_id: value.template_id,
       context: value.context,
+      // Limites do guest workspace
+      limits: {
+        max_companies: 3, // Permite até 3 companies no trial
+        max_tiles_per_company: 10,
+        max_templates: 5,
+      },
+      // Uso atual
+      usage: {
+        companies_count: 1, // Já criamos a primeira company
+        companies_remaining: 2, // 3 - 1
+        total_tiles_generated: 0,
+        templates_created: 0,
+        last_activity: new Date(),
+      },
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -146,6 +207,36 @@ export async function POST(req) {
     await db.insertOne("guest_workspaces", newWorkspace);
 
     console.log("✅ Guest workspace criado:", guestId);
+
+    // 🚀 INICIAR GERAÇÃO DE TILES EM BACKGROUND
+    // Não bloquear a resposta, gerar em background para que o redirecionamento seja instantâneo
+    (async () => {
+      try {
+        console.log("🚀 Disparando geração de tiles em background...");
+
+        // Importar gerador (lazy import para não bloquear)
+        const { generateTilesForCompany } = await import(
+          "@/lib/guest-tile-pipeline"
+        );
+        const { getGuestTemplate } = await import("@/lib/guest-templates");
+
+        // Buscar template
+        const template = getGuestTemplate(value.template_id);
+
+        // Disparar geração
+        await generateTilesForCompany(
+          guestId,
+          companyName,
+          company.website,
+          template
+        );
+
+        console.log("✅ Geração de tiles iniciada em background");
+      } catch (e) {
+        console.error("⚠️ Erro ao iniciar geração de tiles:", e);
+        // Não quebrar o fluxo, workspace já foi criado
+      }
+    })();
 
     return NextResponse.json({
       success: true,
