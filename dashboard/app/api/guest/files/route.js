@@ -79,14 +79,14 @@ export async function GET(req) {
       );
     }
 
-    console.log(
-      `📁 Arquivos encontrados para ${companyName}:`,
-      company.files?.length || 0
-    );
+    // Buscar arquivos da company (pode estar em files ou ser undefined)
+    const files = company.files || [];
+
+    console.log(`📁 Arquivos encontrados para ${companyName}:`, files.length);
 
     return NextResponse.json({
       success: true,
-      files: company.files || [],
+      files: files,
       message: "Files retrieved successfully",
     });
   } catch (error) {

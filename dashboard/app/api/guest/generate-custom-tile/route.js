@@ -74,6 +74,7 @@ export async function POST(req) {
 
     // Gerar tile via OpenAI com métricas
     const company = guestWorkspace.workspace_data.companies[companyIndex];
+    console.log(`📊 Company encontrada: ${company.name}`);
 
     const tile = {
       id: `custom_${Date.now()}`,
@@ -89,9 +90,12 @@ export async function POST(req) {
       notes: [],
     };
 
+    console.log(`🤖 Chamando generateTileWithMetrics...`);
     const result = await generateTileWithMetrics(tile, tileContext, {
       enableStreaming: false, // Custom tiles não usam streaming
+      profile: { name: "CUSTOM", maxTokens: 500, temperature: 0.5 },
     });
+    console.log(`✅ generateTileWithMetrics concluído`);
 
     // Criar novo tile com métricas
     const newTile = {
