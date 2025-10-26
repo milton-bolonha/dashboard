@@ -33,7 +33,7 @@ export default function HeroSection({
     if (!confirm("Reset guest session?")) return;
     try {
       await fetch("/api/guest/reset", { method: "DELETE" });
-      alert("Guest session resetada! Recarregue a página.");
+      alert("Reset guest session success! Refresh the page.");
       window.location.reload();
     } catch (err) {
       alert("Erro: " + err.message);

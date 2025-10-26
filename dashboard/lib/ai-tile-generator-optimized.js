@@ -75,9 +75,8 @@ Provide detailed, actionable insights focused on sales opportunities.`;
       max_tokens: profile?.maxTokens || 500,
     };
 
-    // Habilitar streaming apenas para o primeiro tile (CRITICAL_FAST)
-    const useStreaming =
-      profile?.name === "CRITICAL_FAST" && options.enableStreaming !== false;
+    // DESABILITAR streaming temporariamente - usar método normal dos outros tiles
+    const useStreaming = false; // options.enableStreaming !== false;
 
     console.log(
       `🔍 Tile ${tile.title}: profile=${
@@ -85,10 +84,11 @@ Provide detailed, actionable insights focused on sales opportunities.`;
       }, useStreaming=${useStreaming}, hasOnStream=${!!options.onStream}`
     );
 
-    // DEBUG: Verificar se é o primeiro tile
+    // DEBUG: Primeiro tile agora usa método normal (sem streaming)
     if (tile.id === "company_description" || tile.title === "What They Do") {
-      console.log(`🚀 FIRST TILE DETECTED: ${tile.title} - Forcing streaming`);
-      useStreaming = true;
+      console.log(
+        `🚀 FIRST TILE DETECTED: ${tile.title} - Using normal method (no streaming)`
+      );
     }
 
     let answer = "";

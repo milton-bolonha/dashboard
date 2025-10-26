@@ -3,14 +3,20 @@ import { MongoClient } from "mongodb";
 const uri =
   process.env.MONGODB_URI || "mongodb://localhost:27017/dashboard-engine";
 const options = {
-  serverSelectionTimeoutMS: 30000, // 30 segundos para dar mais tempo
-  connectTimeoutMS: 30000,
-  socketTimeoutMS: 60000,
-  maxPoolSize: 5, // Reduzir pool size
+  serverSelectionTimeoutMS: 60000, // 60 segundos - mais tempo para conectar
+  connectTimeoutMS: 60000, // 60 segundos para conectar
+  socketTimeoutMS: 120000, // 2 minutos para operações
+  maxPoolSize: 3, // Pool menor para evitar sobrecarga
   retryWrites: true,
   retryReads: true,
-  heartbeatFrequencyMS: 30000, // Heartbeat mais frequente
+  heartbeatFrequencyMS: 10000, // Heartbeat mais frequente
   maxIdleTimeMS: 30000, // Fechar conexões idle
+  // Adicionar retry automático
+  retryReads: true,
+  retryWrites: true,
+  // Configurações de rede mais robustas
+  maxConnecting: 2, // Limitar conexões simultâneas
+  minPoolSize: 1, // Manter pelo menos 1 conexão
 };
 
 let client;
@@ -30,6 +36,29 @@ if (process.env.NODE_ENV === "development") {
 }
 
 export default clientPromise;
+
+// Wrapper com retry automático para operações MongoDB
+export async function withRetry(operation, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      console.error(
+        `❌ MongoDB operation failed (attempt ${attempt}/${maxRetries}):`,
+        error.message
+      );
+
+      if (attempt === maxRetries) {
+        throw error;
+      }
+
+      // Aguardar antes de tentar novamente (backoff exponencial)
+      const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+      console.log(`⏳ Retrying in ${delay}ms...`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+}
 
 /**
  * Helper para acessar collections
