@@ -106,57 +106,57 @@ export async function generateTilesForCompany(
 
     // Callback para salvar cada tile individualmente
     const saveTileCallback = async (tile) => {
-      try {
-        console.log(`   💾 Salvando tile "${tile.title}" no banco...`);
+      // Fazer salvamento assíncrono (fire-and-forget) para não bloquear pipeline
+      (async () => {
+        try {
+          console.log(`   💾 Salvando tile "${tile.title}" no banco...`);
 
-        const newTile = {
-          id: tile.id,
-          title: tile.title,
-          question: tile.optimizedPrompt || tile.prompt,
-          answer: tile.answer,
-          excerpt: tile.excerpt,
-          category: tile.category,
-          created_at: new Date().toISOString(),
-          metrics: {
-            total_duration_ms: tile.metrics.generation_duration_ms,
-            breakdown: tile.metrics.breakdown,
-            model: tile.metrics.model,
-            tokens: tile.metrics.tokens,
-            optimization_profile: tile.optimizationProfile,
-          },
-        };
+          const newTile = {
+            id: tile.id,
+            title: tile.title,
+            question: tile.optimizedPrompt || tile.prompt,
+            answer: tile.answer,
+            excerpt: tile.excerpt,
+            category: tile.category,
+            created_at: new Date().toISOString(),
+            metrics: {
+              total_duration_ms: tile.metrics.generation_duration_ms,
+              breakdown: tile.metrics.breakdown,
+              model: tile.metrics.model,
+              tokens: tile.metrics.tokens,
+              optimization_profile: tile.optimizationProfile,
+            },
+          };
 
-        // Log de streaming se aplicável
-        if (tile.metrics.breakdown?.streaming_ms > 0) {
-          console.log(
-            `🌊 Tile "${tile.title}" was streamed in ${tile.metrics.breakdown.streaming_ms}ms`
-          );
-        }
-
-        const dbSaveStart = Date.now();
-
-        const result = await db.updateOne(
-          "guest_workspaces",
-          {
-            guest_id: guestId,
-            "workspace_data.companies.name": companyName,
-          },
-          {
-            $push: { "workspace_data.companies.$.tiles": newTile },
+          // Log de streaming se aplicável
+          if (tile.metrics.breakdown?.streaming_ms > 0) {
+            console.log(
+              `🌊 Tile "${tile.title}" was streamed in ${tile.metrics.breakdown.streaming_ms}ms`
+            );
           }
-        );
 
-        const dbSaveEnd = Date.now();
-        const dbSaveDuration = dbSaveEnd - dbSaveStart;
+          const dbSaveStart = Date.now();
 
-        console.log(`💾 Tile "${tile.title}" saved in ${dbSaveDuration}ms`);
+          const result = await db.updateOne(
+            "guest_workspaces",
+            {
+              guest_id: guestId,
+              "workspace_data.companies.name": companyName,
+            },
+            {
+              $push: { "workspace_data.companies.$.tiles": newTile },
+            }
+          );
 
-        // Adicionar db_save_ms às métricas
-        tile.metrics.breakdown.db_save_ms = dbSaveDuration;
-      } catch (saveError) {
-        console.error(`   ❌ Erro ao salvar tile "${tile.title}":`, saveError);
-        // Não propagar erro, continuar gerando outros tiles
-      }
+          const dbSaveEnd = Date.now();
+          const dbSaveDuration = dbSaveEnd - dbSaveStart;
+
+          console.log(`💾 Tile "${tile.title}" saved in ${dbSaveDuration}ms`);
+        } catch (saveError) {
+          console.error(`   ❌ Erro ao salvar tile "${tile.title}":`, saveError);
+          // Não propagar erro, continuar gerando outros tiles
+        }
+      })();
     };
 
     // Gerar todos os tiles com estratégia híbrida

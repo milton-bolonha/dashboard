@@ -153,12 +153,13 @@ export async function POST(req) {
       console.warn(`Generation lock expired (${elapsed}ms), allowing retry`);
     }
 
-    // Setar lock com ID único
+    // Consolidado: Setar lock + status em uma única operação
     const lockId = `lock_${Date.now()}_${Math.random()
       .toString(36)
       .substr(2, 9)}`;
 
-    await db.updateOne(
+    // OTIMIZADO: Usar findOneAndUpdate para consolidar busca + update
+    const { value: updatedWorkspace } = await db.findOneAndUpdate(
       "guest_workspaces",
       {
         guest_id: guestId,
@@ -171,8 +172,16 @@ export async function POST(req) {
           "workspace_data.companies.$.generation_started_at": new Date(),
           "workspace_data.companies.$.generation_lock_id": lockId,
         },
-      }
+      },
+      { returnDocument: "after" }
     );
+
+    // Atualizar referência da company após o update
+    if (updatedWorkspace) {
+      company = updatedWorkspace.workspace_data.companies.find(
+        (c) => c.name === company.name
+      );
+    }
 
     // Buscar template
     const template = getGuestTemplate(

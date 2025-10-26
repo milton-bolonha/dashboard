@@ -88,7 +88,7 @@ Provide detailed, actionable insights focused on sales opportunities.`;
       max_tokens: profile?.maxTokens || 500,
     };
 
-    // DESABILITAR streaming temporariamente - usar método normal dos outros tiles
+    // Desabilitar streaming temporariamente - usar método normal dos outros tiles
     const useStreaming = false; // options.enableStreaming !== false;
 
     console.log(
@@ -97,29 +97,7 @@ Provide detailed, actionable insights focused on sales opportunities.`;
       }, useStreaming=${useStreaming}, hasOnStream=${!!options.onStream}`
     );
 
-    // DEBUG: Primeiro tile agora usa método normal (sem streaming)
-    if (tile.id === "company_description" || tile.title === "What They Do") {
-      console.log(
-        `🚀 FIRST TILE DETECTED: ${tile.title} - Using normal method (no streaming)`
-      );
-
-      // Pré-aquecimento: fazer uma chamada simples para "aquecer" a API
-      try {
-        console.log(`🔥 Warming up OpenAI API with ${modelToUse}...`);
-        await openai.chat.completions.create({
-          model: modelToUse,
-          messages: [{ role: "user", content: "Hello" }],
-          max_tokens: 1,
-          temperature: 0.1,
-        });
-        console.log(`✅ OpenAI API warmed up with ${modelToUse}`);
-      } catch (warmupError) {
-        console.log(
-          `⚠️ Warmup failed, continuing anyway:`,
-          warmupError.message
-        );
-      }
-    }
+    // Removido: warmup desnecessário da API OpenAI (-1-3s)
 
     let answer = "";
     let completion;
@@ -325,7 +303,7 @@ export async function generateCriticalTilesSequential(
       }
 
       // Pequeno delay entre tiles
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 100)); // Reduzido de 500ms para 100ms
     } catch (error) {
       console.error(`❌ Erro ao gerar tile crítico ${tile.id}:`, error);
       // Continuar com próximo tile mesmo se um falhar

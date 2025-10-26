@@ -130,6 +130,16 @@ export const db = {
     return result;
   },
 
+  async findOneAndUpdate(collection, filter, update, options = {}) {
+    const coll = await getCollection(collection);
+    // Adicionar updatedAt automaticamente se for update com $set
+    if (update.$set && !update.$set.updatedAt) {
+      update.$set.updatedAt = new Date();
+    }
+    const result = await coll.findOneAndUpdate(filter, update, options);
+    return result;
+  },
+
   async deleteMany(collection, filter) {
     const coll = await getCollection(collection);
     const result = await coll.deleteMany(filter);

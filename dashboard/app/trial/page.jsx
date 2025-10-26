@@ -702,7 +702,7 @@ export default function TrialDashboard() {
             return;
           }
         }
-      }, 3000); // ⭐ Aumentado para 3s para reduzir carga
+      }, 5000); // Aumentado de 3000 para 5000ms para reduzir contenção
 
       setPollingInterval(intervalId);
 
