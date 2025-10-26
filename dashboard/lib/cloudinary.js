@@ -43,14 +43,28 @@ export async function uploadFile(fileBuffer, fileName, folder, options = {}) {
     const cloudName =
       process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ||
       process.env.CLOUDINARY_CLOUD_NAME;
-    if (!cloudName || cloudName === "demo") {
+    const apiKey = process.env.CLOUDINARY_API_KEY;
+    const apiSecret = process.env.CLOUDINARY_API_SECRET;
+
+    if (
+      !cloudName ||
+      !apiKey ||
+      !apiSecret ||
+      cloudName === "demo" ||
+      apiKey === "demo" ||
+      apiSecret === "demo"
+    ) {
       console.log("⚠️ Cloudinary not configured, returning mock success");
       return {
         success: true,
         file: {
           id: `mock_${Date.now()}`,
-          secure_url: `https://via.placeholder.com/300x200?text=${fileName}`,
-          url: `https://via.placeholder.com/300x200?text=${fileName}`,
+          secure_url: `https://via.placeholder.com/300x200?text=${encodeURIComponent(
+            fileName
+          )}`,
+          url: `https://via.placeholder.com/300x200?text=${encodeURIComponent(
+            fileName
+          )}`,
           publicId: `mock_${Date.now()}`,
           format: fileName.split(".").pop(),
           size: fileBuffer.length,

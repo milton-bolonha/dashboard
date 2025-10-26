@@ -85,6 +85,12 @@ Provide detailed, actionable insights focused on sales opportunities.`;
       }, useStreaming=${useStreaming}, hasOnStream=${!!options.onStream}`
     );
 
+    // DEBUG: Verificar se é o primeiro tile
+    if (tile.id === "company_description" || tile.title === "What They Do") {
+      console.log(`🚀 FIRST TILE DETECTED: ${tile.title} - Forcing streaming`);
+      useStreaming = true;
+    }
+
     let answer = "";
     let completion;
 

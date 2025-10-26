@@ -658,7 +658,7 @@ export default function TrialDashboard() {
     if (generatingTiles || isGeneratingCustomTile) {
       console.log("🔄 Iniciando polling...");
       let pollCount = 0;
-      const maxPolls = 15; // ⭐ Reduzido para 15 polls (30 segundos)
+      const maxPolls = 30; // ⭐ Aumentado para 30 polls (90 segundos)
       let consecutiveErrors = 0;
       const maxConsecutiveErrors = 3;
 
