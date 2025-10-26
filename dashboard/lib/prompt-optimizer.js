@@ -154,7 +154,10 @@ export function optimizeTile(tile, position, totalTiles, context) {
     temperature: profile.temperature,
     priority: profile.priority,
     optimizedSystemPrompt: optimizeSystemPrompt(context, profile),
-    optimizedPrompt: applyFormatConstraints(tile.prompt, profile),
+    optimizedPrompt: applyFormatConstraints(
+      tile.processedPrompt || tile.prompt,
+      profile
+    ),
   };
 }
 

@@ -92,6 +92,7 @@ export async function generateTilesForCompany(
       id: tile.id,
       title: tile.title,
       prompt: tile.prompt,
+      processedPrompt: processPromptVariables(tile.prompt, context), // Processar variáveis
       category: tile.category,
       order: tile.order,
     }));

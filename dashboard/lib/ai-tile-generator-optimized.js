@@ -65,8 +65,21 @@ Context about the sales rep:
 - Researching: ${context.researchTarget} (${context.researchWebsite})
 Provide detailed, actionable insights focused on sales opportunities.`;
 
+    // TESTE: Usar gpt-4o-mini apenas para os dois primeiros tiles
+    const isFirstTwoTiles =
+      tile.id === "company_description" ||
+      tile.title === "What They Do" ||
+      tile.id === "revenue_model" ||
+      tile.title === "Revenue Model";
+
+    const modelToUse = isFirstTwoTiles ? "gpt-4o-mini" : "gpt-4-turbo-preview";
+
+    console.log(
+      `🤖 Tile "${tile.title}": Using model ${modelToUse} (first two tiles: ${isFirstTwoTiles})`
+    );
+
     const params = {
-      model: "gpt-4o-mini", // MUDADO: era gpt-4-turbo-preview (4x mais rápido)
+      model: modelToUse,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: processedPrompt },
@@ -89,6 +102,23 @@ Provide detailed, actionable insights focused on sales opportunities.`;
       console.log(
         `🚀 FIRST TILE DETECTED: ${tile.title} - Using normal method (no streaming)`
       );
+
+      // Pré-aquecimento: fazer uma chamada simples para "aquecer" a API
+      try {
+        console.log(`🔥 Warming up OpenAI API with ${modelToUse}...`);
+        await openai.chat.completions.create({
+          model: modelToUse,
+          messages: [{ role: "user", content: "Hello" }],
+          max_tokens: 1,
+          temperature: 0.1,
+        });
+        console.log(`✅ OpenAI API warmed up with ${modelToUse}`);
+      } catch (warmupError) {
+        console.log(
+          `⚠️ Warmup failed, continuing anyway:`,
+          warmupError.message
+        );
+      }
     }
 
     let answer = "";
