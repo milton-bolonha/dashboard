@@ -3,13 +3,16 @@ import { MongoClient } from "mongodb";
 const uri =
   process.env.MONGODB_URI || "mongodb://localhost:27017/dashboard-engine";
 const options = {
-  serverSelectionTimeoutMS: 10000, // 10 segundos em vez de 30
-  connectTimeoutMS: 10000,
-  socketTimeoutMS: 45000,
-  maxPoolSize: 10,
+  serverSelectionTimeoutMS: 30000, // 30 segundos para dar mais tempo
+  connectTimeoutMS: 30000,
+  socketTimeoutMS: 60000,
+  maxPoolSize: 5, // Reduzir pool size
   retryWrites: true,
   retryReads: true,
-  heartbeatFrequencyMS: 10000,
+  heartbeatFrequencyMS: 30000, // Heartbeat mais frequente
+  maxIdleTimeMS: 30000, // Fechar conexões idle
+  bufferMaxEntries: 0, // Não bufferizar operações
+  bufferCommands: false, // Não bufferizar comandos
 };
 
 let client;

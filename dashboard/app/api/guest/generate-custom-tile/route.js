@@ -46,10 +46,45 @@ export async function POST(req) {
       prompt: sanitizeHtml(value.prompt, { allowedTags: [] }),
     };
 
-    // Buscar guest workspace
-    const guestWorkspace = await db.findOne("guest_workspaces", {
-      guest_id: guestId,
-    });
+    // Buscar guest workspace com retry
+    let guestWorkspace;
+    let retryCount = 0;
+    const maxRetries = 3;
+
+    while (!guestWorkspace && retryCount < maxRetries) {
+      try {
+        guestWorkspace = await db.findOne("guest_workspaces", {
+          guest_id: guestId,
+        });
+        console.log("✅ Guest workspace found");
+      } catch (dbError) {
+        retryCount++;
+        console.error(
+          `❌ Database error (attempt ${retryCount}/${maxRetries}):`,
+          dbError.message
+        );
+
+        if (retryCount >= maxRetries) {
+          if (
+            dbError.message.includes("Server selection timed out") ||
+            dbError.message.includes("MongoNetworkTimeoutError")
+          ) {
+            return NextResponse.json(
+              {
+                error:
+                  "Database connection timeout. Please try again in a moment.",
+                type: "database_timeout",
+              },
+              { status: 503 }
+            );
+          }
+          throw dbError;
+        }
+
+        // Aguardar antes de tentar novamente
+        await new Promise((resolve) => setTimeout(resolve, 2000 * retryCount));
+      }
+    }
 
     if (!guestWorkspace) {
       return NextResponse.json(
@@ -95,7 +130,12 @@ export async function POST(req) {
       enableStreaming: false, // Custom tiles não usam streaming
       profile: { name: "CUSTOM", maxTokens: 500, temperature: 0.5 },
     });
-    console.log(`✅ generateTileWithMetrics concluído`);
+    console.log(`✅ generateTileWithMetrics concluído:`, {
+      id: result.id,
+      title: result.title,
+      hasAnswer: !!result.answer,
+      hasExcerpt: !!result.excerpt,
+    });
 
     // Criar novo tile com métricas
     const newTile = {
@@ -117,6 +157,7 @@ export async function POST(req) {
     };
 
     // Salvar tile no banco
+    console.log(`💾 Salvando tile customizado no banco...`);
     await db.updateOne(
       "guest_workspaces",
       {

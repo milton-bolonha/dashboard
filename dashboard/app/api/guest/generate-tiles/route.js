@@ -45,23 +45,43 @@ export async function POST(req) {
       return NextResponse.json({ error: "No guest session" }, { status: 401 });
     }
 
-    // Testar conexão MongoDB primeiro
-    try {
-      await db.findOne("guest_workspaces", { guest_id: guestId });
-    } catch (dbError) {
-      console.error("❌ MongoDB connection failed:", dbError.message);
+    // Testar conexão MongoDB com retry
+    let dbConnected = false;
+    let retryCount = 0;
+    const maxRetries = 3;
 
-      if (dbError.message.includes("Server selection timed out")) {
-        return NextResponse.json(
-          {
-            error: "Database connection timeout. Please try again in a moment.",
-            type: "database_timeout",
-          },
-          { status: 503 }
+    while (!dbConnected && retryCount < maxRetries) {
+      try {
+        await db.findOne("guest_workspaces", { guest_id: guestId });
+        dbConnected = true;
+        console.log("✅ MongoDB connection successful");
+      } catch (dbError) {
+        retryCount++;
+        console.error(
+          `❌ MongoDB connection failed (attempt ${retryCount}/${maxRetries}):`,
+          dbError.message
         );
-      }
 
-      throw dbError;
+        if (retryCount >= maxRetries) {
+          if (
+            dbError.message.includes("Server selection timed out") ||
+            dbError.message.includes("MongoNetworkTimeoutError")
+          ) {
+            return NextResponse.json(
+              {
+                error:
+                  "Database connection timeout. Please try again in a moment.",
+                type: "database_timeout",
+              },
+              { status: 503 }
+            );
+          }
+          throw dbError;
+        }
+
+        // Aguardar antes de tentar novamente
+        await new Promise((resolve) => setTimeout(resolve, 2000 * retryCount));
+      }
     }
 
     // Buscar guest workspace

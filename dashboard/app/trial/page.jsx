@@ -208,6 +208,9 @@ export default function TrialDashboard() {
 
       console.log("✅ Custom tile generated successfully");
 
+      // Fechar modal após sucesso
+      setIsAddPromptOpen(false);
+
       // Recarregar workspace para mostrar o novo tile
       await loadGuestWorkspace();
     } catch (error) {
@@ -749,14 +752,14 @@ export default function TrialDashboard() {
   // ⭐ NOVO: Timeout de segurança para detectar geração travada
   useEffect(() => {
     if (generatingTiles || isGeneratingCustomTile) {
-      console.log("⏰ Iniciando timeout de segurança: 5 minutos");
+      console.log("⏰ Iniciando timeout de segurança: 10 minutos");
       const timeoutId = setTimeout(() => {
         console.log(
-          "⚠️ Timeout de segurança: geração demorou mais de 5 minutos"
+          "⚠️ Timeout de segurança: geração demorou mais de 10 minutos"
         );
         setError("Geração de tiles demorou muito. Tente novamente.");
         stopPolling();
-      }, 300000); // 5 minutos
+      }, 600000); // 10 minutos
 
       return () => clearTimeout(timeoutId);
     }
