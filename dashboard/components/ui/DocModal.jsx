@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ChevronLeft,
@@ -115,18 +116,158 @@ const AIMessage = ({ content }) => {
 };
 
 const MetricsInfo = ({ metrics }) => {
-  if (!metrics || !metrics.generation_duration_ms) return null;
+  const [isExpanded, setIsExpanded] = useState(false);
 
-  const duration = metrics.generation_duration_ms;
+  if (!metrics || !metrics.total_duration_ms) return null;
+
+  const duration = metrics.total_duration_ms;
   const formatDuration = (ms) => {
     if (ms < 1000) return `${ms}ms`;
     return `${(ms / 1000).toFixed(1)}s`;
   };
 
+  // Identificar gargalo principal
+  let bottleneckName = "unknown";
+  let bottleneckTime = 0;
+  if (metrics.breakdown) {
+    const bottleneck = Object.entries(metrics.breakdown).sort(
+      ([, a], [, b]) => b - a
+    )[0];
+    bottleneckName = bottleneck ? bottleneck[0].replace("_ms", "") : "unknown";
+    bottleneckTime = bottleneck ? bottleneck[1] : 0;
+  }
+
+  // Mapear gargalos para labels mais claros
+  const bottleneckLabels = {
+    api_call: "OpenAI API",
+    ttft: "First token",
+    db_save: "Database save",
+    streaming: "Streaming",
+    queue_wait: "Queue wait",
+  };
+
+  const bottleneckLabel = bottleneckLabels[bottleneckName] || bottleneckName;
+
   return (
-    <div className="flex items-center gap-1 text-gray-400 text-xs mt-3">
-      <Info className="w-3 h-3" />
-      <span>Gerado em {formatDuration(duration)}</span>
+    <div className="bg-gray-50 rounded-lg p-3 mt-4 border border-gray-200">
+      <div
+        className="flex items-center justify-between cursor-pointer"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-center gap-2 text-gray-600 text-sm">
+          <Info className="w-4 h-4" />
+          <span className="font-medium">Performance Details</span>
+        </div>
+        <div className="text-xs text-gray-500">
+          {formatDuration(duration)} • {bottleneckLabel} took{" "}
+          {formatDuration(bottleneckTime)}
+        </div>
+        <div className="text-gray-400">{isExpanded ? "▼" : "▶"}</div>
+      </div>
+
+      {isExpanded && (
+        <div className="mt-3 pt-3 border-t border-gray-200">
+          <div className="grid grid-cols-2 gap-4 text-xs mb-3">
+            <div>
+              <span className="text-gray-500">Total time:</span>
+              <span className="ml-1 font-medium">
+                {formatDuration(duration)}
+              </span>
+            </div>
+            <div>
+              <span className="text-gray-500">Model:</span>
+              <span className="ml-1 font-medium">
+                {metrics.model || "gpt-4o-mini"}
+              </span>
+            </div>
+            <div>
+              <span className="text-gray-500">Slowest step:</span>
+              <span className="ml-1 font-medium">{bottleneckLabel}</span>
+            </div>
+            <div>
+              <span className="text-gray-500">Step time:</span>
+              <span className="ml-1 font-medium">
+                {formatDuration(bottleneckTime)}
+              </span>
+            </div>
+          </div>
+
+          {/* Breakdown detalhado */}
+          {metrics.breakdown && (
+            <div className="mb-3">
+              <div className="text-xs text-gray-500 mb-2">Breakdown:</div>
+              <div className="space-y-1">
+                {Object.entries(metrics.breakdown).map(([key, value]) => {
+                  const label =
+                    bottleneckLabels[key.replace("_ms", "")] ||
+                    key.replace("_ms", "");
+                  const percentage = ((value / duration) * 100).toFixed(1);
+                  return (
+                    <div
+                      key={key}
+                      className="flex justify-between items-center"
+                    >
+                      <span className="text-gray-600">{label}:</span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-16 bg-gray-200 rounded-full h-1.5">
+                          <div
+                            className="bg-blue-500 h-1.5 rounded-full"
+                            style={{ width: `${Math.min(percentage, 100)}%` }}
+                          />
+                        </div>
+                        <span className="text-gray-500 text-xs w-12 text-right">
+                          {formatDuration(value)} ({percentage}%)
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Pipeline metrics */}
+          {metrics.pipeline && (
+            <div className="mb-3 pt-3 border-t border-gray-200">
+              <div className="text-xs text-gray-500 mb-2">Pipeline:</div>
+              <div className="space-y-1 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Loading time:</span>
+                  <span className="text-gray-500">
+                    {formatDuration(metrics.pipeline.loading_ms || 0)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Processing:</span>
+                  <span className="text-gray-500">
+                    {formatDuration(metrics.pipeline.processing_ms || 0)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">UI update:</span>
+                  <span className="text-gray-500">
+                    {formatDuration(metrics.pipeline.ui_update_ms || 0)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tokens info */}
+          {metrics.tokens && (
+            <div className="pt-3 border-t border-gray-200">
+              <div className="text-xs text-gray-500 mb-1">Tokens used:</div>
+              <div className="flex gap-4 text-xs">
+                <span>Prompt: {metrics.tokens.prompt || 0}</span>
+                <span>Completion: {metrics.tokens.completion || 0}</span>
+                <span className="font-medium">
+                  Total: {metrics.tokens.total || 0}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

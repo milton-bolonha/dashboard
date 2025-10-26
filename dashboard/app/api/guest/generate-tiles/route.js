@@ -94,15 +94,31 @@ export async function POST(req) {
       });
     }
 
-    // Evitar regeneração simultânea
-    if (company.tiles_status === "generating") {
-      return NextResponse.json(
-        { error: "Tiles are already being generated" },
-        { status: 409 }
-      );
+    // NOVO: Verificar generation lock com timeout
+    if (company.generation_in_progress) {
+      const startTime = new Date(company.generation_started_at);
+      const elapsed = Date.now() - startTime.getTime();
+
+      if (elapsed < 600000) {
+        // 10 minutos
+        return NextResponse.json(
+          {
+            error: "Tiles are already being generated for this company",
+            status: "generating",
+            elapsed_ms: elapsed,
+          },
+          { status: 409 }
+        );
+      }
+
+      console.warn(`Generation lock expired (${elapsed}ms), allowing retry`);
     }
 
-    // Marcar como "generating"
+    // Setar lock com ID único
+    const lockId = `lock_${Date.now()}_${Math.random()
+      .toString(36)
+      .substr(2, 9)}`;
+
     await db.updateOne(
       "guest_workspaces",
       {
@@ -112,6 +128,9 @@ export async function POST(req) {
       {
         $set: {
           "workspace_data.companies.$.tiles_status": "generating",
+          "workspace_data.companies.$.generation_in_progress": true,
+          "workspace_data.companies.$.generation_started_at": new Date(),
+          "workspace_data.companies.$.generation_lock_id": lockId,
         },
       }
     );
@@ -205,12 +224,12 @@ export async function POST(req) {
           tileContext,
           {
             pipelineLogger,
-            batchSize: 2, // 2 tiles em paralelo
+            batchSize: 4, // MUDADO: era 2, agora 4 tiles em paralelo
             onTileCompleted: saveTileCallback, // Callback para salvar imediatamente
           }
         );
 
-        // Marcar como completo
+        // Limpar lock ao completar (CRÍTICO)
         await db.updateOne(
           "guest_workspaces",
           {
@@ -218,7 +237,12 @@ export async function POST(req) {
             "workspace_data.companies.name": company.name,
           },
           {
-            $set: { "workspace_data.companies.$.tiles_status": "completed" },
+            $set: {
+              "workspace_data.companies.$.tiles_status": "completed",
+              "workspace_data.companies.$.generation_in_progress": false,
+              "workspace_data.companies.$.generation_completed_at": new Date(),
+              "workspace_data.companies.$.generation_lock_id": null,
+            },
           }
         );
         console.log(`✅ Todos os tiles para ${company.name} foram gerados.`);
@@ -227,7 +251,7 @@ export async function POST(req) {
           "❌ Erro fatal durante a geração de tiles em background:",
           e
         );
-        // Marcar como falha para que o usuário possa tentar novamente
+        // Marcar como falha e limpar lock
         await db.updateOne(
           "guest_workspaces",
           {
@@ -235,7 +259,12 @@ export async function POST(req) {
             "workspace_data.companies.name": company.name,
           },
           {
-            $set: { "workspace_data.companies.$.tiles_status": "failed" },
+            $set: {
+              "workspace_data.companies.$.tiles_status": "failed",
+              "workspace_data.companies.$.generation_in_progress": false,
+              "workspace_data.companies.$.generation_failed_at": new Date(),
+              "workspace_data.companies.$.generation_lock_id": null,
+            },
           }
         );
       }

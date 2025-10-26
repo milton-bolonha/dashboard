@@ -518,6 +518,11 @@ export default function TrialDashboard() {
               console.log("✅ Todos os tiles gerados, parando polling");
               setGeneratingTiles(false);
               setShowLoadingModal(false);
+              // ⭐ NOVO: Parar polling imediatamente
+              if (pollingInterval) {
+                clearInterval(pollingInterval);
+                setPollingInterval(null);
+              }
             }
           }
         } else {
@@ -538,15 +543,6 @@ export default function TrialDashboard() {
           firstCompany.name
         );
         setSelectedCompany(firstCompany);
-      } else if (selectedCompany) {
-        // Atualizar selectedCompany com dados mais recentes
-        const updatedCompany = data.workspace?.companies?.find(
-          (c) => c.name === selectedCompany.name
-        );
-        if (updatedCompany) {
-          console.log("🔄 Atualizando selectedCompany com dados mais recentes");
-          setSelectedCompany(updatedCompany);
-        }
       } else if (data.workspace?.companies?.length > 0) {
         // Se não há company selecionada, selecionar a primeira
         console.log("🎯 Auto-selecionando primeira company após atualização");
@@ -626,14 +622,28 @@ export default function TrialDashboard() {
     setGeneratingTiles(true);
   };
 
+  // ⭐ NOVO: Função para parar polling manualmente
+  const stopPolling = () => {
+    console.log("🛑 Parando polling manualmente");
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+      setPollingInterval(null);
+    }
+    setGeneratingTiles(false);
+    setIsGeneratingCustomTile(false);
+    setShowLoadingModal(false);
+  };
+
   // Efeito para polling com segurança
   useEffect(() => {
     if (generatingTiles || isGeneratingCustomTile) {
       console.log("🔄 Iniciando polling...");
       let pollCount = 0;
-      const maxPolls = 30; // ⭐ Limite de segurança: máximo 30 polls (1 minuto)
+      const maxPolls = 15; // ⭐ Reduzido para 15 polls (30 segundos)
+      let consecutiveErrors = 0;
+      const maxConsecutiveErrors = 3;
 
-      const intervalId = setInterval(() => {
+      const intervalId = setInterval(async () => {
         pollCount++;
         console.log(
           `🔄 Polling for workspace updates... (${pollCount}/${maxPolls})`
@@ -647,11 +657,33 @@ export default function TrialDashboard() {
           setIsGeneratingCustomTile(false);
           clearInterval(intervalId);
           setPollingInterval(null);
+          setError("Geração de tiles demorou muito. Tente novamente.");
           return;
         }
 
-        loadGuestWorkspace();
-      }, 2000); // ⭐ 2s para reduzir carga no servidor
+        try {
+          await loadGuestWorkspace();
+          consecutiveErrors = 0; // Reset contador de erros
+        } catch (error) {
+          consecutiveErrors++;
+          console.error(
+            `❌ Erro no polling (${consecutiveErrors}/${maxConsecutiveErrors}):`,
+            error
+          );
+
+          // Parar polling se muitos erros consecutivos
+          if (consecutiveErrors >= maxConsecutiveErrors) {
+            console.log("⚠️ Muitos erros consecutivos, parando polling");
+            setGeneratingTiles(false);
+            setShowLoadingModal(false);
+            setIsGeneratingCustomTile(false);
+            clearInterval(intervalId);
+            setPollingInterval(null);
+            setError("Erro na geração de tiles. Tente novamente.");
+            return;
+          }
+        }
+      }, 3000); // ⭐ Aumentado para 3s para reduzir carga
 
       setPollingInterval(intervalId);
 
@@ -675,6 +707,42 @@ export default function TrialDashboard() {
       setGeneratingTiles(true);
     }
   }, [selectedCompany, generatingTiles]);
+
+  // ⭐ NOVO: Garantir que selectedCompany sempre tem dados frescos
+  useEffect(() => {
+    if (workspace?.workspace?.companies && selectedCompany) {
+      const freshCompany = workspace.workspace.companies.find(
+        (c) => c.name === selectedCompany.name
+      );
+
+      // Só atualizar se realmente mudou
+      if (
+        freshCompany &&
+        JSON.stringify(freshCompany.tiles) !==
+          JSON.stringify(selectedCompany.tiles)
+      ) {
+        console.log(
+          "🔄 Forçando atualização de selectedCompany com tiles frescos"
+        );
+        setSelectedCompany(freshCompany);
+      }
+    }
+  }, [workspace]); // Reage a mudanças no workspace
+
+  // ⭐ NOVO: Timeout de segurança para detectar geração travada
+  useEffect(() => {
+    if (generatingTiles || isGeneratingCustomTile) {
+      const timeoutId = setTimeout(() => {
+        console.log(
+          "⚠️ Timeout de segurança: geração demorou mais de 2 minutos"
+        );
+        setError("Geração de tiles demorou muito. Tente novamente.");
+        stopPolling();
+      }, 120000); // 2 minutos
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [generatingTiles, isGeneratingCustomTile]);
 
   // --- Render States ---
 
@@ -898,6 +966,7 @@ export default function TrialDashboard() {
       <LoadingModal
         isOpen={showLoadingModal}
         onAccept={handleAcceptLoadingModal}
+        onCancel={stopPolling}
         companyName={selectedCompany?.name || "your company"}
       />
 

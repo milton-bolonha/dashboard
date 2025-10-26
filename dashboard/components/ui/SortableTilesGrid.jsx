@@ -84,9 +84,16 @@ export function SortableTilesGrid({
         {/* LoadingTiles durante geração automática */}
         {isGeneratingTiles &&
           !isGeneratingCustomTile &&
-          Array.from({
-            length: Math.max(0, tilesToGenerate - tiles.length),
-          }).map((_, i) => <LoadingTile key={`loading-${i}`} index={i} />)}
+          (() => {
+            const loadingCount = Math.max(0, tilesToGenerate - tiles.length);
+            console.log(
+              `🔄 Renderizando ${loadingCount} LoadingTiles (${tiles.length}/${tilesToGenerate})`
+            );
+
+            return Array.from({ length: loadingCount }).map((_, i) => (
+              <LoadingTile key={`loading-${tiles.length + i}`} index={i} />
+            ));
+          })()}
 
         {/* Add Prompt Tile - sempre no final */}
         <AddPromptTile onClick={onAddPrompt} />

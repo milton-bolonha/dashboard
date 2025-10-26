@@ -27,6 +27,23 @@ export async function generateTileWithMetrics(tile, context, options = {}) {
     completed_at: null,
     generation_duration_ms: null,
     optimization_profile: profile?.name || "DEFAULT",
+
+    // NOVO: Breakdown detalhado
+    api_call_start: Date.now(),
+    api_call_end: null,
+    breakdown: {
+      queue_wait_ms: 0,
+      api_call_ms: 0,
+      ttft_ms: 0,
+      streaming_ms: 0,
+      db_save_ms: 0,
+    },
+    model: "gpt-4o-mini", // CORRIGIDO: usar valor direto
+    tokens: {
+      prompt: 0,
+      completion: 0,
+      total: 0,
+    },
   };
 
   try {
@@ -48,18 +65,17 @@ Context about the sales rep:
 Provide detailed, actionable insights focused on sales opportunities.`;
 
     const params = {
-      model: "gpt-4-turbo-preview",
+      model: "gpt-4o-mini", // MUDADO: era gpt-4-turbo-preview (4x mais rápido)
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: processedPrompt },
       ],
-      temperature: profile?.temperature || 0.7,
-      max_tokens: profile?.maxTokens || 800,
+      temperature: profile?.temperature || 0.5,
+      max_tokens: profile?.maxTokens || 500,
     };
 
-    // Streaming apenas para tiles críticos (os primeiros 3)
-    const useStreaming =
-      profile?.name === "CRITICAL_FAST" && options.enableStreaming !== false;
+    // DESABILITAR streaming temporariamente (quebra UI)
+    const useStreaming = false; // Era: profile?.name === "CRITICAL_FAST" && options.enableStreaming !== false;
 
     let answer = "";
     let completion;
@@ -96,8 +112,18 @@ Provide detailed, actionable insights focused on sales opportunities.`;
       }
     } else {
       // Modo tradicional
+      const apiStart = Date.now();
       completion = await openai.chat.completions.create(params);
+      const apiEnd = Date.now();
+
       answer = completion.choices[0].message.content;
+
+      // Atualizar métricas
+      metrics.api_call_end = apiEnd;
+      metrics.breakdown.api_call_ms = apiEnd - apiStart;
+      metrics.tokens.prompt = completion.usage?.prompt_tokens || 0;
+      metrics.tokens.completion = completion.usage?.completion_tokens || 0;
+      metrics.tokens.total = completion.usage?.total_tokens || 0;
     }
 
     metrics.completed_at = new Date();
@@ -111,6 +137,37 @@ Provide detailed, actionable insights focused on sales opportunities.`;
     if (pipelineLogger) {
       await pipelineLogger.logTileCompleted(tile.id, metrics);
     }
+
+    // Adicionar métricas de pipeline
+    metrics.pipeline = {
+      loading_ms: metrics.breakdown.queue_wait_ms || 0,
+      processing_ms: metrics.breakdown.api_call_ms || 0,
+      ui_update_ms: metrics.breakdown.db_save_ms || 0,
+      total_pipeline_ms: metrics.generation_duration_ms,
+    };
+
+    // Log estruturado para debug
+    console.log(`
+📊 TILE GENERATION METRICS - ${tile.title}
+├─ Total: ${metrics.generation_duration_ms}ms
+├─ API Call: ${metrics.breakdown.api_call_ms}ms
+├─ TTFT: ${metrics.breakdown.ttft_ms}ms
+├─ Streaming: ${metrics.breakdown.streaming_ms}ms
+├─ DB Save: ${metrics.breakdown.db_save_ms}ms
+├─ Model: ${metrics.model}
+├─ Tokens: ${metrics.tokens.total} (prompt: ${
+      metrics.tokens.prompt
+    }, completion: ${metrics.tokens.completion})
+├─ Pipeline: Loading: ${metrics.pipeline.loading_ms}ms, Processing: ${
+      metrics.pipeline.processing_ms
+    }ms, UI: ${metrics.pipeline.ui_update_ms}ms
+└─ Profile: ${metrics.optimization_profile}
+${
+  metrics.generation_duration_ms > 60000
+    ? "⚠️ SLOW TILE (>60s)"
+    : "✅ Normal speed"
+}
+    `);
 
     return {
       answer,
@@ -192,7 +249,7 @@ export async function generateSecondaryTilesParallel(
   context,
   options = {}
 ) {
-  const batchSize = options.batchSize || 2; // 2-3 requisições simultâneas
+  const batchSize = options.batchSize || 4; // MUDADO: era 2, agora 4 requisições simultâneas
   const results = [];
   const pipelineLogger = options.pipelineLogger;
   const onTileCompleted = options.onTileCompleted;

@@ -3,7 +3,12 @@
 import { motion } from "framer-motion";
 import { Bot, Sparkles } from "lucide-react";
 
-export default function LoadingModal({ isOpen, onAccept, companyName }) {
+export default function LoadingModal({
+  isOpen,
+  onAccept,
+  onCancel,
+  companyName,
+}) {
   if (!isOpen) return null;
 
   return (
@@ -47,13 +52,25 @@ export default function LoadingModal({ isOpen, onAccept, companyName }) {
           </p>
         </div>
 
-        {/* Button */}
-        <button
-          onClick={onAccept}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200"
-        >
-          Got it, let's go!
-        </button>
+        {/* Buttons */}
+        <div className="flex space-x-3">
+          {onCancel && (
+            <button
+              onClick={onCancel}
+              className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-lg transition-colors duration-200"
+            >
+              Cancel
+            </button>
+          )}
+          <button
+            onClick={onAccept}
+            className={`${
+              onCancel ? "flex-1" : "w-full"
+            } bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200`}
+          >
+            Got it, let's go!
+          </button>
+        </div>
       </motion.div>
     </div>
   );

@@ -116,8 +116,16 @@ export async function generateTilesForCompany(
           excerpt: tile.excerpt,
           category: tile.category,
           created_at: new Date().toISOString(),
-          metrics: tile.metrics, // Incluir métricas
+          metrics: {
+            total_duration_ms: tile.metrics.generation_duration_ms,
+            breakdown: tile.metrics.breakdown,
+            model: tile.metrics.model,
+            tokens: tile.metrics.tokens,
+            optimization_profile: tile.optimizationProfile,
+          },
         };
+
+        const dbSaveStart = Date.now();
 
         const result = await db.updateOne(
           "guest_workspaces",
@@ -130,10 +138,13 @@ export async function generateTilesForCompany(
           }
         );
 
-        console.log(
-          `   ✅ Tile "${tile.title}" salvo no DB. Resultado:`,
-          result
-        );
+        const dbSaveEnd = Date.now();
+        const dbSaveDuration = dbSaveEnd - dbSaveStart;
+
+        console.log(`💾 Tile "${tile.title}" saved in ${dbSaveDuration}ms`);
+
+        // Adicionar db_save_ms às métricas
+        tile.metrics.breakdown.db_save_ms = dbSaveDuration;
       } catch (saveError) {
         console.error(`   ❌ Erro ao salvar tile "${tile.title}":`, saveError);
         // Não propagar erro, continuar gerando outros tiles

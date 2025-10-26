@@ -40,7 +40,12 @@ export function DraggableTile({ tile, onClick, onDelete, isDisabled = false }) {
           : "cursor-grab hover:scale-102"
       } ${isDisabled ? "cursor-not-allowed opacity-50" : ""}`}
     >
-      <Tile title={tile.title} excerpt={tile.excerpt} onDelete={onDelete} />
+      <Tile
+        title={tile.title}
+        excerpt={tile.excerpt}
+        metrics={tile.metrics}
+        onDelete={onDelete}
+      />
 
       {/* Resize handles - removido para evitar conflito com drag */}
     </div>
