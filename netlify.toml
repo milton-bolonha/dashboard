@@ -10,3 +10,9 @@ package = "@netlify/plugin-nextjs"
 
 [functions]
 node_bundler = "esbuild"
+directory = "netlify/functions"
+
+# Background function para geração de tiles
+# Permite que a função continue executando após a request terminar
+[functions."netlify/functions/generate-tiles.js"]
+included_files = ["dashboard/lib/**"]

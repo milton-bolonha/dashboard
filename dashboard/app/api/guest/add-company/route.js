@@ -163,45 +163,36 @@ export async function POST(req) {
       `✅ Company "${sanitized.companyName}" adicionada ao workspace!`
     );
 
-    // ⭐ NOVO: Disparar geração automática de tiles para nova company
-    // (similar ao pipeline do onboarding, mas para guest workspace)
-    console.log(`🔥 Disparando geração automática de tiles para "${sanitized.companyName}"...`);
-    
-    try {
-      const { generateTilesForCompany } = await import(
-        "@/lib/guest-tile-pipeline"
-      );
+    // ⭐ NOVO: Disparar geração automática via background function
+    console.log(
+      `🔥 Disparando geração de tiles via background function para "${sanitized.companyName}"...`
+    );
 
-      console.log(`✅ Função generateTilesForCompany importada com sucesso`);
-      
-      // Executar geração em background (não bloquear resposta)
-      const promise = generateTilesForCompany(
-        guestId,
-        sanitized.companyName,
-        sanitized.companyUrl
-      );
-      
-      console.log(`✅ Promise criada, geração iniciada em background`);
-      
-      promise
-        .then((result) => {
-          console.log(
-            `✅ GERAÇÃO FINALIZADA: Tiles gerados automaticamente para ${sanitized.companyName}`
-          );
-          console.log(`📊 Resultado:`, result);
-        })
-        .catch((error) => {
-          console.error(
-            `❌ ERRO NA GERAÇÃO PARA ${sanitized.companyName}:`
-          );
-          console.error(`❌ Erro completo:`, error);
-          console.error(`❌ Stack:`, error.stack);
-        });
-    } catch (pipelineError) {
-      console.error("⚠️ ERRO CRÍTICO ao iniciar geração automática:");
-      console.error("⚠️ Erro:", pipelineError);
-      console.error("⚠️ Stack:", pipelineError.stack);
-      // Não falhar a criação da company por causa do pipeline
+    try {
+      const netlifyUrl =
+        process.env.NETLIFY_URL || "https://dashboardsalesapp.netlify.app";
+      const functionUrl = `${netlifyUrl}/.netlify/functions/generate-tiles`;
+
+      console.log(`📞 Chamando background function: ${functionUrl}`);
+
+      // Fire-and-forget: não esperar resposta
+      fetch(functionUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          guestId,
+          companyName: sanitized.companyName,
+          companyUrl: sanitized.companyUrl,
+        }),
+      }).catch((error) => {
+        console.error(`⚠️ Erro ao chamar background function:`, error.message);
+        // Não propagar erro - company já foi criada
+      });
+
+      console.log(`✅ Background function chamada (fire-and-forget)`);
+    } catch (error) {
+      console.error("⚠️ ERRO ao chamar background function:", error);
+      // Não falhar a criação da company
     }
 
     return NextResponse.json({
