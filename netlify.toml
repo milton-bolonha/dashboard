@@ -7,3 +7,6 @@ NODE_VERSION = "22.16.0"
 
 [[plugins]]
 package = "@netlify/plugin-nextjs"
+
+[functions]
+node_bundler = "esbuild"

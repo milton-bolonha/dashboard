@@ -104,59 +104,86 @@ export async function generateTilesForCompany(
       `🤖 Gerando ${optimizedTiles.length} tiles otimizados para ${companyName}...`
     );
 
-    // Callback para salvar cada tile individualmente
-    const saveTileCallback = async (tile) => {
-      // Fazer salvamento assíncrono (fire-and-forget) para não bloquear pipeline
-      (async () => {
-        try {
-          console.log(`   💾 Salvando tile "${tile.title}" no banco...`);
+    // ⭐ NOVO: Batch writes para evitar bloqueio entre tiles
+    const tileBatch = [];
+    const BATCH_SIZE = 2;
 
-          const newTile = {
-            id: tile.id,
-            title: tile.title,
-            question: tile.optimizedPrompt || tile.prompt,
-            answer: tile.answer,
-            excerpt: tile.excerpt,
-            category: tile.category,
-            created_at: new Date().toISOString(),
-            metrics: {
-              total_duration_ms: tile.metrics.generation_duration_ms,
-              breakdown: tile.metrics.breakdown,
-              model: tile.metrics.model,
-              tokens: tile.metrics.tokens,
-              optimization_profile: tile.optimizationProfile,
-            },
-          };
+    // Função para salvar batch usando bulkWrite
+    const saveBatchToDb = async (tiles) => {
+      const dbSaveStart = Date.now();
 
-          // Log de streaming se aplicável
-          if (tile.metrics.breakdown?.streaming_ms > 0) {
-            console.log(
-              `🌊 Tile "${tile.title}" was streamed in ${tile.metrics.breakdown.streaming_ms}ms`
-            );
-          }
-
-          const dbSaveStart = Date.now();
-
-          const result = await db.updateOne(
-            "guest_workspaces",
-            {
+      try {
+        const operations = tiles.map((tile) => ({
+          updateOne: {
+            filter: {
               guest_id: guestId,
               "workspace_data.companies.name": companyName,
             },
-            {
-              $push: { "workspace_data.companies.$.tiles": newTile },
-            }
+            update: {
+              $push: { "workspace_data.companies.$.tiles": tile },
+            },
+          },
+        }));
+
+        await db.bulkWrite("guest_workspaces", operations, { ordered: false });
+
+        const dbSaveEnd = Date.now();
+        const dbSaveDuration = dbSaveEnd - dbSaveStart;
+
+        console.log(
+          `💾 Batch de ${tiles.length} tiles salvos em ${dbSaveDuration}ms`
+        );
+      } catch (error) {
+        console.error(`❌ Erro ao salvar batch no DB:`, error);
+        throw error;
+      }
+    };
+
+    // Callback para salvar cada tile via batch
+    const saveTileCallback = async (tile) => {
+      try {
+        console.log(`   💾 Adicionando tile "${tile.title}" ao batch...`);
+
+        const newTile = {
+          id: tile.id,
+          title: tile.title,
+          question: tile.optimizedPrompt || tile.prompt,
+          answer: tile.answer,
+          excerpt: tile.excerpt,
+          category: tile.category,
+          created_at: new Date().toISOString(),
+          metrics: {
+            total_duration_ms: tile.metrics.generation_duration_ms,
+            breakdown: tile.metrics.breakdown,
+            model: tile.metrics.model,
+            tokens: tile.metrics.tokens,
+            optimization_profile: tile.optimizationProfile,
+          },
+        };
+
+        // Log de streaming se aplicável
+        if (tile.metrics.breakdown?.streaming_ms > 0) {
+          console.log(
+            `🌊 Tile "${tile.title}" was streamed in ${tile.metrics.breakdown.streaming_ms}ms`
           );
-
-          const dbSaveEnd = Date.now();
-          const dbSaveDuration = dbSaveEnd - dbSaveStart;
-
-          console.log(`💾 Tile "${tile.title}" saved in ${dbSaveDuration}ms`);
-        } catch (saveError) {
-          console.error(`   ❌ Erro ao salvar tile "${tile.title}":`, saveError);
-          // Não propagar erro, continuar gerando outros tiles
         }
-      })();
+
+        // Adicionar ao batch
+        tileBatch.push(newTile);
+
+        // Se batch estiver cheio, salvar todos de uma vez em background
+        if (tileBatch.length >= BATCH_SIZE) {
+          const batchToSave = [...tileBatch];
+          tileBatch.length = 0; // Limpar batch
+
+          // Fire-and-forget batch save
+          saveBatchToDb(batchToSave).catch((error) => {
+            console.error(`   ❌ Erro ao salvar batch:`, error);
+          });
+        }
+      } catch (saveError) {
+        console.error(`   ❌ Erro ao adicionar tile ao batch:`, saveError);
+      }
     };
 
     // Gerar todos os tiles com estratégia híbrida
@@ -167,6 +194,19 @@ export async function generateTilesForCompany(
     });
 
     console.log(`✅ ${results.length} tiles gerados com sucesso`);
+
+    // ⭐ FLUSH: Salvar batch pendente ao final
+    if (tileBatch && tileBatch.length > 0) {
+      console.log(`💾 Salvando batch final com ${tileBatch.length} tiles...`);
+      const batchToSave = [...tileBatch];
+
+      try {
+        await saveBatchToDb(batchToSave);
+        console.log(`✅ Batch final salvo com sucesso`);
+      } catch (error) {
+        console.error(`❌ Erro ao salvar batch final:`, error);
+      }
+    }
 
     // Marcar como completo
     await db.updateOne(

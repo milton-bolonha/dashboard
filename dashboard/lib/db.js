@@ -140,6 +140,12 @@ export const db = {
     return result;
   },
 
+  async bulkWrite(collection, operations, options = {}) {
+    const coll = await getCollection(collection);
+    const result = await coll.bulkWrite(operations, options);
+    return result;
+  },
+
   async deleteMany(collection, filter) {
     const coll = await getCollection(collection);
     const result = await coll.deleteMany(filter);

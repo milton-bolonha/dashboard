@@ -118,11 +118,15 @@ export async function POST(req) {
       category: "custom",
     };
 
+    // Buscar contexto do workspace
+    const workspaceContext = guestWorkspace.context || {};
+
     const tileContext = {
-      companyName: company.name,
-      companyUrl: company.url,
-      uploadedFiles: [],
-      notes: [],
+      company: workspaceContext.company || company.name,
+      companyWebsite: workspaceContext.companyWebsite || company.url || "",
+      solution: workspaceContext.solution || "Unknown Solution",
+      researchTarget: company.name,
+      researchWebsite: company.url || workspaceContext.researchWebsite || "",
     };
 
     console.log(`🤖 Chamando generateTileWithMetrics...`);
