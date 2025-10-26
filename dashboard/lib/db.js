@@ -2,7 +2,15 @@ import { MongoClient } from "mongodb";
 
 const uri =
   process.env.MONGODB_URI || "mongodb://localhost:27017/dashboard-engine";
-const options = {};
+const options = {
+  serverSelectionTimeoutMS: 10000, // 10 segundos em vez de 30
+  connectTimeoutMS: 10000,
+  socketTimeoutMS: 45000,
+  maxPoolSize: 10,
+  retryWrites: true,
+  retryReads: true,
+  heartbeatFrequencyMS: 10000,
+};
 
 let client;
 let clientPromise;

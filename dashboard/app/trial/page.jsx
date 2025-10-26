@@ -600,9 +600,25 @@ export default function TrialDashboard() {
       const response = await fetch("/api/guest/generate-tiles", {
         method: "POST",
       });
+
       if (!response.ok) {
-        throw new Error("Failed to generate tiles");
+        const errorData = await response.json().catch(() => ({}));
+
+        if (response.status === 503 && errorData.type === "database_timeout") {
+          console.error("❌ Database timeout - MongoDB connection failed");
+          setError(
+            "Database connection timeout. Please try again in a moment."
+          );
+        } else {
+          console.error("❌ API error:", errorData);
+          setError("Failed to generate tiles. Please refresh.");
+        }
+
+        setGeneratingTiles(false);
+        setShowLoadingModal(false);
+        return;
       }
+
       const data = await response.json();
       console.log(`✅ Geração de tiles iniciada em background!`);
       // Não desligar generatingTiles aqui - o polling vai detectar quando terminar
@@ -610,7 +626,7 @@ export default function TrialDashboard() {
       console.error("❌ Erro ao gerar tiles:", err);
       setGeneratingTiles(false);
       setShowLoadingModal(false);
-      setError("Failed to generate tiles. Please refresh.");
+      setError("Network error. Please check your connection and try again.");
     }
   }
 
@@ -764,19 +780,38 @@ export default function TrialDashboard() {
   }
 
   if (error) {
+    const isDatabaseTimeout = error.includes("Database connection timeout");
+
     return (
       <AppLayout sidebar={<Sidebar />} header={<Header breadcrumb="Error" />}>
         <div className="text-center py-20">
           <h2 className="text-xl font-semibold text-red-600 mb-4">
-            Oops! Something went wrong
+            {isDatabaseTimeout
+              ? "Database Connection Issue"
+              : "Oops! Something went wrong"}
           </h2>
           <p className="text-gray-600 dark:text-gray-400 mb-6">{error}</p>
-          <Link
-            href="/"
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
-          >
-            Back to Home
-          </Link>
+
+          <div className="flex gap-4 justify-center">
+            {isDatabaseTimeout && (
+              <button
+                onClick={() => {
+                  setError(null);
+                  window.location.reload();
+                }}
+                className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700"
+              >
+                Retry Connection
+              </button>
+            )}
+
+            <Link
+              href="/"
+              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+            >
+              Back to Home
+            </Link>
+          </div>
         </div>
       </AppLayout>
     );

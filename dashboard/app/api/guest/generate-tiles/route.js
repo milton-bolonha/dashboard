@@ -45,6 +45,25 @@ export async function POST(req) {
       return NextResponse.json({ error: "No guest session" }, { status: 401 });
     }
 
+    // Testar conexão MongoDB primeiro
+    try {
+      await db.findOne("guest_workspaces", { guest_id: guestId });
+    } catch (dbError) {
+      console.error("❌ MongoDB connection failed:", dbError.message);
+
+      if (dbError.message.includes("Server selection timed out")) {
+        return NextResponse.json(
+          {
+            error: "Database connection timeout. Please try again in a moment.",
+            type: "database_timeout",
+          },
+          { status: 503 }
+        );
+      }
+
+      throw dbError;
+    }
+
     // Buscar guest workspace
     const guestWorkspace = await db.findOne("guest_workspaces", {
       guest_id: guestId,
