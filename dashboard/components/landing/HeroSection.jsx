@@ -1,9 +1,62 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { ArrowRight, ArrowUp, Check } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import {
+  ArrowRight,
+  ArrowUp,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Briefcase,
+  Globe,
+  Zap,
+  Target,
+  Search,
+  X,
+  User,
+  Bot,
+} from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import Image from "next/image";
+
+// Configuração das tags para interface de chat
+const tagConfig = {
+  company: {
+    label: "Company",
+    icon: Briefcase,
+    placeholder: "I am a sales rep at...",
+    color: { border: "#3B82F6", bg: "#EFF6FF" }, // Azul
+    tooltip: "Which company do you represent?",
+  },
+  companyWebsite: {
+    label: "Company Website",
+    icon: Globe,
+    placeholder: "www.yourcompany.com",
+    color: { border: "#10B981", bg: "#ECFDF5" }, // Verde
+    tooltip: "Your company's website URL",
+  },
+  solution: {
+    label: "Solution",
+    icon: Zap,
+    placeholder: "I am selling solutions for...",
+    color: { border: "#8B5CF6", bg: "#F5F3FF" }, // Roxo
+    tooltip: "What are you selling?",
+  },
+  researchTarget: {
+    label: "Research Target",
+    icon: Target,
+    placeholder: "Company name to research",
+    color: { border: "#F59E0B", bg: "#FEF3C7" }, // Laranja
+    tooltip: "Which company do you want to research?",
+  },
+  researchWebsite: {
+    label: "Target Website",
+    icon: Search,
+    placeholder: "www.targetcompany.com",
+    color: { border: "#EF4444", bg: "#FEE2E2" }, // Vermelho
+    tooltip: "Target company's website URL",
+  },
+};
 
 /**
  * HeroSection compartilhado entre Landing e Create Workspace
@@ -28,6 +81,16 @@ export default function HeroSection({
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
 
+  // ⭐ NOVO: Estados para interface de chat
+  const [selectedTag, setSelectedTag] = useState("company"); // Tag atualmente ativa
+  const [chatInputValue, setChatInputValue] = useState(""); // Valor atual do input de chat
+  const [completedTags, setCompletedTags] = useState([]); // Tags já preenchidas
+  const [carouselScroll, setCarouselScroll] = useState(0); // Posição do scroll do carrossel
+  const [chatMessages, setChatMessages] = useState([]); // Mensagens do chat
+  const [showInitialMessages, setShowInitialMessages] = useState(false); // Controla animação inicial
+  const [isBotTyping, setIsBotTyping] = useState(false); // Bot digitando
+  const [currentBotQuestion, setCurrentBotQuestion] = useState(null); // Pergunta atual do bot
+
   // ⭐ DEBUG: Reset guest session
   const handleResetGuest = async () => {
     if (!confirm("Reset guest session?")) return;
@@ -39,6 +102,124 @@ export default function HeroSection({
       alert("Erro: " + err.message);
     }
   };
+
+  // Perguntas do bot para cada tag
+  const botQuestions = {
+    company: "What's the name of your company?",
+    companyWebsite: "What's your company website?",
+    solution: "What solutions are you selling?",
+    researchTarget: "Which company do you want to research?",
+    researchWebsite: "What's the target company's website?",
+  };
+
+  // ⭐ NOVO: Funções para gerenciar tags e carrossel
+  const handleTagSelect = (tagName) => {
+    setSelectedTag(tagName);
+    setChatInputValue(userContext[tagName] || "");
+    setError(null); // Limpar erro ao trocar de tag
+
+    // Controle inteligente: só mostra pergunta se não for a mesma tag ou se não tiver pergunta atual
+    if (currentBotQuestion !== tagName) {
+      setCurrentBotQuestion(tagName);
+      setIsBotTyping(true);
+      setTimeout(() => {
+        setIsBotTyping(false);
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            text: `Great! I've selected the ${tagConfig[tagName].label} tag. ${botQuestions[tagName]}`,
+            isUser: false,
+          },
+        ]);
+      }, 1500);
+    }
+  };
+
+  const handleTagDeselect = (tagName) => {
+    // Desselecionar apenas se for a tag ativa
+    if (selectedTag === tagName) {
+      setSelectedTag(null);
+      setChatInputValue("");
+      setError(null);
+    }
+  };
+
+  const handleChatSubmit = () => {
+    if (!selectedTag || !chatInputValue.trim()) return;
+
+    const trimmedValue = chatInputValue.trim();
+
+    // ⭐ Validação especial para URLs (mantém lógica atual)
+    if (selectedTag === "companyWebsite" || selectedTag === "researchWebsite") {
+      if (!isValidUrl(trimmedValue)) {
+        setError(`Please enter a valid website URL (e.g., www.example.com)`);
+        return;
+      }
+    }
+
+    // ⭐ Validação de tamanho mínimo (mantém lógica atual)
+    if (trimmedValue.length < 3) {
+      setError(`Please enter at least 3 characters`);
+      return;
+    }
+
+    // Limpar erro se passou na validação
+    setError(null);
+
+    // Adicionar resposta do usuário ao chat
+    setChatMessages((prev) => [
+      ...prev,
+      {
+        text: trimmedValue,
+        isUser: true,
+      },
+    ]);
+
+    // Salvar valor no contexto
+    setUserContext((prev) => ({
+      ...prev,
+      [selectedTag]: trimmedValue,
+    }));
+
+    // Adicionar à lista de completadas
+    if (!completedTags.includes(selectedTag)) {
+      setCompletedTags((prev) => [...prev, selectedTag]);
+    }
+
+    // Adicionar confirmação do bot
+    setTimeout(() => {
+      setIsBotTyping(true);
+      setTimeout(() => {
+        setIsBotTyping(false);
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            text: "Perfect! Now tap another tag to continue filling out your research details.",
+            isUser: false,
+          },
+        ]);
+      }, 1000);
+    }, 500);
+
+    // Limpar chat e desselecionar tag
+    setChatInputValue("");
+    setSelectedTag(null);
+    setCurrentBotQuestion(null);
+  };
+
+  const handleCarouselScroll = (direction) => {
+    const scrollAmount = 200;
+    const newScroll =
+      direction === "left"
+        ? Math.max(0, carouselScroll - scrollAmount)
+        : carouselScroll + scrollAmount;
+    setCarouselScroll(newScroll);
+  };
+
+  // Verificar se todas as tags estão preenchidas
+  const allTagsCompleted = Object.keys(tagConfig).every(
+    (tag) => userContext[tag] && userContext[tag].trim().length > 0
+  );
 
   // ⭐ NOVO: Estados de progresso dos inputs (5 inputs na ordem correta)
   const [inputStates, setInputStates] = useState({
@@ -101,6 +282,131 @@ export default function HeroSection({
       console.log("✅ Query params detectados e inputs preenchidos");
     }
   }, []);
+
+  // Animação sequencial das mensagens iniciais
+  useEffect(() => {
+    // 1. Bot pergunta com loading
+    setIsBotTyping(true);
+
+    const timer1 = setTimeout(() => {
+      setIsBotTyping(false);
+      setChatMessages([
+        { text: "Who would you like to research?", isUser: false },
+      ]);
+    }, 2000);
+
+    // 2. User responde (sem loading, aparece direto)
+    const timer2 = setTimeout(() => {
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          text: "I would like to do some research to sell better",
+          isUser: true,
+        },
+      ]);
+    }, 3500);
+
+    // 3. Bot sugere usar tags com loading
+    const timer3 = setTimeout(() => {
+      setIsBotTyping(true);
+    }, 5000);
+
+    const timer4 = setTimeout(() => {
+      setIsBotTyping(false);
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          text: "Tap a tag below to get started with your research!",
+          isUser: false,
+        },
+      ]);
+    }, 6500);
+
+    // 4. Liberar interação e focar no input
+    const timer5 = setTimeout(() => {
+      setShowInitialMessages(true);
+      // Focar no input já que company está pré-selecionada
+      setTimeout(() => {
+        const chatInput = document.getElementById("chat-input");
+        if (chatInput) {
+          chatInput.focus();
+        }
+      }, 100);
+    }, 8000);
+
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+      clearTimeout(timer4);
+      clearTimeout(timer5);
+    };
+  }, []);
+
+  // Mostrar pergunta da tag selecionada (após animação inicial)
+  useEffect(() => {
+    if (selectedTag && !currentBotQuestion && showInitialMessages) {
+      setCurrentBotQuestion(selectedTag);
+      setIsBotTyping(true);
+      setTimeout(() => {
+        setIsBotTyping(false);
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            text: botQuestions[selectedTag],
+            isUser: false,
+          },
+        ]);
+      }, 1500);
+    }
+  }, [selectedTag, currentBotQuestion, showInitialMessages]);
+
+  // Scroll automático do chat
+  useEffect(() => {
+    const chatContainer = document.getElementById("chat-container");
+    if (chatContainer) {
+      // Scroll imediato e agressivo
+      const scrollToEnd = () => {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+        // Forçar novamente após um frame
+        requestAnimationFrame(() => {
+          chatContainer.scrollTop = chatContainer.scrollHeight;
+        });
+      };
+
+      scrollToEnd();
+      // Tentar novamente após um pequeno delay
+      setTimeout(scrollToEnd, 100);
+    }
+  }, [chatMessages, isBotTyping]);
+
+  // Scroll automático quando digitar no input
+  useEffect(() => {
+    const chatContainer = document.getElementById("chat-container");
+    if (chatContainer && chatInputValue) {
+      const scrollToEnd = () => {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+        requestAnimationFrame(() => {
+          chatContainer.scrollTop = chatContainer.scrollHeight;
+        });
+      };
+      scrollToEnd();
+    }
+  }, [chatInputValue]);
+
+  // Função para scroll imediato
+  const scrollToBottom = () => {
+    const chatContainer = document.getElementById("chat-container");
+    if (chatContainer) {
+      const scrollToEnd = () => {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+        requestAnimationFrame(() => {
+          chatContainer.scrollTop = chatContainer.scrollHeight;
+        });
+      };
+      scrollToEnd();
+    }
+  };
 
   // ⭐ REMOVIDO: Animação de palavras (agora é texto fixo "More Selling")
 
@@ -492,11 +798,280 @@ export default function HeroSection({
     return placeholders[inputName] || "";
   };
 
+  // ⭐ NOVO: Componente TagCarousel
+  const TagCarousel = () => {
+    // Mostrar apenas tags que NÃO estão preenchidas
+    const availableTags = Object.keys(tagConfig).filter(
+      (tag) => !completedTags.includes(tag)
+    );
+
+    const scrollContainer = useRef(null);
+    const [canScrollLeft, setCanScrollLeft] = useState(false);
+    const [canScrollRight, setCanScrollRight] = useState(false);
+
+    // Verificar se precisa de scroll
+    const checkScroll = () => {
+      if (scrollContainer.current) {
+        const { scrollLeft, scrollWidth, clientWidth } =
+          scrollContainer.current;
+        setCanScrollLeft(scrollLeft > 0);
+        setCanScrollRight(scrollLeft < scrollWidth - clientWidth);
+      }
+    };
+
+    // Scroll para esquerda
+    const scrollLeft = () => {
+      if (scrollContainer.current) {
+        scrollContainer.current.scrollBy({ left: -200, behavior: "smooth" });
+      }
+    };
+
+    // Scroll para direita
+    const scrollRight = () => {
+      if (scrollContainer.current) {
+        scrollContainer.current.scrollBy({ left: 200, behavior: "smooth" });
+      }
+    };
+
+    // Verificar scroll ao carregar e redimensionar
+    useEffect(() => {
+      checkScroll();
+      const handleResize = () => checkScroll();
+      window.addEventListener("resize", handleResize);
+      return () => window.removeEventListener("resize", handleResize);
+    }, [availableTags]);
+
+    return (
+      <div className="max-w-4xl mx-auto py-2 relative">
+        {/* Seta esquerda */}
+        {canScrollLeft && (
+          <button
+            onClick={scrollLeft}
+            className="absolute left-0 top-1/2 transform -translate-y-1/2 z-10 w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center hover:bg-gray-50 transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4 text-gray-600" />
+          </button>
+        )}
+
+        {/* Container das tags com scroll horizontal */}
+        <div
+          ref={scrollContainer}
+          className="flex gap-2 overflow-x-hidden px-8 justify-center"
+          onScroll={checkScroll}
+        >
+          {availableTags.map((tagName) => {
+            const config = tagConfig[tagName];
+            const IconComponent = config.icon;
+            const isCompleted = completedTags.includes(tagName);
+
+            return (
+              <div key={tagName} className="flex-shrink-0">
+                <button
+                  onClick={() => handleTagSelect(tagName)}
+                  className={`
+                          flex items-center gap-1 px-2 py-1.5 rounded-lg border border-gray-200 transition-all duration-200 h-8
+                          hover:shadow-md
+                          ${
+                            isCompleted
+                              ? "opacity-50 cursor-not-allowed bg-gray-100"
+                              : selectedTag === tagName
+                              ? "bg-gray-100 cursor-pointer"
+                              : "bg-white cursor-pointer hover:border-gray-300"
+                          }
+                        `}
+                  disabled={isCompleted}
+                  title={config.tooltip}
+                >
+                  <div
+                    className="w-6 h-6 rounded-full flex items-center justify-center"
+                    style={{ backgroundColor: config.color.bg }}
+                  >
+                    <IconComponent
+                      className="w-3 h-3"
+                      style={{ color: config.color.border }}
+                    />
+                  </div>
+                  <span className="font-medium text-sm text-gray-700">
+                    {config.label}
+                  </span>
+                  {!isCompleted && (
+                    <span className="text-sm font-bold text-gray-500">+</span>
+                  )}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Seta direita */}
+        {canScrollRight && (
+          <button
+            onClick={scrollRight}
+            className="absolute right-0 top-1/2 transform -translate-y-1/2 z-10 w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center hover:bg-gray-50 transition-colors"
+          >
+            <ChevronRight className="w-4 h-4 text-gray-600" />
+          </button>
+        )}
+
+        {/* Degradê esquerdo */}
+        {canScrollLeft && (
+          <div
+            className="absolute left-0 top-0 bottom-0 w-8 pointer-events-none z-5"
+            style={{
+              background: "linear-gradient(to right, #fcfcf9, transparent)",
+            }}
+          />
+        )}
+
+        {/* Degradê direito */}
+        {canScrollRight && (
+          <div
+            className="absolute right-0 top-0 bottom-0 w-8 pointer-events-none z-5"
+            style={{
+              background: "linear-gradient(to left, #fcfcf9, transparent)",
+            }}
+          />
+        )}
+      </div>
+    );
+  };
+
+  // ⭐ NOVO: Componente ChatInterface
+  const ChatInterface = () => {
+    const currentConfig = selectedTag ? tagConfig[selectedTag] : null;
+
+    return (
+      <div className="max-w-2xl mx-auto">
+        {/* Input de chat */}
+        <div className="relative">
+          <input
+            id="chat-input"
+            type="text"
+            value={chatInputValue}
+            onChange={(e) => {
+              setChatInputValue(e.target.value);
+              setError(null); // Limpar erro ao digitar
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey && selectedTag) {
+                e.preventDefault();
+                // Se todas tags preenchidas, fazer submit final
+                if (allTagsCompleted) {
+                  handleAction();
+                } else {
+                  handleChatSubmit();
+                  // Manter foco após submit
+                  setTimeout(() => {
+                    document.getElementById("chat-input")?.focus();
+                  }, 0);
+                }
+              }
+            }}
+            placeholder={
+              currentConfig?.placeholder || "Select a tag to start..."
+            }
+            disabled={!selectedTag || creating}
+            autoFocus={!!selectedTag}
+            className={`
+                w-full px-6 py-4 pr-16 text-lg border border-gray-200 rounded-2xl outline-none transition-all duration-200
+                ${
+                  selectedTag && currentConfig
+                    ? "bg-white"
+                    : "bg-white text-gray-400 cursor-not-allowed"
+                }
+              `}
+          />
+
+          {/* Botão de envio */}
+          {selectedTag && (
+            <button
+              type="button"
+              onClick={() => {
+                if (chatInputValue.trim()) {
+                  // Se todas tags preenchidas, fazer submit final
+                  if (allTagsCompleted) {
+                    handleAction();
+                  } else {
+                    handleChatSubmit();
+                    // Manter foco após submit
+                    setTimeout(() => {
+                      document.getElementById("chat-input")?.focus();
+                    }, 0);
+                  }
+                }
+              }}
+              disabled={creating || !chatInputValue.trim()}
+              className={`absolute right-4 top-1/2 transform -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 disabled:opacity-50 ${
+                chatInputValue.trim() ? "bg-gray-400" : "bg-gray-300"
+              }`}
+              style={
+                chatInputValue.trim()
+                  ? {
+                      backgroundColor: currentConfig?.color.border,
+                    }
+                  : {}
+              }
+            >
+              {creating ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              ) : chatInputValue.trim() ? (
+                <ArrowRight className="w-4 h-4 text-white" />
+              ) : (
+                <div className="w-2 h-2 rounded-full bg-white"></div>
+              )}
+            </button>
+          )}
+        </div>
+
+        {/* Espaço reservado para ícones das tags preenchidas - SEMPRE VISÍVEL */}
+        <div className="mt-2 h-12 flex flex-wrap gap-2 justify-center">
+          {completedTags.map((tagName) => {
+            const config = tagConfig[tagName];
+            const IconComponent = config.icon;
+            const isActive = selectedTag === tagName;
+
+            return (
+              <button
+                key={tagName}
+                onClick={() => {
+                  // Remove da lista de completadas (volta pro carrossel)
+                  setCompletedTags((prev) => prev.filter((t) => t !== tagName));
+                  // Limpa o valor salvo
+                  setUserContext((prev) => ({
+                    ...prev,
+                    [tagName]: "",
+                  }));
+                  // Se era a tag ativa, desseleciona
+                  if (selectedTag === tagName) {
+                    setSelectedTag(null);
+                    setChatInputValue("");
+                  }
+                }}
+                className={`
+                      flex items-center justify-center w-10 h-10 rounded-lg border border-gray-200 bg-white transition-all duration-200
+                      ${isActive ? "scale-110" : "hover:scale-110"}
+                    `}
+                title={`${config.label} - Clique para remover`}
+              >
+                <div
+                  className="w-6 h-6 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: config.color.bg }}
+                >
+                  <IconComponent
+                    className="w-3 h-3"
+                    style={{ color: config.color.border }}
+                  />
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <section
-      className="h-full flex items-center justify-center"
-      style={{ backgroundColor: "#fcfcf9" }}
-    >
+    <section className="mb-10 " style={{ backgroundColor: "#fcfcf9" }}>
       <style
         dangerouslySetInnerHTML={{
           __html: `
@@ -520,322 +1095,156 @@ export default function HeroSection({
               transform: translateY(0);
             }
           }
+          
+          @keyframes fadeIn {
+            0% {
+              opacity: 0;
+              transform: translateY(10px);
+            }
+            100% {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+          
+          /* Garantir que a rolagem funcione */
+          #chat-container {
+            scroll-behavior: smooth;
+            overflow-y: auto !important;
+            -webkit-overflow-scrolling: touch;
+            pointer-events: auto !important;
+            touch-action: pan-y !important;
+          }
+          
+          /* Esconder scrollbar em todos os browsers */
+          #chat-container::-webkit-scrollbar {
+            display: none;
+            width: 0;
+            height: 0;
+          }
+          
+          #chat-container {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+          }
         `,
         }}
       />
       <div className="max-w-5xl mx-auto px-2 sm:px-6 lg:px-4 text-center">
-        {/* Título Principal */}
-        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-black tracking-tight mb-4 mt-60">
-          Smarter Research. Faster Outreach. More Selling
-        </h1>
-
-        {/* Subtítulo */}
-        <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
-          WebApp is your personal research assistant that works even when you
-          sleep
-        </p>
-
-        {/* Inputs de Contexto com Ícones Progressivos */}
-        <div className="space-y-4 mb-8">
-          {/* Input 1: Company (sempre habilitado) */}
-          <div className="max-w-2xl mx-auto relative">
-            {/* Modo transparent: Mostra texto + lápis inline quando válido e sem foco */}
-            {styleMode === "transparent" &&
-            inputStates.company.isValid &&
-            !inputStates.company.focused &&
-            !creating ? (
+        {/* Chat interativo */}
+        <div
+          className="max-w-5xl mx-auto mt-4 rounded-2xl"
+          style={{
+            height: "500px",
+            backgroundColor: "#fcfcf9",
+          }}
+        >
+          {/* Chat Messages - CONTEÚDO ROLÁVEL */}
+          <div
+            id="chat-container"
+            className="overflow-y-auto px-6 py-4 space-y-3"
+            style={{
+              height: "calc(100% - 110px)", // Altura total menos título e input
+              scrollbarWidth: "none",
+              msOverflowStyle: "none",
+              WebkitScrollbar: { display: "none" },
+            }}
+          >
+            <div className="text-center mb-6">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-black tracking-tight mb-2">
+                Smarter Research. Faster Outreach. More Selling
+              </h1>
+              <p className="text-lg text-gray-600">
+                WebApp is your personal research assistant that works even when
+                you sleep
+              </p>
+            </div>
+            {chatMessages.map((message, index) => (
               <div
-                className="w-full px-6 pt-4 pb-8 text-lg text-black flex items-center gap-2 cursor-pointer border border-transparent rounded-xl"
-                onClick={() => {
-                  handleInputFocus("company");
-                  document.querySelector('input[name="company"]')?.focus();
+                key={index}
+                className={`flex items-end gap-2 animate-fadeIn ${
+                  message.isUser ? "justify-end" : "justify-start"
+                }`}
+                style={{
+                  animationDelay: `${index * 0.3}s`,
+                  animation: "fadeIn 0.5s ease-in-out",
                 }}
               >
-                <span>{userContext.company}</span>
-                <Image
-                  src="/images/logo-mark.svg"
-                  alt="Edit"
-                  width={13}
-                  height={13}
-                  className="opacity-60 hover:opacity-100 transition-opacity"
-                />
-              </div>
-            ) : (
-              <div className="relative">
-                <input
-                  type="text"
-                  name="company"
-                  placeholder={
-                    styleMode === "default" ? getPlaceholderText("company") : ""
-                  }
-                  value={userContext.company}
-                  onChange={(e) => handleInputChange("company", e.target.value)}
-                  onFocus={() => handleInputFocus("company")}
-                  onBlur={() => handleInputBlur("company")}
-                  onKeyDown={(e) => handleKeyDown("company", e)}
-                  disabled={creating}
-                  className={getInputClasses("company")}
-                />
-                {/* Placeholder persistente DENTRO do input (bottom) - sempre visível no transparent */}
-                {styleMode === "transparent" && (
-                  <div className="absolute bottom-2 left-6 text-xs text-gray-400 pointer-events-none z-10">
-                    {getPlaceholderText("company")}
+                {/* Avatar - Bot (esquerda) */}
+                {!message.isUser && (
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-gray-200">
+                    <Bot className="w-4 h-4 text-gray-600" />
                   </div>
                 )}
-                <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-                  {renderInputIcon("company", false)}
-                </div>
-              </div>
-            )}
-          </div>
 
-          {/* Input 2: Company Website (habilita após company válido) */}
-          <div className="max-w-2xl mx-auto relative">
-            {/* Modo transparent: Mostra texto + lápis inline quando válido e sem foco */}
-            {styleMode === "transparent" &&
-            inputStates.companyWebsite.isValid &&
-            !inputStates.companyWebsite.focused &&
-            !creating ? (
-              <div
-                className="w-full px-6 pt-4 pb-8 text-lg text-black flex items-center gap-2 cursor-pointer border border-transparent rounded-xl"
-                onClick={() => {
-                  handleInputFocus("companyWebsite");
-                  document
-                    .querySelector('input[name="companyWebsite"]')
-                    ?.focus();
-                }}
-              >
-                <span>{userContext.companyWebsite}</span>
-                <Image
-                  src="/images/logo-mark.svg"
-                  alt="Edit"
-                  width={13}
-                  height={13}
-                  className="opacity-60 hover:opacity-100 transition-opacity"
-                />
-              </div>
-            ) : (
-              <div className="relative">
-                <input
-                  type="url"
-                  name="companyWebsite"
-                  placeholder={
-                    styleMode === "default"
-                      ? getPlaceholderText("companyWebsite")
-                      : ""
-                  }
-                  value={userContext.companyWebsite}
-                  onChange={(e) =>
-                    handleInputChange("companyWebsite", e.target.value)
-                  }
-                  onFocus={() => handleInputFocus("companyWebsite")}
-                  onBlur={() => handleInputBlur("companyWebsite")}
-                  onKeyDown={(e) => handleKeyDown("companyWebsite", e)}
-                  disabled={!canEnableInput("companyWebsite") || creating}
-                  className={getInputClasses("companyWebsite")}
-                />
-                {/* Placeholder persistente DENTRO do input (bottom) - sempre visível no transparent */}
-                {styleMode === "transparent" && (
-                  <div className="absolute bottom-2 left-6 text-xs text-gray-400 pointer-events-none z-10">
-                    {getPlaceholderText("companyWebsite")}
-                  </div>
-                )}
-                <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-                  {renderInputIcon("companyWebsite", false)}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Input 3: Solution (habilita após companyWebsite válido) */}
-          <div className="max-w-2xl mx-auto relative">
-            {/* Modo transparent: Mostra texto + lápis inline quando válido e sem foco */}
-            {styleMode === "transparent" &&
-            inputStates.solution.isValid &&
-            !inputStates.solution.focused &&
-            !creating ? (
-              <div
-                className="w-full px-6 pt-4 pb-8 text-lg text-black flex items-center gap-2 cursor-pointer border border-transparent rounded-xl"
-                onClick={() => {
-                  handleInputFocus("solution");
-                  document.querySelector('input[name="solution"]')?.focus();
-                }}
-              >
-                <span>{userContext.solution}</span>
-                <Image
-                  src="/images/logo-mark.svg"
-                  alt="Edit"
-                  width={13}
-                  height={13}
-                  className="opacity-60 hover:opacity-100 transition-opacity"
-                />
-              </div>
-            ) : (
-              <div className="relative">
-                <input
-                  type="text"
-                  name="solution"
-                  placeholder={
-                    styleMode === "default"
-                      ? getPlaceholderText("solution")
-                      : ""
-                  }
-                  value={userContext.solution}
-                  onChange={(e) =>
-                    handleInputChange("solution", e.target.value)
-                  }
-                  onFocus={() => handleInputFocus("solution")}
-                  onBlur={() => handleInputBlur("solution")}
-                  onKeyDown={(e) => handleKeyDown("solution", e)}
-                  disabled={!canEnableInput("solution") || creating}
-                  className={getInputClasses("solution")}
-                />
-                {/* Placeholder persistente DENTRO do input (bottom) - sempre visível no transparent */}
-                {styleMode === "transparent" && (
-                  <div className="absolute bottom-2 left-6 text-xs text-gray-400 pointer-events-none z-10">
-                    {getPlaceholderText("solution")}
-                  </div>
-                )}
-                <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-                  {renderInputIcon("solution", false)}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Input 4: Research Target (habilita após solution válido) */}
-          <div className="max-w-2xl mx-auto relative">
-            {/* Modo transparent: Mostra texto + lápis inline quando válido e sem foco */}
-            {styleMode === "transparent" &&
-            inputStates.researchTarget.isValid &&
-            !inputStates.researchTarget.focused &&
-            !creating ? (
-              <div className="relative">
+                {/* Message Bubble */}
                 <div
-                  className="w-full px-6 pt-4 pb-8 text-lg text-black flex items-center gap-2 cursor-pointer border border-transparent rounded-xl"
-                  onClick={() => {
-                    handleInputFocus("researchTarget");
-                    document
-                      .querySelector('input[name="researchTarget"]')
-                      ?.focus();
+                  className={`px-4 py-3 text-sm text-left ${
+                    message.isUser
+                      ? "bg-gray-500 text-white"
+                      : "bg-gray-100 text-gray-800"
+                  }`}
+                  style={{
+                    borderRadius: message.isUser
+                      ? "20px 20px 2px 20px"
+                      : "20px 20px 20px 2px",
+                    wordBreak: "break-word",
+                    maxWidth: "70%",
+                    width: "fit-content",
                   }}
                 >
-                  <span>{userContext.researchTarget}</span>
-                  <Image
-                    src="/images/logo-mark.svg"
-                    alt="Edit"
-                    width={13}
-                    height={13}
-                    className="opacity-60 hover:opacity-100 transition-opacity"
-                  />
+                  {message.text}
                 </div>
-                {/* Seta verde continua visível mesmo quando transparente */}
-                <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-                  {renderInputIcon("researchTarget", false)}
-                </div>
-              </div>
-            ) : (
-              <div className="relative">
-                <input
-                  type="text"
-                  name="researchTarget"
-                  placeholder={
-                    styleMode === "default"
-                      ? getPlaceholderText("researchTarget")
-                      : ""
-                  }
-                  value={userContext.researchTarget}
-                  onChange={(e) =>
-                    handleInputChange("researchTarget", e.target.value)
-                  }
-                  onFocus={() => handleInputFocus("researchTarget")}
-                  onBlur={() => handleInputBlur("researchTarget")}
-                  onKeyDown={(e) => handleKeyDown("researchTarget", e)}
-                  disabled={!canEnableInput("researchTarget") || creating}
-                  className={getInputClasses("researchTarget")}
-                />
-                {/* Placeholder persistente DENTRO do input (bottom) - sempre visível no transparent */}
-                {styleMode === "transparent" && (
-                  <div className="absolute bottom-2 left-6 text-xs text-gray-400 pointer-events-none z-10">
-                    {getPlaceholderText("researchTarget")}
+
+                {/* Avatar - User (direita) */}
+                {message.isUser && (
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-gray-500">
+                    <User className="w-4 h-4 text-white" />
                   </div>
                 )}
-                <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-                  {renderInputIcon("researchTarget", false)}
+              </div>
+            ))}
+
+            {/* Loading do bot - sempre o mesmo componente */}
+            {isBotTyping && (
+              <div className="flex items-end gap-2 justify-start animate-fadeIn">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-gray-200">
+                  <Bot className="w-4 h-4 text-gray-600" />
+                </div>
+                <div
+                  className="px-4 py-3 bg-gray-100 text-sm"
+                  style={{
+                    borderRadius: "20px 20px 20px 2px",
+                    wordBreak: "break-word",
+                    maxWidth: "70%",
+                    width: "fit-content",
+                  }}
+                >
+                  <div className="flex space-x-1">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                    <div
+                      className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                      style={{ animationDelay: "0.1s" }}
+                    ></div>
+                    <div
+                      className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                      style={{ animationDelay: "0.2s" }}
+                    ></div>
+                  </div>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Input 5: Research Website (habilita após researchTarget válido) - ÚLTIMO INPUT ESPECIAL */}
-          <div className="max-w-2xl mx-auto relative">
-            {/* Modo transparent: Mostra texto + lápis inline quando válido e sem foco */}
-            {styleMode === "transparent" &&
-            inputStates.researchWebsite.isValid &&
-            !inputStates.researchWebsite.focused &&
-            !creating ? (
-              <div className="relative">
-                <div
-                  className="w-full px-6 pt-4 pb-8 text-lg text-black flex items-center gap-2 cursor-pointer border border-transparent rounded-xl"
-                  onClick={() => {
-                    handleInputFocus("researchWebsite");
-                    document
-                      .querySelector('input[name="researchWebsite"]')
-                      ?.focus();
-                  }}
-                >
-                  <span>{userContext.researchWebsite}</span>
-                  <Image
-                    src="/images/logo-mark.svg"
-                    alt="Edit"
-                    width={13}
-                    height={13}
-                    className="opacity-60 hover:opacity-100 transition-opacity"
-                  />
-                </div>
-                {/* Seta verde continua visível mesmo quando transparente */}
-                <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-                  {renderInputIcon("researchWebsite", true)}
-                </div>
-              </div>
-            ) : (
-              <div className="relative">
-                <input
-                  type="url"
-                  name="researchWebsite"
-                  placeholder={
-                    styleMode === "default"
-                      ? getPlaceholderText("researchWebsite")
-                      : ""
-                  }
-                  value={userContext.researchWebsite}
-                  onChange={(e) =>
-                    handleInputChange("researchWebsite", e.target.value)
-                  }
-                  onFocus={() => handleInputFocus("researchWebsite")}
-                  onBlur={() => handleInputBlur("researchWebsite")}
-                  onKeyDown={(e) => handleKeyDown("researchWebsite", e)}
-                  disabled={!canEnableInput("researchWebsite") || creating}
-                  className={getInputClasses("researchWebsite")}
-                />
-                {/* Placeholder persistente DENTRO do input (bottom) - sempre visível no transparent */}
-                {styleMode === "transparent" && (
-                  <div className="absolute bottom-2 left-6 text-xs text-gray-400 pointer-events-none z-10">
-                    {getPlaceholderText("researchWebsite")}
-                  </div>
-                )}
-                <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-                  {renderInputIcon("researchWebsite", true)}
-                </div>
-              </div>
-            )}
+          {/* INPUT FIXO - NÃO ROLA */}
+          <div className="p-4x">
+            {/* Tags logo acima do chat */}
+            <div>
+              <TagCarousel />
+            </div>
+            <ChatInterface />
           </div>
         </div>
-
-        {/* Instrução */}
-        <p className="text-lg text-black mb-6">
-          Ask WebApp research your whole territory for you
-        </p>
 
         {/* Mensagem de Erro */}
         {error && (
@@ -844,52 +1253,54 @@ export default function HeroSection({
           </div>
         )}
 
-        {/* Botões CTA - Sempre Azuis (alternativa visual) */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <button
-            onClick={handleAction}
-            disabled={creating}
-            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-8 py-4 rounded-xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 flex items-center justify-center space-x-2"
-          >
-            {creating ? (
-              <>
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                <span>Processing...</span>
-              </>
-            ) : (
-              <>
-                <span>Connect CRM</span>
-                <ArrowRight className="w-5 h-5" />
-              </>
-            )}
-          </button>
+        {/* Botões CTA - Só aparecem quando todas tags estão preenchidas */}
+        {allTagsCompleted && (
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-20">
+            <button
+              onClick={handleAction}
+              disabled={creating}
+              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-8 py-4 rounded-xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 flex items-center justify-center space-x-2"
+            >
+              {creating ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  <span>Processing...</span>
+                </>
+              ) : (
+                <>
+                  <span>Connect CRM</span>
+                  <ArrowRight className="w-5 h-5" />
+                </>
+              )}
+            </button>
 
-          <button
-            onClick={handleAction}
-            disabled={creating}
-            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-8 py-4 rounded-xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 flex items-center justify-center space-x-2"
-          >
-            {creating ? (
-              <>
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                <span>Processing...</span>
-              </>
-            ) : (
-              <>
-                <span>Upload CSV</span>
-                <ArrowRight className="w-5 h-5" />
-              </>
-            )}
-          </button>
+            <button
+              onClick={handleAction}
+              disabled={creating}
+              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-8 py-4 rounded-xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 flex items-center justify-center space-x-2"
+            >
+              {creating ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  <span>Processing...</span>
+                </>
+              ) : (
+                <>
+                  <span>Upload CSV</span>
+                  <ArrowRight className="w-5 h-5" />
+                </>
+              )}
+            </button>
 
-          {/* ⭐ DEBUG: Reset Button (remover depois!) */}
-          <button
-            onClick={handleResetGuest}
-            className="mt-4 text-xs text-red-600 hover:text-red-700 underline"
-          >
-            🗑️ Reset Guest Session (DEBUG)
-          </button>
-        </div>
+            {/* ⭐ DEBUG: Reset Button (remover depois!) */}
+            <button
+              onClick={handleResetGuest}
+              className="mt-4 text-xs text-red-600 hover:text-red-700 underline"
+            >
+              🗑️ Reset Guest Session (DEBUG)
+            </button>
+          </div>
+        )}
       </div>
     </section>
   );

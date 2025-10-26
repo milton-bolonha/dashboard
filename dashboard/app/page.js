@@ -44,11 +44,11 @@ export default function LandingPage() {
 
   return (
     <div
-      className="fixed inset-0 flex flex-col"
+      className="min-h-screen flex flex-col"
       style={{ backgroundColor: "#fcfcf9" }}
     >
       <Header isSignedIn={isSignedIn} />
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1">
         <HeroSectionShared mode="landing" styleMode="transparent" />
         {/* Outras seções comentadas temporariamente */}
         {/* <CapabilitiesSection />
