@@ -577,14 +577,19 @@ export default function TrialDashboard() {
 
         // Disparar geração automática
         generateTiles();
-      } else if (status === "generating") {
-        console.log("🔄 Tiles sendo gerados para:", currentCompany?.name);
-        setGeneratingTiles(true);
-
-        // Se há tiles sendo gerados, ativar polling para detectar tiles individuais
-        if (!generatingTiles) {
-          setGeneratingTiles(true);
+      } else if (status === "generating" && !generatingTiles) {
+        // ⭐ FIX: Se já está generating mas não há tiles ainda, chamar generateTiles
+        const hasTiles = currentCompany?.tiles && currentCompany.tiles.length > 0;
+        console.log("🔄 Status: generating, Tiles:", hasTiles ? currentCompany.tiles.length : 0);
+        
+        if (!hasTiles) {
+          console.log("⚠️ Status generating mas sem tiles - disparando geração...");
+          generateTiles();
         }
+        
+        setGeneratingTiles(true);
+      } else if (status === "generating" && generatingTiles) {
+        console.log("🔄 Tiles sendo gerados para:", currentCompany?.name);
       } else if (status === "completed" || status === "failed") {
         console.log("✅ Geração de tiles finalizada:", status);
         setGeneratingTiles(false);

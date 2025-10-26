@@ -25,15 +25,14 @@ export async function generateTilesForCompany(
   companyUrl,
   template = null
 ) {
+  const startTime = Date.now();
+  console.log(`\n${"=".repeat(80)}`);
+  console.log(`🚀 GERANDO TILES - ${companyName}`);
+  console.log(`⏰ ${new Date().toISOString()}`);
+  console.log(`${"=".repeat(80)}`);
+  console.log(`📋 Contexto:`, { guestId, companyName, companyUrl });
+  
   try {
-    console.log(
-      `🚀 Iniciando geração automática de tiles para: ${companyName}`
-    );
-    console.log(`🔍 Contexto disponível:`, {
-      guestId,
-      companyName,
-      companyUrl,
-    });
 
     // Buscar guest workspace
     const guestWorkspace = await db.findOne("guest_workspaces", {
@@ -222,13 +221,21 @@ export async function generateTilesForCompany(
       }
     );
 
-    console.log(
-      `✅ Todos os tiles para ${companyName} foram gerados automaticamente!`
-    );
+    const totalTime = Date.now() - startTime;
+    console.log(`\n${"=".repeat(80)}`);
+    console.log(`✅ GERAÇÃO CONCLUÍDA - ${companyName}`);
+    console.log(`📊 Tiles gerados: ${results.length}`);
+    console.log(`⏱️  Tempo total: ${totalTime}ms (${(totalTime/1000).toFixed(1)}s)`);
+    console.log(`${"=".repeat(80)}\n`);
 
     return { success: true, tilesGenerated: results.length };
   } catch (error) {
-    console.error(`❌ Erro ao gerar tiles para ${companyName}:`, error);
+    const totalTime = Date.now() - startTime;
+    console.error(`\n${"=".repeat(80)}`);
+    console.error(`❌ ERRO NA GERAÇÃO - ${companyName}`);
+    console.error(`⏱️  Tempo até erro: ${totalTime}ms (${(totalTime/1000).toFixed(1)}s)`);
+    console.error(`❌ Erro:`, error);
+    console.error(`${"=".repeat(80)}\n`);
 
     // Marcar como falha
     await db.updateOne(

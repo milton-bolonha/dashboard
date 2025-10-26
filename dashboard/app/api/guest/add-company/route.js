@@ -165,30 +165,42 @@ export async function POST(req) {
 
     // ⭐ NOVO: Disparar geração automática de tiles para nova company
     // (similar ao pipeline do onboarding, mas para guest workspace)
+    console.log(`🔥 Disparando geração automática de tiles para "${sanitized.companyName}"...`);
+    
     try {
       const { generateTilesForCompany } = await import(
         "@/lib/guest-tile-pipeline"
       );
 
+      console.log(`✅ Função generateTilesForCompany importada com sucesso`);
+      
       // Executar geração em background (não bloquear resposta)
-      generateTilesForCompany(
+      const promise = generateTilesForCompany(
         guestId,
         sanitized.companyName,
         sanitized.companyUrl
-      )
-        .then(() => {
+      );
+      
+      console.log(`✅ Promise criada, geração iniciada em background`);
+      
+      promise
+        .then((result) => {
           console.log(
-            `✅ Tiles gerados automaticamente para ${sanitized.companyName}`
+            `✅ GERAÇÃO FINALIZADA: Tiles gerados automaticamente para ${sanitized.companyName}`
           );
+          console.log(`📊 Resultado:`, result);
         })
         .catch((error) => {
           console.error(
-            `❌ Erro ao gerar tiles para ${sanitized.companyName}:`,
-            error
+            `❌ ERRO NA GERAÇÃO PARA ${sanitized.companyName}:`
           );
+          console.error(`❌ Erro completo:`, error);
+          console.error(`❌ Stack:`, error.stack);
         });
     } catch (pipelineError) {
-      console.error("⚠️ Erro ao iniciar geração automática:", pipelineError);
+      console.error("⚠️ ERRO CRÍTICO ao iniciar geração automática:");
+      console.error("⚠️ Erro:", pipelineError);
+      console.error("⚠️ Stack:", pipelineError.stack);
       // Não falhar a criação da company por causa do pipeline
     }
 
