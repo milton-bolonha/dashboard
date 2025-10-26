@@ -125,6 +125,13 @@ export async function generateTilesForCompany(
           },
         };
 
+        // Log de streaming se aplicável
+        if (tile.metrics.breakdown?.streaming_ms > 0) {
+          console.log(
+            `🌊 Tile "${tile.title}" was streamed in ${tile.metrics.breakdown.streaming_ms}ms`
+          );
+        }
+
         const dbSaveStart = Date.now();
 
         const result = await db.updateOne(

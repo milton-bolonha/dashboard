@@ -82,94 +82,55 @@ Provide detailed, actionable insights focused on sales opportunities.`;
     let answer = "";
     let completion;
 
-    // Tentar usar Netlify Function primeiro (mais rápido)
-    const useNetlifyFunction = typeof window !== "undefined"; // Só no cliente
+    // Desabilitar Netlify Function temporariamente (causa problemas)
+    const useNetlifyFunction = false; // typeof window !== "undefined";
 
     if (useStreaming && options.onStream) {
-      // Modo streaming
-      if (useNetlifyFunction) {
-        try {
-          console.log("🚀 Using Netlify Function for streaming...");
-          completion = await netlifyOpenAI.createStreamingCompletion(
-            params,
-            (content) => {
-              answer += content;
-              options.onStream(tile.id, answer);
-            }
+      // Modo streaming - sempre usar OpenAI direto
+      console.log(`🌊 Streaming tile: ${tile.title}`);
+
+      completion = await openai.chat.completions.create({
+        ...params,
+        stream: true,
+      });
+
+      let firstTokenReceived = false;
+      const streamingStart = Date.now();
+
+      for await (const chunk of completion) {
+        const content = chunk.choices[0]?.delta?.content || "";
+
+        if (content && !firstTokenReceived) {
+          metrics.first_token_at = new Date();
+          metrics.breakdown.ttft_ms = Date.now() - streamingStart;
+          firstTokenReceived = true;
+
+          console.log(
+            `⚡ First token received for ${tile.title} in ${metrics.breakdown.ttft_ms}ms`
           );
 
-          // Métricas da Netlify Function
-          if (completion.metrics) {
-            metrics.breakdown.api_call_ms = completion.metrics.total_time_ms;
-            metrics.breakdown.ttft_ms = completion.metrics.ttft_ms;
-            metrics.tokens.total = completion.metrics.token_count;
-          }
-        } catch (netlifyError) {
-          console.warn(
-            "⚠️ Netlify Function failed, falling back to direct OpenAI:",
-            netlifyError
-          );
-          // Fallback para OpenAI direto
-          completion = await openai.chat.completions.create({
-            ...params,
-            stream: true,
-          });
-
-          let firstTokenReceived = false;
-
-          for await (const chunk of completion) {
-            const content = chunk.choices[0]?.delta?.content || "";
-
-            if (content && !firstTokenReceived) {
-              metrics.first_token_at = new Date();
-              firstTokenReceived = true;
-
-              if (pipelineLogger) {
-                await pipelineLogger.logEvent(PIPELINE_EVENTS.TILE_STREAMING, {
-                  tileId: tile.id,
-                });
-              }
-            }
-
-            answer += content;
-
-            // Callback de progresso
-            if (options.onStream) {
-              options.onStream(tile.id, answer);
-            }
+          if (pipelineLogger) {
+            await pipelineLogger.logEvent(PIPELINE_EVENTS.TILE_STREAMING, {
+              tileId: tile.id,
+            });
           }
         }
-      } else {
-        // Servidor: usar OpenAI direto
-        completion = await openai.chat.completions.create({
-          ...params,
-          stream: true,
-        });
 
-        let firstTokenReceived = false;
-
-        for await (const chunk of completion) {
-          const content = chunk.choices[0]?.delta?.content || "";
-
-          if (content && !firstTokenReceived) {
-            metrics.first_token_at = new Date();
-            firstTokenReceived = true;
-
-            if (pipelineLogger) {
-              await pipelineLogger.logEvent(PIPELINE_EVENTS.TILE_STREAMING, {
-                tileId: tile.id,
-              });
-            }
-          }
-
+        if (content) {
           answer += content;
 
-          // Callback de progresso
+          // Callback de progresso - atualizar UI imediatamente
           if (options.onStream) {
             options.onStream(tile.id, answer);
           }
         }
       }
+
+      // Calcular tempo de streaming
+      metrics.breakdown.streaming_ms = Date.now() - streamingStart;
+      console.log(
+        `✅ Streaming completed for ${tile.title} in ${metrics.breakdown.streaming_ms}ms`
+      );
     } else {
       // Modo tradicional
       const apiStart = Date.now();

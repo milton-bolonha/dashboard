@@ -701,12 +701,13 @@ export default function TrialDashboard() {
     if (
       selectedCompany &&
       selectedCompany.tiles_status === "generating" &&
-      !generatingTiles
+      !generatingTiles &&
+      !pollingInterval // Só reativar se não há polling ativo
     ) {
       console.log("🔄 Reativando polling para tiles em geração...");
       setGeneratingTiles(true);
     }
-  }, [selectedCompany, generatingTiles]);
+  }, [selectedCompany, generatingTiles, pollingInterval]);
 
   // ⭐ NOVO: Garantir que selectedCompany sempre tem dados frescos
   useEffect(() => {
