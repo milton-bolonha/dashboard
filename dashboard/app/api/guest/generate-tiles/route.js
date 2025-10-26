@@ -124,8 +124,17 @@ export async function POST(req) {
       `🚀 Gerando tiles para company: "${company.name}" (index: ${companyIndex})`
     );
 
-    // Verificar se tiles já foram gerados
+    // ⭐ CRÍTICO: Verificar se tiles já foram gerados ou se já está em geração
+    console.log(`🔍 Status atual:`, {
+      status: company.tiles_status,
+      generation_in_progress: company.generation_in_progress,
+      tiles_count: company.tiles?.length || 0,
+    });
+
     if (company.tiles_status === "completed") {
+      console.log(
+        `✅ Tiles já foram gerados (${company.tiles?.length || 0} tiles)`
+      );
       return NextResponse.json({
         success: true,
         message: "Tiles already generated",
@@ -133,24 +142,14 @@ export async function POST(req) {
       });
     }
 
-    // NOVO: Verificar generation lock com timeout
-    if (company.generation_in_progress) {
-      const startTime = new Date(company.generation_started_at);
-      const elapsed = Date.now() - startTime.getTime();
-
-      if (elapsed < 600000) {
-        // 10 minutos
-        return NextResponse.json(
-          {
-            error: "Tiles are already being generated for this company",
-            status: "generating",
-            elapsed_ms: elapsed,
-          },
-          { status: 409 }
-        );
-      }
-
-      console.warn(`Generation lock expired (${elapsed}ms), allowing retry`);
+    // ⭐ Verificar se já está gerando (mas não bloquear com 409 - apenas log)
+    if (company.tiles_status === "generating") {
+      console.log(`🔄 Tiles já estão sendo gerados - apenas retornar sucesso`);
+      return NextResponse.json({
+        success: true,
+        message: "Tiles generation already in progress",
+        status: "generating",
+      });
     }
 
     // Consolidado: Setar lock + status em uma única operação
@@ -245,9 +244,12 @@ export async function POST(req) {
     // Não bloquear a resposta. Gerar em segundo plano.
     (async () => {
       try {
-        console.log(
-          `🤖 Iniciando geração otimizada de ${optimizedTiles.length} tiles em background para ${company.name}...`
-        );
+        console.log(`\n${"=".repeat(80)}`);
+        console.log(`🚀 INICIANDO GERAÇÃO EM BACKGROUND - ${company.name}`);
+        console.log(`⏰ ${new Date().toISOString()}`);
+        console.log(`📊 Tiles a gerar: ${optimizedTiles.length}`);
+        console.log(`📋 Template: ${template.id}`);
+        console.log(`${"=".repeat(80)}\n`);
 
         // Callback para salvar cada tile individualmente
         const saveTileCallback = async (tile) => {
