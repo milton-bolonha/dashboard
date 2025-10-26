@@ -106,12 +106,6 @@ export function Tile({ title, excerpt, metrics, className, onDelete }) {
               title={`Generated in ${totalSeconds}s
 Model: ${metrics.model || "gpt-4o-mini"}
 Bottleneck: ${bottleneckLabel} (${bottleneckTime}s)
-
-Breakdown:
-OpenAI API: ${(metrics.breakdown?.api_call_ms / 1000).toFixed(1)}s
-First token: ${(metrics.breakdown?.ttft_ms / 1000).toFixed(1)}s  
-Database: ${(metrics.breakdown?.db_save_ms / 1000).toFixed(1)}s
-
 Tokens: ${metrics.tokens?.total || "N/A"}`}
             >
               <span className="text-xs font-medium text-gray-600">i</span>

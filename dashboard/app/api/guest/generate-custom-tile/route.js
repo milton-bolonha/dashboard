@@ -7,6 +7,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { generateTileWithOpenAI } from "@/lib/ai-tile-generator";
+import { generateTileWithMetrics } from "@/lib/ai-tile-generator-optimized";
 import Joi from "joi";
 import sanitizeHtml from "sanitize-html";
 
@@ -71,24 +72,44 @@ export async function POST(req) {
 
     console.log(`🚀 Gerando tile customizado para: "${sanitized.companyName}"`);
 
-    // Gerar tile via OpenAI
+    // Gerar tile via OpenAI com métricas
     const company = guestWorkspace.workspace_data.companies[companyIndex];
-    const { answer, excerpt } = await generateTileWithOpenAI(
-      sanitized.prompt,
-      company.name,
-      company.url
-    );
 
-    // Criar novo tile
-    const newTile = {
-      id: `custom_${Date.now()}`, // ID único para tile customizado
-      title: "Custom Research", // Título padrão
-      question: sanitized.prompt,
-      answer: answer,
-      excerpt: excerpt,
+    const tile = {
+      id: `custom_${Date.now()}`,
+      title: "Custom Research",
+      prompt: sanitized.prompt,
       category: "custom",
+    };
+
+    const tileContext = {
+      companyName: company.name,
+      companyUrl: company.url,
+      uploadedFiles: [],
+      notes: [],
+    };
+
+    const result = await generateTileWithMetrics(tile, tileContext, {
+      enableStreaming: false, // Custom tiles não usam streaming
+    });
+
+    // Criar novo tile com métricas
+    const newTile = {
+      id: result.id,
+      title: result.title,
+      question: result.prompt,
+      answer: result.answer,
+      excerpt: result.excerpt,
+      category: result.category,
       created_at: new Date().toISOString(),
       isCustom: true, // Flag para identificar tiles customizados
+      metrics: {
+        total_duration_ms: result.metrics.generation_duration_ms,
+        breakdown: result.metrics.breakdown,
+        model: result.metrics.model,
+        tokens: result.metrics.tokens,
+        optimization_profile: "CUSTOM",
+      },
     };
 
     // Salvar tile no banco

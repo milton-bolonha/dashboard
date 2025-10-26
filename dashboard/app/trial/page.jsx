@@ -749,13 +749,14 @@ export default function TrialDashboard() {
   // ⭐ NOVO: Timeout de segurança para detectar geração travada
   useEffect(() => {
     if (generatingTiles || isGeneratingCustomTile) {
+      console.log("⏰ Iniciando timeout de segurança: 5 minutos");
       const timeoutId = setTimeout(() => {
         console.log(
-          "⚠️ Timeout de segurança: geração demorou mais de 2 minutos"
+          "⚠️ Timeout de segurança: geração demorou mais de 5 minutos"
         );
         setError("Geração de tiles demorou muito. Tente novamente.");
         stopPolling();
-      }, 120000); // 2 minutos
+      }, 300000); // 5 minutos
 
       return () => clearTimeout(timeoutId);
     }

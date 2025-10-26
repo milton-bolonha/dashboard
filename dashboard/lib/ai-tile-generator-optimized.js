@@ -79,6 +79,12 @@ Provide detailed, actionable insights focused on sales opportunities.`;
     const useStreaming =
       profile?.name === "CRITICAL_FAST" && options.enableStreaming !== false;
 
+    console.log(
+      `🔍 Tile ${tile.title}: profile=${
+        profile?.name
+      }, useStreaming=${useStreaming}, hasOnStream=${!!options.onStream}`
+    );
+
     let answer = "";
     let completion;
 

@@ -245,6 +245,15 @@ export async function POST(req) {
             pipelineLogger,
             batchSize: 4, // MUDADO: era 2, agora 4 tiles em paralelo
             onTileCompleted: saveTileCallback, // Callback para salvar imediatamente
+            onStream: (tileId, content) => {
+              console.log(
+                `🌊 Streaming update for tile ${tileId}: ${content.substring(
+                  0,
+                  50
+                )}...`
+              );
+              // TODO: Implementar WebSocket ou Server-Sent Events para streaming real
+            },
           }
         );
 
