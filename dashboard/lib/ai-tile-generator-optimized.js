@@ -9,6 +9,7 @@
 import OpenAI from "openai";
 import { processPromptVariables } from "./guest-templates";
 import { createPipelineContext, PIPELINE_EVENTS } from "./ai-pipeline-logger";
+import { netlifyOpenAI } from "./openai-netlify-client";
 
 // Inicializar OpenAI client
 const openai = new OpenAI({
@@ -74,56 +75,146 @@ Provide detailed, actionable insights focused on sales opportunities.`;
       max_tokens: profile?.maxTokens || 500,
     };
 
-    // DESABILITAR streaming temporariamente (quebra UI)
-    const useStreaming = false; // Era: profile?.name === "CRITICAL_FAST" && options.enableStreaming !== false;
+    // Habilitar streaming apenas para o primeiro tile (CRITICAL_FAST)
+    const useStreaming =
+      profile?.name === "CRITICAL_FAST" && options.enableStreaming !== false;
 
     let answer = "";
     let completion;
 
+    // Tentar usar Netlify Function primeiro (mais rápido)
+    const useNetlifyFunction = typeof window !== "undefined"; // Só no cliente
+
     if (useStreaming && options.onStream) {
       // Modo streaming
-      completion = await openai.chat.completions.create({
-        ...params,
-        stream: true,
-      });
+      if (useNetlifyFunction) {
+        try {
+          console.log("🚀 Using Netlify Function for streaming...");
+          completion = await netlifyOpenAI.createStreamingCompletion(
+            params,
+            (content) => {
+              answer += content;
+              options.onStream(tile.id, answer);
+            }
+          );
 
-      let firstTokenReceived = false;
+          // Métricas da Netlify Function
+          if (completion.metrics) {
+            metrics.breakdown.api_call_ms = completion.metrics.total_time_ms;
+            metrics.breakdown.ttft_ms = completion.metrics.ttft_ms;
+            metrics.tokens.total = completion.metrics.token_count;
+          }
+        } catch (netlifyError) {
+          console.warn(
+            "⚠️ Netlify Function failed, falling back to direct OpenAI:",
+            netlifyError
+          );
+          // Fallback para OpenAI direto
+          completion = await openai.chat.completions.create({
+            ...params,
+            stream: true,
+          });
 
-      for await (const chunk of completion) {
-        const content = chunk.choices[0]?.delta?.content || "";
+          let firstTokenReceived = false;
 
-        if (content && !firstTokenReceived) {
-          metrics.first_token_at = new Date();
-          firstTokenReceived = true;
+          for await (const chunk of completion) {
+            const content = chunk.choices[0]?.delta?.content || "";
 
-          if (pipelineLogger) {
-            await pipelineLogger.logEvent(PIPELINE_EVENTS.TILE_STREAMING, {
-              tileId: tile.id,
-            });
+            if (content && !firstTokenReceived) {
+              metrics.first_token_at = new Date();
+              firstTokenReceived = true;
+
+              if (pipelineLogger) {
+                await pipelineLogger.logEvent(PIPELINE_EVENTS.TILE_STREAMING, {
+                  tileId: tile.id,
+                });
+              }
+            }
+
+            answer += content;
+
+            // Callback de progresso
+            if (options.onStream) {
+              options.onStream(tile.id, answer);
+            }
           }
         }
+      } else {
+        // Servidor: usar OpenAI direto
+        completion = await openai.chat.completions.create({
+          ...params,
+          stream: true,
+        });
 
-        answer += content;
+        let firstTokenReceived = false;
 
-        // Callback de progresso
-        if (options.onStream) {
-          options.onStream(tile.id, answer);
+        for await (const chunk of completion) {
+          const content = chunk.choices[0]?.delta?.content || "";
+
+          if (content && !firstTokenReceived) {
+            metrics.first_token_at = new Date();
+            firstTokenReceived = true;
+
+            if (pipelineLogger) {
+              await pipelineLogger.logEvent(PIPELINE_EVENTS.TILE_STREAMING, {
+                tileId: tile.id,
+              });
+            }
+          }
+
+          answer += content;
+
+          // Callback de progresso
+          if (options.onStream) {
+            options.onStream(tile.id, answer);
+          }
         }
       }
     } else {
       // Modo tradicional
       const apiStart = Date.now();
-      completion = await openai.chat.completions.create(params);
-      const apiEnd = Date.now();
+
+      if (useNetlifyFunction) {
+        try {
+          console.log("🚀 Using Netlify Function for standard request...");
+          completion = await netlifyOpenAI.createCompletion(params);
+
+          // Métricas da Netlify Function
+          if (completion.metrics) {
+            metrics.breakdown.api_call_ms = completion.metrics.total_time_ms;
+            metrics.tokens.prompt = completion.usage?.prompt_tokens || 0;
+            metrics.tokens.completion =
+              completion.usage?.completion_tokens || 0;
+            metrics.tokens.total = completion.usage?.total_tokens || 0;
+          }
+        } catch (netlifyError) {
+          console.warn(
+            "⚠️ Netlify Function failed, falling back to direct OpenAI:",
+            netlifyError
+          );
+          // Fallback para OpenAI direto
+          completion = await openai.chat.completions.create(params);
+
+          const apiEnd = Date.now();
+          metrics.api_call_end = apiEnd;
+          metrics.breakdown.api_call_ms = apiEnd - apiStart;
+          metrics.tokens.prompt = completion.usage?.prompt_tokens || 0;
+          metrics.tokens.completion = completion.usage?.completion_tokens || 0;
+          metrics.tokens.total = completion.usage?.total_tokens || 0;
+        }
+      } else {
+        // Servidor: usar OpenAI direto
+        completion = await openai.chat.completions.create(params);
+
+        const apiEnd = Date.now();
+        metrics.api_call_end = apiEnd;
+        metrics.breakdown.api_call_ms = apiEnd - apiStart;
+        metrics.tokens.prompt = completion.usage?.prompt_tokens || 0;
+        metrics.tokens.completion = completion.usage?.completion_tokens || 0;
+        metrics.tokens.total = completion.usage?.total_tokens || 0;
+      }
 
       answer = completion.choices[0].message.content;
-
-      // Atualizar métricas
-      metrics.api_call_end = apiEnd;
-      metrics.breakdown.api_call_ms = apiEnd - apiStart;
-      metrics.tokens.prompt = completion.usage?.prompt_tokens || 0;
-      metrics.tokens.completion = completion.usage?.completion_tokens || 0;
-      metrics.tokens.total = completion.usage?.total_tokens || 0;
     }
 
     metrics.completed_at = new Date();
