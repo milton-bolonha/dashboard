@@ -2,13 +2,16 @@
  * Netlify Background Function para geração de tiles
  *
  * Esta função roda em background após a request terminar
- * Criticamente importa: usa exports.handler (não Next.js API route)
+ * Formato ES Module (compatível com Next.js)
  */
 
-const { MongoClient } = require("mongodb");
+import { MongoClient } from "mongodb";
+import OpenAI from "openai";
 
-// Configuração do MongoDB
+// Configuração
 const MONGO_URI = process.env.MONGODB_URI;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+
 let client = null;
 
 async function getDB() {
@@ -19,7 +22,7 @@ async function getDB() {
   return client.db("dashboardapp");
 }
 
-exports.handler = async (event) => {
+export const handler = async (event) => {
   console.log(`\n${"=".repeat(80)}`);
   console.log(`🚀 BACKGROUND JOB: Generate Tiles`);
   console.log(`⏰ ${new Date().toISOString()}`);
@@ -68,13 +71,12 @@ exports.handler = async (event) => {
 
     console.log(`✅ Status atualizado para "generating"`);
 
-    // IMPORTANT: Por enquanto, vamos apenas simular a geração
-    // TODO: Importar generateAllTilesOptimized depois
-    console.log(`⚠️ Geração simulada - implementar após fix de import`);
+    // TODO: Implementar geração real de tiles aqui
+    // Por enquanto, simular delay
+    console.log(`⚠️ Simulando geração de tiles...`);
+    await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    // Por enquanto, apenas marcar como completo
-    await new Promise((resolve) => setTimeout(resolve, 5000));
-
+    // Marcar como completo
     await db
       .collection("guest_workspaces")
       .updateOne(

@@ -557,3 +557,23 @@ netlify deploy --prod
 # Monitorar logs
 netlify logs --live
 ```
+
+## ⚠️ Correções Aplicadas
+
+### Fix #1: CommonJS vs ES Modules
+
+**Problema**: Arquivo `.js` usando `exports.handler` mas Next.js é `type: "module"`
+
+**Solução**: Renomear para `.mjs` e usar `export const handler`
+
+### Fix #2: Cache Corrompido no Netlify Local
+
+**Problema**: Diretório `.netlify` com caminhos quebrados
+
+**Solução**: `cd dashboard && rm -rf .netlify` (limpar cache local)
+
+### Fix #3: URL da Function
+
+**Problema**: Chamada para `generate-tiles` (sem extensão)
+
+**Solução**: Chamar para `generate-tiles.mjs` (com extensão)
