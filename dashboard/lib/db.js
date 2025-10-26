@@ -11,8 +11,6 @@ const options = {
   retryReads: true,
   heartbeatFrequencyMS: 30000, // Heartbeat mais frequente
   maxIdleTimeMS: 30000, // Fechar conexões idle
-  bufferMaxEntries: 0, // Não bufferizar operações
-  bufferCommands: false, // Não bufferizar comandos
 };
 
 let client;

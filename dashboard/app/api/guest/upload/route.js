@@ -31,9 +31,10 @@ export async function POST(req) {
 
     // Converter base64 para buffer
     const fileBuffer = Buffer.from(fileData, "base64");
-    const result = await uploadToCloudinary(fileBuffer, fileName, folder);
+    console.log(`📊 File info: ${fileName}, size: ${fileBuffer.length} bytes`);
 
-    console.log("✅ Arquivo enviado com sucesso para o Cloudinary.");
+    const result = await uploadToCloudinary(fileBuffer, fileName, folder);
+    console.log("✅ Arquivo enviado com sucesso para o Cloudinary:", result);
 
     return NextResponse.json({ success: true, file: result });
   } catch (error) {
