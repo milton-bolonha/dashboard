@@ -8,10 +8,12 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
+import { createDynamicWorkspace } from "@/lib/dynamic-workspace";
 import Joi from "joi";
 
 const workspaceCreateSchema = Joi.object({
-  template_id: Joi.string().required(),
+  template_id: Joi.string().optional(), // Backward compatibility
+  themeId: Joi.string().optional(), // Novo campo para temas
   context: Joi.object().required(),
 }).strict();
 
@@ -157,28 +159,89 @@ export async function POST(req) {
       );
     }
 
-    // Criar company baseada no contexto
-    const companyName = value.context.researchTarget || "Target Company";
+    // ⭐ NOVO: Buscar tema selecionado
+    let selectedTheme = null;
+    const themeId = value.themeId || value.context?.themeId;
+
+    if (themeId) {
+      selectedTheme = await db.findOne("themes", { id: themeId });
+    }
+
+    // Se não encontrar tema no DB, buscar do BASE_THEMES
+    if (!selectedTheme && themeId) {
+      const { BASE_THEMES } = await import("@/lib/base-themes");
+      const themeKey = Object.keys(BASE_THEMES).find(
+        (key) => BASE_THEMES[key].id === themeId
+      );
+      if (themeKey) {
+        selectedTheme = BASE_THEMES[themeKey];
+      }
+    }
+
+    // Se ainda não encontrou, usar default
+    if (!selectedTheme) {
+      selectedTheme = await db.findOne("themes", { isDefault: true });
+    }
+
+    // Se ainda não tem, usar o primeiro tema do BASE_THEMES
+    if (!selectedTheme) {
+      const { BASE_THEMES } = await import("@/lib/base-themes");
+      selectedTheme = Object.values(BASE_THEMES)[0];
+    }
+
+    if (!selectedTheme) {
+      return NextResponse.json({ error: "No theme found" }, { status: 500 });
+    }
+
+    // ⭐ NOVO: Criar workspace dinâmico baseado no tema
+    const dynamicData = await createDynamicWorkspace(
+      selectedTheme,
+      value.context
+    );
+
+    // Backward compatibility: criar estrutura antiga também
+    // Extrair nome da primeira entidade principal do dynamicData
+    let primaryEntityName = "Target";
+    let primaryEntityWebsite = "";
+
+    // Buscar a primeira entidade principal (ex: books, companies, projects)
+    for (const [entityKey, entities] of Object.entries(dynamicData)) {
+      if (Array.isArray(entities) && entities.length > 0) {
+        const firstEntity = entities[0];
+        // Tentar pegar 'name' ou o primeiro campo que pareça um nome/título
+        primaryEntityName =
+          firstEntity.name || firstEntity.title || primaryEntityName;
+        primaryEntityWebsite = firstEntity.website || "";
+        break;
+      }
+    }
+
     const company = {
       id: `company_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      name: companyName,
-      website: value.context.researchWebsite || "",
+      name: primaryEntityName,
+      website: primaryEntityWebsite,
       industry: "Unknown",
-      description: `Research target: ${companyName}`,
+      description: `Research target: ${primaryEntityName}`,
       tiles: [],
       contacts: [],
       notes: [],
       files: [],
-      tiles_status: "pending", // ⭐ CRÍTICO: Marcar para geração automática
+      tiles_status: "pending",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
-    // Criar novo workspace
+    // Criar novo workspace com estrutura híbrida (antiga + nova)
     const newWorkspace = {
       guest_id: guestId,
+      // ⭐ NOVO: Campos de tema
+      themeId: selectedTheme.id,
+      themeSnapshot: selectedTheme,
+      dynamicData: dynamicData,
+
+      // Backward compatibility: manter estrutura antiga
       workspace_data: {
-        name: value.context.company || "My Workspace", // FIX: Add workspace name
+        name: primaryEntityName || "My Workspace",
         companies: [company],
         tiles: [],
         templates: [],
@@ -186,20 +249,23 @@ export async function POST(req) {
       },
       template_id: value.template_id,
       context: value.context,
+
       // Limites do guest workspace
       limits: {
-        max_companies: 3, // Permite até 3 companies no trial
+        max_companies: 3,
         max_tiles_per_company: 10,
         max_templates: 5,
       },
+
       // Uso atual
       usage: {
-        companies_count: 1, // Já criamos a primeira company
-        companies_remaining: 2, // 3 - 1
+        companies_count: 1,
+        companies_remaining: 2,
         total_tiles_generated: 0,
         templates_created: 0,
         last_activity: new Date(),
       },
+
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -214,22 +280,44 @@ export async function POST(req) {
       try {
         console.log("🚀 Disparando geração de tiles em background...");
 
-        // Importar gerador (lazy import para não bloquear)
-        const { generateTilesForCompany } = await import(
-          "@/lib/guest-tile-pipeline"
-        );
-        const { getGuestTemplate } = await import("@/lib/guest-templates");
+        // ⭐ USAR TILES DO TEMA EM VEZ DE TEMPLATE GENÉRICO
+        if (
+          selectedTheme?.tileTemplates &&
+          selectedTheme.tileTemplates.length > 0
+        ) {
+          console.log(`🎨 Usando tiles do tema: ${selectedTheme.name}`);
+          console.log(
+            `📋 Tiles disponíveis:`,
+            selectedTheme.tileTemplates.length
+          );
 
-        // Buscar template
-        const template = getGuestTemplate(value.template_id);
+          // TODO: Implementar geração de tiles baseada no tema
+          // Por enquanto, pular geração automática para temas que não sejam Sales
+          if (selectedTheme.id === "sales-assistant") {
+            // Importar gerador apenas para Sales (backward compatibility)
+            const { generateTilesForCompany } = await import(
+              "@/lib/guest-tile-pipeline"
+            );
+            const { getGuestTemplate } = await import("@/lib/guest-templates");
 
-        // Disparar geração
-        await generateTilesForCompany(
-          guestId,
-          companyName,
-          company.website,
-          template
-        );
+            const templateId = value.template_id || "template_1";
+            const template = getGuestTemplate(templateId);
+
+            await generateTilesForCompany(
+              guestId,
+              primaryEntityName,
+              company.website,
+              template
+            );
+          } else {
+            console.log(
+              `⏭️ Geração automática de tiles desabilitada para tema ${selectedTheme.name}`
+            );
+            console.log(
+              `💡 Implementar geração baseada em tileTemplates do tema`
+            );
+          }
+        }
 
         console.log("✅ Geração de tiles iniciada em background");
       } catch (e) {
@@ -240,6 +328,7 @@ export async function POST(req) {
 
     return NextResponse.json({
       success: true,
+      guest_id: guestId,
       workspace: newWorkspace.workspace_data,
       message: "Guest workspace created successfully",
     });

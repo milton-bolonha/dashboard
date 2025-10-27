@@ -1,0 +1,31 @@
+import {
+  Briefcase,
+  Globe,
+  Zap,
+  Target,
+  Search,
+  Book,
+  Sparkles,
+  Users,
+  Lightbulb,
+  HardHat,
+  User,
+  MapPin,
+  Wrench,
+} from "lucide-react";
+
+export const dynamicIconMap = {
+  Briefcase,
+  Globe,
+  Zap,
+  Target,
+  Search,
+  Book,
+  Sparkles,
+  Users,
+  Lightbulb,
+  HardHat,
+  User,
+  MapPin,
+  Wrench,
+};

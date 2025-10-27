@@ -34,22 +34,24 @@ import {
   ChevronRight,
 } from "lucide-react";
 import "./home.css";
-import HeroSectionShared from "@/components/landing/HeroSection";
+import DynamicHeroSection from "@/components/landing/DynamicHeroSection";
+import { ThemeChooser } from "@/components/landing/ThemeChooser";
 
 export const dynamic = "force-dynamic";
 
-// Landing Page Otimizada para CRO com Spin Selling
+// Landing Page Multi-Tema
 export default function LandingPage() {
   const { isSignedIn, user, isLoaded } = useUser();
 
   return (
     <div
-      className="min-h-screen flex flex-col"
+      className="min-h-screen flex flex-col relative"
       style={{ backgroundColor: "#fcfcf9" }}
     >
       <Header isSignedIn={isSignedIn} />
-      <main className="flex-1">
-        <HeroSectionShared mode="landing" styleMode="transparent" />
+      <ThemeChooser />
+      <main className="flex-1 pt-20">
+        <DynamicHeroSection mode="landing" />
         {/* Outras seções comentadas temporariamente */}
         {/* <CapabilitiesSection />
         <ProblemSection />
@@ -66,10 +68,13 @@ export default function LandingPage() {
   );
 }
 
-// Header minimalista conforme especificação
+// Header minimalista conforme especificação - FIXO NO TOPO
 const Header = ({ isSignedIn }) => {
   return (
-    <header style={{ backgroundColor: "#fcfcf9" }}>
+    <header
+      className="fixed top-0 left-0 right-0 z-50"
+      style={{ backgroundColor: "#fcfcf9" }}
+    >
       <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-4">
           {/* Logo WebApp */}

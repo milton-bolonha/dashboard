@@ -592,7 +592,7 @@ export default function HeroSection({
               // Se já existe guest session, redirecionar direto!
               if (errorData.redirect) {
                 console.log("✅ Guest session já existe, redirecionando...");
-                window.location.href = "/trial";
+                window.location.href = "/admin";
                 return;
               }
 
@@ -604,8 +604,8 @@ export default function HeroSection({
             const data = await response.json();
             console.log("✅ Guest workspace criado!", data);
 
-            // Redirecionar para trial dashboard
-            window.location.href = "/trial";
+            // Redirecionar para admin dashboard
+            window.location.href = "/admin";
           } catch (err) {
             console.error("❌ Erro ao criar guest workspace:", err);
             setError(err.message);
