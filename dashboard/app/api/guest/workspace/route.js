@@ -151,7 +151,8 @@ export async function GET(req) {
                 ...wsEntity, // workspace_data sobrescreve dynamicData
                 // ⭐ CRÍTICO: Garantir tiles são incluídos
                 tiles: wsEntity.tiles || dynamicEntity.tiles || [],
-                tiles_status: wsEntity.tiles_status || dynamicEntity.tiles_status,
+                tiles_status:
+                  wsEntity.tiles_status || dynamicEntity.tiles_status,
               };
             });
 
@@ -378,6 +379,17 @@ export async function POST(req) {
               (e) => e.isPrimary
             );
             const entityKey = `${primaryEntity.id}s`; // companies, books, projects
+
+            // Mark as generating first
+            await db.updateOne(
+              "guest_workspaces",
+              { guest_id: guestId },
+              {
+                $set: {
+                  [`workspace_data.${entityKey}.0.tiles_status`]: "generating",
+                },
+              }
+            );
 
             await db.updateOne(
               "guest_workspaces",

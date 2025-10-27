@@ -664,6 +664,7 @@ export default function DynamicHeroSection({
                 }
                 disabled={!selectedThemeId || !selectedTag || creating}
                 className="w-full px-6 py-4 pr-20 text-lg border border-gray-200 rounded-full outline-none transition-all focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
+                style={{ backgroundColor: selectedTag ? "#fff" : "#fcfcf9" }}
               />
 
               {selectedTag && (

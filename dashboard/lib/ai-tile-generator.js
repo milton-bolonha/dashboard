@@ -208,6 +208,8 @@ export async function generateTileWithOpenAI(
     The summary must be prefixed with "SUMMARY:". For example: "SUMMARY: This is the one-sentence summary."
   `;
 
+  const startTime = Date.now(); // ⭐ Marcar início da geração
+
   try {
     // Build theme-specific system prompt
     const systemPrompt = buildSystemPrompt(themeContext);
@@ -227,6 +229,9 @@ export async function generateTileWithOpenAI(
       temperature: 0.7,
       max_tokens: 800,
     });
+
+    const endTime = Date.now();
+    const generationDuration = endTime - startTime;
 
     const responseContent = completion.choices[0].message.content;
 
@@ -260,12 +265,24 @@ export async function generateTileWithOpenAI(
       allowedAttributes: {},
     });
 
+    // ⭐ Estatísticas de geração
+    const metrics = {
+      generation_duration_ms: generationDuration,
+      tokens_used: completion.usage?.total_tokens || 0,
+      prompt_tokens: completion.usage?.prompt_tokens || 0,
+      completion_tokens: completion.usage?.completion_tokens || 0,
+      model: "gpt-4-turbo-preview",
+      timestamp: new Date().toISOString(),
+    };
+
     console.log("✅ Tile gerado com sucesso!");
-    console.log("📝 Summary:", sanitizedExcerpt.substring(0, 100));
+    console.log(`⏱️  Duração: ${generationDuration}ms`);
+    console.log(`🎯 Tokens usados: ${metrics.tokens_used}`);
 
     return {
       answer: sanitizedAnswer.trim(),
       excerpt: sanitizedExcerpt.trim(),
+      metrics: metrics,
     };
   } catch (error) {
     console.error("❌ Erro ao gerar tile com OpenAI:", error);

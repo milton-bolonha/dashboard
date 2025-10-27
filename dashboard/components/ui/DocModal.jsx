@@ -84,28 +84,8 @@ const AIMessage = ({ content }) => {
   };
 
   return (
-    <div className="group">
-      {/* Icon + Actions Row */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center space-x-2">
-          <div className="bg-blue-100 rounded-full p-2">
-            <Bot className="w-5 h-5 text-blue-600" />
-          </div>
-          <span className="text-sm font-medium text-gray-600">
-            AI Assistant
-          </span>
-        </div>
-        <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center space-x-2">
-          <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-            <Save className="w-4 h-4 text-gray-600" />
-          </button>
-          <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-            <FileText className="w-4 h-4 text-gray-600" />
-          </button>
-        </div>
-      </div>
-
-      {/* Content - Formato Blog */}
+    <div>
+      {/* Content - Formato Blog (sem header, avatar está fora) */}
       <article
         className="prose prose-gray max-w-none text-[15px] text-gray-800 leading-relaxed"
         dangerouslySetInnerHTML={{ __html: processContent(content) }}
@@ -115,18 +95,42 @@ const AIMessage = ({ content }) => {
 };
 
 const MetricsInfo = ({ metrics }) => {
-  if (!metrics || !metrics.generation_duration_ms) return null;
+  if (!metrics) return null;
 
-  const duration = metrics.generation_duration_ms;
   const formatDuration = (ms) => {
     if (ms < 1000) return `${ms}ms`;
     return `${(ms / 1000).toFixed(1)}s`;
   };
 
+  const formatTokens = (tokens) => {
+    if (tokens < 1000) return `${tokens}`;
+    return `${(tokens / 1000).toFixed(1)}k`;
+  };
+
   return (
-    <div className="flex items-center gap-1 text-gray-400 text-xs mt-3">
-      <Info className="w-3 h-3" />
-      <span>Gerado em {formatDuration(duration)}</span>
+    <div className="mt-4 pt-4 border-t border-gray-200">
+      <div className="flex items-center gap-2 text-gray-500 text-xs">
+        <Info className="w-3 h-3" />
+        <span className="font-medium">Estatísticas de geração:</span>
+      </div>
+      <div className="grid grid-cols-3 gap-4 mt-2 text-xs text-gray-600">
+        <div>
+          <div className="font-medium">Duração</div>
+          <div className="text-gray-500">
+            {formatDuration(metrics.generation_duration_ms)}
+          </div>
+        </div>
+        <div>
+          <div className="font-medium">Tokens</div>
+          <div className="text-gray-500">
+            {formatTokens(metrics.tokens_used)}
+          </div>
+        </div>
+        <div>
+          <div className="font-medium">Modelo</div>
+          <div className="text-gray-500 truncate">{metrics.model}</div>
+        </div>
+      </div>
     </div>
   );
 };
@@ -184,15 +188,25 @@ export function DocModal({ isOpen, onClose, tile }) {
             <div className="flex-grow px-8 py-8 overflow-y-auto bg-white space-y-8">
               {/* User Question (Prompt) */}
               <div className="flex justify-end">
-                <div className="bg-gray-200 rounded-2xl px-4 py-3 max-w-lg">
+                <div className="bg-gray-200 rounded-2xl rounded-br-sm px-4 py-3 max-w-lg">
                   <p className="text-sm text-gray-800">{tile.question}</p>
                 </div>
               </div>
 
               {/* AI Response - Formato Blog */}
-              <div>
-                <AIMessage content={tile.answer} />
-                {tile.metrics && <MetricsInfo metrics={tile.metrics} />}
+              <div className="flex gap-4">
+                {/* Avatar do Bot - alinhado ao bottom */}
+                <div className="flex-shrink-0 self-end mb-1">
+                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                    <Bot className="w-4 h-4 text-blue-600" />
+                  </div>
+                </div>
+
+                {/* Bubble da resposta com canto inferior esquerdo arredondado */}
+                <div className="bg-blue-50 rounded-2xl rounded-bl-sm px-6 py-4 max-w-2xl">
+                  <AIMessage content={tile.answer} />
+                  {tile.metrics && <MetricsInfo metrics={tile.metrics} />}
+                </div>
               </div>
 
               {/* Example of user question */}

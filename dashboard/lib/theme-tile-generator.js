@@ -142,17 +142,23 @@ export async function generateTilesFromThemeTemplates(
         themeContext
       );
 
+      // Gerar excerpt dos primeiros 150 caracteres do answer
+      const excerpt =
+        tileResult.answer.replace(/\n/g, " ").trim().substring(0, 150) + "...";
+
       const tile = {
         id: `tile_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         title: template.title,
         content: tileResult.answer,
-        excerpt: tileResult.excerpt,
+        excerpt: excerpt, // ⭐ Gerado automaticamente dos primeiros 150 chars
         question: template.prompt, // ⭐ NOVO: Adicionar o prompt original
         category: template.category || "general",
         order: template.order || 0,
         createdAt: new Date().toISOString(),
         generated_by: "theme_template",
         template_id: template.id,
+        // ⭐ Estatísticas de geração
+        metrics: tileResult.metrics || null,
       };
 
       tiles.push(tile);

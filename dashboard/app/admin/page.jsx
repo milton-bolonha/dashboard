@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 // ⭐ REMOVIDO: useUser do Clerk - agora é público
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -82,6 +82,11 @@ export default function AdminDashboard() {
     type: "solid",
     value: "#ffffff",
   });
+
+  // ⭐ NOVO: AbortController e refs para polling robusto (inspirado no exemplo Netlify)
+  const abortController = useMemo(() => new AbortController(), []);
+  const previousTilesRef = useRef([]);
+  const previousCustomTileRef = useRef(0);
 
   // Helper para obter nome/título de uma entidade
   const getEntityName = (entity) => {
@@ -236,12 +241,14 @@ export default function AdminDashboard() {
 
       // Recarregar workspace para mostrar o novo tile
       await loadGuestWorkspace();
+
+      // Não desativar loading imediatamente - deixar polling detectar
+      console.log("🔄 Aguardando polling detectar novo tile...");
     } catch (error) {
       console.error("❌ Erro ao gerar tile customizado:", error);
       setError("Failed to generate custom tile. Please try again.");
       setIsGeneratingCustomTile(false);
-      setGeneratingTiles(false); // Parar polling em caso de erro
-      // Não fazer throw - deixar o modal fechar
+      setGeneratingTiles(false);
     }
   };
 
@@ -639,7 +646,7 @@ export default function AdminDashboard() {
         // Usar entidade principal do tema
         const primaryEntity = theme.entities.find((e) => e.isPrimary);
         const entityKey = `${primaryEntity.id}s`; // companies, books, projects
-        const entities = data.workspace?.[entityKey] || []; // ⭐ NOVO: Garantir que é um array
+        const entities = data.workspace?.[entityKey] || [];
 
         console.log(`🔍 Debug entities para ${entityKey}:`, entities);
 
@@ -666,34 +673,116 @@ export default function AdminDashboard() {
         status = currentCompany?.tiles_status;
       }
 
+      // ⭐ DETECTAR SE TILES CUSTOMIZADOS FORAM GERADOS
+      if (selectedCompany && currentCompany) {
+        const newTilesCount = currentCompany.tiles?.length || 0;
+
+        // Inicializar ref na primeira execução
+        if (previousCustomTileRef.current === 0) {
+          previousCustomTileRef.current = selectedCompany.tiles?.length || 0;
+        }
+
+        const previousTilesCount = previousCustomTileRef.current;
+
+        console.log(
+          `🔍 Tiles count comparativo: ${previousTilesCount} → ${newTilesCount} (isGenerating: ${isGeneratingCustomTile})`
+        );
+
+        // Se um tile customizado foi adicionado
+        if (isGeneratingCustomTile && newTilesCount > previousTilesCount) {
+          console.log(
+            `✅ Novo tile customizado detectado! Total: ${newTilesCount}`
+          );
+
+          // Atualizar selectedCompany com novos tiles
+          setSelectedCompany(currentCompany);
+
+          // Parar loading states
+          setIsGeneratingCustomTile(false);
+          setGeneratingTiles(false);
+
+          // ⭐ Limpar ref para próxima iteração
+          previousCustomTileRef.current = 0;
+
+          // Parar polling
+          if (pollingInterval) {
+            clearInterval(pollingInterval);
+            setPollingInterval(null);
+          }
+        } else {
+          // Atualizar ref com valor atual (mesmo se não detectou mudança)
+          previousCustomTileRef.current = newTilesCount;
+        }
+      }
+
       console.log("🔍 Debug geração automática:");
       console.log("- currentCompany:", currentCompany?.name);
       console.log("- status:", status);
       console.log("- generatingTiles:", generatingTiles);
       console.log("- showLoadingModal:", showLoadingModal);
 
+      // Verificar se tiles estão sendo gerados
+      const tilesCount = currentCompany?.tiles?.length || 0;
+      const expectedTilesCount = 3; // Número esperado de tiles baseado no tema
+
       if (status === "pending" && !generatingTiles) {
         console.log(
           "🚀 Iniciando geração automática de tiles para:",
           currentCompany?.name
         );
-        setShowLoadingModal(true); // Mostrar modal primeiro
+        setShowLoadingModal(true);
         setGeneratingTiles(true);
 
-        // Disparar geração automática
+        // Marcar como generating no backend ANTES de iniciar
+        try {
+          await fetch("/api/guest/workspace", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              tiles_status: "generating",
+            }),
+          });
+        } catch (e) {
+          console.error("⚠️ Erro ao marcar status como generating:", e);
+        }
+
         generateTiles();
       } else if (status === "generating") {
-        console.log("🔄 Tiles sendo gerados para:", currentCompany?.name);
-        setGeneratingTiles(true);
+        console.log(
+          `🔄 Tiles sendo gerados: ${tilesCount}/${expectedTilesCount}`
+        );
 
-        // Se há tiles sendo gerados, ativar polling para detectar tiles individuais
+        // Ativar polling para detectar tiles sendo gerados
         if (!generatingTiles) {
           setGeneratingTiles(true);
+        }
+
+        // Continuar mostrando modal enquanto não terminou
+        if (tilesCount < expectedTilesCount) {
+          setShowLoadingModal(true);
         }
       } else if (status === "completed" || status === "failed") {
         console.log("✅ Geração de tiles finalizada:", status);
         setGeneratingTiles(false);
         setShowLoadingModal(false);
+
+        // Parar polling
+        if (pollingInterval) {
+          clearInterval(pollingInterval);
+          setPollingInterval(null);
+        }
+      } else if (generatingTiles && status !== "generating") {
+        // Caso especial: se gerando mas status não é "generating",
+        // verificar se já terminou
+        if (tilesCount >= expectedTilesCount) {
+          console.log("✅ Tiles completos detectados");
+          setGeneratingTiles(false);
+          setShowLoadingModal(false);
+          if (pollingInterval) {
+            clearInterval(pollingInterval);
+            setPollingInterval(null);
+          }
+        }
       }
     } catch (err) {
       console.error("❌ Erro ao carregar guest workspace:", err);
@@ -741,14 +830,14 @@ export default function AdminDashboard() {
     setGeneratingTiles(true);
   };
 
-  // Efeito para polling com segurança
+  // Efeito para polling com segurança (inspirado no exemplo Netlify com AbortController)
   useEffect(() => {
     if (generatingTiles || isGeneratingCustomTile) {
       console.log("🔄 Iniciando polling...");
       let pollCount = 0;
       const maxPolls = 30; // ⭐ Limite de segurança: máximo 30 polls (1 minuto)
 
-      const intervalId = setInterval(() => {
+      const intervalId = setInterval(async () => {
         pollCount++;
         console.log(
           `🔄 Polling for workspace updates... (${pollCount}/${maxPolls})`
@@ -756,7 +845,10 @@ export default function AdminDashboard() {
 
         // Parar polling se exceder limite de segurança
         if (pollCount >= maxPolls) {
-          console.log("⚠️ Limite de polling atingido, parando por segurança");
+          console.log(
+            "⚠️ Limite de polling atingido, cancelando por segurança"
+          );
+          abortController.abort(); // ⭐ Cancelar requisições pendentes
           setGeneratingTiles(false);
           setShowLoadingModal(false);
           setIsGeneratingCustomTile(false);
@@ -765,19 +857,31 @@ export default function AdminDashboard() {
           return;
         }
 
-        loadGuestWorkspace();
+        try {
+          await loadGuestWorkspace();
+        } catch (err) {
+          if (err.name === "AbortError") {
+            console.log("🚫 Polling cancelado pelo AbortController");
+            return;
+          }
+          console.error("❌ Erro no polling:", err);
+        }
       }, 2000); // ⭐ 2s para reduzir carga no servidor
 
       setPollingInterval(intervalId);
 
-      // Limpeza ao desmontar
-      return () => clearInterval(intervalId);
+      // Limpeza ao desmontar (cancela requisições pendentes)
+      return () => {
+        abortController.abort(); // ⭐ Cancela requisições pendentes
+        clearInterval(intervalId);
+      };
     } else if (pollingInterval) {
       console.log("🛑 Stopping polling.");
+      abortController.abort(); // ⭐ Cancela requisições quando parar polling
       clearInterval(pollingInterval);
       setPollingInterval(null);
     }
-  }, [generatingTiles, isGeneratingCustomTile]);
+  }, [generatingTiles, isGeneratingCustomTile, abortController]);
 
   // Efeito adicional para garantir que polling continue enquanto há tiles sendo gerados
   useEffect(() => {
