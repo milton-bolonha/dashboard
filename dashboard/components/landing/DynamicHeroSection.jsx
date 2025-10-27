@@ -21,8 +21,14 @@ export default function DynamicHeroSection({
   mode = "landing",
   onCreateWorkspace,
 }) {
-  const { selectedTheme, themeLoading } = useTheme();
+  const {
+    themes,
+    selectedTheme,
+    setSelectedTheme,
+    loading: themeLoading,
+  } = useTheme();
 
+  const [selectedThemeId, setSelectedThemeId] = useState(null); // ⭐ NOVO: Tema escolhido pelo usuário
   const [inputs, setInputs] = useState({});
   const [selectedTag, setSelectedTag] = useState(null);
   const [chatInputValue, setChatInputValue] = useState("");
@@ -41,13 +47,23 @@ export default function DynamicHeroSection({
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
 
+  // ⭐ NOVO: Temas disponíveis como "tags"
+  const availableThemes = themes || [];
+
+  // ⭐ NOVO: Tags do tema atual (só aparecem após escolher tema)
+  const currentTheme = selectedThemeId
+    ? themes.find((t) => t.id === selectedThemeId)
+    : null;
+  const themeTags = currentTheme?.landingTags || [];
+
+  // Inicializar states quando tema for selecionado
   useEffect(() => {
-    if (!selectedTheme?.landingTags) return;
+    if (!selectedThemeId || !currentTheme?.landingTags) return;
 
     const initialStates = {};
     const initialInputs = {};
 
-    selectedTheme.landingTags.forEach((tag) => {
+    currentTheme.landingTags.forEach((tag) => {
       initialStates[tag.id] = {
         focused: false,
         hasContent: false,
@@ -58,14 +74,12 @@ export default function DynamicHeroSection({
 
     setInputStates(initialStates);
     setInputs(initialInputs);
-
-    // ⭐ NÃO selecionar tag automaticamente - usuário deve escolher
     setSelectedTag(null);
-  }, [selectedTheme]);
+  }, [selectedThemeId]);
 
-  // Animações iniciais do chat
+  // ⭐ NOVO: Animações iniciais - pedir para escolher tema
   useEffect(() => {
-    if (!selectedTheme || chatMessages.length > 0) return;
+    if (themeLoading || chatMessages.length > 0) return;
 
     const timer1 = setTimeout(() => {
       setIsBotTyping(true);
@@ -75,91 +89,56 @@ export default function DynamicHeroSection({
       setIsBotTyping(false);
       setChatMessages([
         {
-          text: "Who would you like to research?",
+          text: "Choose a theme to get started!",
           isUser: false,
         },
       ]);
     }, 3000);
 
     const timer3 = setTimeout(() => {
-      setChatMessages((prev) => [
-        ...prev,
-        {
-          text: "I would like to do some research to sell better",
-          isUser: true,
-        },
-      ]);
-    }, 4500);
-
-    const timer4 = setTimeout(() => {
-      setIsBotTyping(true);
-    }, 6500);
-
-    const timer5 = setTimeout(() => {
-      setIsBotTyping(false);
-      setChatMessages((prev) => [
-        ...prev,
-        {
-          text: "Tap a tag below to get started with your research!",
-          isUser: false,
-        },
-      ]);
-    }, 8000);
-
-    const timer6 = setTimeout(() => {
       setShowInitialMessages(true);
-      setTimeout(() => {
-        document.getElementById("chat-input")?.focus();
-      }, 100);
-    }, 9500);
+    }, 4000);
 
     return () => {
       clearTimeout(timer1);
       clearTimeout(timer2);
       clearTimeout(timer3);
-      clearTimeout(timer4);
-      clearTimeout(timer5);
-      clearTimeout(timer6);
     };
-  }, [selectedTheme]);
+  }, [themeLoading]);
 
   // Mostrar pergunta da tag
   useEffect(() => {
-    if (selectedTag && !currentBotQuestion && showInitialMessages) {
-      setCurrentBotQuestion(selectedTag);
+    if (!selectedTag || !selectedThemeId) return;
 
-      // Buscar placeholder da tag atual
-      const currentTagObj = selectedTheme.landingTags.find(
-        (t) => t.id === selectedTag
-      );
-      const question =
-        currentTagObj?.placeholder || "Please provide more information";
+    const currentTagObj = themeTags.find((t) => t.id === selectedTag);
+    if (!currentTagObj || currentBotQuestion === selectedTag) return;
 
-      setIsBotTyping(true);
-      setTimeout(() => {
-        setIsBotTyping(false);
-        setChatMessages((prev) => [
-          ...prev,
-          {
-            text: question,
-            isUser: false,
-          },
-        ]);
-      }, 1500);
-    }
-  }, [selectedTag, currentBotQuestion, showInitialMessages]);
+    setCurrentBotQuestion(selectedTag);
+    const question =
+      currentTagObj?.placeholder || "Please provide more information";
+
+    setIsBotTyping(true);
+    setTimeout(() => {
+      setIsBotTyping(false);
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          text: question,
+          isUser: false,
+        },
+      ]);
+    }, 1500);
+  }, [selectedTag, currentBotQuestion, themeTags, selectedThemeId]);
 
   // Scroll do chat
   useEffect(() => {
     const container = chatContainerRef.current;
     if (!container) return;
 
-    // Forçar scroll após render
     const scroll = () => {
       container.scrollTop = container.scrollHeight;
     };
 
-    // Usar requestAnimationFrame para garantir que o layout foi calculado
     requestAnimationFrame(() => {
       scroll();
       setTimeout(scroll, 10);
@@ -181,7 +160,39 @@ export default function DynamicHeroSection({
     checkScroll();
     window.addEventListener("resize", checkScroll);
     return () => window.removeEventListener("resize", checkScroll);
-  }, [completedTags]);
+  }, [completedTags, selectedThemeId]); // ⭐ Update: incluir selectedThemeId
+
+  // ⭐ NOVO: Handler para selecionar tema
+  const handleThemeSelect = (themeId) => {
+    setSelectedThemeId(themeId);
+    const theme = themes.find((t) => t.id === themeId);
+    if (theme) {
+      setSelectedTheme(theme);
+
+      // Adicionar mensagem no chat
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          text: theme.name,
+          isUser: true,
+        },
+      ]);
+
+      setTimeout(() => {
+        setIsBotTyping(true);
+        setTimeout(() => {
+          setIsBotTyping(false);
+          setChatMessages((prev) => [
+            ...prev,
+            {
+              text: `Great! Now let's fill out the details for your ${theme.name.toLowerCase()}. Choose a field below to get started.`,
+              isUser: false,
+            },
+          ]);
+        }, 1000);
+      }, 500);
+    }
+  };
 
   const validateInput = (value, type) => {
     if (!value || value.trim().length === 0) return false;
@@ -203,24 +214,32 @@ export default function DynamicHeroSection({
     return dynamicIconMap[iconName] || Briefcase;
   };
 
-  // Cores dos ícones por tipo
   const getIconColor = (tagId) => {
     const colors = {
-      // Sales theme
-      company: { border: "#3B82F6", bg: "#EFF6FF" }, // Azul
-      solution: { border: "#8B5CF6", bg: "#F5F3FF" }, // Roxo
-      target: { border: "#F59E0B", bg: "#FEF3C7" }, // Laranja
-      targetWebsite: { border: "#EF4444", bg: "#FEE2E2" }, // Vermelho
-      // Book Creator theme
-      bookTitle: { border: "#8B5CF6", bg: "#F5F3FF" }, // Roxo
-      genre: { border: "#EC4899", bg: "#FCE7F3" }, // Rosa
-      couple: { border: "#10B981", bg: "#D1FAE5" }, // Verde
-      theme: { border: "#F59E0B", bg: "#FEF3C7" }, // Laranja
-      // Construction theme
-      projectName: { border: "#F59E0B", bg: "#FEF3C7" }, // Laranja
-      role: { border: "#10B981", bg: "#D1FAE5" }, // Verde
+      company: { border: "#3B82F6", bg: "#EFF6FF" },
+      solution: { border: "#8B5CF6", bg: "#F5F3FF" },
+      target: { border: "#F59E0B", bg: "#FEF3C7" },
+      targetWebsite: { border: "#EF4444", bg: "#FEE2E2" },
+      bookTitle: { border: "#8B5CF6", bg: "#F5F3FF" },
+      genre: { border: "#EC4899", bg: "#FCE7F3" },
+      couple: { border: "#10B981", bg: "#D1FAE5" },
+      theme: { border: "#F59E0B", bg: "#FEF3C7" },
+      projectName: { border: "#F59E0B", bg: "#FEF3C7" },
+      role: { border: "#10B981", bg: "#D1FAE5" },
     };
     return colors[tagId] || { border: "#6B7280", bg: "#F3F4F6" };
+  };
+
+  // ⭐ NOVO: Cores para temas
+  const getThemeColor = (themeId) => {
+    const theme = themes.find((t) => t.id === themeId);
+    if (theme?.colors) {
+      return {
+        border: theme.colors.primary,
+        bg: theme.colors.chatBubble || theme.colors.background,
+      };
+    }
+    return { border: "#6B7280", bg: "#F3F4F6" };
   };
 
   const handleTagSelect = (tagId) => {
@@ -234,8 +253,7 @@ export default function DynamicHeroSection({
     setInputs((prev) => ({ ...prev, [tagId]: value }));
     setError(null);
 
-    const type =
-      selectedTheme.landingTags.find((t) => t.id === tagId)?.type || "text";
+    const type = themeTags.find((t) => t.id === tagId)?.type || "text";
     setInputStates((prev) => ({
       ...prev,
       [tagId]: {
@@ -250,7 +268,7 @@ export default function DynamicHeroSection({
     if (!selectedTag || !chatInputValue.trim()) return;
 
     const trimmedValue = chatInputValue.trim();
-    const tag = selectedTheme.landingTags.find((t) => t.id === selectedTag);
+    const tag = themeTags.find((t) => t.id === selectedTag);
 
     if (tag.type === "url" && !isValidUrl(trimmedValue)) {
       setError("Please enter a valid URL (e.g., www.example.com)");
@@ -278,14 +296,13 @@ export default function DynamicHeroSection({
         setChatMessages((prev) => [
           ...prev,
           {
-            text: "Perfect! Now tap another tag to continue filling out your research details.",
+            text: "Perfect! Now tap another tag to continue filling out your details.",
             isUser: false,
           },
         ]);
       }, 1000);
     }, 500);
 
-    // ⭐ Limpar input e resetar tag selecionada
     setChatInputValue("");
     setSelectedTag(null);
   };
@@ -297,8 +314,6 @@ export default function DynamicHeroSection({
     setError(null);
 
     try {
-      const themeId = selectedTheme.id;
-
       // Gerar guest_id ANTES de criar workspace
       const guestId = `guest_${Date.now()}_${Math.random()
         .toString(36)
@@ -312,7 +327,7 @@ export default function DynamicHeroSection({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            themeId,
+            themeId: selectedThemeId,
             context: inputs,
           }),
         });
@@ -329,12 +344,12 @@ export default function DynamicHeroSection({
     }
   };
 
-  const allInputsValid = selectedTheme?.landingTags?.every((tag) => {
+  const allInputsValid = themeTags?.every((tag) => {
     const state = inputStates[tag.id];
     return state?.isValid === true;
   });
 
-  if (themeLoading || !selectedTheme) {
+  if (themeLoading || !themes || themes.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
@@ -342,8 +357,8 @@ export default function DynamicHeroSection({
     );
   }
 
-  const colors = selectedTheme.colors || {};
-  const tags = selectedTheme.landingTags || [];
+  const colors = currentTheme?.colors || {};
+  const tags = themeTags || [];
   const currentTag = tags.find((t) => t.id === selectedTag);
 
   return (
@@ -357,11 +372,11 @@ export default function DynamicHeroSection({
         <div className="max-w-4xl mx-auto w-full px-4">
           <div id="chat-container" className="space-y-4">
             <div className="text-center pb-4 flex-shrink-0 ">
-              <h1 className="text-5xl font-bold mb-3 text-gray-900">
-                {selectedTheme.name}
+              <h1 className="text-5xl font-bold mt-8 mb-3 text-gray-900">
+                Calm Down, We're Here!
               </h1>
               <p className="text-xl text-gray-600 max-w-2xl mx-auto px-4">
-                {selectedTheme.description}
+                We'll help you create a professional anything you need app.
               </p>
             </div>
             {chatMessages.map((msg, idx) => (
@@ -453,79 +468,151 @@ export default function DynamicHeroSection({
 
             <div
               ref={scrollContainer}
-              className="flex gap-2 overflow-x-auto px-8 scrollbar-hide"
+              className="flex gap-2 overflow-x-auto px-8 scrollbar-hide justify-center"
             >
-              {selectedTheme.landingTags.map((tag) => {
-                const IconComponent = getIconComponent(tag.icon);
-                const iconColor = getIconColor(tag.id);
-                const isCompleted = completedTags.includes(tag.id);
-                const hasValue = inputs[tag.id]?.trim().length > 0;
+              {/* ⭐ NOVO: Mostrar temas se nenhum foi escolhido */}
+              {!selectedThemeId &&
+                availableThemes.map((theme) => {
+                  const IconComponent = getIconComponent(
+                    theme.icon || "Briefcase"
+                  );
+                  const themeColor = getThemeColor(theme.id);
 
-                return (
-                  <div
-                    key={tag.id}
-                    className="flex flex-col items-center gap-2 flex-shrink-0"
-                  >
-                    {/* Mostrar só se NÃO está completada */}
-                    {!isCompleted && (
+                  return (
+                    <div
+                      key={theme.id}
+                      className="flex flex-col items-center gap-2 flex-shrink-0"
+                    >
                       <button
-                        onClick={() => handleTagSelect(tag.id)}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all h-10 ${
-                          selectedTag === tag.id
-                            ? "bg-gray-100 border-gray-300"
-                            : "bg-white border-gray-200 hover:border-gray-300"
-                        }`}
-                        title={tag.tooltip}
+                        onClick={() => handleThemeSelect(theme.id)}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg border transition-all h-10 bg-white border-gray-200 hover:border-gray-300"
+                        title={theme.description}
                       >
                         <div
                           className="w-6 h-6 rounded-full flex items-center justify-center"
-                          style={{ backgroundColor: iconColor.bg }}
+                          style={{ backgroundColor: themeColor.bg }}
                         >
                           <IconComponent
                             className="w-3 h-3"
-                            style={{ color: iconColor.border }}
+                            style={{ color: themeColor.border }}
                           />
                         </div>
                         <span className="font-medium text-sm text-gray-700">
-                          {tag.label}
+                          {theme.name}
                         </span>
                       </button>
-                    )}
+                    </div>
+                  );
+                })}
 
-                    {/* Mostrar ícone abaixo quando está completada */}
-                    {isCompleted && (
-                      <div className="flex flex-col items-center gap-1">
+              {/* ⭐ Mostrar ícone do tema escolhido */}
+              {selectedThemeId && (
+                <div className="flex flex-col items-center gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => {
+                      setSelectedThemeId(null);
+                      setChatMessages((prev) => [
+                        ...prev,
+                        {
+                          text: "Theme reset. Choose a new theme to continue.",
+                          isUser: false,
+                        },
+                      ]);
+                    }}
+                    className="w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-110"
+                    style={{
+                      backgroundColor: getThemeColor(selectedThemeId).bg,
+                    }}
+                    title={`Selected: ${currentTheme?.name}`}
+                  >
+                    {(() => {
+                      const IconComponent = getIconComponent(
+                        currentTheme?.icon || "Briefcase"
+                      );
+                      const themeColor = getThemeColor(selectedThemeId);
+                      return (
+                        <IconComponent
+                          className="w-5 h-5"
+                          style={{ color: themeColor.border }}
+                        />
+                      );
+                    })()}
+                  </button>
+                </div>
+              )}
+
+              {/* ⭐ Mostrar tags do tema (só aparecem após escolher tema) */}
+              {selectedThemeId &&
+                themeTags.map((tag) => {
+                  const IconComponent = getIconComponent(tag.icon);
+                  const iconColor = getIconColor(tag.id);
+                  const isCompleted = completedTags.includes(tag.id);
+                  const hasValue = inputs[tag.id]?.trim().length > 0;
+
+                  return (
+                    <div
+                      key={tag.id}
+                      className="flex flex-col items-center gap-2 flex-shrink-0"
+                    >
+                      {/* Mostrar só se NÃO está completada */}
+                      {!isCompleted && (
                         <button
-                          onClick={() => {
-                            // Resetar este input específico
-                            setInputs((prev) => ({ ...prev, [tag.id]: "" }));
-                            setInputStates((prev) => ({
-                              ...prev,
-                              [tag.id]: {
-                                focused: false,
-                                hasContent: false,
-                                isValid: false,
-                              },
-                            }));
-                            setCompletedTags((prev) =>
-                              prev.filter((t) => t !== tag.id)
-                            );
-                            setChatInputValue("");
-                          }}
-                          className="w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-110"
-                          style={{ backgroundColor: iconColor.bg }}
-                          title={`Reset ${tag.label}`}
+                          onClick={() => handleTagSelect(tag.id)}
+                          className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all h-10 ${
+                            selectedTag === tag.id
+                              ? "bg-gray-100 border-gray-300"
+                              : "bg-white border-gray-200 hover:border-gray-300"
+                          }`}
+                          title={tag.tooltip}
                         >
-                          <IconComponent
-                            className="w-5 h-5"
-                            style={{ color: iconColor.border }}
-                          />
+                          <div
+                            className="w-6 h-6 rounded-full flex items-center justify-center"
+                            style={{ backgroundColor: iconColor.bg }}
+                          >
+                            <IconComponent
+                              className="w-3 h-3"
+                              style={{ color: iconColor.border }}
+                            />
+                          </div>
+                          <span className="font-medium text-sm text-gray-700">
+                            {tag.label}
+                          </span>
                         </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                      )}
+
+                      {/* Mostrar ícone abaixo quando está completada */}
+                      {isCompleted && (
+                        <div className="flex flex-col items-center gap-1">
+                          <button
+                            onClick={() => {
+                              setInputs((prev) => ({ ...prev, [tag.id]: "" }));
+                              setInputStates((prev) => ({
+                                ...prev,
+                                [tag.id]: {
+                                  focused: false,
+                                  hasContent: false,
+                                  isValid: false,
+                                },
+                              }));
+                              setCompletedTags((prev) =>
+                                prev.filter((t) => t !== tag.id)
+                              );
+                              setChatInputValue("");
+                            }}
+                            className="w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-110"
+                            style={{ backgroundColor: iconColor.bg }}
+                            title={`Reset ${tag.label}`}
+                          >
+                            <IconComponent
+                              className="w-5 h-5"
+                              style={{ color: iconColor.border }}
+                            />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
             </div>
 
             {canScrollRight && (
@@ -564,11 +651,13 @@ export default function DynamicHeroSection({
                   }
                 }}
                 placeholder={
-                  selectedTag
+                  !selectedThemeId
+                    ? "Choose a theme above to get started..."
+                    : selectedTag
                     ? currentTag?.placeholder
                     : "Choose a tag above to get started..."
                 }
-                disabled={!selectedTag || creating}
+                disabled={!selectedThemeId || !selectedTag || creating}
                 className="w-full px-6 py-4 pr-20 text-lg border border-gray-200 rounded-full outline-none transition-all focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
               />
 
@@ -598,7 +687,7 @@ export default function DynamicHeroSection({
             )}
 
             {/* Botão Reset */}
-            <div className="mt-2 flex justify-end">
+            <div className="mt-2 flex justify-center">
               <button
                 onClick={async () => {
                   if (!confirm("Reset all data?")) return;
