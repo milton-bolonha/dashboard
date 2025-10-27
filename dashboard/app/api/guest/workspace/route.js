@@ -291,30 +291,39 @@ export async function POST(req) {
             selectedTheme.tileTemplates.length
           );
 
-          // TODO: Implementar geração de tiles baseada no tema
-          // Por enquanto, pular geração automática para temas que não sejam Sales
-          if (selectedTheme.id === "sales-assistant") {
-            // Importar gerador apenas para Sales (backward compatibility)
-            const { generateTilesForCompany } = await import(
-              "@/lib/guest-tile-pipeline"
-            );
-            const { getGuestTemplate } = await import("@/lib/guest-templates");
+          // ⭐ NOVO: Usar gerador genérico de tiles do tema
+          const { generateTilesFromThemeTemplates } = await import(
+            "@/lib/theme-tile-generator"
+          );
 
-            const templateId = value.template_id || "template_1";
-            const template = getGuestTemplate(templateId);
+          // Gerar tiles baseados nos templates do tema
+          const generatedTiles = await generateTilesFromThemeTemplates(
+            selectedTheme,
+            dynamicData,
+            guestId
+          );
 
-            await generateTilesForCompany(
-              guestId,
-              primaryEntityName,
-              company.website,
-              template
+          // Adicionar tiles gerados ao workspace
+          if (generatedTiles.length > 0) {
+            await db.updateOne(
+              "guest_workspaces",
+              { guest_id: guestId },
+              {
+                $push: {
+                  "workspace_data.tiles": { $each: generatedTiles },
+                },
+                $inc: {
+                  "usage.total_tiles_generated": generatedTiles.length,
+                },
+                $set: {
+                  "workspace_data.companies.0.tiles": generatedTiles,
+                  "workspace_data.companies.0.tiles_status": "completed",
+                },
+              }
             );
-          } else {
+
             console.log(
-              `⏭️ Geração automática de tiles desabilitada para tema ${selectedTheme.name}`
-            );
-            console.log(
-              `💡 Implementar geração baseada em tileTemplates do tema`
+              `✅ ${generatedTiles.length} tiles adicionados ao workspace`
             );
           }
         }

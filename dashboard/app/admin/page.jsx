@@ -42,6 +42,8 @@ export default function AdminDashboard() {
   const [workspace, setWorkspace] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // ⭐ NOVO: Estado para o tema do workspace
+  const [workspaceTheme, setWorkspaceTheme] = useState(null);
   const [generatingTiles, setGeneratingTiles] = useState(false);
   const [showLoadingModal, setShowLoadingModal] = useState(false);
   const [pollingInterval, setPollingInterval] = useState(null);
@@ -463,6 +465,12 @@ export default function AdminDashboard() {
       const data = await response.json();
       console.log("✅ Workspace carregado:", data);
 
+      // ⭐ NOVO: Carregar tema do workspace
+      if (data.workspace?.themeSnapshot) {
+        setWorkspaceTheme(data.workspace.themeSnapshot);
+        console.log("🎨 Tema carregado:", data.workspace.themeSnapshot.name);
+      }
+
       // Carregar background customizado se existir
       if (data.workspace?.dashboardBackground) {
         setDashboardBackground(data.workspace.dashboardBackground);
@@ -723,6 +731,7 @@ export default function AdminDashboard() {
             onCompanyClick={handleCompanyClick}
             onContactClick={handleContactClick}
             backgroundColor={dashboardBackground}
+            theme={workspaceTheme}
           />
         }
         header={
