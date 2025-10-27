@@ -22,51 +22,62 @@ export async function createDynamicWorkspace(theme, context) {
   );
 
   // Mapear dados do form (context) para entidades
+  // Agrupar por entidade primeiro para criar uma só entidade com todos os campos
+  const entityData = {};
+
   for (const tag of theme.landingTags) {
     if (!context[tag.id]) continue;
+    if (!tag.mapToEntity) continue;
+
+    const entityId = tag.mapToEntity.replace("s", ""); // "books" -> "book"
+    const entityKey = `${entityId}s`; // "books"
+
+    if (!entityData[entityKey]) {
+      entityData[entityKey] = {};
+    }
 
     console.log(
-      `🏷️ Processando tag ${tag.id} -> ${tag.mapToEntity}.${tag.mapToField}`
+      `🏷️ Processando tag ${tag.id} -> ${tag.mapToEntity}.${tag.mapToField} = ${
+        context[tag.id]
+      }`
     );
 
-    const entityKey = tag.mapToEntity.endsWith("s")
-      ? tag.mapToEntity
-      : `${tag.mapToEntity}s`;
+    entityData[entityKey][tag.mapToField] = context[tag.id];
+  }
 
-    console.log(`📦 EntityKey gerado: ${entityKey} (de ${tag.mapToEntity})`);
+  // Agora criar as entidades com todos os campos
+  for (const [entityKey, fields] of Object.entries(entityData)) {
+    const entityId = entityKey.replace("s", "");
+
+    // Buscar definição da entidade no tema
+    const entityDef = theme.entities.find((e) => e.id === entityId);
 
     if (!dynamicData[entityKey]) {
-      console.log(`➕ Criando nova entrada para ${entityKey}`);
       dynamicData[entityKey] = [];
     }
 
-    // Criar primeira entidade com dados do form
-    if (dynamicData[entityKey].length === 0) {
-      console.log(
-        `📝 Criando entidade ${entityKey} com campo ${tag.mapToField} = ${
-          context[tag.id]
-        }`
-      );
-      const entity = {
-        [tag.mapToField]: context[tag.id],
-        createdAt: new Date().toISOString(),
-      };
+    console.log(
+      `📝 Criando entidade ${entityKey} com campos:`,
+      Object.keys(fields)
+    );
 
-      // Adicionar campos padrão da entidade
-      const entityDef = theme.entities.find(
-        (e) => e.id === tag.mapToEntity.replace("s", "")
-      );
-      if (entityDef) {
-        for (const field of entityDef.fields) {
-          if (!entity[field.id]) {
-            entity[field.id] =
-              field.type === "date" ? new Date().toISOString() : "";
-          }
+    const entity = {
+      id: `${entityId}_${Date.now()}`,
+      ...fields,
+      createdAt: new Date().toISOString(),
+    };
+
+    // Adicionar campos padrão da entidade que não foram preenchidos
+    if (entityDef) {
+      for (const field of entityDef.fields) {
+        if (!entity[field.id]) {
+          entity[field.id] =
+            field.type === "date" ? new Date().toISOString() : "";
         }
       }
-
-      dynamicData[entityKey].push(entity);
     }
+
+    dynamicData[entityKey].push(entity);
   }
 
   console.log(

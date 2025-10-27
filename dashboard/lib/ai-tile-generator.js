@@ -6,6 +6,7 @@
  */
 
 import OpenAI from "openai";
+import sanitizeHtml from "sanitize-html";
 import { processPromptVariables } from "./guest-templates";
 
 // Inicializar OpenAI client
@@ -128,15 +129,79 @@ export async function regenerateTile(tileId, tilePrompt, context) {
   return await generateTileContent(tilePrompt, context);
 }
 
+/**
+ * Builds a theme-specific system prompt for OpenAI
+ * @param {object} themeContext - Context about the theme and entity
+ * @returns {string} - System prompt
+ */
+function buildSystemPrompt(themeContext) {
+  if (!themeContext) {
+    // Fallback para Sales (compatibilidade)
+    return `You are an expert sales research assistant helping sales professionals. Provide detailed, actionable insights focused on sales opportunities.`;
+  }
+
+  switch (themeContext.themeId) {
+    case "sales-assistant":
+      return `You are an expert sales research assistant helping sales professionals.
+
+Context about the sales rep:
+- Works at: ${themeContext.primaryEntity?.company || "A sales organization"}
+- Sells: ${themeContext.primaryEntity?.solution || "Solutions"}
+
+Provide detailed, actionable insights focused on sales opportunities.
+Format your answers in clear, well-structured markdown.
+Be specific and data-driven when possible.`;
+
+    case "book-creator":
+      return `You are a creative writing AI assistant specialized in book creation and storytelling.
+
+You help authors create compelling narratives, develop characters, and craft engaging plots.
+
+Focus on:
+- Creative storytelling elements
+- Character development and motivation
+- Plot structure and narrative flow
+- Engaging and immersive writing
+
+Format your answers in clear, well-structured markdown.`;
+
+    case "construction-manager":
+      return `You are a construction management AI assistant helping project managers and site supervisors.
+
+You provide insights on:
+- Equipment management and maintenance
+- Worker coordination and safety
+- Project timeline and logistics
+- Documentation and reporting
+
+Format your answers in clear, well-structured markdown.`;
+
+    default:
+      return `You are a helpful AI assistant for ${
+        themeContext.themeName || "workspace management"
+      }.
+
+Provide detailed, actionable information that is relevant to the user's context.
+Format your answers in clear, well-structured markdown.`;
+  }
+}
+
 // This function now returns both the full answer and a summary.
-export async function generateTileWithOpenAI(prompt, companyName, companyUrl) {
+export async function generateTileWithOpenAI(
+  prompt,
+  companyName,
+  companyUrl,
+  themeContext = null
+) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error("Missing OpenAI API key");
   }
 
   const fullPrompt = `
-    Based on the company ${companyName} (website: ${companyUrl}), answer the following question:
+    Based on ${companyName}${
+    companyUrl ? ` (website: ${companyUrl})` : ""
+  }, answer the following question:
     "${prompt}"
 
     After providing a detailed answer, please provide a concise, one-sentence summary of your answer.
@@ -144,21 +209,15 @@ export async function generateTileWithOpenAI(prompt, companyName, companyUrl) {
   `;
 
   try {
+    // Build theme-specific system prompt
+    const systemPrompt = buildSystemPrompt(themeContext);
+
     const completion = await openai.chat.completions.create({
       model: "gpt-4-turbo-preview",
       messages: [
         {
           role: "system",
-          content: `You are an expert sales research assistant helping sales professionals.
-
-Context about the sales rep:
-- Works at: Instituto Organizacionista
-- Sells: Mentoria
-- Researching: ${companyName}
-
-Provide detailed, actionable insights focused on sales opportunities.
-Format your answers in clear, well-structured markdown.
-Be specific and data-driven when possible.`,
+          content: systemPrompt,
         },
         {
           role: "user",
@@ -173,16 +232,40 @@ Be specific and data-driven when possible.`,
 
     // Parse the response to separate the main content from the summary
     const [content, summaryPart] = responseContent.split("SUMMARY:");
-    const summary = summaryPart
+    const rawSummary = summaryPart
       ? summaryPart.trim()
       : content.substring(0, 150) + "..."; // Fallback summary
 
+    // Sanitizar respostas para garantir markdown válido
+    const sanitizedAnswer = sanitizeHtml(content.trim(), {
+      allowedTags: sanitizeHtml.defaults.allowedTags.concat([
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "pre",
+        "code",
+      ]),
+      allowedAttributes: {
+        ...sanitizeHtml.defaults.allowedAttributes,
+        code: ["class"],
+        pre: ["class"],
+      },
+    });
+
+    const sanitizedExcerpt = sanitizeHtml(rawSummary, {
+      allowedTags: [], // Apenas texto
+      allowedAttributes: {},
+    });
+
     console.log("✅ Tile gerado com sucesso!");
-    console.log("📝 Summary:", summary.substring(0, 100));
+    console.log("📝 Summary:", sanitizedExcerpt.substring(0, 100));
 
     return {
-      answer: content.trim(),
-      excerpt: summary,
+      answer: sanitizedAnswer.trim(),
+      excerpt: sanitizedExcerpt.trim(),
     };
   } catch (error) {
     console.error("❌ Erro ao gerar tile com OpenAI:", error);

@@ -222,7 +222,6 @@ export default function DynamicHeroSection({
       targetWebsite: { border: "#EF4444", bg: "#FEE2E2" },
       bookTitle: { border: "#8B5CF6", bg: "#F5F3FF" },
       genre: { border: "#EC4899", bg: "#FCE7F3" },
-      couple: { border: "#10B981", bg: "#D1FAE5" },
       theme: { border: "#F59E0B", bg: "#FEF3C7" },
       projectName: { border: "#F59E0B", bg: "#FEF3C7" },
       role: { border: "#10B981", bg: "#D1FAE5" },
@@ -351,8 +350,11 @@ export default function DynamicHeroSection({
 
   if (themeLoading || !themes || themes.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ backgroundColor: "#fcfcf9" }}
+      >
+        <Loader2 className="w-8 h-8 animate-spin text-gray-600" />
       </div>
     );
   }
@@ -362,7 +364,10 @@ export default function DynamicHeroSection({
   const currentTag = tags.find((t) => t.id === selectedTag);
 
   return (
-    <div className="h-screen flex flex-col ">
+    <div
+      className="h-screen flex flex-col "
+      style={{ backgroundColor: "#fcfcf9" }}
+    >
       {/* Chat Container - Scrollável */}
       <div
         ref={chatContainerRef}

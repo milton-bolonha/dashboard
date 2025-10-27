@@ -99,13 +99,81 @@ export async function GET(req) {
 
     console.log("✅ Workspace encontrado");
 
+    // Incluir themeSnapshot e dynamicData se existirem
+    const response = {
+      ...guestWorkspace.workspace_data,
+      limits: guestWorkspace.limits,
+      usage: guestWorkspace.usage,
+    };
+
+    // Adicionar themeSnapshot se existir
+    if (guestWorkspace.themeSnapshot) {
+      response.themeSnapshot = guestWorkspace.themeSnapshot;
+    }
+
+    // ⭐ CRÍTICO: Mesclar dynamicData E workspace_data das entidades
+    // Isso permite que o frontend acesse as entidades do tema (books, projects, etc.)
+    if (guestWorkspace.dynamicData) {
+      console.log(
+        "🔍 DynamicData do banco:",
+        JSON.stringify(guestWorkspace.dynamicData, null, 2)
+      );
+
+      // Mesclar cada entidade do dynamicData no response
+      for (const [entityKey, entities] of Object.entries(
+        guestWorkspace.dynamicData
+      )) {
+        if (Array.isArray(entities) && entities.length > 0) {
+          // ⭐ CRÍTICO: Buscar entities do workspace_data também, com tiles
+          let workspaceEntities = response[entityKey] || entities;
+
+          console.log(
+            `🔍 Buscando ${entityKey} em workspace_data:`,
+            workspaceEntities
+          );
+
+          // ⭐ CRÍTICO: Converter objeto numerado para array se necessário
+          if (
+            !Array.isArray(workspaceEntities) &&
+            typeof workspaceEntities === "object"
+          ) {
+            workspaceEntities = Object.values(workspaceEntities);
+            console.log(`🔄 Convertido para array:`, workspaceEntities);
+          }
+
+          // Mesclar tiles e outros dados de workspace_data
+          if (workspaceEntities && Array.isArray(workspaceEntities)) {
+            // Mesclar entities do dynamicData com dados atualizados do workspace_data
+            const mergedEntities = workspaceEntities.map((wsEntity, index) => {
+              const dynamicEntity = entities[index] || {};
+              return {
+                ...dynamicEntity,
+                ...wsEntity, // workspace_data sobrescreve dynamicData
+                // ⭐ CRÍTICO: Garantir tiles são incluídos
+                tiles: wsEntity.tiles || dynamicEntity.tiles || [],
+                tiles_status: wsEntity.tiles_status || dynamicEntity.tiles_status,
+              };
+            });
+
+            response[entityKey] = mergedEntities;
+            console.log(
+              `✅ Entidade ${entityKey} mesclada no response com ${mergedEntities.length} items`
+            );
+            console.log(
+              `🔍 Primeira entidade mesclada:`,
+              JSON.stringify(mergedEntities[0], null, 2)
+            );
+          }
+        }
+      }
+      response.dynamicData = guestWorkspace.dynamicData;
+    }
+
+    console.log("📤 Response final keys:", Object.keys(response));
+
     return NextResponse.json({
       success: true,
-      workspace: {
-        ...guestWorkspace.workspace_data,
-        limits: guestWorkspace.limits,
-        usage: guestWorkspace.usage,
-      },
+      workspace: response,
       message: "Workspace retrieved successfully",
     });
   } catch (error) {
@@ -305,25 +373,28 @@ export async function POST(req) {
 
           // Adicionar tiles gerados ao workspace
           if (generatedTiles.length > 0) {
+            // Identificar entidade principal do tema para salvar tiles corretamente
+            const primaryEntity = selectedTheme.entities.find(
+              (e) => e.isPrimary
+            );
+            const entityKey = `${primaryEntity.id}s`; // companies, books, projects
+
             await db.updateOne(
               "guest_workspaces",
               { guest_id: guestId },
               {
-                $push: {
-                  "workspace_data.tiles": { $each: generatedTiles },
+                $set: {
+                  [`workspace_data.${entityKey}.0.tiles`]: generatedTiles,
+                  [`workspace_data.${entityKey}.0.tiles_status`]: "completed",
                 },
                 $inc: {
                   "usage.total_tiles_generated": generatedTiles.length,
-                },
-                $set: {
-                  "workspace_data.companies.0.tiles": generatedTiles,
-                  "workspace_data.companies.0.tiles_status": "completed",
                 },
               }
             );
 
             console.log(
-              `✅ ${generatedTiles.length} tiles adicionados ao workspace`
+              `✅ ${generatedTiles.length} tiles adicionados ao workspace em ${entityKey}[0]`
             );
           }
         }

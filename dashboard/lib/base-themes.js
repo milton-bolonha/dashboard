@@ -43,7 +43,8 @@ export const BASE_THEMES = {
       {
         id: "company_description",
         title: "What They Do",
-        prompt: "Succinctly describe what {company.name} does. Provide a clear, concise overview of their business, products, and services.",
+        prompt:
+          "Succinctly describe what {company.name} does. Provide a clear, concise overview of their business, products, and services.",
         category: "basic",
         order: 1,
         defaultSize: { w: 4, h: 2 },
@@ -51,7 +52,8 @@ export const BASE_THEMES = {
       {
         id: "revenue_model",
         title: "Revenue Generation",
-        prompt: "How does {company.name} generate revenue? Explain their business model, revenue streams, and monetization strategies.",
+        prompt:
+          "How does {company.name} generate revenue? Explain their business model, revenue streams, and monetization strategies.",
         category: "financial",
         order: 2,
         defaultSize: { w: 4, h: 2 },
@@ -59,7 +61,8 @@ export const BASE_THEMES = {
       {
         id: "ceo_email",
         title: "CEO Sales Email",
-        prompt: "Based on what we know about {company.name}, write a sales email to their CEO pitching our solution. Needs to make reference to their business goals. Must include bullet points. Maximum 120 words.",
+        prompt:
+          "Based on what we know about {company.name}, write a sales email to their CEO pitching our solution. Needs to make reference to their business goals. Must include bullet points. Maximum 120 words.",
         category: "sales",
         order: 3,
         defaultSize: { w: 4, h: 2 },
@@ -119,7 +122,7 @@ export const BASE_THEMES = {
     isDefault: true,
     isActive: true,
   },
-  
+
   bookCreator: {
     id: "book-creator",
     name: "Book Creator",
@@ -176,17 +179,19 @@ export const BASE_THEMES = {
     ],
     tileTemplates: [
       {
-        id: "chapter_generator",
-        title: "Generate Chapter",
-        prompt: "Write chapter {chapter.number} for {book.title} about {chapter.summary}. Use the hero's journey structure and develop the main characters.",
+        id: "first_chapter",
+        title: "First Chapter Outline",
+        prompt:
+          "Create an engaging outline for the first chapter of {book.title}, a {book.genre} book. Focus on hooking the reader, introducing the main characters, and setting up the central conflict. Use the hero's journey structure.",
         category: "content",
         order: 1,
         defaultSize: { w: 4, h: 2 },
       },
       {
-        id: "character_development",
-        title: "Character Development",
-        prompt: "Develop character {character.name} in {book.title}. Create a compelling backstory, motivations, and character arc for this {character.role}.",
+        id: "main_character",
+        title: "Main Character Profile",
+        prompt:
+          "Develop the main protagonist for {book.title}. Create a compelling character profile including their background, motivations, goals, and internal conflicts. Make them relatable and dynamic.",
         category: "character",
         order: 2,
         defaultSize: { w: 4, h: 2 },
@@ -194,7 +199,8 @@ export const BASE_THEMES = {
       {
         id: "plot_synopsis",
         title: "Plot Synopsis",
-        prompt: "Write a detailed plot synopsis for {book.title} including the main conflict, rising action, climax, and resolution.",
+        prompt:
+          "Write a detailed plot synopsis for {book.title}, a {book.genre} book. Include the main conflict, rising action, climax, and resolution. Make it engaging and compelling.",
         category: "structure",
         order: 3,
         defaultSize: { w: 4, h: 2 },
@@ -224,24 +230,13 @@ export const BASE_THEMES = {
         mapToField: "genre",
       },
       {
-        id: "couple",
-        label: "Main Characters",
-        icon: "Users",
-        placeholder: "The main couple or protagonists",
-        tooltip: "Who are the main characters?",
-        type: "text",
-        order: 3,
-        mapToEntity: "character",
-        mapToField: "name",
-      },
-      {
         id: "theme",
         label: "Theme/Concept",
         icon: "Lightbulb",
         placeholder: "The central theme or concept",
         tooltip: "What is the main theme of your book?",
         type: "text",
-        order: 4,
+        order: 3,
         mapToEntity: "book",
         mapToField: "synopsis",
       },
@@ -254,7 +249,7 @@ export const BASE_THEMES = {
     isDefault: false,
     isActive: true,
   },
-  
+
   construction: {
     id: "construction-manager",
     name: "Construction Manager",
@@ -328,7 +323,8 @@ export const BASE_THEMES = {
       {
         id: "equipment_report",
         title: "Equipment Usage Report",
-        prompt: "Generate a comprehensive report for {equipment.name} usage on {project.name}. Include status, hours of operation, maintenance needs, and any safety concerns.",
+        prompt:
+          "Generate a comprehensive report for {equipment.name} usage on {project.name}. Include status, hours of operation, maintenance needs, and any safety concerns.",
         category: "report",
         order: 1,
         defaultSize: { w: 4, h: 2 },
@@ -336,7 +332,8 @@ export const BASE_THEMES = {
       {
         id: "before_after_analysis",
         title: "Before/After Analysis",
-        prompt: "Analyze the before and after photos from {worklog.date} for {project.name}. Describe the work completed, equipment used ({worklog.equipmentUsed}), and any issues or improvements observed.",
+        prompt:
+          "Analyze the before and after photos from {worklog.date} for {project.name}. Describe the work completed, equipment used ({worklog.equipmentUsed}), and any issues or improvements observed.",
         category: "analysis",
         order: 2,
         defaultSize: { w: 4, h: 2 },
@@ -344,7 +341,8 @@ export const BASE_THEMES = {
       {
         id: "daily_work_summary",
         title: "Daily Work Summary",
-        prompt: "Create a daily work summary for {project.name} on {worklog.date}. Include work completed, equipment and crew involved ({worklog.notes}), safety observations, and progress toward project milestones.",
+        prompt:
+          "Create a daily work summary for {project.name} on {worklog.date}. Include work completed, equipment and crew involved ({worklog.notes}), safety observations, and progress toward project milestones.",
         category: "report",
         order: 3,
         defaultSize: { w: 4, h: 2 },
@@ -408,8 +406,8 @@ export const BASE_THEMES = {
 
 // Função para seed de temas no MongoDB
 export async function seedBaseThemes(dbClient) {
-  console.log('🌱 Seeding base themes...');
-  
+  console.log("🌱 Seeding base themes...");
+
   for (const theme of Object.values(BASE_THEMES)) {
     try {
       await dbClient.updateOne(
@@ -423,6 +421,6 @@ export async function seedBaseThemes(dbClient) {
       console.error(`❌ Error seeding theme ${theme.id}:`, error);
     }
   }
-  
-  console.log('✅ All themes seeded successfully!');
+
+  console.log("✅ All themes seeded successfully!");
 }

@@ -7,6 +7,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { generateTileWithOpenAI } from "@/lib/ai-tile-generator";
+import { getPrimaryEntityData } from "@/lib/theme-tile-generator";
 import Joi from "joi";
 import sanitizeHtml from "sanitize-html";
 
@@ -57,26 +58,30 @@ export async function POST(req) {
       );
     }
 
-    // Encontrar a company
-    const companyIndex = guestWorkspace.workspace_data.companies.findIndex(
-      (c) => c.name === sanitized.companyName
+    // Buscar tema do workspace
+    const theme = guestWorkspace.themeSnapshot;
+    const primaryEntityData = getPrimaryEntityData(
+      theme,
+      guestWorkspace.dynamicData
     );
 
-    if (companyIndex === -1) {
-      return NextResponse.json(
-        { error: `Company "${sanitized.companyName}" not found` },
-        { status: 404 }
-      );
-    }
+    // Criar contexto do tema para OpenAI
+    const themeContext = {
+      themeId: theme.id,
+      themeName: theme.name,
+      primaryEntity: primaryEntityData,
+    };
 
     console.log(`🚀 Gerando tile customizado para: "${sanitized.companyName}"`);
 
-    // Gerar tile via OpenAI
-    const company = guestWorkspace.workspace_data.companies[companyIndex];
+    // Gerar tile via OpenAI com contexto do tema
     const { answer, excerpt } = await generateTileWithOpenAI(
       sanitized.prompt,
-      company.name,
-      company.url
+      primaryEntityData?.name ||
+        primaryEntityData?.title ||
+        sanitized.companyName,
+      primaryEntityData?.website || "",
+      themeContext
     );
 
     // Criar novo tile
@@ -91,15 +96,18 @@ export async function POST(req) {
       isCustom: true, // Flag para identificar tiles customizados
     };
 
-    // Salvar tile no banco
+    // Salvar tile na estrutura correta baseada no tema
+    const primaryEntity = theme.entities.find((e) => e.isPrimary);
+    const entityKey = `${primaryEntity.id}s`; // companies, books, projects
+
     await db.updateOne(
       "guest_workspaces",
       {
         guest_id: guestId,
-        "workspace_data.companies.name": sanitized.companyName,
+        [`workspace_data.${entityKey}.name`]: sanitized.companyName,
       },
       {
-        $push: { "workspace_data.companies.$.tiles": newTile },
+        $push: { [`workspace_data.${entityKey}.$.tiles`]: newTile },
       }
     );
 

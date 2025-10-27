@@ -49,7 +49,7 @@ export default function LandingPage() {
       style={{ backgroundColor: "#fcfcf9" }}
     >
       <Header isSignedIn={isSignedIn} />
-      <ThemeChooser />
+      {/* <ThemeChooser /> */}
       <main className="flex-1 pt-20">
         <DynamicHeroSection mode="landing" />
         {/* Outras seções comentadas temporariamente */}

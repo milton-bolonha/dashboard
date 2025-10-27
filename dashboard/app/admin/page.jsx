@@ -83,14 +83,38 @@ export default function AdminDashboard() {
     value: "#ffffff",
   });
 
-  // Auto-selecionar primeira company quando workspace carregar
+  // Helper para obter nome/título de uma entidade
+  const getEntityName = (entity) => {
+    return entity?.name || entity?.title || "Unknown";
+  };
+
+  // Auto-selecionar primeira entidade quando workspace carregar
   useEffect(() => {
-    if (workspace?.workspace?.companies?.length > 0 && !selectedCompany) {
-      console.log(
-        "🎯 Auto-selecionando primeira company:",
-        workspace.workspace.companies[0].name
-      );
-      setSelectedCompany(workspace.workspace.companies[0]);
+    if (!workspace?.workspace || selectedCompany) return;
+
+    // Buscar entidade principal dinamicamente
+    const theme = workspace.workspace.themeSnapshot;
+    if (theme) {
+      const primaryEntity = theme.entities.find((e) => e.isPrimary);
+      const entityKey = `${primaryEntity.id}s`; // companies, books, projects
+
+      const entities = workspace.workspace[entityKey];
+      if (entities && entities.length > 0) {
+        console.log(
+          `🎯 Auto-selecionando primeira ${primaryEntity.namePlural}:`,
+          entities[0].name || entities[0].title
+        );
+        setSelectedCompany(entities[0]);
+      }
+    } else {
+      // Fallback para companies (workspaces antigos)
+      if (workspace.workspace.companies?.length > 0) {
+        console.log(
+          "🎯 Auto-selecionando primeira company:",
+          workspace.workspace.companies[0].name
+        );
+        setSelectedCompany(workspace.workspace.companies[0]);
+      }
     }
   }, [workspace, selectedCompany]);
 
@@ -480,18 +504,43 @@ export default function AdminDashboard() {
         );
       }
 
-      // ⭐ NOVO: Detectar mudanças nos tiles da company selecionada
+      setWorkspace(data);
+      setLoading(false);
+
+      // ⭐ NOVO: Determinar entidade correta baseada no tema
+      const theme = data.workspace?.themeSnapshot;
+      let primaryEntities = [];
+      let entityKey = "companies"; // fallback
+
+      if (theme) {
+        const primaryEntity = theme.entities.find((e) => e.isPrimary);
+        entityKey = `${primaryEntity.id}s`; // companies, books, projects
+        primaryEntities = data.workspace?.[entityKey] || [];
+      } else {
+        primaryEntities = data.workspace?.companies || [];
+      }
+
+      console.log(
+        `🔍 Debug: entityKey=${entityKey}, entities count=${primaryEntities.length}`
+      );
+
+      // ⭐ NOVO: Detectar mudanças nos tiles da entity selecionada
       if (selectedCompany) {
         console.log(
-          "🔍 Verificando mudanças para company:",
-          selectedCompany.name
-        );
-        const currentCompany = data.workspace?.companies?.find(
-          (c) => c.name === selectedCompany.name
+          "🔍 Verificando mudanças para entity:",
+          getEntityName(selectedCompany)
         );
 
-        if (currentCompany) {
-          const currentTilesCount = currentCompany.tiles?.length || 0;
+        const currentEntity = primaryEntities.find(
+          (e) =>
+            e.name === selectedCompany.name ||
+            e.title === selectedCompany.name ||
+            e.title === selectedCompany.title ||
+            e.id === selectedCompany.id
+        );
+
+        if (currentEntity) {
+          const currentTilesCount = currentEntity.tiles?.length || 0;
           const previousTilesCount = selectedCompany.tiles?.length || 0;
 
           console.log(
@@ -505,7 +554,7 @@ export default function AdminDashboard() {
             console.log("✅ Novos tiles detectados, atualizando UI");
 
             // Atualizar selectedCompany com novos tiles
-            setSelectedCompany(currentCompany);
+            setSelectedCompany(currentEntity);
 
             // Parar loading do tile customizado quando novos tiles aparecem
             if (isGeneratingCustomTile) {
@@ -514,32 +563,64 @@ export default function AdminDashboard() {
             }
 
             // Se todos os tiles foram gerados, parar polling
-            if (currentCompany.tiles_status === "completed") {
+            if (currentEntity.tiles_status === "completed") {
               console.log("✅ Todos os tiles gerados, parando polling");
               setGeneratingTiles(false);
               setShowLoadingModal(false);
             }
           }
         } else {
-          console.log("❌ Company não encontrada no workspace atual");
+          console.log("❌ Entity não encontrada no workspace atual");
         }
       } else {
-        console.log("🔍 Nenhuma company selecionada");
+        console.log("🔍 Nenhuma entity selecionada");
       }
 
-      setWorkspace(data);
-      setLoading(false);
+      // ⭐ CRÍTICO: Selecionar automaticamente a primeira entidade se não há nenhuma selecionada
 
-      // ⭐ CRÍTICO: Selecionar automaticamente a primeira company se não há nenhuma selecionada
-      if (!selectedCompany && data.workspace?.companies?.length > 0) {
+      if (!selectedCompany && theme) {
+        // Usar entidade principal do tema
+        const primaryEntity = theme.entities.find((e) => e.isPrimary);
+        const entityKey = `${primaryEntity.id}s`; // companies, books, projects
+        const entities = data.workspace?.[entityKey];
+
+        if (entities && entities.length > 0) {
+          console.log(
+            `🎯 Auto-selecionando primeira ${primaryEntity.namePlural}:`,
+            entities[0].name || entities[0].title
+          );
+          setSelectedCompany(entities[0]);
+        }
+      } else if (!selectedCompany && data.workspace?.companies?.length > 0) {
+        // Fallback para companies (workspaces antigos sem tema)
         const firstCompany = data.workspace.companies[0];
         console.log(
           "🎯 Auto-selecionando primeira company:",
           firstCompany.name
         );
         setSelectedCompany(firstCompany);
-      } else if (selectedCompany) {
-        // Atualizar selectedCompany com dados mais recentes
+      } else if (selectedCompany && theme) {
+        // Atualizar selectedCompany com dados mais recentes (tema)
+        const primaryEntity = theme.entities.find((e) => e.isPrimary);
+        const entityKey = `${primaryEntity.id}s`;
+        const entities = data.workspace?.[entityKey];
+
+        if (entities && entities.length > 0) {
+          const updatedEntity = entities.find(
+            (e) =>
+              e.name === selectedCompany.name ||
+              e.title === selectedCompany.name ||
+              e.title === selectedCompany.title
+          );
+          if (updatedEntity) {
+            console.log(
+              "🔄 Atualizando selectedCompany com dados mais recentes"
+            );
+            setSelectedCompany(updatedEntity);
+          }
+        }
+      } else if (selectedCompany && data.workspace?.companies) {
+        // Fallback: atualizar selectedCompany com dados mais recentes (companies)
         const updatedCompany = data.workspace?.companies?.find(
           (c) => c.name === selectedCompany.name
         );
@@ -547,20 +628,43 @@ export default function AdminDashboard() {
           console.log("🔄 Atualizando selectedCompany com dados mais recentes");
           setSelectedCompany(updatedCompany);
         }
-      } else if (data.workspace?.companies?.length > 0) {
-        // Se não há company selecionada, selecionar a primeira
-        console.log("🎯 Auto-selecionando primeira company após atualização");
-        setSelectedCompany(data.workspace.companies[0]);
       }
 
       // Lógica para geração automática de tiles
-      const currentCompany = selectedCompany
-        ? data.workspace?.companies?.find(
-            (c) => c.name === selectedCompany.name
-          )
-        : data.workspace?.companies?.[0];
+      // ⭐ NOVO: Suporte para diferentes entidades baseado no tema
+      let currentCompany;
+      let status;
 
-      const status = currentCompany?.tiles_status;
+      if (theme) {
+        // Usar entidade principal do tema
+        const primaryEntity = theme.entities.find((e) => e.isPrimary);
+        const entityKey = `${primaryEntity.id}s`; // companies, books, projects
+        const entities = data.workspace?.[entityKey] || []; // ⭐ NOVO: Garantir que é um array
+
+        console.log(`🔍 Debug entities para ${entityKey}:`, entities);
+
+        if (selectedCompany) {
+          currentCompany = Array.isArray(entities)
+            ? entities.find(
+                (e) =>
+                  e.name === selectedCompany.name ||
+                  e.title === selectedCompany.name ||
+                  e.title === selectedCompany.title
+              )
+            : null;
+        } else {
+          currentCompany = Array.isArray(entities) ? entities[0] : null;
+        }
+        status = currentCompany?.tiles_status;
+      } else {
+        // Modo compatibilidade: usar companies (Sales Assistant)
+        currentCompany = selectedCompany
+          ? data.workspace?.companies?.find(
+              (c) => c.name === selectedCompany.name
+            )
+          : data.workspace?.companies?.[0];
+        status = currentCompany?.tiles_status;
+      }
 
       console.log("🔍 Debug geração automática:");
       console.log("- currentCompany:", currentCompany?.name);
@@ -600,7 +704,18 @@ export default function AdminDashboard() {
 
   async function generateTiles() {
     try {
-      console.log("🤖 Chamando API de geração de tiles...");
+      // ⭐ NOVO: Verificar se workspace tem themeSnapshot
+      // Se tiver, tiles já foram gerados pelo sistema de tema
+      if (workspace?.workspace?.themeSnapshot) {
+        console.log("✅ Tiles já foram gerados pelo sistema de tema");
+        setGeneratingTiles(false);
+        setShowLoadingModal(false);
+        return;
+      }
+
+      console.log(
+        "🤖 Chamando API de geração de tiles (modo compatibilidade)..."
+      );
       const response = await fetch("/api/guest/generate-tiles", {
         method: "POST",
       });
@@ -715,6 +830,10 @@ export default function AdminDashboard() {
 
   const company = workspace?.workspace?.companies?.[0];
 
+  // Debug: Log selectedCompany
+  console.log("🔍 Render - selectedCompany:", selectedCompany);
+  console.log("🔍 Render - selectedCompany.tiles:", selectedCompany?.tiles);
+
   return (
     <>
       <AppLayout
@@ -724,7 +843,13 @@ export default function AdminDashboard() {
             workspaceName={workspace?.workspace?.name}
             onAddCompany={() => setIsAddCompanyOpen(true)}
             onAddContact={() => setIsAddContactOpen(true)}
-            companies={workspace?.workspace?.companies || []}
+            companies={
+              workspaceTheme
+                ? workspace?.workspace?.[
+                    `${workspaceTheme.entities.find((e) => e.isPrimary).id}s`
+                  ] || []
+                : workspace?.workspace?.companies || []
+            }
             contacts={selectedCompany?.contacts || []}
             selectedCompany={selectedCompany}
             selectedContact={null}
@@ -738,7 +863,9 @@ export default function AdminDashboard() {
           <Header
             breadcrumb={
               selectedCompany
-                ? `${workspace?.workspace?.name} > ${selectedCompany.name}`
+                ? `${workspace?.workspace?.name} > ${getEntityName(
+                    selectedCompany
+                  )}`
                 : workspace?.workspace?.name || "Trial Workspace"
             }
             workspaceName={workspace?.workspace?.name}
@@ -781,7 +908,7 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center space-x-3">
                 <h1 className="text-2xl font-bold text-gray-900">
-                  {selectedCompany.name}
+                  {getEntityName(selectedCompany)}
                 </h1>
                 <button className="p-1 rounded hover:bg-gray-200 transition-colors">
                   <Image
@@ -804,7 +931,7 @@ export default function AdminDashboard() {
               onTileClick={(tile) =>
                 handleTileClick({
                   ...tile,
-                  company: selectedCompany.name,
+                  company: getEntityName(selectedCompany),
                 })
               }
               onAddPrompt={() => {
@@ -836,8 +963,8 @@ export default function AdminDashboard() {
         {selectedCompany && (
           <div className="mb-8">
             <NotesEditor
-              companyId={selectedCompany.name}
-              companyName={selectedCompany.name}
+              companyId={getEntityName(selectedCompany)}
+              companyName={getEntityName(selectedCompany)}
             />
           </div>
         )}
@@ -847,11 +974,11 @@ export default function AdminDashboard() {
           <div className="mb-8">
             {console.log("🔍 FilesManager props:", {
               companyId: selectedCompany.id,
-              companyName: selectedCompany.name,
+              companyName: getEntityName(selectedCompany),
             })}
             <FilesManager
               companyId={selectedCompany.id}
-              companyName={selectedCompany.name}
+              companyName={getEntityName(selectedCompany)}
             />
           </div>
         )}
@@ -874,7 +1001,9 @@ export default function AdminDashboard() {
         isOpen={isAddContactOpen}
         onClose={() => setIsAddContactOpen(false)}
         onAdd={handleAddContact}
-        companyName={selectedCompany?.name}
+        companyName={
+          selectedCompany ? getEntityName(selectedCompany) : undefined
+        }
       />
 
       <AddPromptModal

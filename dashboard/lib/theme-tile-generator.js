@@ -128,10 +128,18 @@ export async function generateTilesFromThemeTemplates(
         primaryEntityData?.name || primaryEntityData?.title || "Unknown";
       const entityWebsite = primaryEntityData?.website || "";
 
+      // Criar contexto do tema para OpenAI
+      const themeContext = {
+        themeId: theme.id,
+        themeName: theme.name,
+        primaryEntity: primaryEntityData,
+      };
+
       const tileResult = await generateTileWithOpenAI(
         processedPrompt,
         entityName,
-        entityWebsite
+        entityWebsite,
+        themeContext
       );
 
       const tile = {
@@ -139,6 +147,7 @@ export async function generateTilesFromThemeTemplates(
         title: template.title,
         content: tileResult.answer,
         excerpt: tileResult.excerpt,
+        question: template.prompt, // ⭐ NOVO: Adicionar o prompt original
         category: template.category || "general",
         order: template.order || 0,
         createdAt: new Date().toISOString(),

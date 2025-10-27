@@ -2,7 +2,7 @@ import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import Image from "next/image";
 import { Plus } from "lucide-react";
-import { CompanyList } from "@/components/ui/CompanyList";
+import { CollectionList } from "@/components/ui/CompanyList";
 import { ContactList } from "@/components/ui/ContactList";
 
 export function Sidebar({
@@ -128,13 +128,13 @@ export function Sidebar({
             </>
           )}
 
-          {/* Companies List */}
+          {/* Collections List */}
           {!isCollapsed && companies.length > 0 && (
             <div className="pt-2">
-              <CompanyList
-                companies={companies}
-                selectedCompany={selectedCompany}
-                onCompanyClick={onCompanyClick}
+              <CollectionList
+                collections={companies}
+                selectedCollection={selectedCompany}
+                onCollectionClick={onCompanyClick}
                 backgroundColor={backgroundColor}
               />
             </div>
