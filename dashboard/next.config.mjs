@@ -10,7 +10,11 @@ const nextConfig = {
       },
     ],
   },
-  webpack: (config) => {
+  // Configuração para Netlify
+  experimental: {
+    serverComponentsExternalPackages: ["mongodb"],
+  },
+  webpack: (config, { isServer }) => {
     // A biblioteca do MongoDB usa alguns módulos que não são feitos
     // para o navegador. Esta configuração diz ao Next.js para
     // fornecer versões vazias para eles no lado do cliente, evitando
@@ -24,6 +28,11 @@ const nextConfig = {
       "@mongodb-js/zstd": false,
       "supports-color": false,
     };
+
+    // Otimizações para serverless
+    if (isServer) {
+      config.optimization.minimize = false; // Desabilitar minificação para melhor debugging
+    }
 
     return config;
   },

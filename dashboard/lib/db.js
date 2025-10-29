@@ -3,37 +3,31 @@ import { MongoClient } from "mongodb";
 const uri =
   process.env.MONGODB_URI || "mongodb://localhost:27017/dashboard-engine";
 const options = {
-  serverSelectionTimeoutMS: 60000, // 60 segundos - mais tempo para conectar
-  connectTimeoutMS: 60000, // 60 segundos para conectar
-  socketTimeoutMS: 120000, // 2 minutos para operações
-  maxPoolSize: 3, // Pool menor para evitar sobrecarga
+  serverSelectionTimeoutMS: 10000, // 10 segundos - mais rápido para Netlify
+  connectTimeoutMS: 10000, // 10 segundos
+  socketTimeoutMS: 45000, // 45 segundos - dentro do limite do Netlify (50s)
+  maxPoolSize: 10, // Pool maior para serverless
   retryWrites: true,
   retryReads: true,
-  heartbeatFrequencyMS: 10000, // Heartbeat mais frequente
-  maxIdleTimeMS: 30000, // Fechar conexões idle
-  // Adicionar retry automático
-  retryReads: true,
-  retryWrites: true,
-  // Configurações de rede mais robustas
-  maxConnecting: 2, // Limitar conexões simultâneas
-  minPoolSize: 1, // Manter pelo menos 1 conexão
+  heartbeatFrequencyMS: 10000,
+  maxIdleTimeMS: 30000,
+  // Configurações de rede otimizadas para Netlify
+  maxConnecting: 2,
+  // Desabilitar minPoolSize em serverless
+  directConnection: false,
 };
 
 let client;
 let clientPromise;
 
-if (process.env.NODE_ENV === "development") {
-  // Em development, use uma variável global para preservar a conexão
-  if (!global._mongoClientPromise) {
-    client = new MongoClient(uri, options);
-    global._mongoClientPromise = client.connect();
-  }
-  clientPromise = global._mongoClientPromise;
-} else {
-  // Em production, é melhor não usar variáveis globais
+// Para Netlify Functions (AWS Lambda), usar variável global para reutilizar conexão
+// Isso é seguro porque cada container Lambda mantém o estado entre invocações
+if (!global._mongoClientPromise) {
   client = new MongoClient(uri, options);
-  clientPromise = client.connect();
+  global._mongoClientPromise = client.connect();
+  console.log("🔌 Nova conexão MongoDB criada");
 }
+clientPromise = global._mongoClientPromise;
 
 export default clientPromise;
 
