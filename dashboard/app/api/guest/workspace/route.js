@@ -9,6 +9,8 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { createDynamicWorkspace } from "@/lib/dynamic-workspace";
+import { createTileDebugLogger } from "@/lib/tile-debug-logger";
+import { buildPromptContext } from "@/lib/theme-context-mapper";
 import Joi from "joi";
 
 const workspaceCreateSchema = Joi.object({
@@ -146,14 +148,32 @@ export async function GET(req) {
             // Mesclar entities do dynamicData com dados atualizados do workspace_data
             const mergedEntities = workspaceEntities.map((wsEntity, index) => {
               const dynamicEntity = entities[index] || {};
-              return {
+              const mergedEntity = {
                 ...dynamicEntity,
                 ...wsEntity, // workspace_data sobrescreve dynamicData
-                // ⭐ CRÍTICO: Garantir tiles são incluídos
+                // ⭐ CRÍTICO: Garantir tiles e status são incluídos
                 tiles: wsEntity.tiles || dynamicEntity.tiles || [],
                 tiles_status:
-                  wsEntity.tiles_status || dynamicEntity.tiles_status,
+                  wsEntity.tiles_status ||
+                  dynamicEntity.tiles_status ||
+                  "pending",
+                tiles_to_generate:
+                  wsEntity.tiles_to_generate ||
+                  dynamicEntity.tiles_to_generate ||
+                  0,
               };
+
+              console.log(
+                `🔍 Debug merged entity para ${entityKey}[${index}]:`,
+                {
+                  hasTiles: !!mergedEntity.tiles,
+                  tilesCount: mergedEntity.tiles?.length || 0,
+                  tiles_status: mergedEntity.tiles_status,
+                  tiles_to_generate: mergedEntity.tiles_to_generate,
+                }
+              );
+
+              return mergedEntity;
             });
 
             response[entityKey] = mergedEntities;
@@ -300,18 +320,39 @@ export async function POST(req) {
       updatedAt: new Date().toISOString(),
     };
 
+    // ⭐ Adicionar primaryEntity ao themeSnapshot para uso no preload
+    const primaryEntityForSnapshot = selectedTheme?.entities?.find(
+      (e) => e.isPrimary
+    );
+    const enhancedThemeSnapshot = {
+      ...selectedTheme,
+      primaryEntity: primaryEntityForSnapshot,
+    };
+
+    // ⭐ CRÍTICO: Adicionar tiles_status para todas as entidades no dynamicData
+    const enrichedDynamicData = { ...dynamicData };
+    for (const [key, entities] of Object.entries(enrichedDynamicData)) {
+      if (Array.isArray(entities)) {
+        enrichedDynamicData[key] = entities.map((entity) => ({
+          ...entity,
+          tiles_status: entity.tiles_status || "pending",
+          tiles: entity.tiles || [],
+        }));
+      }
+    }
+
     // Criar novo workspace com estrutura híbrida (antiga + nova)
     const newWorkspace = {
       guest_id: guestId,
       // ⭐ NOVO: Campos de tema
       themeId: selectedTheme.id,
-      themeSnapshot: selectedTheme,
-      dynamicData: dynamicData,
+      themeSnapshot: enhancedThemeSnapshot,
+      dynamicData: enrichedDynamicData,
 
-      // Backward compatibility: manter estrutura antiga
+      // Backward compatibility: manter estrutura antiga + dynamic entities
       workspace_data: {
         name: primaryEntityName || "My Workspace",
-        companies: [company],
+        ...enrichedDynamicData, // ⭐ CRÍTICO: Incluir todas as entidades do tema com tiles_status
         tiles: [],
         templates: [],
         dashboardBackground: null,
@@ -349,66 +390,175 @@ export async function POST(req) {
       try {
         console.log("🚀 Disparando geração de tiles em background...");
 
-        // ⭐ USAR TILES DO TEMA EM VEZ DE TEMPLATE GENÉRICO
+        // 🎯 NOVO: Usar tileTemplates do tema ao invés de template hardcoded
+        let selectedTemplate;
+
         if (
-          selectedTheme?.tileTemplates &&
+          selectedTheme.tileTemplates &&
           selectedTheme.tileTemplates.length > 0
         ) {
-          console.log(`🎨 Usando tiles do tema: ${selectedTheme.name}`);
-          console.log(
-            `📋 Tiles disponíveis:`,
-            selectedTheme.tileTemplates.length
-          );
+          // Usar tiles do tema (dinâmico - funciona para qualquer tema)
+          console.log(`📋 Usando tileTemplates do tema ${selectedTheme.id}`);
+          selectedTemplate = {
+            id: `theme_${selectedTheme.id}`,
+            name: `${selectedTheme.name} Templates`,
+            tiles: selectedTheme.tileTemplates,
+          };
+        } else {
+          // Fallback para templates legados (Sales Assistant)
+          const { getGuestTemplate } = await import("@/lib/guest-templates");
+          const templateId = value.template_id || "template_1";
+          selectedTemplate = getGuestTemplate(templateId);
+          console.log(`📋 Usando template legado: ${selectedTemplate.name}`);
+        }
 
-          // ⭐ NOVO: Usar gerador genérico de tiles do tema
-          const { generateTilesFromThemeTemplates } = await import(
-            "@/lib/theme-tile-generator"
-          );
+        console.log(`🎯 Tiles a gerar: ${selectedTemplate.tiles.length}`);
 
-          // Gerar tiles baseados nos templates do tema
-          const generatedTiles = await generateTilesFromThemeTemplates(
-            selectedTheme,
-            dynamicData,
-            guestId
-          );
+        if (selectedTemplate && selectedTemplate.tiles.length > 0) {
+          // Buscar dados da primeira entidade
+          const primaryEntity = selectedTheme.entities.find((e) => e.isPrimary);
+          let entityKey = primaryEntity.id.endsWith("s")
+            ? primaryEntity.id
+            : `${primaryEntity.id}s`; // companies, books, projects
 
-          // Adicionar tiles gerados ao workspace
-          if (generatedTiles.length > 0) {
-            // Identificar entidade principal do tema para salvar tiles corretamente
-            const primaryEntity = selectedTheme.entities.find(
-              (e) => e.isPrimary
-            );
-            const entityKey = `${primaryEntity.id}s`; // companies, books, projects
-
-            // Mark as generating first
-            await db.updateOne(
-              "guest_workspaces",
-              { guest_id: guestId },
-              {
-                $set: {
-                  [`workspace_data.${entityKey}.0.tiles_status`]: "generating",
-                },
-              }
-            );
-
-            await db.updateOne(
-              "guest_workspaces",
-              { guest_id: guestId },
-              {
-                $set: {
-                  [`workspace_data.${entityKey}.0.tiles`]: generatedTiles,
-                  [`workspace_data.${entityKey}.0.tiles_status`]: "completed",
-                },
-                $inc: {
-                  "usage.total_tiles_generated": generatedTiles.length,
-                },
-              }
-            );
-
-            console.log(
-              `✅ ${generatedTiles.length} tiles adicionados ao workspace em ${entityKey}[0]`
-            );
+          if (entityKey === "companys") {
+            entityKey = "companies";
           }
+
+          // ⭐ FIX: Buscar em workspace_data que já foi criado, não em dynamicData
+          // Após criar o workspace, as entidades estão em workspace_data[entityKey]
+          const firstEntity =
+            dynamicData[entityKey]?.[0] ||
+            newWorkspace.workspace_data[entityKey]?.[0];
+
+          if (!firstEntity) {
+            console.warn("⚠️ Nenhuma entidade encontrada para gerar tiles");
+            console.warn("- entityKey:", entityKey);
+            console.warn("- dynamicData keys:", Object.keys(dynamicData));
+            console.warn(
+              "- workspace_data keys:",
+              Object.keys(newWorkspace.workspace_data)
+            );
+            return;
+          }
+
+          // ⭐ NOVO: Verificar se já está gerando (prevent duplicação)
+          if (
+            firstEntity.tiles_status === "generating" ||
+            firstEntity.tiles?.length > 0
+          ) {
+            console.log(
+              "⏭️ Pulando geração - tiles já sendo gerados ou já existem"
+            );
+            return;
+          }
+
+          // ⭐ CRÍTICO: Definir total esperado de tiles
+          const totalTiles = selectedTemplate.tiles.length;
+
+          console.log(`📊 Total de tiles esperados: ${totalTiles}`);
+          console.log(`📊 Entity key: ${entityKey}`);
+
+          await db.updateOne(
+            "guest_workspaces",
+            { guest_id: guestId },
+            {
+              $set: {
+                [`workspace_data.${entityKey}.0.tiles_to_generate`]: totalTiles,
+                [`workspace_data.${entityKey}.0.tiles_status`]: "generating",
+                // ⭐ NOVO: Também atualizar em dynamicData para consistência
+                [`dynamicData.${entityKey}.0.tiles_to_generate`]: totalTiles,
+                [`dynamicData.${entityKey}.0.tiles_status`]: "generating",
+              },
+            }
+          );
+
+          console.log(`🚀 Iniciando geração de ${totalTiles} tiles...`);
+
+          // Usar sistema de pipeline do guest com callback para salvar cada tile
+          const { generateAllTilesOptimized } = await import(
+            "@/lib/ai-tile-generator-optimized"
+          );
+          const { optimizeTiles } = await import("@/lib/prompt-optimizer");
+
+          // ⭐ FIX: Importar processPromptVariables do lugar correto
+          const { processPromptVariables } = await import(
+            "@/lib/guest-templates"
+          );
+
+          // 🎯 NOVO: Construir contexto dinamicamente baseado no tema
+          const promptContext = buildPromptContext(
+            selectedTheme,
+            firstEntity,
+            value.context
+          );
+
+          console.log("📊 Theme:", selectedTheme.id);
+          console.log("📊 Entity:", firstEntity);
+          console.log("📊 Original context:", value.context);
+          console.log(
+            "🎯 Contexto processado:",
+            JSON.stringify(promptContext, null, 2)
+          );
+
+          // ⭐ CORREÇÃO: Filtrar tiles que já foram gerados pelo preload
+          // Preload gera os 2 primeiros (What They Do + Revenue Generation)
+          const preloadedTileIds = ["company_description", "revenue_model"];
+
+          const tilesToGenerate = selectedTemplate.tiles.filter(
+            (tile) => !preloadedTileIds.includes(tile.id)
+          );
+
+          console.log(`📊 Total tiles: ${selectedTemplate.tiles.length}`);
+          console.log(`📊 Tiles preloaded: ${preloadedTileIds.length}`);
+          console.log(
+            `📊 Tiles a gerar em background: ${tilesToGenerate.length}`
+          );
+
+          const tiles = tilesToGenerate.map((tile) => ({
+            id: tile.id,
+            title: tile.title,
+            prompt: processPromptVariables(tile.prompt, promptContext),
+            category: tile.category,
+            order: tile.order,
+          }));
+
+          const optimizedTiles = optimizeTiles(tiles, promptContext);
+
+          // Callback para salvar cada tile gerado
+          const saveTileCallback = async (generatedTile) => {
+            // Adicionar o tile gerado ao array
+            await db.updateOne(
+              "guest_workspaces",
+              { guest_id: guestId },
+              {
+                $push: {
+                  [`workspace_data.${entityKey}.0.tiles`]: generatedTile,
+                },
+                $inc: { "usage.total_tiles_generated": 1 },
+              }
+            );
+            console.log(`✅ Tile "${generatedTile.title}" salvo no DB`);
+          };
+
+          // Gerar tiles em background com callback
+          await generateAllTilesOptimized(optimizedTiles, promptContext, {
+            onTileCompleted: saveTileCallback,
+          });
+
+          // Marcar como completed após todos os tiles serem salvos
+          await db.updateOne(
+            "guest_workspaces",
+            { guest_id: guestId },
+            {
+              $set: {
+                [`workspace_data.${entityKey}.0.tiles_status`]: "completed",
+                [`dynamicData.${entityKey}.0.tiles_status`]: "completed", // ⭐ NOVO: Atualizar também em dynamicData
+              },
+            }
+          );
+
+          console.log(`✅ Geração de tiles finalizada`);
         }
 
         console.log("✅ Geração de tiles iniciada em background");

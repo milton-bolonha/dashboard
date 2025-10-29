@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { dynamicIconMap } from "./DynamicIconMap";
+import { createTileDebugLogger } from "@/lib/tile-debug-logger";
+import AutoLoadingModal from "./AutoLoadingModal";
 
 export default function DynamicHeroSection({
   mode = "landing",
@@ -178,19 +180,18 @@ export default function DynamicHeroSection({
         },
       ]);
 
+      // ⭐ OTIMIZAÇÃO: Mostrar mensagem imediatamente
+      setIsBotTyping(true);
       setTimeout(() => {
-        setIsBotTyping(true);
-        setTimeout(() => {
-          setIsBotTyping(false);
-          setChatMessages((prev) => [
-            ...prev,
-            {
-              text: `Great! Now let's fill out the details for your ${theme.name.toLowerCase()}. Choose a field below to get started.`,
-              isUser: false,
-            },
-          ]);
-        }, 1000);
-      }, 500);
+        setIsBotTyping(false);
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            text: `Great! Now let's fill out the details for your ${theme.name.toLowerCase()}. Choose a field below to get started.`,
+            isUser: false,
+          },
+        ]);
+      }, 1000);
     }
   };
 
@@ -223,6 +224,7 @@ export default function DynamicHeroSection({
       bookTitle: { border: "#8B5CF6", bg: "#F5F3FF" },
       genre: { border: "#EC4899", bg: "#FCE7F3" },
       theme: { border: "#F59E0B", bg: "#FEF3C7" },
+      targetAudience: { border: "#10B981", bg: "#D1FAE5" },
       projectName: { border: "#F59E0B", bg: "#FEF3C7" },
       role: { border: "#10B981", bg: "#D1FAE5" },
     };
@@ -307,38 +309,200 @@ export default function DynamicHeroSection({
   };
 
   const handleSubmit = async () => {
+    // ⭐ EDGE CASE: Prevenir múltiplos submits
     if (!allInputsValid || creating) return;
 
     setCreating(true);
     setError(null);
 
+    // ⭐ DEBUG: Log do início do processo
+    const debugLogger = createTileDebugLogger("pending", selectedThemeId);
+    debugLogger.landingFormSubmit(inputs);
+
     try {
-      // Gerar guest_id ANTES de criar workspace
+      // ⭐ EDGE CASE: Validar se selectedThemeId existe
+      if (!selectedThemeId) {
+        throw new Error(
+          "Nenhum tema selecionado. Por favor, selecione um tema primeiro."
+        );
+      }
+
+      // ⭐ EDGE CASE: Validar se todos os inputs obrigatórios estão preenchidos
+      const requiredTags =
+        selectedTheme?.landingTags?.filter((tag) => tag.required) || [];
+      const missingRequired = requiredTags.filter(
+        (tag) => !inputs[tag.id]?.trim()
+      );
+
+      if (missingRequired.length > 0) {
+        throw new Error(
+          `Campos obrigatórios não preenchidos: ${missingRequired
+            .map((tag) => tag.label)
+            .join(", ")}`
+        );
+      }
+
+      // ⭐ PERFORMANCE: Gerar guest_id único com timestamp e random
       const guestId = `guest_${Date.now()}_${Math.random()
         .toString(36)
         .substr(2, 9)}`;
-      document.cookie = `guest_id=${guestId}; Path=/; Max-Age=604800`;
+
+      // ⭐ EDGE CASE: Verificar se cookies são suportados
+      try {
+        document.cookie = `guest_id=${guestId}; Path=/; Max-Age=604800; SameSite=Lax`;
+      } catch (cookieError) {
+        console.warn("⚠️ Cookie não pôde ser definido:", cookieError);
+        // Continuar mesmo sem cookie - o backend pode usar outro método
+      }
 
       if (mode === "create-workspace" && onCreateWorkspace) {
-        await onCreateWorkspace(inputs);
+        // ⭐ EDGE CASE: Timeout para callback personalizado
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(
+            () =>
+              reject(
+                new Error("Timeout: Operação demorou muito para completar")
+              ),
+            30000
+          )
+        );
+
+        await Promise.race([onCreateWorkspace(inputs), timeoutPromise]);
       } else {
-        const response = await fetch("/api/guest/workspace", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            themeId: selectedThemeId,
-            context: inputs,
-          }),
-        });
+        // ⭐ ERROR HANDLING: AbortController para cancelar requisição se necessário
+        const abortController = new AbortController();
+        const timeoutId = setTimeout(() => abortController.abort(), 30000); // 30s timeout
 
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error);
+        try {
+          const response = await fetch("/api/guest/workspace", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify({
+              themeId: selectedThemeId,
+              context: inputs,
+            }),
+            signal: abortController.signal,
+          });
 
-        window.location.href = "/admin";
+          clearTimeout(timeoutId);
+
+          // ⭐ EDGE CASE: Verificar se a resposta é JSON válido
+          let data;
+          try {
+            data = await response.json();
+          } catch (jsonError) {
+            throw new Error(
+              `Resposta inválida do servidor: ${response.status} ${response.statusText}`
+            );
+          }
+
+          if (!response.ok) {
+            // ⭐ ERROR HANDLING: Diferentes tipos de erro
+            if (response.status === 400) {
+              throw new Error(data.error || "Dados inválidos enviados");
+            } else if (response.status === 409) {
+              throw new Error("Workspace já existe. Tente novamente.");
+            } else if (response.status >= 500) {
+              throw new Error(
+                "Erro interno do servidor. Tente novamente em alguns minutos."
+              );
+            } else {
+              throw new Error(
+                data.error || `Erro ${response.status}: ${response.statusText}`
+              );
+            }
+          }
+
+          // ⭐ DEBUG: Log de sucesso
+          debugLogger.workspaceCreated(guestId);
+
+          // 🚀 PRELOAD: Disparar preload de 2 tiles rápidos (não aguarda)
+          if (selectedThemeId === "sales-assistant") {
+            console.log("🚀 PRELOAD: Disparando preload de tiles...");
+            debugLogger.landingPreloadTriggered();
+
+            // ⭐ PERFORMANCE: Preload não-bloqueante com error handling
+            fetch("/api/guest/preload-tiles", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                guestId: guestId,
+                tilesCount: 2, // Apenas os 2 primeiros tiles (rápidos)
+              }),
+            })
+              .then((response) => {
+                if (!response.ok) {
+                  console.warn("⚠️ Preload falhou:", response.status);
+                } else {
+                  console.log("✅ Preload iniciado com sucesso");
+                }
+              })
+              .catch((err) => {
+                console.warn("⚠️ Preload falhou (ok):", err.message);
+              });
+          }
+
+          // ⭐ DEBUG: Log de redirect
+          debugLogger.landingRedirect();
+
+          // ⭐ EDGE CASE: Verificar se window.location está disponível
+          if (typeof window !== "undefined" && window.location) {
+            // Redireciona imediatamente (não aguarda preload)
+            window.location.href = "/admin";
+          } else {
+            throw new Error("Redirecionamento não disponível neste ambiente");
+          }
+        } catch (fetchError) {
+          clearTimeout(timeoutId);
+
+          // ⭐ ERROR HANDLING: Diferentes tipos de erro de rede
+          if (fetchError.name === "AbortError") {
+            throw new Error("Operação cancelada por timeout. Tente novamente.");
+          } else if (
+            fetchError.name === "TypeError" &&
+            fetchError.message.includes("fetch")
+          ) {
+            throw new Error(
+              "Erro de conexão. Verifique sua internet e tente novamente."
+            );
+          } else {
+            throw fetchError;
+          }
+        }
       }
     } catch (err) {
-      console.error("Error creating workspace:", err);
-      setError(err.message || "Failed to create workspace");
+      // ⭐ ERROR HANDLING: Log detalhado do erro
+      console.error("❌ Error creating workspace:", err);
+
+      // ⭐ DEBUG: Log de erro
+      debugLogger.error("workspace_creation", err, {
+        selectedThemeId,
+        inputs: Object.keys(inputs),
+        userAgent: navigator.userAgent,
+      });
+
+      // ⭐ UX: Mensagem de erro amigável
+      let errorMessage = "Falha ao criar workspace";
+
+      if (err.message.includes("timeout")) {
+        errorMessage = "A operação demorou muito. Tente novamente.";
+      } else if (
+        err.message.includes("conexão") ||
+        err.message.includes("network")
+      ) {
+        errorMessage = "Problema de conexão. Verifique sua internet.";
+      } else if (err.message.includes("tema")) {
+        errorMessage = err.message;
+      } else if (err.message.includes("obrigatórios")) {
+        errorMessage = err.message;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+
+      setError(errorMessage);
       setCreating(false);
     }
   };
@@ -365,7 +529,7 @@ export default function DynamicHeroSection({
 
   return (
     <div
-      className="h-screen flex flex-col "
+      className="h-screen flex flex-col pt-20"
       style={{ backgroundColor: "#fcfcf9" }}
     >
       {/* Chat Container - Scrollável */}
@@ -733,6 +897,9 @@ export default function DynamicHeroSection({
           display: none;
         }
       `}</style>
+
+      {/* Modal de loading automático */}
+      <AutoLoadingModal isOpen={creating} delay={2000} />
     </div>
   );
 }

@@ -106,10 +106,8 @@ function OnboardingAutoCreate({ children }) {
       // Limpar localStorage se existir
       localStorage.removeItem("onboarding_context");
 
-      // Aguardar um pouco para o workspace ser criado
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // Recarregar página para WorkspaceContext buscar o novo workspace
+      // ⭐ OTIMIZAÇÃO: Recarregar imediatamente, workspace já foi criado
+      // O reload do WorkspaceContext vai buscar automaticamente
       window.location.reload();
     } catch (err) {
       console.error("❌ Erro ao converter guest:", err);

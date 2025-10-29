@@ -53,9 +53,54 @@ export const BASE_THEMES = {
         id: "revenue_model",
         title: "Revenue Generation",
         prompt:
-          "How does {company.name} generate revenue? Explain their business model, revenue streams, and monetization strategies.",
+          "How does {company.name} generate revenue? Explain their business model, revenue streams, and monetization strategies. IMPORTANT: Be concise. Maximum 2-3 short paragraphs.",
         category: "financial",
         order: 2,
+        defaultSize: { w: 4, h: 2 },
+      },
+      {
+        id: "international_offices",
+        title: "International Presence",
+        prompt:
+          "Do {company.name} have international offices? List their global locations, international operations, and expansion strategy.",
+        category: "market",
+        order: 3,
+        defaultSize: { w: 4, h: 2 },
+      },
+      {
+        id: "business_goals_2025",
+        title: "2025 Business Goals",
+        prompt:
+          "What are {company.name}'s business goals or priorities for 2025? Research their website ({company.website}) and provide 3 goals with sources and links to articles or quotes from the company for each goal. Articles need to be dated later than January 2025. Provide each answer in detail.",
+        category: "strategy",
+        order: 4,
+        defaultSize: { w: 4, h: 2 },
+      },
+      {
+        id: "business_challenges",
+        title: "2025 Business Challenges",
+        prompt:
+          "What are the business challenges for {company.name} this calendar year? Research their website ({company.website}) and identify key obstacles, market pressures, and operational difficulties they are facing.",
+        category: "insights",
+        order: 5,
+        defaultSize: { w: 4, h: 2 },
+      },
+      {
+        id: "solution_need",
+        title: "Solution Need",
+        prompt:
+          "Why may {company.name} be in need of {sellingSolutionsFor}? Analyze their current situation and explain how our solutions could address their specific needs and challenges.",
+        category: "sales",
+        order: 6,
+        defaultSize: { w: 4, h: 2 },
+      },
+      {
+        id: "ceo_info",
+        title: "CEO Information",
+        prompt:
+          "Who is the CEO of {company.name}? Provide their name, background, tenure, and any relevant information about their leadership style and priorities.",
+        category: "people",
+        order: 7,
         defaultSize: { w: 4, h: 2 },
       },
       {
@@ -64,7 +109,7 @@ export const BASE_THEMES = {
         prompt:
           "Based on what we know about {company.name}, write a sales email to their CEO pitching our solution. Needs to make reference to their business goals. Must include bullet points. Maximum 120 words.",
         category: "sales",
-        order: 3,
+        order: 8,
         defaultSize: { w: 4, h: 2 },
       },
     ],
@@ -99,7 +144,7 @@ export const BASE_THEMES = {
         tooltip: "Which company do you want to research?",
         type: "text",
         order: 3,
-        mapToEntity: "company",
+        mapToEntity: "companies",
         mapToField: "name",
       },
       {
@@ -110,7 +155,7 @@ export const BASE_THEMES = {
         tooltip: "Target company's website URL",
         type: "url",
         order: 4,
-        mapToEntity: "company",
+        mapToEntity: "companies",
         mapToField: "website",
       },
     ],
@@ -146,6 +191,7 @@ export const BASE_THEMES = {
           { id: "title", label: "Book Title", type: "text", required: true },
           { id: "genre", label: "Genre", type: "text" },
           { id: "synopsis", label: "Synopsis", type: "textarea" },
+          { id: "targetAudience", label: "Target Audience", type: "text" },
         ],
         children: [
           { entityId: "chapter", relationship: "one-to-many" },
@@ -179,11 +225,11 @@ export const BASE_THEMES = {
     ],
     tileTemplates: [
       {
-        id: "first_chapter",
-        title: "First Chapter Outline",
+        id: "plot_synopsis",
+        title: "Plot Synopsis",
         prompt:
-          "Create an engaging outline for the first chapter of {book.title}, a {book.genre} book. Focus on hooking the reader, introducing the main characters, and setting up the central conflict. Use the hero's journey structure.",
-        category: "content",
+          "Write a detailed plot synopsis for '{book.title}', a {book.genre} book. Include the main conflict, rising action, climax, and resolution. Make it engaging and compelling for {book.targetAudience || 'readers'}.",
+        category: "structure",
         order: 1,
         defaultSize: { w: 4, h: 2 },
       },
@@ -191,18 +237,63 @@ export const BASE_THEMES = {
         id: "main_character",
         title: "Main Character Profile",
         prompt:
-          "Develop the main protagonist for {book.title}. Create a compelling character profile including their background, motivations, goals, and internal conflicts. Make them relatable and dynamic.",
+          "Develop the main protagonist for '{book.title}'. Create a compelling character profile including their background, motivations, goals, and internal conflicts. Make them relatable and dynamic.",
         category: "character",
         order: 2,
         defaultSize: { w: 4, h: 2 },
       },
       {
-        id: "plot_synopsis",
-        title: "Plot Synopsis",
+        id: "first_chapter",
+        title: "First Chapter Outline",
         prompt:
-          "Write a detailed plot synopsis for {book.title}, a {book.genre} book. Include the main conflict, rising action, climax, and resolution. Make it engaging and compelling.",
-        category: "structure",
+          "Create an engaging outline for the first chapter of '{book.title}', a {book.genre} book. Focus on hooking the reader, introducing the main characters, and setting up the central conflict. Use the hero's journey structure.",
+        category: "content",
         order: 3,
+        defaultSize: { w: 4, h: 2 },
+      },
+      {
+        id: "world_building",
+        title: "World Building Elements",
+        prompt:
+          "Develop the world building elements for '{book.title}', a {book.genre} book. Include the setting, rules of the world, magical systems (if applicable), and key locations. Make it vivid and immersive.",
+        category: "content",
+        order: 4,
+        defaultSize: { w: 4, h: 2 },
+      },
+      {
+        id: "antagonist",
+        title: "Antagonist Profile",
+        prompt:
+          "Create a compelling antagonist for '{book.title}'. Develop their motivations, goals, and methods of opposition to the protagonist. Make them complex and believable, not just evil for evil's sake.",
+        category: "character",
+        order: 5,
+        defaultSize: { w: 4, h: 2 },
+      },
+      {
+        id: "chapter_structure",
+        title: "Three-Act Structure Outline",
+        prompt:
+          "Create a three-act structure outline for '{book.title}', a {book.genre} book. Break down the story into Act I (Setup), Act II (Confrontation), and Act III (Resolution) with key plot points and turning points.",
+        category: "structure",
+        order: 6,
+        defaultSize: { w: 4, h: 2 },
+      },
+      {
+        id: "side_characters",
+        title: "Supporting Characters",
+        prompt:
+          "Develop the key supporting characters for '{book.title}'. Create profiles for at least 3-4 important secondary characters, including their roles, relationships to the protagonist, and contributions to the plot.",
+        category: "character",
+        order: 7,
+        defaultSize: { w: 4, h: 2 },
+      },
+      {
+        id: "writing_style",
+        title: "Writing Style Guide",
+        prompt:
+          "Create a writing style guide for '{book.title}', a {book.genre} book targeted at {book.targetAudience || 'general readers'}. Include tone, pacing, voice, and key literary techniques to use throughout the book.",
+        category: "writing",
+        order: 8,
         defaultSize: { w: 4, h: 2 },
       },
     ],
@@ -215,6 +306,7 @@ export const BASE_THEMES = {
         tooltip: "Enter the title of your book",
         type: "text",
         order: 1,
+        required: true,
         mapToEntity: "book",
         mapToField: "title",
       },
@@ -226,6 +318,7 @@ export const BASE_THEMES = {
         tooltip: "What genre is your book?",
         type: "text",
         order: 2,
+        required: true,
         mapToEntity: "book",
         mapToField: "genre",
       },
@@ -237,8 +330,21 @@ export const BASE_THEMES = {
         tooltip: "What is the main theme of your book?",
         type: "text",
         order: 3,
+        required: true,
         mapToEntity: "book",
         mapToField: "synopsis",
+      },
+      {
+        id: "targetAudience",
+        label: "Target Audience",
+        icon: "Target",
+        placeholder: "Young adults, children, professionals...",
+        tooltip: "Who is your target audience?",
+        type: "text",
+        order: 4,
+        required: false,
+        mapToEntity: "book",
+        mapToField: "targetAudience",
       },
     ],
     config: {

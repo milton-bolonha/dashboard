@@ -12,7 +12,11 @@ export async function createDynamicWorkspace(theme, context) {
     primaryEntities.length > 0 ? primaryEntities : [theme.entities[0]]; // Fallback para primeira entidade
 
   for (const entity of entitiesToInitialize) {
-    const entityKey = `${entity.id}s`; // Ex: companies, books, projects
+    // Corrigir entity key para plural correto
+    let entityKey = `${entity.id}s`; // Ex: company -> companys (incorreto)
+    if (entityKey === "companys") {
+      entityKey = "companies";
+    }
     dynamicData[entityKey] = [];
   }
 
@@ -30,7 +34,12 @@ export async function createDynamicWorkspace(theme, context) {
     if (!tag.mapToEntity) continue;
 
     const entityId = tag.mapToEntity.replace("s", ""); // "books" -> "book"
-    const entityKey = `${entityId}s`; // "books"
+    let entityKey = tag.mapToEntity; // "books" (já está correto)
+
+    // ⭐ CORREÇÃO: Garantir que o entityKey seja o plural correto
+    if (entityKey === "companys") {
+      entityKey = "companies";
+    }
 
     if (!entityData[entityKey]) {
       entityData[entityKey] = {};
@@ -47,7 +56,14 @@ export async function createDynamicWorkspace(theme, context) {
 
   // Agora criar as entidades com todos os campos
   for (const [entityKey, fields] of Object.entries(entityData)) {
-    const entityId = entityKey.replace("s", "");
+    let entityId = entityKey.replace("s", "");
+
+    // Correção para companies -> company (remove último 's')
+    if (entityKey === "companies") {
+      entityId = "company";
+    } else if (entityId === "compani") {
+      entityId = "company";
+    }
 
     // Buscar definição da entidade no tema
     const entityDef = theme.entities.find((e) => e.id === entityId);
@@ -65,6 +81,10 @@ export async function createDynamicWorkspace(theme, context) {
       id: `${entityId}_${Date.now()}`,
       ...fields,
       createdAt: new Date().toISOString(),
+      // ⭐ NOVO: Campos de geração de tiles
+      tiles: [],
+      tiles_status: "pending",
+      tiles_to_generate: 0, // Será setado depois na API
     };
 
     // Adicionar campos padrão da entidade que não foram preenchidos

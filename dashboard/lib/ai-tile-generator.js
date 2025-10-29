@@ -191,81 +191,186 @@ export async function generateTileWithOpenAI(
   prompt,
   companyName,
   companyUrl,
-  themeContext = null
+  themeContext = null,
+  options = {}
 ) {
+  // ⭐ VALIDATION: Validar API key
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error("Missing OpenAI API key");
   }
 
-  const fullPrompt = `
-    Based on ${companyName}${
-    companyUrl ? ` (website: ${companyUrl})` : ""
-  }, answer the following question:
-    "${prompt}"
+  // ⭐ VALIDATION: Validar parâmetros de entrada
+  if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
+    throw new Error("Prompt inválido ou vazio");
+  }
+
+  // ⭐ OPTIONS: Processar opções com validação
+  let { maxTokens = 800, temperature = 0.7, title = "Tile" } = options;
+
+  if (maxTokens < 50 || maxTokens > 4000) {
+    console.warn(
+      `⚠️ maxTokens (${maxTokens}) fora do range recomendado (50-4000), ajustando para 800`
+    );
+    maxTokens = Math.max(50, Math.min(4000, maxTokens));
+  }
+
+  if (temperature < 0 || temperature > 2) {
+    console.warn(
+      `⚠️ temperature (${temperature}) fora do range (0-2), ajustando para 0.7`
+    );
+    temperature = Math.max(0, Math.min(2, temperature));
+  }
+
+  // ⭐ PROMPT CONSTRUCTION: Construir prompt completo com validação
+  let fullPrompt;
+  try {
+    const cleanCompanyName =
+      companyName && typeof companyName === "string" ? companyName.trim() : "";
+    const cleanCompanyUrl =
+      companyUrl && typeof companyUrl === "string" ? companyUrl.trim() : "";
+
+    fullPrompt = `Based on ${cleanCompanyName || "the provided information"}${
+      cleanCompanyUrl ? ` (website: ${cleanCompanyUrl})` : ""
+    }, answer the following question:
+    "${prompt.trim()}"
 
     After providing a detailed answer, please provide a concise, one-sentence summary of your answer.
-    The summary must be prefixed with "SUMMARY:". For example: "SUMMARY: This is the one-sentence summary."
-  `;
+    The summary must be prefixed with "SUMMARY:". For example: "SUMMARY: This is the one-sentence summary."`;
 
-  const startTime = Date.now(); // ⭐ Marcar início da geração
+    // ⭐ EDGE CASE: Verificar tamanho do prompt
+    if (fullPrompt.length > 8000) {
+      console.warn("⚠️ Prompt muito longo, truncando para 8000 caracteres");
+      fullPrompt = fullPrompt.substring(0, 8000) + "...";
+    }
+  } catch (promptError) {
+    console.error("❌ Erro ao construir prompt:", promptError);
+    throw new Error("Erro ao processar prompt");
+  }
+
+  const startTime = Date.now();
 
   try {
-    // Build theme-specific system prompt
-    const systemPrompt = buildSystemPrompt(themeContext);
+    // ⭐ SYSTEM PROMPT: Construir system prompt baseado no tema com fallback
+    let systemPrompt;
+    try {
+      systemPrompt = buildSystemPrompt(themeContext);
+    } catch (systemError) {
+      console.warn(
+        "⚠️ Erro ao construir system prompt, usando fallback:",
+        systemError.message
+      );
+      systemPrompt =
+        "Você é um assistente de IA especializado em análise e geração de conteúdo. Responda de forma clara, concisa e útil.";
+    }
 
-    const completion = await openai.chat.completions.create({
+    console.log("🤖 Enviando para OpenAI...");
+    console.log("📝 System prompt:", systemPrompt.substring(0, 100) + "...");
+    console.log("📝 User prompt:", fullPrompt.substring(0, 100) + "...");
+    console.log("⚙️ Configurações:", {
+      maxTokens,
+      temperature,
       model: "gpt-4-turbo-preview",
-      messages: [
-        {
-          role: "system",
-          content: systemPrompt,
-        },
-        {
-          role: "user",
-          content: fullPrompt,
-        },
-      ],
-      temperature: 0.7,
-      max_tokens: 800,
     });
+
+    // ⭐ OPENAI CALL: Chamada com timeout
+    const completion = await Promise.race([
+      openai.chat.completions.create({
+        model: "gpt-4-turbo-preview",
+        messages: [
+          {
+            role: "system",
+            content: systemPrompt,
+          },
+          {
+            role: "user",
+            content: fullPrompt,
+          },
+        ],
+        temperature: temperature,
+        max_tokens: maxTokens,
+      }),
+      // ⭐ TIMEOUT: 30 segundos de timeout
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("OpenAI timeout após 30s")), 30000)
+      ),
+    ]);
 
     const endTime = Date.now();
     const generationDuration = endTime - startTime;
 
-    const responseContent = completion.choices[0].message.content;
+    // ⭐ RESPONSE VALIDATION: Validar resposta da OpenAI
+    if (
+      !completion ||
+      !completion.choices ||
+      !Array.isArray(completion.choices)
+    ) {
+      throw new Error("Resposta inválida da OpenAI");
+    }
 
-    // Parse the response to separate the main content from the summary
-    const [content, summaryPart] = responseContent.split("SUMMARY:");
-    const rawSummary = summaryPart
-      ? summaryPart.trim()
-      : content.substring(0, 150) + "..."; // Fallback summary
+    const firstChoice = completion.choices[0];
+    if (!firstChoice || !firstChoice.message || !firstChoice.message.content) {
+      throw new Error("Conteúdo da resposta não encontrado");
+    }
 
-    // Sanitizar respostas para garantir markdown válido
-    const sanitizedAnswer = sanitizeHtml(content.trim(), {
-      allowedTags: sanitizeHtml.defaults.allowedTags.concat([
-        "h1",
-        "h2",
-        "h3",
-        "h4",
-        "h5",
-        "h6",
-        "pre",
-        "code",
-      ]),
-      allowedAttributes: {
-        ...sanitizeHtml.defaults.allowedAttributes,
-        code: ["class"],
-        pre: ["class"],
-      },
-    });
+    const responseContent = firstChoice.message.content;
+    if (!responseContent || typeof responseContent !== "string") {
+      throw new Error("Conteúdo da resposta inválido");
+    }
 
-    const sanitizedExcerpt = sanitizeHtml(rawSummary, {
-      allowedTags: [], // Apenas texto
-      allowedAttributes: {},
-    });
+    // ⭐ CONTENT PARSING: Separar conteúdo principal do resumo com error handling
+    let content, rawSummary;
+    try {
+      const [mainContent, summaryPart] = responseContent.split("SUMMARY:");
+      content = mainContent ? mainContent.trim() : responseContent;
+      rawSummary = summaryPart
+        ? summaryPart.trim()
+        : content.substring(0, 150) + "...";
+    } catch (parseError) {
+      console.warn(
+        "⚠️ Erro ao parsear resposta, usando conteúdo completo:",
+        parseError.message
+      );
+      content = responseContent;
+      rawSummary = responseContent.substring(0, 150) + "...";
+    }
 
-    // ⭐ Estatísticas de geração
+    // ⭐ SANITIZATION: Sanitizar respostas com error handling
+    let sanitizedAnswer, sanitizedExcerpt;
+
+    try {
+      sanitizedAnswer = sanitizeHtml(content, {
+        allowedTags: sanitizeHtml.defaults.allowedTags.concat([
+          "h1",
+          "h2",
+          "h3",
+          "h4",
+          "h5",
+          "h6",
+          "pre",
+          "code",
+        ]),
+        allowedAttributes: {
+          ...sanitizeHtml.defaults.allowedAttributes,
+          code: ["class"],
+          pre: ["class"],
+        },
+      });
+
+      sanitizedExcerpt = sanitizeHtml(rawSummary, {
+        allowedTags: [], // Apenas texto
+        allowedAttributes: {},
+      });
+    } catch (sanitizeError) {
+      console.warn(
+        "⚠️ Erro na sanitização, usando conteúdo original:",
+        sanitizeError.message
+      );
+      sanitizedAnswer = content;
+      sanitizedExcerpt = rawSummary;
+    }
+
+    // ⭐ METRICS: Coletar estatísticas de geração
     const metrics = {
       generation_duration_ms: generationDuration,
       tokens_used: completion.usage?.total_tokens || 0,
@@ -273,34 +378,97 @@ export async function generateTileWithOpenAI(
       completion_tokens: completion.usage?.completion_tokens || 0,
       model: "gpt-4-turbo-preview",
       timestamp: new Date().toISOString(),
+      // ⭐ DEBUG: Adicionar informações de debug
+      debug: {
+        promptLength: fullPrompt.length,
+        systemPromptLength: systemPrompt.length,
+        rawResponseLength: responseContent.length,
+        sanitizedAnswerLength: sanitizedAnswer.length,
+        themeContext: themeContext
+          ? {
+              themeId: themeContext.themeId,
+              themeName: themeContext.themeName,
+            }
+          : null,
+      },
     };
 
     console.log("✅ Tile gerado com sucesso!");
     console.log(`⏱️  Duração: ${generationDuration}ms`);
-    console.log(`🎯 Tokens usados: ${metrics.tokens_used}`);
+    console.log(
+      `🎯 Tokens usados: ${metrics.tokens_used} (prompt: ${metrics.prompt_tokens}, completion: ${metrics.completion_tokens})`
+    );
 
     return {
+      title: title,
       answer: sanitizedAnswer.trim(),
       excerpt: sanitizedExcerpt.trim(),
+      question: prompt,
       metrics: metrics,
     };
   } catch (error) {
-    console.error("❌ Erro ao gerar tile com OpenAI:", error);
+    const endTime = Date.now();
+    const generationDuration = endTime - startTime;
 
-    if (error.status === 429) {
-      throw new Error(
-        "Rate limit reached. Please wait a moment and try again."
-      );
+    // ⭐ ERROR CLASSIFICATION: Classificar tipos de erro
+    let errorType = "unknown";
+    let userMessage =
+      "Desculpe, não foi possível gerar uma resposta no momento. Tente novamente.";
+
+    if (error.message.includes("timeout")) {
+      errorType = "timeout";
+      userMessage = "A geração demorou muito para responder. Tente novamente.";
+    } else if (error.status === 429 || error.message.includes("rate limit")) {
+      errorType = "rate_limit";
+      userMessage =
+        "Muitas requisições simultâneas. Aguarde um momento e tente novamente.";
+    } else if (error.status === 401 || error.message.includes("API key")) {
+      errorType = "invalid_api_key";
+      userMessage = "Configuração de API inválida. Verifique as configurações.";
+    } else if (
+      error.status === 402 ||
+      error.message.includes("quota") ||
+      error.message.includes("billing")
+    ) {
+      errorType = "quota_exceeded";
+      userMessage = "Limite de uso atingido. Tente novamente mais tarde.";
+    } else if (error.status === 400 || error.message.includes("invalid")) {
+      errorType = "invalid_request";
+      userMessage =
+        "Solicitação inválida. Verifique os dados e tente novamente.";
     }
 
-    if (error.status === 401) {
-      throw new Error(
-        "API key invalid. Please check your OPENAI_API_KEY configuration."
-      );
-    }
-
-    throw new Error(
-      `Error generating content: ${error.message}. Please try regenerating this tile.`
+    console.error(`❌ Erro na geração com OpenAI (${errorType}):`, error);
+    console.error("⏱️ Duração até erro:", generationDuration + "ms");
+    console.error(
+      "📝 Prompt que causou erro:",
+      prompt.substring(0, 100) + "..."
     );
+
+    // ⭐ FALLBACK RESPONSE: Retornar resposta de fallback com contexto
+    return {
+      title: title,
+      answer: userMessage,
+      excerpt: `Erro: ${errorType}`,
+      question: prompt,
+      metrics: {
+        generation_duration_ms: generationDuration,
+        error: error.message,
+        errorType: errorType,
+        timestamp: new Date().toISOString(),
+        // ⭐ DEBUG: Adicionar contexto do erro
+        debug: {
+          promptLength: prompt?.length || 0,
+          companyName: companyName || null,
+          companyUrl: companyUrl || null,
+          themeContext: themeContext
+            ? {
+                themeId: themeContext.themeId,
+                themeName: themeContext.themeName,
+              }
+            : null,
+        },
+      },
+    };
   }
 }

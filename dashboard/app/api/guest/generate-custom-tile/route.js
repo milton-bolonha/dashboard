@@ -98,16 +98,21 @@ export async function POST(req) {
 
     // Salvar tile na estrutura correta baseada no tema
     const primaryEntity = theme.entities.find((e) => e.isPrimary);
-    const entityKey = `${primaryEntity.id}s`; // companies, books, projects
+    let entityKey = `${primaryEntity.id}s`; // companies, books, projects
+
+    // ⭐ CORREÇÃO CRÍTICA: Corrigir companys -> companies
+    if (entityKey === "companys") {
+      entityKey = "companies";
+    }
 
     await db.updateOne(
       "guest_workspaces",
       {
         guest_id: guestId,
-        [`workspace_data.${entityKey}.name`]: sanitized.companyName,
+        [`workspace_data.${entityKey}.0.name`]: sanitized.companyName,
       },
       {
-        $push: { [`workspace_data.${entityKey}.$.tiles`]: newTile },
+        $push: { [`workspace_data.${entityKey}.0.tiles`]: newTile },
       }
     );
 

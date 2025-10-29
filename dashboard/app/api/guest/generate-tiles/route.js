@@ -15,6 +15,7 @@ import { generateTileWithOpenAI } from "@/lib/ai-tile-generator";
 import { generateAllTilesOptimized } from "@/lib/ai-tile-generator-optimized";
 import { optimizeTiles } from "@/lib/prompt-optimizer";
 import { createPipelineContext } from "@/lib/ai-pipeline-logger";
+import { buildPromptContext } from "@/lib/theme-context-mapper";
 
 // Helper function to update a single tile in the nested array
 async function updateCompanyTile(guest_id, companyName, tile) {
@@ -121,25 +122,18 @@ export async function POST(req) {
       guestWorkspace.workspace_data.template_id
     );
 
-    // Gerar tiles via OpenAI usando os dados da company específica
-    const context = guestWorkspace.context || {};
-    const tileContext = {
-      company: context.company || "Unknown Company",
-      companyWebsite: context.companyWebsite || "",
-      solution: context.solution || "Unknown Solution",
-      researchTarget: company.name,
-      researchWebsite: company.website || context.researchWebsite || "",
-    };
+    // 🎯 NOVO: Construir contexto dinamicamente baseado no tema
+    const theme = guestWorkspace.themeSnapshot;
+    const tileContext = buildPromptContext(
+      theme,
+      company, // Entidade atual (company, book, project, etc.)
+      guestWorkspace.context
+    );
 
     console.log("🔍 Contexto para geração de tiles:");
-    console.log("- Empresa do vendedor:", tileContext.company);
-    console.log("- Website do vendedor:", tileContext.companyWebsite);
-    console.log("- Solução vendida:", tileContext.solution);
-    console.log("- Empresa a pesquisar:", tileContext.researchTarget);
-    console.log(
-      "- Website da empresa pesquisada:",
-      tileContext.researchWebsite
-    );
+    console.log("📊 Theme:", theme?.id);
+    console.log("📊 Entity:", company);
+    console.log("🎯 Contexto gerado:", JSON.stringify(tileContext, null, 2));
 
     // Processar prompts do template
     const prompts = template.tiles.map((tile) => ({

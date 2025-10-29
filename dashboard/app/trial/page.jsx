@@ -111,37 +111,28 @@ export default function TrialDashboard() {
     // Recarregar workspace para ter os dados atualizados
     await loadGuestWorkspace();
 
-    // Buscar a company recém-adicionada e selecioná-la
-    // Usar o workspace atualizado após loadGuestWorkspace
-    if (data.company) {
-      // Aguardar um pouco para o workspace ser atualizado
-      setTimeout(async () => {
-        // Recarregar workspace novamente para garantir dados frescos
-        await loadGuestWorkspace();
+    // ⭐ OTIMIZAÇÃO: Usar workspace já carregado, sem timeouts aninhados
+    if (data.company && workspace?.workspace) {
+      const theme = workspace.workspace.themeSnapshot;
+      let entityKey = "companies";
 
-        // Aguardar um pouco mais para o estado ser atualizado
-        setTimeout(() => {
-          // Usar o workspace mais recente do estado
-          const currentWorkspace = workspace;
-          if (currentWorkspace?.workspace?.companies) {
-            const updatedCompany = currentWorkspace.workspace.companies.find(
-              (c) => c.name === data.company.name
-            );
+      if (theme) {
+        const primaryEntity = theme.entities.find((e) => e.isPrimary);
+        entityKey = `${primaryEntity.id}s`;
+        if (entityKey === "companys") entityKey = "companies";
+      }
 
-            if (updatedCompany) {
-              console.log(
-                "🎯 Company encontrada no workspace:",
-                updatedCompany
-              );
-              setSelectedCompany(updatedCompany);
+      const entities =
+        workspace.workspace[entityKey] || workspace.workspace.companies || [];
+      const updatedCompany = entities.find(
+        (c) => c.name === data.company.name || c.title === data.company.name
+      );
 
-              // ⭐ NOVO: Tiles serão gerados automaticamente em background
-              // Não precisa de LoadingModal manual - o polling vai detectar
-              setGeneratingTiles(true); // Ativar polling para detectar tiles
-            }
-          }
-        }, 100);
-      }, 200);
+      if (updatedCompany) {
+        console.log("🎯 Company encontrada no workspace:", updatedCompany);
+        setSelectedCompany(updatedCompany);
+        setGeneratingTiles(true);
+      }
     }
   };
 

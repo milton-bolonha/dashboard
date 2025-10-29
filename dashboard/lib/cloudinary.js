@@ -49,12 +49,16 @@ export async function uploadFile(fileBuffer, fileName, folder, options = {}) {
       };
     }
 
+    // ⭐ CORREÇÃO: public_id já inclui o folder, não duplicar
+    const publicId = `${folder}/${fileName}`;
+
     const result = await cloudinary.uploader.upload(
       `data:application/octet-stream;base64,${fileBuffer.toString("base64")}`,
       {
-        public_id: `${folder}/${fileName}`,
+        public_id: publicId,
         resource_type: "auto",
-        folder: folder,
+        // ⭐ NÃO incluir 'folder' - isso duplica o path no public_id
+        // folder: folder, // ← REMOVIDO
         ...options,
       }
     );
