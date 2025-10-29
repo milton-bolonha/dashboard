@@ -386,6 +386,10 @@ export async function POST(req) {
 
     // 🚀 INICIAR GERAÇÃO DE TILES EM BACKGROUND
     // Não bloquear a resposta, gerar em background para que o redirecionamento seja instantâneo
+
+    // ⭐ Definir entityKey fora do try/catch para uso no catch
+    let entityKey = "companies"; // default
+
     (async () => {
       try {
         console.log("🚀 Disparando geração de tiles em background...");
@@ -417,7 +421,7 @@ export async function POST(req) {
         if (selectedTemplate && selectedTemplate.tiles.length > 0) {
           // Buscar dados da primeira entidade
           const primaryEntity = selectedTheme.entities.find((e) => e.isPrimary);
-          let entityKey = primaryEntity.id.endsWith("s")
+          entityKey = primaryEntity.id.endsWith("s")
             ? primaryEntity.id
             : `${primaryEntity.id}s`; // companies, books, projects
 
@@ -553,19 +557,38 @@ export async function POST(req) {
             {
               $set: {
                 [`workspace_data.${entityKey}.0.tiles_status`]: "completed",
-                [`dynamicData.${entityKey}.0.tiles_status`]: "completed", // ⭐ NOVO: Atualizar também em dynamicData
+                [`dynamicData.${entityKey}.0.tiles_status`]: "completed",
               },
             }
           );
 
           console.log(`✅ Geração de tiles finalizada`);
+        } else {
+          console.log(`⚠️ Sem tiles para gerar`);
         }
-
-        console.log("✅ Geração de tiles iniciada em background");
       } catch (e) {
         console.error("⚠️ Erro ao iniciar geração de tiles:", e);
-        // Não quebrar o fluxo, workspace já foi criado
+
+        // ⭐ CRÍTICO: Atualizar status para "partial" em caso de erro
+        // Isso evita que fique "generating" para sempre
+        try {
+          await db.updateOne(
+            "guest_workspaces",
+            { guest_id: guestId },
+            {
+              $set: {
+                [`workspace_data.${entityKey}.0.tiles_status`]: "partial",
+                [`dynamicData.${entityKey}.0.tiles_status`]: "partial",
+              },
+            }
+          );
+          console.log(`✅ Status atualizado para "partial" após erro`);
+        } catch (dbError) {
+          console.error("❌ Erro ao atualizar status:", dbError);
+        }
       }
+
+      console.log("✅ Geração de tiles iniciada em background");
     })();
 
     return NextResponse.json({
