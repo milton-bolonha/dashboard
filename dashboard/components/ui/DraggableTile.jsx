@@ -23,6 +23,7 @@ export function DraggableTile({ tile, onClick, onDelete, isDisabled = false }) {
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
+    // ⭐ CORREÇÃO: Só aplicar opacity durante drag ativo, não persistir após
     opacity: isDragging ? 0.3 : 1,
     zIndex: isDragging ? 1000 : 1,
   };

@@ -85,28 +85,8 @@ const AIMessage = ({ content }) => {
   };
 
   return (
-    <div className="group">
-      {/* Icon + Actions Row */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center space-x-2">
-          <div className="bg-blue-100 rounded-full p-2">
-            <Bot className="w-5 h-5 text-blue-600" />
-          </div>
-          <span className="text-sm font-medium text-gray-600">
-            AI Assistant
-          </span>
-        </div>
-        <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center space-x-2">
-          <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-            <Save className="w-4 h-4 text-gray-600" />
-          </button>
-          <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-            <FileText className="w-4 h-4 text-gray-600" />
-          </button>
-        </div>
-      </div>
-
-      {/* Content - Formato Blog */}
+    <div>
+      {/* Content - Formato Blog (sem header, avatar está fora) */}
       <article
         className="prose prose-gray max-w-none text-[15px] text-gray-800 leading-relaxed"
         dangerouslySetInnerHTML={{ __html: processContent(content) }}
@@ -116,158 +96,42 @@ const AIMessage = ({ content }) => {
 };
 
 const MetricsInfo = ({ metrics }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+  if (!metrics) return null;
 
-  if (!metrics || !metrics.total_duration_ms) return null;
-
-  const duration = metrics.total_duration_ms;
   const formatDuration = (ms) => {
     if (ms < 1000) return `${ms}ms`;
     return `${(ms / 1000).toFixed(1)}s`;
   };
 
-  // Identificar gargalo principal
-  let bottleneckName = "unknown";
-  let bottleneckTime = 0;
-  if (metrics.breakdown) {
-    const bottleneck = Object.entries(metrics.breakdown).sort(
-      ([, a], [, b]) => b - a
-    )[0];
-    bottleneckName = bottleneck ? bottleneck[0].replace("_ms", "") : "unknown";
-    bottleneckTime = bottleneck ? bottleneck[1] : 0;
-  }
-
-  // Mapear gargalos para labels mais claros
-  const bottleneckLabels = {
-    api_call: "OpenAI API",
-    ttft: "First token",
-    db_save: "Database save",
-    streaming: "Streaming",
-    queue_wait: "Queue wait",
+  const formatTokens = (tokens) => {
+    if (tokens < 1000) return `${tokens}`;
+    return `${(tokens / 1000).toFixed(1)}k`;
   };
 
-  const bottleneckLabel = bottleneckLabels[bottleneckName] || bottleneckName;
-
   return (
-    <div className="bg-gray-50 rounded-lg p-3 mt-4 border border-gray-200">
-      <div
-        className="flex items-center justify-between cursor-pointer"
-        onClick={() => setIsExpanded(!isExpanded)}
-      >
-        <div className="flex items-center gap-2 text-gray-600 text-sm">
-          <Info className="w-4 h-4" />
-          <span className="font-medium">Performance Details</span>
-        </div>
-        <div className="text-xs text-gray-500">
-          {formatDuration(duration)} • {bottleneckLabel} took{" "}
-          {formatDuration(bottleneckTime)}
-        </div>
-        <div className="text-gray-400">{isExpanded ? "▼" : "▶"}</div>
+    <div className="mt-4 pt-4 border-t border-gray-200">
+      <div className="flex items-center gap-2 text-gray-500 text-xs">
+        <Info className="w-3 h-3" />
+        <span className="font-medium">Estatísticas de geração:</span>
       </div>
-
-      {isExpanded && (
-        <div className="mt-3 pt-3 border-t border-gray-200">
-          <div className="grid grid-cols-2 gap-4 text-xs mb-3">
-            <div>
-              <span className="text-gray-500">Total time:</span>
-              <span className="ml-1 font-medium">
-                {formatDuration(duration)}
-              </span>
-            </div>
-            <div>
-              <span className="text-gray-500">Model:</span>
-              <span className="ml-1 font-medium">
-                {metrics.model || "gpt-4o-mini"}
-              </span>
-            </div>
-            <div>
-              <span className="text-gray-500">Slowest step:</span>
-              <span className="ml-1 font-medium">{bottleneckLabel}</span>
-            </div>
-            <div>
-              <span className="text-gray-500">Step time:</span>
-              <span className="ml-1 font-medium">
-                {formatDuration(bottleneckTime)}
-              </span>
-            </div>
+      <div className="grid grid-cols-3 gap-4 mt-2 text-xs text-gray-600">
+        <div>
+          <div className="font-medium">Duração</div>
+          <div className="text-gray-500">
+            {formatDuration(metrics.generation_duration_ms)}
           </div>
-
-          {/* Breakdown detalhado */}
-          {metrics.breakdown && (
-            <div className="mb-3">
-              <div className="text-xs text-gray-500 mb-2">Breakdown:</div>
-              <div className="space-y-1">
-                {Object.entries(metrics.breakdown).map(([key, value]) => {
-                  const label =
-                    bottleneckLabels[key.replace("_ms", "")] ||
-                    key.replace("_ms", "");
-                  const percentage = ((value / duration) * 100).toFixed(1);
-                  return (
-                    <div
-                      key={key}
-                      className="flex justify-between items-center"
-                    >
-                      <span className="text-gray-600">{label}:</span>
-                      <div className="flex items-center gap-2">
-                        <div className="w-16 bg-gray-200 rounded-full h-1.5">
-                          <div
-                            className="bg-blue-500 h-1.5 rounded-full"
-                            style={{ width: `${Math.min(percentage, 100)}%` }}
-                          />
-                        </div>
-                        <span className="text-gray-500 text-xs w-12 text-right">
-                          {formatDuration(value)} ({percentage}%)
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Pipeline metrics */}
-          {metrics.pipeline && (
-            <div className="mb-3 pt-3 border-t border-gray-200">
-              <div className="text-xs text-gray-500 mb-2">Pipeline:</div>
-              <div className="space-y-1 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Loading time:</span>
-                  <span className="text-gray-500">
-                    {formatDuration(metrics.pipeline.loading_ms || 0)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Processing:</span>
-                  <span className="text-gray-500">
-                    {formatDuration(metrics.pipeline.processing_ms || 0)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">UI update:</span>
-                  <span className="text-gray-500">
-                    {formatDuration(metrics.pipeline.ui_update_ms || 0)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Tokens info */}
-          {metrics.tokens && (
-            <div className="pt-3 border-t border-gray-200">
-              <div className="text-xs text-gray-500 mb-1">Tokens used:</div>
-              <div className="flex gap-4 text-xs">
-                <span>Prompt: {metrics.tokens.prompt || 0}</span>
-                <span>Completion: {metrics.tokens.completion || 0}</span>
-                <span className="font-medium">
-                  Total: {metrics.tokens.total || 0}
-                </span>
-              </div>
-            </div>
-          )}
         </div>
-      )}
+        <div>
+          <div className="font-medium">Tokens</div>
+          <div className="text-gray-500">
+            {formatTokens(metrics.tokens_used)}
+          </div>
+        </div>
+        <div>
+          <div className="font-medium">Modelo</div>
+          <div className="text-gray-500 truncate">{metrics.model}</div>
+        </div>
+      </div>
     </div>
   );
 };
@@ -325,15 +189,25 @@ export function DocModal({ isOpen, onClose, tile }) {
             <div className="flex-grow px-8 py-8 overflow-y-auto bg-white space-y-8">
               {/* User Question (Prompt) */}
               <div className="flex justify-end">
-                <div className="bg-gray-200 rounded-2xl px-4 py-3 max-w-lg">
+                <div className="bg-gray-200 rounded-2xl rounded-br-sm px-4 py-3 max-w-lg">
                   <p className="text-sm text-gray-800">{tile.question}</p>
                 </div>
               </div>
 
               {/* AI Response - Formato Blog */}
-              <div>
-                <AIMessage content={tile.answer} />
-                {tile.metrics && <MetricsInfo metrics={tile.metrics} />}
+              <div className="flex gap-4">
+                {/* Avatar do Bot - alinhado ao bottom */}
+                <div className="flex-shrink-0 self-end mb-1">
+                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                    <Bot className="w-4 h-4 text-blue-600" />
+                  </div>
+                </div>
+
+                {/* Bubble da resposta com canto inferior esquerdo arredondado */}
+                <div className="bg-blue-50 rounded-2xl rounded-bl-sm px-6 py-4 max-w-2xl">
+                  <AIMessage content={tile.answer} />
+                  {tile.metrics && <MetricsInfo metrics={tile.metrics} />}
+                </div>
               </div>
 
               {/* Example of user question */}

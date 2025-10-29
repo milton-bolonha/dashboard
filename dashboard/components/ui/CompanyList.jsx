@@ -1,21 +1,36 @@
 import Image from "next/image";
 
-export function CompanyList({
-  companies = [],
-  selectedCompany,
-  onCompanyClick,
+/**
+ * CollectionList - Generic component for rendering a list of collections (companies, books, projects, etc.)
+ * @param collections - Array of collections to display
+ * @param selectedCollection - Currently selected collection
+ * @param onCollectionClick - Callback when collection is clicked
+ * @param backgroundColor - Background color for the collection dot indicator
+ */
+export function CollectionList({
+  collections = [],
+  selectedCollection,
+  onCollectionClick,
   backgroundColor,
 }) {
-  if (companies.length === 0) return null;
+  if (collections.length === 0) return null;
+
+  // Helper para obter nome/título de uma collection
+  const getCollectionName = (collection) => {
+    return collection?.name || collection?.title || "Unknown";
+  };
 
   return (
     <div className="space-y-1">
-      {companies.map((company, index) => {
-        const isSelected = selectedCompany?.name === company.name;
+      {collections.map((collection, index) => {
+        const collectionName = getCollectionName(collection);
+        const isSelected =
+          getCollectionName(selectedCollection) === collectionName;
+
         return (
           <div
             key={index}
-            onClick={() => onCompanyClick && onCompanyClick(company)}
+            onClick={() => onCollectionClick && onCollectionClick(collection)}
             className={`w-full flex items-center space-x-3 transition-colors py-2 px-2 rounded-md text-sm cursor-pointer ${
               isSelected
                 ? "text-black font-medium"
@@ -27,11 +42,11 @@ export function CompanyList({
                 isSelected ? "opacity-100" : "opacity-30"
               }`}
               style={{
-                backgroundColor: backgroundColor?.value || "#10b981"
+                backgroundColor: backgroundColor?.value || "#10b981",
               }}
             ></div>
             <span className={isSelected ? "font-medium" : ""}>
-              {company.name}
+              {collectionName}
             </span>
           </div>
         );
@@ -39,3 +54,7 @@ export function CompanyList({
     </div>
   );
 }
+
+// ⭐ Backward compatibility: export as CompanyList and EntityList
+export const CompanyList = CollectionList;
+export const EntityList = CollectionList;

@@ -1,6 +1,7 @@
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import { ThemeProvider as AppThemeProvider } from "@/contexts/ThemeContext";
 import "@fontsource-variable/inter";
 
 export const metadata = {
@@ -20,7 +21,9 @@ export default function RootLayout({ children }) {
             enableSystem
             disableTransitionOnChange
           >
-            {children}
+            <AppThemeProvider>
+              {children}
+            </AppThemeProvider>
           </ThemeProvider>
         </body>
       </html>

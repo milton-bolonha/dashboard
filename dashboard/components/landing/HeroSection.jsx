@@ -4,9 +4,19 @@ import { useState, useEffect } from "react";
 import { ArrowRight, ArrowUp, Check } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import Image from "next/image";
+import AutoLoadingModal from "./AutoLoadingModal";
 
 /**
- * HeroSection compartilhado entre Landing e Create Workspace
+ * ClassicHero: Formulário tradicional com 5 inputs progressivos
+ *
+ * ⭐ ATUALIZADO: Agora usa themeId="sales-assistant" em vez de template_id
+ * Os campos são mapeados automaticamente para o tema:
+ * - company → company (salesRepAt)
+ * - companyWebsite → companyWebsite (campo extra)
+ * - solution → solution (sellingSolutionsFor)
+ * - researchTarget → target (company.name)
+ * - researchWebsite → targetWebsite (company.website)
+ *
  * @param {Object} props
  * @param {string} props.mode - "landing" ou "create-workspace"
  * @param {Function} props.onCreateWorkspace - Callback para criar workspace (modo create-workspace)
@@ -270,13 +280,23 @@ export default function HeroSection({
               JSON.stringify(contextToSave)
             );
 
+            // ⭐ ATUALIZADO: Mapear campos do HeroSection para o tema sales-assistant
+            // HeroSection fields → Theme landingTags IDs
+            // IDs esperados pelo tema: company, solution, target, targetWebsite
+            const mappedContext = {
+              company: contextToSave.company, // tag ID: company → workspace.salesRepAt
+              solution: contextToSave.solution, // tag ID: solution → workspace.sellingSolutionsFor
+              target: contextToSave.researchTarget, // tag ID: target → company.name
+              targetWebsite: contextToSave.researchWebsite, // tag ID: targetWebsite → company.website
+            };
+
             // Criar guest workspace via API
             const response = await fetch("/api/guest/workspace", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                template_id: "template_1",
-                context: contextToSave,
+                themeId: "sales-assistant", // ⭐ ATUALIZADO: Usar themeId em vez de template_id
+                context: mappedContext,
               }),
             });
 
@@ -286,7 +306,7 @@ export default function HeroSection({
               // Se já existe guest session, redirecionar direto!
               if (errorData.redirect) {
                 console.log("✅ Guest session já existe, redirecionando...");
-                window.location.href = "/trial";
+                window.location.href = "/admin";
                 return;
               }
 
@@ -298,8 +318,31 @@ export default function HeroSection({
             const data = await response.json();
             console.log("✅ Guest workspace criado!", data);
 
-            // Redirecionar para trial dashboard
-            window.location.href = "/trial";
+            // 🚀 PRELOAD: Disparar preload de 2 tiles rápidos (não aguarda)
+            console.log("🚀 PRELOAD: Disparando preload de tiles...");
+
+            fetch("/api/guest/preload-tiles", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                guestId: guestId,
+                tilesCount: 2, // Apenas os 2 primeiros tiles (rápidos)
+              }),
+            })
+              .then((response) => {
+                if (!response.ok) {
+                  console.warn("⚠️ Preload falhou:", response.status);
+                } else {
+                  console.log("✅ Preload iniciado com sucesso");
+                }
+              })
+              .catch((err) => {
+                console.warn("⚠️ Erro no preload (não bloquear):", err);
+              });
+
+            // Redirecionar para /admin
+            console.log("🔄 Redirecionando para /admin...");
+            window.location.href = "/admin";
           } catch (err) {
             console.error("❌ Erro ao criar guest workspace:", err);
             setError(err.message);
@@ -457,12 +500,11 @@ export default function HeroSection({
     const isEnabled = canEnableInput(inputName);
     const state = inputStates[inputName];
 
+    // Sempre usa estilo com placeholder na parte inferior (pt-4 pb-8)
     if (styleMode === "transparent") {
       // Estilo 2 (Transparent): Fundo fica transparente APÓS blur quando válido
       const isTransparent = state.isValid && !state.focused && !creating;
 
-      // Mantém border-radius só pro layout, mas tira borda e shadow quando transparente
-      // ⭐ NOVO: Mais padding-bottom para dar espaço ao placeholder persistente
       return `w-full px-6 pt-4 pb-8 pr-16 text-lg border rounded-xl outline-none ${
         isEnabled && !creating
           ? isTransparent
@@ -472,8 +514,8 @@ export default function HeroSection({
       }`;
     }
 
-    // Estilo 1 (default): Com borda e fundo sempre (padding normal)
-    return `w-full px-6 py-4 pr-16 text-lg border rounded-xl shadow-sm outline-none ${
+    // Default: Com borda e fundo sempre (com padding extra para placeholder)
+    return `w-full px-6 pt-4 pb-8 pr-16 text-lg border rounded-xl shadow-sm outline-none ${
       isEnabled && !creating
         ? "bg-white border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         : "bg-gray-50 border-gray-200 cursor-not-allowed text-gray-400"
@@ -525,7 +567,7 @@ export default function HeroSection({
       />
       <div className="max-w-5xl mx-auto px-2 sm:px-6 lg:px-4 text-center">
         {/* Título Principal */}
-        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-black tracking-tight mb-4 mt-60">
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-black tracking-tight mb-4 mt-30">
           Smarter Research. Faster Outreach. More Selling
         </h1>
 
@@ -565,9 +607,7 @@ export default function HeroSection({
                 <input
                   type="text"
                   name="company"
-                  placeholder={
-                    styleMode === "default" ? getPlaceholderText("company") : ""
-                  }
+                  placeholder=""
                   value={userContext.company}
                   onChange={(e) => handleInputChange("company", e.target.value)}
                   onFocus={() => handleInputFocus("company")}
@@ -576,12 +616,10 @@ export default function HeroSection({
                   disabled={creating}
                   className={getInputClasses("company")}
                 />
-                {/* Placeholder persistente DENTRO do input (bottom) - sempre visível no transparent */}
-                {styleMode === "transparent" && (
-                  <div className="absolute bottom-2 left-6 text-xs text-gray-400 pointer-events-none z-10">
-                    {getPlaceholderText("company")}
-                  </div>
-                )}
+                {/* Placeholder persistente DENTRO do input (bottom) - sempre visível */}
+                <div className="absolute bottom-2 left-6 text-xs text-gray-400 pointer-events-none z-10">
+                  {getPlaceholderText("company")}
+                </div>
                 <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
                   {renderInputIcon("company", false)}
                 </div>
@@ -619,11 +657,7 @@ export default function HeroSection({
                 <input
                   type="url"
                   name="companyWebsite"
-                  placeholder={
-                    styleMode === "default"
-                      ? getPlaceholderText("companyWebsite")
-                      : ""
-                  }
+                  placeholder=""
                   value={userContext.companyWebsite}
                   onChange={(e) =>
                     handleInputChange("companyWebsite", e.target.value)
@@ -634,12 +668,10 @@ export default function HeroSection({
                   disabled={!canEnableInput("companyWebsite") || creating}
                   className={getInputClasses("companyWebsite")}
                 />
-                {/* Placeholder persistente DENTRO do input (bottom) - sempre visível no transparent */}
-                {styleMode === "transparent" && (
-                  <div className="absolute bottom-2 left-6 text-xs text-gray-400 pointer-events-none z-10">
-                    {getPlaceholderText("companyWebsite")}
-                  </div>
-                )}
+                {/* Placeholder persistente DENTRO do input (bottom) - sempre visível */}
+                <div className="absolute bottom-2 left-6 text-xs text-gray-400 pointer-events-none z-10">
+                  {getPlaceholderText("companyWebsite")}
+                </div>
                 <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
                   {renderInputIcon("companyWebsite", false)}
                 </div>
@@ -675,11 +707,7 @@ export default function HeroSection({
                 <input
                   type="text"
                   name="solution"
-                  placeholder={
-                    styleMode === "default"
-                      ? getPlaceholderText("solution")
-                      : ""
-                  }
+                  placeholder=""
                   value={userContext.solution}
                   onChange={(e) =>
                     handleInputChange("solution", e.target.value)
@@ -690,12 +718,10 @@ export default function HeroSection({
                   disabled={!canEnableInput("solution") || creating}
                   className={getInputClasses("solution")}
                 />
-                {/* Placeholder persistente DENTRO do input (bottom) - sempre visível no transparent */}
-                {styleMode === "transparent" && (
-                  <div className="absolute bottom-2 left-6 text-xs text-gray-400 pointer-events-none z-10">
-                    {getPlaceholderText("solution")}
-                  </div>
-                )}
+                {/* Placeholder persistente DENTRO do input (bottom) - sempre visível */}
+                <div className="absolute bottom-2 left-6 text-xs text-gray-400 pointer-events-none z-10">
+                  {getPlaceholderText("solution")}
+                </div>
                 <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
                   {renderInputIcon("solution", false)}
                 </div>
@@ -739,11 +765,7 @@ export default function HeroSection({
                 <input
                   type="text"
                   name="researchTarget"
-                  placeholder={
-                    styleMode === "default"
-                      ? getPlaceholderText("researchTarget")
-                      : ""
-                  }
+                  placeholder=""
                   value={userContext.researchTarget}
                   onChange={(e) =>
                     handleInputChange("researchTarget", e.target.value)
@@ -754,12 +776,10 @@ export default function HeroSection({
                   disabled={!canEnableInput("researchTarget") || creating}
                   className={getInputClasses("researchTarget")}
                 />
-                {/* Placeholder persistente DENTRO do input (bottom) - sempre visível no transparent */}
-                {styleMode === "transparent" && (
-                  <div className="absolute bottom-2 left-6 text-xs text-gray-400 pointer-events-none z-10">
-                    {getPlaceholderText("researchTarget")}
-                  </div>
-                )}
+                {/* Placeholder persistente DENTRO do input (bottom) - sempre visível */}
+                <div className="absolute bottom-2 left-6 text-xs text-gray-400 pointer-events-none z-10">
+                  {getPlaceholderText("researchTarget")}
+                </div>
                 <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
                   {renderInputIcon("researchTarget", false)}
                 </div>
@@ -803,11 +823,7 @@ export default function HeroSection({
                 <input
                   type="url"
                   name="researchWebsite"
-                  placeholder={
-                    styleMode === "default"
-                      ? getPlaceholderText("researchWebsite")
-                      : ""
-                  }
+                  placeholder=""
                   value={userContext.researchWebsite}
                   onChange={(e) =>
                     handleInputChange("researchWebsite", e.target.value)
@@ -818,12 +834,10 @@ export default function HeroSection({
                   disabled={!canEnableInput("researchWebsite") || creating}
                   className={getInputClasses("researchWebsite")}
                 />
-                {/* Placeholder persistente DENTRO do input (bottom) - sempre visível no transparent */}
-                {styleMode === "transparent" && (
-                  <div className="absolute bottom-2 left-6 text-xs text-gray-400 pointer-events-none z-10">
-                    {getPlaceholderText("researchWebsite")}
-                  </div>
-                )}
+                {/* Placeholder persistente DENTRO do input (bottom) - sempre visível */}
+                <div className="absolute bottom-2 left-6 text-xs text-gray-400 pointer-events-none z-10">
+                  {getPlaceholderText("researchWebsite")}
+                </div>
                 <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
                   {renderInputIcon("researchWebsite", true)}
                 </div>
@@ -891,6 +905,9 @@ export default function HeroSection({
           </button>
         </div>
       </div>
+
+      {/* Modal de loading automático */}
+      <AutoLoadingModal isOpen={creating} delay={2000} />
     </section>
   );
 }

@@ -2,7 +2,7 @@ import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import Image from "next/image";
 import { Plus } from "lucide-react";
-import { CompanyList } from "@/components/ui/CompanyList";
+import { CollectionList } from "@/components/ui/CompanyList";
 import { ContactList } from "@/components/ui/ContactList";
 
 export function Sidebar({
@@ -18,8 +18,18 @@ export function Sidebar({
   onCompanyClick,
   onContactClick,
   backgroundColor,
+  theme = null, // ⭐ NOVO: Tema do workspace
 }) {
   const { isSignedIn } = useUser();
+
+  // ⭐ NOVO: Função para obter label dinâmico baseado no tema
+  const getPrimaryEntityLabel = (theme) => {
+    if (!theme?.entities) return "Companies"; // Fallback
+    const primaryEntity = theme.entities.find((e) => e.isPrimary);
+    return primaryEntity?.namePlural || "Items";
+  };
+
+  const primaryEntityLabel = getPrimaryEntityLabel(theme);
 
   const navLinkClasses = `flex items-center space-x-3 text-[#6B6B6B] hover:text-black transition-colors py-2 px-2 rounded-md`;
   const activeNavLinkClasses = `flex items-center justify-between text-black font-medium py-2 px-2 rounded-md bg-gray-200`;
@@ -95,7 +105,7 @@ export function Sidebar({
             <>
               {companies.length === 0 && (
                 <h3 className="text-xs text-gray-500 uppercase tracking-wider px-2 pt-2 pb-1">
-                  Companies
+                  {primaryEntityLabel}
                 </h3>
               )}
               <div className="flex items-center justify-between py-2 px-2 rounded-md hover:bg-gray-100 transition-colors">
@@ -104,9 +114,9 @@ export function Sidebar({
                     src="/images/company.svg"
                     width={16}
                     height={16}
-                    alt="Companies"
+                    alt={primaryEntityLabel}
                   />
-                  <span>Companies</span>
+                  <span>{primaryEntityLabel}</span>
                 </Link>
                 <button
                   onClick={onAddCompany}
@@ -118,13 +128,13 @@ export function Sidebar({
             </>
           )}
 
-          {/* Companies List */}
+          {/* Collections List */}
           {!isCollapsed && companies.length > 0 && (
             <div className="pt-2">
-              <CompanyList
-                companies={companies}
-                selectedCompany={selectedCompany}
-                onCompanyClick={onCompanyClick}
+              <CollectionList
+                collections={companies}
+                selectedCollection={selectedCompany}
+                onCollectionClick={onCompanyClick}
                 backgroundColor={backgroundColor}
               />
             </div>

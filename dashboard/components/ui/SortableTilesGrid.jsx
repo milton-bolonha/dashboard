@@ -39,15 +39,39 @@ export function SortableTilesGrid({
     })
   );
 
+  // ⭐ CRÍTICO: Garantir IDs únicos mesmo se tile.id for undefined
+  const tilesWithIds = tiles.map((tile, index) => ({
+    ...tile,
+    // Gerar ID único se não existir
+    id:
+      tile.id ||
+      `tile_generated_${Date.now()}_${index}_${Math.random()
+        .toString(36)
+        .substr(2, 9)}`,
+  }));
+
   const handleDragEnd = (event) => {
     const { active, over } = event;
 
-    if (active.id !== over?.id) {
-      const oldIndex = tiles.findIndex((tile) => tile.id === active.id);
-      const newIndex = tiles.findIndex((tile) => tile.id === over.id);
+    if (active.id !== over?.id && over) {
+      console.log("🔄 DragEnd - active.id:", active.id, "over.id:", over.id);
 
-      const newTiles = arrayMove(tiles, oldIndex, newIndex);
-      onReorder?.(newTiles);
+      // ⭐ ENCONTRAR índices nos tiles originais
+      // active.id e over.id são os IDs passados para useSortable em DraggableTile
+      const oldIndex = tilesWithIds.findIndex((tile) => tile.id === active.id);
+      const newIndex = tilesWithIds.findIndex((tile) => tile.id === over.id);
+
+      console.log("🔄 Índices encontrados:", { oldIndex, newIndex });
+
+      if (oldIndex >= 0 && newIndex >= 0) {
+        // Usar tiles ORIGINAIS (não tilesWithIds) para o callback
+        // Mas encontrar os índices em tilesWithIds pois é onde estão os IDs corretos
+        const reorderedOriginalTiles = arrayMove(tiles, oldIndex, newIndex);
+        console.log("🔄 Tiles reordenados:", reorderedOriginalTiles);
+        onReorder?.(reorderedOriginalTiles);
+      } else {
+        console.warn("⚠️ Não foi possível encontrar índices para reorder");
+      }
     }
   };
 
@@ -58,15 +82,15 @@ export function SortableTilesGrid({
       onDragEnd={handleDragEnd}
     >
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-[192px]">
-        {/* Tiles existentes */}
-        {tiles.length > 0 && (
+        {/* Tiles sortable - apenas tiles que podem ser arrastados */}
+        {tilesWithIds.length > 0 && (
           <SortableContext
-            items={tiles.map((tile) => tile.id)}
+            items={tilesWithIds.map((tile) => tile.id)}
             strategy={rectSortingStrategy}
           >
-            {tiles.map((tile) => (
+            {tilesWithIds.map((tile, index) => (
               <DraggableTile
-                key={tile.id}
+                key={`tile-${tile.id}-${index}`}
                 tile={tile}
                 onClick={() => onTileClick(tile)}
                 onDelete={() => onDeleteTile?.(tile.id)}
@@ -77,23 +101,15 @@ export function SortableTilesGrid({
         )}
 
         {/* LoadingTile para tile customizado sendo gerado */}
-        {isGeneratingCustomTile && (
-          <LoadingTile key="custom-loading" index={0} />
-        )}
+        {isGeneratingCustomTile && <LoadingTile index={0} />}
 
         {/* LoadingTiles durante geração automática */}
         {isGeneratingTiles &&
           !isGeneratingCustomTile &&
-          (() => {
-            const loadingCount = Math.max(0, tilesToGenerate - tiles.length);
-            console.log(
-              `🔄 Renderizando ${loadingCount} LoadingTiles (${tiles.length}/${tilesToGenerate})`
-            );
-
-            return Array.from({ length: loadingCount }).map((_, i) => (
-              <LoadingTile key={`loading-${tiles.length + i}`} index={i} />
-            ));
-          })()}
+          Array.from({
+            // ⭐ CORREÇÃO: Usar tilesWithIds.length para cálculo correto
+            length: Math.max(0, tilesToGenerate - tilesWithIds.length),
+          }).map((_, i) => <LoadingTile key={`loading-${i}`} index={i} />)}
 
         {/* Add Prompt Tile - sempre no final */}
         <AddPromptTile onClick={onAddPrompt} />

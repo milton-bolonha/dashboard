@@ -6,8 +6,9 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
-import { generateTileWithOpenAI } from "@/lib/ai-tile-generator";
-import { generateTileWithMetrics } from "@/lib/ai-tile-generator-optimized";
+// import { generateTileWithOpenAI } from "@/lib/ai-tile-generator";
+// import { generateTileWithMetrics } from "@/lib/ai-tile-generator-optimized";
+import { getPrimaryEntityData } from "@/lib/theme-tile-generator";
 import Joi from "joi";
 import sanitizeHtml from "sanitize-html";
 
@@ -93,23 +94,31 @@ export async function POST(req) {
       );
     }
 
-    // Encontrar a company
-    const companyIndex = guestWorkspace.workspace_data.companies.findIndex(
-      (c) => c.name === sanitized.companyName
+    // Buscar tema do workspace
+    const theme = guestWorkspace.themeSnapshot;
+    const primaryEntityData = getPrimaryEntityData(
+      theme,
+      guestWorkspace.dynamicData
     );
 
-    if (companyIndex === -1) {
-      return NextResponse.json(
-        { error: `Company "${sanitized.companyName}" not found` },
-        { status: 404 }
-      );
-    }
+    // Criar contexto do tema para OpenAI
+    const themeContext = {
+      themeId: theme.id,
+      themeName: theme.name,
+      primaryEntity: primaryEntityData,
+    };
 
     console.log(`🚀 Gerando tile customizado para: "${sanitized.companyName}"`);
 
-    // Gerar tile via OpenAI com métricas
-    const company = guestWorkspace.workspace_data.companies[companyIndex];
-    console.log(`📊 Company encontrada: ${company.name}`);
+    // Gerar tile via OpenAI com contexto do tema
+    const { answer, excerpt } = await generateTileWithOpenAI(
+      sanitized.prompt,
+      primaryEntityData?.name ||
+        primaryEntityData?.title ||
+        sanitized.companyName,
+      primaryEntityData?.website || "",
+      themeContext
+    );
 
     const tile = {
       id: `custom_${Date.now()}`,
@@ -160,16 +169,23 @@ export async function POST(req) {
       },
     };
 
-    // Salvar tile no banco
-    console.log(`💾 Salvando tile customizado no banco...`);
+    // Salvar tile na estrutura correta baseada no tema
+    const primaryEntity = theme.entities.find((e) => e.isPrimary);
+    let entityKey = `${primaryEntity.id}s`; // companies, books, projects
+
+    // ⭐ CORREÇÃO CRÍTICA: Corrigir companys -> companies
+    if (entityKey === "companys") {
+      entityKey = "companies";
+    }
+
     await db.updateOne(
       "guest_workspaces",
       {
         guest_id: guestId,
-        "workspace_data.companies.name": sanitized.companyName,
+        [`workspace_data.${entityKey}.0.name`]: sanitized.companyName,
       },
       {
-        $push: { "workspace_data.companies.$.tiles": newTile },
+        $push: { [`workspace_data.${entityKey}.0.tiles`]: newTile },
       }
     );
 

@@ -202,6 +202,84 @@ export const ItemSchema = {
   ],
 };
 
+export const ThemeSchema = {
+  name: "themes",
+  fields: {
+    // Identificação
+    id: { type: "string", required: true, unique: true },
+    name: { type: "string", required: true },
+    slug: { type: "string", required: true, unique: true },
+    description: { type: "string" },
+    icon: { type: "string", default: "🎯" },
+    
+    // Estilo visual
+    colors: {
+      primary: { type: "string", default: "#3B82F6" },
+      secondary: { type: "string", default: "#8B5CF6" },
+      background: { type: "string", default: "#ffffff" },
+      chatBubble: { type: "string", default: "#F3F4F6" },
+    },
+    
+    // Definição de entidades principais
+    entities: [{
+      id: { type: "string", required: true },
+      name: { type: "string", required: true },
+      namePlural: { type: "string", required: true },
+      icon: { type: "string", default: "📁" },
+      isPrimary: { type: "boolean", default: false },
+      
+      fields: [{
+        id: { type: "string", required: true },
+        label: { type: "string", required: true },
+        type: { type: "string", enum: ["text", "url", "textarea", "image", "date"], required: true },
+        placeholder: { type: "string" },
+        required: { type: "boolean", default: false },
+        validation: { type: "object" },
+      }],
+      
+      children: [{
+        entityId: { type: "string" },
+        relationship: { type: "string", default: "one-to-many" },
+      }],
+    }],
+    
+    // Templates de tiles de IA
+    tileTemplates: [{
+      id: { type: "string", required: true },
+      title: { type: "string", required: true },
+      prompt: { type: "string", required: true },
+      category: { type: "string" },
+      order: { type: "number", default: 0 },
+      defaultSize: { w: { type: "number", default: 4 }, h: { type: "number", default: 2 } },
+    }],
+    
+    // Tags para landing page
+    landingTags: [{
+      id: { type: "string", required: true },
+      label: { type: "string", required: true },
+      icon: { type: "string" },
+      placeholder: { type: "string" },
+      tooltip: { type: "string" },
+      type: { type: "string", enum: ["text", "url"], default: "text" },
+      order: { type: "number", default: 0 },
+      mapToEntity: { type: "string" },
+      mapToField: { type: "string" },
+    }],
+    
+    config: {
+      allowMultipleMainEntities: { type: "boolean", default: true },
+      defaultView: { type: "string", enum: ["grid", "list", "timeline"], default: "grid" },
+      features: [{ type: "string" }],
+    },
+    
+    isDefault: { type: "boolean", default: false },
+    isActive: { type: "boolean", default: true },
+    createdBy: { type: "string" },
+    createdAt: { type: "date", default: () => new Date() },
+    updatedAt: { type: "date", default: () => new Date() },
+  },
+};
+
 export const WorkspaceSchema = {
   name: "workspaces",
   fields: {
@@ -213,8 +291,19 @@ export const WorkspaceSchema = {
     // ⭐ NOVO: Tipo de workspace (CMS ou Sales Assistant)
     type: {
       type: "string",
-      enum: ["cms", "sales-assistant"],
+      enum: ["cms", "sales", "book-creator", "construction", "custom"],
       default: "cms",
+    },
+
+    // ⭐ NOVO: Tema aplicado ao workspace
+    themeId: { type: "string", ref: "themes", required: true },
+    themeSnapshot: { type: "object" }, // Cache do tema para performance
+    
+    // ⭐ NOVO: Dados dinâmicos por tema
+    dynamicData: {
+      type: "object",
+      // Estrutura: { entityName: [{ dados... }] }
+      // Ex: { companies: [...], contacts: [...] } OU { books: [...], chapters: [...] }
     },
 
     // Billing & Plans - Dinâmico
@@ -693,6 +782,47 @@ export const AccessKeySchema = {
     viewCount: { type: "number", default: 0 }, // Quantas vezes foi vista
     attemptCount: { type: "number", default: 0 }, // Tentativas de uso
     successCount: { type: "number", default: 0 }, // Usos bem-sucedidos
+  },
+};
+
+// Schema para Guest Workspaces (Netlify DB / Temporários)
+export const GuestWorkspaceSchema = {
+  name: "guest_workspaces",
+  fields: {
+    guest_id: { type: "string", required: true, unique: true },
+    
+    // ⭐ NOVO: Tema aplicado
+    themeId: { type: "string", ref: "themes" },
+    themeSnapshot: { type: "object" }, // Cache do tema
+    
+    // ⭐ NOVO: Dados dinâmicos por tema (substitui workspace_data)
+    dynamicData: {
+      type: "object",
+      // Estrutura: { entityName: [{ dados... }] }
+    },
+    
+    // Backward compatibility
+    workspace_data: { type: "object" }, // Deprecated
+    
+    // Contexto do onboarding
+    context: { type: "object" },
+    
+    // Limites para guest (free tier)
+    limits: {
+      maxEntities: { type: "number", default: 5 },
+      maxTiles: { type: "number", default: 10 },
+      maxFiles: { type: "number", default: 5 },
+    },
+    
+    usage: {
+      entitiesCount: { type: "number", default: 0 },
+      tilesCount: { type: "number", default: 0 },
+      filesCount: { type: "number", default: 0 },
+    },
+    
+    // TTL para expiração automática
+    expiresAt: { type: "date", default: () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) },
+    createdAt: { type: "date", default: () => new Date() },
   },
 };
 
