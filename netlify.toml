@@ -1,5 +1,5 @@
 [build]
-command = "cd dashboard && npm run build"
+command = "cd dashboard && npm install && npm run build"
 publish = "dashboard/.next"
 
 [build.environment]
@@ -11,7 +11,3 @@ package = "@netlify/plugin-nextjs"
 [functions]
 node_bundler = "esbuild"
 directory = "netlify/functions"
-
-# Background function para geração de tiles (ES Module)
-[functions."netlify/functions/generate-tiles.mjs"]
-included_files = ["dashboard/lib/**"]
