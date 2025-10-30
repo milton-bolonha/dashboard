@@ -1,0 +1,9 @@
+[build]
+command = "cd dashboard && npm install && npm run build"
+publish = "dashboard/.next"
+
+[build.environment]
+NODE_VERSION = "22.16.0"
+
+[[plugins]]
+package = "@netlify/plugin-nextjs"

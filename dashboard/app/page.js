@@ -54,10 +54,13 @@ export default function LandingPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
-    const view = params.get("hero") || "dynamic"; // default: dynamic
+    const view = params.get("hero") || ""; // default: dynamic
+    console.log(view);
+
     setHeroView(view);
   }, []);
-
+  console.log(heroView);
+  console.log(typeof heroView);
   return (
     <div
       className="min-h-screen flex flex-col relative"
@@ -76,15 +79,14 @@ export default function LandingPage() {
           - Comente a linha do DynamicHeroSection e descomente ClassicHero
           - Ou vice-versa para alternar
         */}
-        <HeroSection mode="landing" />
 
-        {/* {heroView === "classic" ? (
+        {/* <HeroSection mode="landing" /> */}
+
+        {heroView === "dynamic" ? <DynamicHeroSection mode="landing" /> : null}
+        {heroView === "" || heroView === null ? (
           // ClassicHero: Formulário tradicional com 5 inputs fixos
           <HeroSection mode="landing" />
-        ) : (
-          // DynamicHero: Chat interativo com seleção de temas
-          <DynamicHeroSection mode="landing" />
-        )} */}
+        ) : null}
         {/* Outras seções comentadas temporariamente */}
         {/* <CapabilitiesSection />
         <ProblemSection />

@@ -11,9 +11,7 @@ const nextConfig = {
     ],
   },
   // Configuração para Netlify
-  experimental: {
-    serverComponentsExternalPackages: ["mongodb"],
-  },
+  serverExternalPackages: ["mongodb"],
   webpack: (config, { isServer }) => {
     // A biblioteca do MongoDB usa alguns módulos que não são feitos
     // para o navegador. Esta configuração diz ao Next.js para

@@ -113,6 +113,11 @@ export default function FilesManager({ companyId, companyName }) {
 
         console.log("✅ Arquivo enviado para Cloudinary:", uploadData.file);
 
+        // Verificar se fileUrl existe antes de salvar
+        if (!uploadData.file?.secure_url) {
+          throw new Error("Upload successful but no file URL returned");
+        }
+
         // Step 2: Save metadata to our database
         const saveResponse = await fetch("/api/guest/files", {
           method: "POST",

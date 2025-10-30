@@ -76,8 +76,13 @@ export async function uploadFile(fileBuffer, fileName, folder, options = {}) {
       };
     }
 
-    // ⭐ CORREÇÃO: public_id já inclui o folder, não duplicar
-    const publicId = `${folder}/${fileName}`;
+    // ⭐ CORREÇÃO: Sanitizar fileName para public_id válido
+    const sanitizedFileName = fileName
+      .replace(/[^a-zA-Z0-9._-]/g, "_") // Substituir caracteres especiais por _
+      .replace(/\s+/g, "_") // Substituir espaços por _
+      .toLowerCase();
+
+    const publicId = `${folder}/${sanitizedFileName}`;
 
     const result = await cloudinary.uploader.upload(
       `data:application/octet-stream;base64,${fileBuffer.toString("base64")}`,
