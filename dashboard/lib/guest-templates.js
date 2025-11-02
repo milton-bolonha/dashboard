@@ -21,11 +21,11 @@
  */
 
 export const GUEST_DASHBOARD_TEMPLATES = {
-  // Template 1: Essential Research (6 tiles básicos)
+  // Template 1: Essential Research (8 tiles básicos)
   template_1: {
     id: "template_1",
     name: "Essential Research",
-    description: "6 tiles essenciais de pesquisa de vendas",
+    description: "8 tiles essenciais de pesquisa de vendas",
     icon: "📊",
 
     // AI Tiles predefinidos

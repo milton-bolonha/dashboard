@@ -56,15 +56,15 @@ export default function AdminOnboardingModal() {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
       <div className="bg-white rounded-lg p-6 max-w-md w-full text-center">
         <h3 className="text-lg font-semibold mb-2">
-          Configurando seu workspace (Guest)
+          Setting up your workspace (Guest)
         </h3>
         <p className="text-sm text-gray-600 mb-4">
-          Seu job está em execução e os tiles serão exibidos assim que chegarem.
+          Your job is running and tiles will be displayed as they arrive.
         </p>
         <div className="text-gray-700">
-          Progresso: {progress.current}/{progress.total}
+          Progress: {progress.current}/{progress.total}
           {typeof progress.remaining === "number" &&
-            ` • restantes: ${progress.remaining}`}
+            ` • remaining: ${progress.remaining}`}
         </div>
       </div>
     </div>

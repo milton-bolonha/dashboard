@@ -8,11 +8,12 @@ export default function LoadingModal({
   onAccept,
   onCancel,
   companyName,
+  progress, // ⭐ NOVO: Progress object { current, total, remaining }
 }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999]">
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -47,9 +48,17 @@ export default function LoadingModal({
 
         {/* Info */}
         <div className="bg-blue-50 rounded-lg p-4 mb-6">
-          <p className="text-sm text-blue-800 text-center">
-            📊 Tiles will appear as they're generated
-          </p>
+          {progress && progress.total > 0 ? (
+            <p className="text-sm text-blue-800 text-center">
+              📊 Progress: {progress.current || 0}/{progress.total}
+              {typeof progress.remaining === "number" &&
+                ` • remaining: ${progress.remaining}`}
+            </p>
+          ) : (
+            <p className="text-sm text-blue-800 text-center">
+              📊 Tiles will appear as they're generated
+            </p>
+          )}
         </div>
 
         {/* Buttons */}

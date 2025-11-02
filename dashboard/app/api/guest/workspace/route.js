@@ -155,22 +155,96 @@ export async function GET(req) {
 
           // Mesclar tiles e outros dados de workspace_data
           if (workspaceEntities && Array.isArray(workspaceEntities)) {
+            // ⭐ BUG FIX: Buscar template para obter tiles_to_generate dinamicamente
+            let templateTilesCount = 0;
+            try {
+              const { getGuestTemplate } = await import(
+                "@/lib/guest-templates"
+              );
+              const templateId =
+                guestWorkspace.template_id ||
+                guestWorkspace.workspace_data?.template_id ||
+                "template_1";
+              const template = getGuestTemplate(templateId);
+              templateTilesCount = template?.tiles?.length || 0;
+              console.log(
+                `📊 Template ${templateId} tem ${templateTilesCount} tiles`
+              );
+            } catch (templateError) {
+              console.warn(
+                "⚠️ Erro ao buscar template para tiles_to_generate:",
+                templateError
+              );
+            }
+
             // Mesclar entities do dynamicData com dados atualizados do workspace_data
             const mergedEntities = workspaceEntities.map((wsEntity, index) => {
               const dynamicEntity = entities[index] || {};
+
+              // ⭐ BUG FIX: tiles_to_generate deve ser dinâmico baseado no template
+              // Se não existe ou é 0, usar o tamanho do template
+              let tilesToGenerate =
+                wsEntity.tiles_to_generate ||
+                dynamicEntity.tiles_to_generate ||
+                0;
+
+              // ⭐ Se tiles_to_generate é 0 ou não existe, usar template (dinâmico)
+              if (tilesToGenerate === 0 && templateTilesCount > 0) {
+                tilesToGenerate = templateTilesCount;
+                console.log(
+                  `🔄 tiles_to_generate corrigido de 0 para ${templateTilesCount} (baseado no template)`
+                );
+              }
+
+              // ⭐ BUG FIX CRÍTICO: Se há job_id na query, filtrar tiles apenas do job atual
+              // Isso evita carregar tiles antigos de pesquisas anteriores
+              let filteredTiles = wsEntity.tiles || dynamicEntity.tiles || [];
+              const { searchParams } = new URL(req.url);
+              const jobIdFromQuery = searchParams.get("job_id");
+
+              if (jobIdFromQuery && Array.isArray(filteredTiles)) {
+                // Filtrar tiles que pertencem ao job atual (ID começa com job_id)
+                // ⭐ BUG FIX: Também remover tiles com IDs antigos (como "ceo_email", "international_offices", etc)
+                const jobTiles = filteredTiles.filter((t) => {
+                  const tileId = t.id || "";
+                  // Manter apenas tiles do job atual OU placeholders
+                  const isFromCurrentJob = tileId.startsWith(
+                    `tile_${jobIdFromQuery}_`
+                  );
+                  const isPlaceholder = tileId.startsWith(`placeholder_`);
+                  // ⭐ CRÍTICO: Remover tiles com IDs antigos (sem job_id no ID)
+                  const isOldTile =
+                    !isFromCurrentJob &&
+                    !isPlaceholder &&
+                    !tileId.startsWith(`tile_`) &&
+                    tileId.length > 0;
+
+                  return isFromCurrentJob || isPlaceholder;
+                });
+                if (jobTiles.length > 0) {
+                  console.log(
+                    `🔍 Filtrando tiles do job ${jobIdFromQuery}: ${jobTiles.length} tiles do job atual (total antes: ${filteredTiles.length})`
+                  );
+                  filteredTiles = jobTiles;
+                } else {
+                  // Se não há tiles do job atual, limpar tiles antigos
+                  console.log(
+                    `⚠️ Nenhum tile do job ${jobIdFromQuery} encontrado, limpando tiles antigos`
+                  );
+                  filteredTiles = [];
+                }
+              }
+
               const mergedEntity = {
                 ...dynamicEntity,
                 ...wsEntity, // workspace_data sobrescreve dynamicData
-                // ⭐ CRÍTICO: Garantir tiles e status são incluídos
-                tiles: wsEntity.tiles || dynamicEntity.tiles || [],
+                // ⭐ CRÍTICO: Garantir tiles e status são incluídos (filtrados se há job_id)
+                tiles: filteredTiles,
                 tiles_status:
                   wsEntity.tiles_status ||
                   dynamicEntity.tiles_status ||
                   "pending",
-                tiles_to_generate:
-                  wsEntity.tiles_to_generate ||
-                  dynamicEntity.tiles_to_generate ||
-                  0,
+                tiles_to_generate: tilesToGenerate, // ⭐ Usar valor dinâmico corrigido
               };
 
               console.log(

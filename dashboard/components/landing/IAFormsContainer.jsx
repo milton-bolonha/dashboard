@@ -189,8 +189,11 @@ export default function IAFormsContainer({
         console.log("[IAFormsContainer] ✅ Job criado:", newJobId);
         setJobId(newJobId);
 
-        // ⭐ PASSO 2: Iniciar job ANTES do redirect (aguardar completar)
-        console.log("[IAFormsContainer] 🚀 Iniciando job antes do redirect...");
+        // ⭐ PASSO 2: Iniciar job em background (fire-and-forget)
+        // ⭐ CORREÇÃO: Não aguardar - job roda em background, admin recebe via SSE
+        console.log(
+          "[IAFormsContainer] 🚀 Iniciando job em background (não bloqueante)..."
+        );
         const runPayload = {
           guestId: gid,
           scope,
@@ -207,40 +210,48 @@ export default function IAFormsContainer({
           firstItemValues: runPayload.items[0] ? runPayload.items[0] : null,
         });
 
-        // ⭐ CORREÇÃO: Aguardar o fetch completar ANTES do redirect
-        try {
-          const runRes = await fetch(`/api/prompt-jobs/${newJobId}/run`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(runPayload),
+        // ⭐ CORREÇÃO: Enviar fetch SEM keepalive para garantir que body seja enviado
+        // ⭐ IMPORTANTE: Usar sendBeacon ou aguardar um pouco para garantir envio do body
+        // O job roda em background e o admin recebe atualizações via SSE
+        const runFetchPromise = fetch(`/api/prompt-jobs/${newJobId}/run`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(runPayload),
+          keepalive: true, // ⭐ Manter conexão aberta para garantir envio
+        })
+          .then((runRes) => {
+            if (runRes.ok) {
+              console.log(
+                "[IAFormsContainer] ✅ Job iniciado em background com sucesso"
+              );
+            } else {
+              console.warn(
+                "[IAFormsContainer] ⚠️ Job pode ter falhado ao iniciar (admin tentará reconectar)"
+              );
+            }
+          })
+          .catch((err) => {
+            console.error(
+              "[IAFormsContainer] ⚠️ Erro ao iniciar job (admin tentará reconectar):",
+              err
+            );
           });
 
-          if (runRes.ok) {
-            console.log(
-              "[IAFormsContainer] ✅ Job iniciado com sucesso, redirecionando..."
-            );
-          } else {
-            const errorData = await runRes.json().catch(() => ({}));
-            console.error(
-              "[IAFormsContainer] ⚠️ Erro ao iniciar job:",
-              errorData
-            );
-          }
-        } catch (err) {
-          console.error(
-            "[IAFormsContainer] ⚠️ Erro ao iniciar job (continuando redirect):",
-            err
-          );
-        }
-
-        // ⭐ PASSO 3: Redirecionar após job iniciado
-        console.log("[IAFormsContainer] 🔄 Redirecionando para admin...");
+        // ⭐ PASSO 3: Redirecionar após um pequeno delay para garantir envio do body
+        // ⭐ CORREÇÃO: Aguardar um pouco para garantir que o fetch seja iniciado antes do redirect
+        console.log(
+          "[IAFormsContainer] 🔄 Redirecionando para admin após iniciar job..."
+        );
         const qp = new URLSearchParams();
         qp.set("job_id", newJobId);
         qp.set("guest_id", gid);
         qp.set("token", tok);
 
-        window.location.href = `/admin?${qp.toString()}`;
+        // ⭐ Aguardar um pouco para garantir que o fetch seja iniciado
+        // O keepalive garante que o body seja enviado mesmo após redirect
+        setTimeout(() => {
+          window.location.href = `/admin?${qp.toString()}`;
+        }, 300); // ⭐ Aumentado para 300ms para garantir envio
       } catch (err) {
         console.error("[IAFormsContainer] ❌ Erro no executeRunFlow:", err);
         setRunning(false);

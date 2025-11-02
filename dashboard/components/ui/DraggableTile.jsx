@@ -3,6 +3,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Tile } from "./Tile";
+import { LoadingTile } from "./LoadingTile";
 
 export function DraggableTile({ tile, onClick, onDelete, isDisabled = false }) {
   const {
@@ -41,12 +42,17 @@ export function DraggableTile({ tile, onClick, onDelete, isDisabled = false }) {
           : "cursor-grab hover:scale-102"
       } ${isDisabled ? "cursor-not-allowed opacity-50" : ""}`}
     >
-      <Tile
-        title={tile.title}
-        excerpt={tile.excerpt || tile.content || tile.answer || ""}
-        metrics={tile.metrics}
-        onDelete={onDelete}
-      />
+      {/* ⭐ BUG 1 FIX: Renderizar LoadingTile se for placeholder */}
+      {tile.isPlaceholder ? (
+        <LoadingTile index={tile.orderIndex ?? 0} />
+      ) : (
+        <Tile
+          title={tile.title}
+          excerpt={tile.excerpt || tile.content || tile.answer || ""}
+          metrics={tile.metrics}
+          onDelete={onDelete}
+        />
+      )}
 
       {/* Resize handles - removido para evitar conflito com drag */}
     </div>

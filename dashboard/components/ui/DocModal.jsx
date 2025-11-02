@@ -99,14 +99,29 @@ const MetricsInfo = ({ metrics }) => {
   if (!metrics) return null;
 
   const formatDuration = (ms) => {
+    if (!ms || isNaN(ms)) return "N/A";
     if (ms < 1000) return `${ms}ms`;
     return `${(ms / 1000).toFixed(1)}s`;
   };
 
   const formatTokens = (tokens) => {
+    if (!tokens || isNaN(tokens)) return "N/A";
     if (tokens < 1000) return `${tokens}`;
     return `${(tokens / 1000).toFixed(1)}k`;
   };
+
+  // ⭐ BUG FIX: Normalizar métricas de diferentes estruturas
+  const duration =
+    metrics.generation_duration_ms ||
+    metrics.breakdown?.api_call_ms ||
+    metrics.ms ||
+    null;
+  const tokens =
+    metrics.tokens_used ||
+    metrics.tokens?.total ||
+    metrics.tokens?.completion ||
+    null;
+  const model = metrics.model || "N/A";
 
   return (
     <div className="mt-4 pt-4 border-t border-gray-200">
@@ -117,19 +132,15 @@ const MetricsInfo = ({ metrics }) => {
       <div className="grid grid-cols-3 gap-4 mt-2 text-xs text-gray-600">
         <div>
           <div className="font-medium">Duração</div>
-          <div className="text-gray-500">
-            {formatDuration(metrics.generation_duration_ms)}
-          </div>
+          <div className="text-gray-500">{formatDuration(duration)}</div>
         </div>
         <div>
           <div className="font-medium">Tokens</div>
-          <div className="text-gray-500">
-            {formatTokens(metrics.tokens_used)}
-          </div>
+          <div className="text-gray-500">{formatTokens(tokens)}</div>
         </div>
         <div>
           <div className="font-medium">Modelo</div>
-          <div className="text-gray-500 truncate">{metrics.model}</div>
+          <div className="text-gray-500 truncate">{model}</div>
         </div>
       </div>
     </div>
@@ -137,12 +148,12 @@ const MetricsInfo = ({ metrics }) => {
 };
 
 export function DocModal({ isOpen, onClose, tile }) {
-  if (!isOpen || !tile) return null;
-
+  // ⭐ BUG FIX: AnimatePresence deve estar sempre no DOM, não dentro de early return
   return (
-    <AnimatePresence>
-      {isOpen && (
+    <AnimatePresence mode="wait">
+      {isOpen && tile && (
         <motion.div
+          key="doc-modal"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -188,11 +199,15 @@ export function DocModal({ isOpen, onClose, tile }) {
             {/* --- Chat Area (Scrollable) --- */}
             <div className="flex-grow px-8 py-8 overflow-y-auto bg-white space-y-8">
               {/* User Question (Prompt) */}
-              <div className="flex justify-end">
-                <div className="bg-gray-200 rounded-2xl rounded-br-sm px-4 py-3 max-w-lg">
-                  <p className="text-sm text-gray-800">{tile.question}</p>
+              {(tile.question || tile.prompt) && (
+                <div className="flex justify-end">
+                  <div className="bg-gray-200 rounded-2xl rounded-br-sm px-4 py-3 max-w-lg">
+                    <p className="text-sm text-gray-800">
+                      {tile.question || tile.prompt}
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* AI Response - Formato Blog */}
               <div className="flex gap-4">

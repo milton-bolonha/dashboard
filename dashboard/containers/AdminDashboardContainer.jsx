@@ -29,6 +29,7 @@ import Image from "next/image";
 import LoadingModal from "@/components/ui/LoadingModal";
 import { BackgroundCustomizer } from "@/components/dashboard/BackgroundCustomizer";
 import { TemplatePreviewModal } from "@/components/ui/TemplatePreviewModal";
+// ⭐ REMOVIDO: AdminOnboardingModal - LoadingModal já mostra progresso
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +58,14 @@ export function AdminDashboardContainer() {
   const [showLoadingModal, setShowLoadingModal] = useState(false);
   const [isGeneratingCustomTile, setIsGeneratingCustomTile] = useState(false);
   const [tilesOrder, setTilesOrder] = useState([]);
+  const [tileProgress, setTileProgress] = useState({
+    current: 0,
+    total: 0,
+    remaining: 0,
+  }); // ⭐ NOVO: Progresso dos tiles
+
+  // ⭐ BUG FIX: Rastrear se usuário fechou o modal manualmente
+  const userClosedModalRef = useRef(false);
 
   // Modals State
   const [selectedTile, setSelectedTile] = useState(null);
@@ -184,6 +193,17 @@ export function AdminDashboardContainer() {
               matchingCompany.tiles_status
             })`
           );
+
+          // ⭐ BUG FIX CRÍTICO: Se há job_id ativo, NÃO usar tiles antigos do workspace
+          // Criar company temporária limpa para usar apenas tiles do job atual
+          if (jobIdFromUrl) {
+            console.log(
+              `⚠️ Job_id detectado - ignorando tiles antigos do workspace, usando apenas tiles do job atual`
+            );
+            // Não retornar aqui - deixar criar company temporária
+            return; // Mas ainda não setar a company antiga
+          }
+
           setSelectedCompany(matchingCompany);
 
           // ⭐ CORREÇÃO: Se tiles estão completos ou tem tiles, desativar loading
@@ -230,8 +250,17 @@ export function AdminDashboardContainer() {
             }
           );
 
+          // ⭐ BUG FIX CRÍTICO: Se há job_id ativo, NÃO substituir company temporária
+          // Manter company temporária para usar apenas tiles do job atual (SSE)
+          if (jobIdFromUrl) {
+            console.log(
+              `⚠️ Job_id detectado - mantendo company temporária, ignorando tiles antigos do workspace`
+            );
+            return; // Não substituir
+          }
+
           // ⭐ CORREÇÃO: Sempre substituir company temporária pela do workspace
-          // O workspace tem a fonte de verdade dos tiles
+          // O workspace tem a fonte de verdade dos tiles (MAS só se não há job_id)
           console.log(
             `🔄 Substituindo company temporária pela do workspace:`,
             matchingCompany.name,
@@ -291,8 +320,18 @@ export function AdminDashboardContainer() {
       const updatedTilesCount = updatedCompany.tiles?.length || 0;
 
       // ⭐ CORREÇÃO CRÍTICA: Se há company temporária E workspace tem tiles, SEMPRE substituir
-      // Isso garante que tiles do workspace sempre sobrescrevem temporária
+      // MAS: Se há job_id ativo, NÃO substituir - manter company temporária com tiles do SSE
       const isTempCompany = selectedCompany.id?.startsWith("temp_");
+      const hasActiveJob = !!jobIdFromUrl;
+
+      // ⭐ BUG FIX: Se há job_id, não atualizar com tiles antigos do workspace
+      if (hasActiveJob && isTempCompany) {
+        console.debug(
+          `⏭️ Job_id ativo - ignorando atualização do workspace (mantendo tiles do SSE)`
+        );
+        return; // Não atualizar se há job ativo
+      }
+
       const shouldUpdate =
         updatedTilesCount > currentTilesCount ||
         updatedCompany.tiles_status !== selectedCompany.tiles_status ||
@@ -327,7 +366,10 @@ export function AdminDashboardContainer() {
             `✅ Desativando loading - tiles do workspace carregados (${updatedTilesCount} tiles)`
           );
           setGeneratingTiles(false);
-          setShowLoadingModal(false);
+          // ⭐ BUG FIX: Só fechar modal se usuário não fechou manualmente antes
+          if (!userClosedModalRef.current) {
+            setShowLoadingModal(false);
+          }
         }
       } else {
         console.debug(
@@ -345,6 +387,7 @@ export function AdminDashboardContainer() {
     workspace?.workspace,
     selectedCompany?.name,
     selectedCompany?.id,
+    jobIdFromUrl, // ⭐ Adicionar jobIdFromUrl para ignorar atualizações quando há job ativo
   ]);
 
   // ⭐ CRITICAL: Detectar status de geração de tiles e mostrar loading
@@ -366,7 +409,14 @@ export function AdminDashboardContainer() {
     if ((status === "pending" || status === "generating") && !generatingTiles) {
       console.log(`🚀 Status: ${status} - Mostrando tiles de loading`);
       setGeneratingTiles(true);
-      setShowLoadingModal(true); // ⭐ NOVO: Mostrar modal automaticamente
+      // ⭐ BUG FIX: Só mostrar modal se não foi fechado pelo usuário E não há tiles ainda
+      // Se já há tiles sendo gerados, mostrar cards de loading ao invés do modal
+      if (
+        !userClosedModalRef.current &&
+        (!selectedCompany?.tiles || selectedCompany.tiles.length === 0)
+      ) {
+        setShowLoadingModal(true);
+      }
 
       // Se status é "pending", iniciar geração
       if (status === "pending") {
@@ -654,6 +704,29 @@ export function AdminDashboardContainer() {
     });
   }, [jobInfo, jobIdFromUrl, guestIdFromUrl, workspace, loading]);
 
+  // ⭐ BUG FIX: Mostrar modal imediatamente se há job_id na URL (só na primeira vez)
+  // ⭐ CRÍTICO: Só mostrar se não há tiles ainda e não foi fechado pelo usuário
+  useEffect(() => {
+    if (jobIdFromUrl && !userClosedModalRef.current) {
+      // ⭐ BUG FIX: Só mostrar se realmente não há tiles do workspace ainda
+      const hasTilesFromWorkspace = workspace?.workspace?.companies?.some(
+        (c) => c.tiles && c.tiles.length > 0
+      );
+
+      if (!hasTilesFromWorkspace) {
+        console.log(
+          "[AdminContainer] 🚀 Job_id detectado no mount - ativando modal de loading imediatamente..."
+        );
+        setShowLoadingModal(true);
+        setGeneratingTiles(true);
+      } else {
+        console.log(
+          "[AdminContainer] ⏭️ Job_id detectado mas já há tiles no workspace, não mostrando modal"
+        );
+      }
+    }
+  }, [jobIdFromUrl, workspace?.workspace?.companies]);
+
   // Load workspace on mount
   useEffect(() => {
     console.debug("🔍 Admin useEffect executado");
@@ -791,7 +864,13 @@ export function AdminDashboardContainer() {
         selectedCompanyRef.current = tempCompany;
         currentCompany = tempCompany;
         setGeneratingTiles(true);
-        setShowLoadingModal(true);
+        // ⭐ BUG FIX: Só mostrar modal se não foi fechado pelo usuário E não há tiles ainda
+        if (
+          !userClosedModalRef.current &&
+          (!currentCompany?.tiles || currentCompany.tiles.length === 0)
+        ) {
+          setShowLoadingModal(true);
+        }
       }
 
       if (!currentCompany) {
@@ -805,11 +884,16 @@ export function AdminDashboardContainer() {
       // ⭐ IMPORTANTE: NÃO criar placeholders aqui - deixar SortableTilesGrid criar LoadingTiles
       if (data?.progress?.total) {
         const total = data.progress.total;
-        const currentTilesCount = currentCompany.tiles?.length || 0;
+        const current =
+          data.progress.current || currentCompany.tiles?.length || 0;
+        const remaining = Math.max(total - current, 0);
 
         console.log(
-          `[AdminContainer] 📊 Progress: ${currentTilesCount}/${total} tiles`
+          `[AdminContainer] 📊 Progress: ${current}/${total} tiles (remaining: ${remaining})`
         );
+
+        // ⭐ NOVO: Atualizar progresso para o LoadingModal
+        setTileProgress({ current, total, remaining });
 
         // Atualizar company com tiles_to_generate (para o SortableTilesGrid criar LoadingTiles)
         const updatedCompany = {
@@ -831,6 +915,14 @@ export function AdminDashboardContainer() {
         console.log("[AdminContainer] ✅ Job completado!");
         setGeneratingTiles(false);
         setShowLoadingModal(false);
+        // ⭐ NOVO: Atualizar progresso final
+        const finalTotal =
+          data?.progress?.total || currentCompany.tiles_to_generate || 0;
+        setTileProgress({
+          current: finalTotal,
+          total: finalTotal,
+          remaining: 0,
+        });
         if (currentCompany) {
           const completedCompany = {
             ...currentCompany,
@@ -865,13 +957,19 @@ export function AdminDashboardContainer() {
           title: companyName,
           tiles: [],
           tiles_status: "generating",
-          tiles_to_generate: 6, // Default, será atualizado quando job:status chegar
+          tiles_to_generate: 8, // ⭐ CORREÇÃO: Template tem 8 tiles, será atualizado quando job:status chegar
         };
         setSelectedCompany(tempCompany);
         selectedCompanyRef.current = tempCompany;
         currentCompany = tempCompany;
         setGeneratingTiles(true);
-        setShowLoadingModal(true);
+        // ⭐ BUG FIX: Só mostrar modal se não foi fechado pelo usuário E não há tiles ainda
+        if (
+          !userClosedModalRef.current &&
+          (!currentCompany?.tiles || currentCompany.tiles.length === 0)
+        ) {
+          setShowLoadingModal(true);
+        }
       }
 
       if (!currentCompany) {
@@ -882,14 +980,26 @@ export function AdminDashboardContainer() {
       }
 
       // Criar/atualizar tile com o resultado
+      // ⭐ BUG 1 FIX: Garantir que tile tem todas as propriedades para não ser marcado como placeholder
+      // ⭐ BUG FIX: Validar que tem conteúdo antes de criar tile
+      if (!data.result && !data.content && !data.answer) {
+        console.warn(
+          `[AdminContainer] ⚠️ Tile orderIndex=${data.orderIndex} sem conteúdo, ignorando...`
+        );
+        return;
+      }
+
       const newTile = {
         id: `tile_${jobIdFromUrlRef.current}_${data.orderIndex}`,
         orderIndex: data.orderIndex,
-        title: `Insight ${data.orderIndex + 1}`,
-        content: data.result || "",
+        title: data.title || `Insight ${data.orderIndex + 1}`,
+        content: data.result || data.content || "",
+        answer: data.result || data.answer || "",
+        excerpt: data.excerpt || data.result?.substring(0, 200) || "",
         status: "completed",
-        createdAt: new Date().toISOString(),
+        createdAt: data.createdAt || new Date().toISOString(),
         metrics: data.metrics,
+        isPlaceholder: false, // ⭐ EXPLÍCITO: Não é placeholder
       };
 
       console.log(
@@ -897,22 +1007,142 @@ export function AdminDashboardContainer() {
         {
           tileId: newTile.id,
           orderIndex: newTile.orderIndex,
+          title: newTile.title,
           contentLength: newTile.content?.length || 0,
+          hasContent: !!(newTile.content || newTile.answer || newTile.excerpt),
         }
       );
 
       // Atualizar tiles da company
+      // ⭐ BUG 1 FIX: Substituir placeholder por tile real baseado em orderIndex
       const currentTiles = currentCompany.tiles || [];
-      const tileIndex = currentTiles.findIndex(
+
+      console.log(
+        `[AdminContainer] 🔍 Tiles atuais antes da atualização:`,
+        currentTiles.map((t) => ({
+          id: t.id,
+          orderIndex: t.orderIndex,
+          isPlaceholder: t.isPlaceholder,
+          hasContent: !!(t.content || t.answer || t.excerpt),
+        }))
+      );
+
+      // ⭐ BUG FIX CRÍTICO: Evitar duplicação - manter apenas o tile mais completo/recente para cada orderIndex
+      // Usar Map para garantir um único tile por orderIndex
+      const tilesByOrderIndex = new Map();
+      currentTiles.forEach((t) => {
+        const existing = tilesByOrderIndex.get(t.orderIndex);
+        const hasContent = !!(t.content || t.answer || t.excerpt);
+        const existingHasContent =
+          existing &&
+          !!(existing.content || existing.answer || existing.excerpt);
+
+        // Se não existe ou o novo tem conteúdo e o existente não, substituir
+        if (!existing || (hasContent && !existingHasContent)) {
+          tilesByOrderIndex.set(t.orderIndex, t);
+        } else if (hasContent && existingHasContent) {
+          // Se ambos têm conteúdo, manter o mais recente pelo título (tiles com mesmo título devem ter mesmo conteúdo)
+          // Se títulos diferentes, manter o mais recente
+          if (t.title !== existing.title) {
+            const existingTime = existing.createdAt
+              ? new Date(existing.createdAt).getTime()
+              : 0;
+            const newTime = t.createdAt ? new Date(t.createdAt).getTime() : 0;
+            if (newTime > existingTime) {
+              tilesByOrderIndex.set(t.orderIndex, t);
+            }
+          } else {
+            // Mesmo título, manter o mais recente
+            const existingTime = existing.createdAt
+              ? new Date(existing.createdAt).getTime()
+              : 0;
+            const newTime = t.createdAt ? new Date(t.createdAt).getTime() : 0;
+            if (newTime > existingTime) {
+              tilesByOrderIndex.set(t.orderIndex, t);
+            }
+          }
+        } else if (!hasContent && !existingHasContent) {
+          // Se nenhum tem conteúdo, manter o primeiro (placeholder)
+          if (!existing) {
+            tilesByOrderIndex.set(t.orderIndex, t);
+          }
+        }
+      });
+      const deduplicatedTiles = Array.from(tilesByOrderIndex.values());
+
+      // Buscar por orderIndex (não por ID) para substituir placeholder correto
+      const tileIndex = deduplicatedTiles.findIndex(
         (t) => t.orderIndex === data.orderIndex
       );
 
-      const updatedTiles =
-        tileIndex >= 0
-          ? currentTiles.map((t, i) => (i === tileIndex ? newTile : t))
-          : [...currentTiles, newTile].sort(
-              (a, b) => (a.orderIndex || 0) - (b.orderIndex || 0)
-            );
+      let updatedTiles;
+      if (tileIndex >= 0) {
+        // ⭐ Substituir placeholder ou tile existente na posição correta
+        const oldTile = deduplicatedTiles[tileIndex];
+        updatedTiles = deduplicatedTiles.map((t) =>
+          t.orderIndex === data.orderIndex ? newTile : t
+        );
+        console.log(
+          `[AdminContainer] 🔄 Substituindo tile orderIndex=${data.orderIndex} (índice ${tileIndex})`,
+          {
+            oldTileId: oldTile.id,
+            newTileId: newTile.id,
+            wasPlaceholder: oldTile.isPlaceholder,
+          }
+        );
+      } else {
+        // ⭐ Adicionar novo tile e ordenar por orderIndex
+        updatedTiles = [...deduplicatedTiles, newTile].sort(
+          (a, b) => (a.orderIndex || Infinity) - (b.orderIndex || Infinity)
+        );
+        console.log(
+          `[AdminContainer] ➕ Adicionando novo tile orderIndex=${data.orderIndex} (não encontrado nos tiles atuais)`
+        );
+      }
+
+      // ⭐ BUG FIX: Remover tiles vazios (sem conteúdo) e duplicados por orderIndex
+      // Manter apenas o tile mais recente/completo para cada orderIndex
+      // ⭐ CORREÇÃO: Renomear para evitar conflito com variável acima
+      const finalTilesByOrderIndex = new Map();
+      updatedTiles.forEach((t) => {
+        const hasContent = !!(t.content || t.answer || t.excerpt);
+        // Só incluir se tem conteúdo OU é placeholder
+        if (t.isPlaceholder || hasContent) {
+          const existing = finalTilesByOrderIndex.get(t.orderIndex);
+          // Se já existe, manter o que tem mais conteúdo ou o mais recente
+          if (
+            !existing ||
+            (hasContent &&
+              !existing.content &&
+              !existing.answer &&
+              !existing.excerpt)
+          ) {
+            finalTilesByOrderIndex.set(t.orderIndex, t);
+          } else if (hasContent && existing.content) {
+            // Se ambos têm conteúdo, manter o mais recente (maior createdAt)
+            const existingTime = existing.createdAt
+              ? new Date(existing.createdAt).getTime()
+              : 0;
+            const newTime = t.createdAt ? new Date(t.createdAt).getTime() : 0;
+            if (newTime > existingTime) {
+              finalTilesByOrderIndex.set(t.orderIndex, t);
+            }
+          }
+        }
+      });
+      updatedTiles = Array.from(finalTilesByOrderIndex.values()).sort(
+        (a, b) => (a.orderIndex || Infinity) - (b.orderIndex || Infinity)
+      );
+
+      console.log(
+        `[AdminContainer] 🔍 Tiles após atualização:`,
+        updatedTiles.map((t) => ({
+          id: t.id,
+          orderIndex: t.orderIndex,
+          isPlaceholder: t.isPlaceholder,
+          hasContent: !!(t.content || t.answer || t.excerpt),
+        }))
+      );
 
       console.log(
         `[AdminContainer] ✅ Tiles atualizados: ${
@@ -921,8 +1151,22 @@ export function AdminDashboardContainer() {
       );
 
       // ⭐ CORREÇÃO: Verificar se todos os tiles foram gerados
+      // ⭐ BUG FIX: Contar apenas tiles com conteúdo (não placeholders)
+      const tilesWithContent = updatedTiles.filter(
+        (t) => !t.isPlaceholder && (t.content || t.answer || t.excerpt)
+      );
       const expectedTiles = currentCompany.tiles_to_generate || 0;
-      const allTilesGenerated = updatedTiles.length >= expectedTiles;
+      const allTilesGenerated = tilesWithContent.length >= expectedTiles;
+
+      // ⭐ NOVO: Atualizar progresso baseado nos tiles gerados
+      const current = tilesWithContent.length;
+      const remaining = Math.max(expectedTiles - current, 0);
+      setTileProgress({ current, total: expectedTiles, remaining });
+
+      // ⭐ BUG FIX CRÍTICO: Se há tiles com conteúdo, garantir que modal NUNCA reapareça
+      if (current > 0 && userClosedModalRef.current) {
+        setShowLoadingModal(false);
+      }
 
       const updatedCompany = {
         ...currentCompany,
@@ -937,10 +1181,59 @@ export function AdminDashboardContainer() {
         console.log("[AdminContainer] 🎉 Todos os tiles foram gerados!");
         setGeneratingTiles(false);
         setShowLoadingModal(false);
+        setTileProgress({
+          current: expectedTiles,
+          total: expectedTiles,
+          remaining: 0,
+        });
       }
 
       setSelectedCompany(updatedCompany);
       selectedCompanyRef.current = updatedCompany;
+
+      // ⭐ BUG FIX: Salvar tile no workspace quando chega via SSE (assíncrono, não bloqueia renderização)
+      // Isso garante que após F5, os tiles estejam salvos no workspace
+      // ⭐ IMPORTANTE: Só salvar se tile tem conteúdo (não é placeholder)
+      if (jobIdFromUrlRef.current && guestIdFromUrl && newTile.content) {
+        // ⭐ ASSÍNCRONO: Não esperar a resposta, apenas enviar em background
+        fetch(`/api/guest/tiles?guest_id=${guestIdFromUrl}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            companyName: currentCompany.name,
+            tile: newTile,
+            tiles_to_generate: currentCompany.tiles_to_generate,
+          }),
+        })
+          .then((saveTileRes) => {
+            if (saveTileRes.ok) {
+              console.log(
+                `[AdminContainer] ✅ Tile "${newTile.title}" salvo no workspace (background)`
+              );
+              // ⭐ BUG FIX: Recarregar workspace após salvar para refletir mudanças
+              // Mas só se todos os tiles foram gerados para evitar múltiplas requisições
+              if (allTilesGenerated) {
+                loadGuestWorkspace().catch(() => {
+                  // Ignorar erros silenciosamente
+                });
+              }
+            } else {
+              return saveTileRes.text().then((text) => {
+                console.warn(
+                  `[AdminContainer] ⚠️ Erro ao salvar tile no workspace:`,
+                  text || "Unknown error"
+                );
+              });
+            }
+          })
+          .catch((saveErr) => {
+            console.error(
+              `[AdminContainer] ❌ Erro ao salvar tile no workspace:`,
+              saveErr
+            );
+            // Não bloquear o fluxo se falhar ao salvar
+          });
+      }
 
       // Atualizar workspace também (se existe)
       const currentWorkspace = workspaceRef.current;
@@ -1345,8 +1638,11 @@ export function AdminDashboardContainer() {
   };
 
   const handleAcceptLoadingModal = async () => {
+    console.log("[AdminContainer] ✅ Usuário fechou o modal de loading");
     setShowLoadingModal(false);
-    setGeneratingTiles(true);
+    userClosedModalRef.current = true; // ⭐ Marcar que usuário fechou manualmente
+    // ⭐ Não resetar progresso aqui - ele será atualizado pelos eventos SSE
+    // ⭐ Não setar generatingTiles como true aqui - isso será controlado pelos eventos SSE
   };
 
   // ⭐ CRITICAL: Load workspace function (simplified version for brevity)
@@ -1364,11 +1660,18 @@ export function AdminDashboardContainer() {
     try {
       // ⭐ FIX: Sem timeout para não bloquear usuário no admin
       // Requisições devem completar naturalmente
-      // ⭐ NOVO: Incluir guest_id da URL se disponível (fluxo job_id)
+      // ⭐ NOVO: Incluir guest_id e job_id da URL se disponível (fluxo job_id)
       const params = new URLSearchParams();
       params.set("_t", Date.now().toString());
       if (guestIdFromUrl) {
         params.set("guest_id", guestIdFromUrl);
+      }
+      // ⭐ BUG FIX CRÍTICO: Incluir job_id na query para filtrar tiles
+      if (jobIdFromUrl) {
+        params.set("job_id", jobIdFromUrl);
+        console.log(
+          `[AdminContainer] 🔍 Incluindo job_id na query do workspace: ${jobIdFromUrl}`
+        );
       }
       const response = await fetch(
         `/api/guest/workspace?${params.toString()}`,
@@ -1566,14 +1869,14 @@ export function AdminDashboardContainer() {
             // ⭐ CORREÇÃO: Se ainda não tem initialItems, não tentar criar workspace
             // O workspace será criado quando os items chegarem via SSE ou quando recarregar a página
             console.warn(
-              "[AdminContainer] ⚠️ initialItems vazio - workspace não será criado automaticamente"
+              "[AdminContainer] ⚠️ initialItems empty - workspace will not be created automatically"
             );
             console.warn(
-              "[AdminContainer] ⚠️ Aguarde os tiles serem gerados ou recarregue a página quando o job completar"
+              "[AdminContainer] ⚠️ Please wait for tiles to be generated or reload the page when the job completes"
             );
             setLoading(false);
             setError(
-              "Workspace não encontrado e não foi possível criar automaticamente. Aguarde a geração dos tiles ou recarregue a página."
+              "Workspace not found and could not be created automatically. Please wait for tiles to be generated or reload the page."
             );
             return;
           }
@@ -1687,14 +1990,14 @@ export function AdminDashboardContainer() {
         // Se chegou aqui e é 404, significa que não conseguiu criar
         if (response.status === 404) {
           throw new Error(
-            "Workspace não encontrado. Tente criar um novo workspace."
+            "Workspace not found. Please try creating a new workspace."
           );
         } else if (response.status >= 500) {
           throw new Error(
-            "Erro interno do servidor. Tente novamente em alguns minutos."
+            "Internal server error. Please try again in a few minutes."
           );
         } else {
-          throw new Error(errorData.error || "Falha ao carregar workspace");
+          throw new Error(errorData.error || "Failed to load workspace");
         }
       }
 
@@ -1759,13 +2062,13 @@ export function AdminDashboardContainer() {
         err.message.includes("conexão") ||
         err.message.includes("network")
       ) {
-        errorMessage = "Problema de conexão. Verifique sua internet.";
+        errorMessage = "Connection problem. Please check your internet.";
       } else if (err.message.includes("não encontrado")) {
         errorMessage =
-          "Workspace não encontrado. Tente criar um novo workspace.";
+          "Workspace not found. Please try creating a new workspace.";
       } else if (err.message.includes("servidor")) {
         errorMessage =
-          "Erro interno do servidor. Tente novamente em alguns minutos.";
+          "Internal server error. Please try again in a few minutes.";
       } else if (err.message) {
         errorMessage = err.message;
       }
@@ -1998,11 +2301,58 @@ export function AdminDashboardContainer() {
         title: companyName,
         tiles: [],
         tiles_status: "generating",
-        tiles_to_generate: jobInfo?.totals?.items || 6,
+        tiles_to_generate: jobInfo?.totals?.items || 8, // ⭐ CORREÇÃO: Template tem 8 tiles
       };
       setSelectedCompany(tempCompany);
       setGeneratingTiles(true);
-      setShowLoadingModal(true);
+      // ⭐ BUG FIX: Só mostrar modal se não foi fechado pelo usuário E não há tiles ainda
+      if (
+        !userClosedModalRef.current &&
+        (!tempCompany?.tiles || tempCompany.tiles.length === 0)
+      ) {
+        setShowLoadingModal(true);
+      }
+    }
+
+    // ⭐ BUG FIX: Se há job_id mas ainda não há company, mostrar modal imediatamente
+    // MAS só se o usuário não fechou o modal antes E não há tiles completos ainda
+    if (
+      jobIdFromUrl &&
+      !selectedCompany &&
+      !loading &&
+      !userClosedModalRef.current
+    ) {
+      // ⭐ CRÍTICO: Verificar se workspace já tem tiles completos antes de mostrar modal
+      const theme = workspace?.workspace?.themeSnapshot;
+      let entities = [];
+      if (theme) {
+        const primaryEntity = theme.entities.find((e) => e.isPrimary);
+        const entityKey = `${primaryEntity.id}s`.replace(
+          "companys",
+          "companies"
+        );
+        entities = workspace?.workspace?.[entityKey] || [];
+      } else {
+        entities = workspace?.workspace?.companies || [];
+      }
+
+      const hasCompletedTiles = entities.some(
+        (e) =>
+          e.tiles_status === "completed" ||
+          (e.tiles && e.tiles.length >= (e.tiles_to_generate || 8))
+      );
+
+      if (!hasCompletedTiles) {
+        console.log(
+          "[AdminContainer] 🚀 Job_id detectado sem company - ativando modal de loading..."
+        );
+        setGeneratingTiles(true);
+        setShowLoadingModal(true);
+      } else {
+        console.log(
+          "[AdminContainer] ⏭️ Job_id detectado mas já há tiles completos, não mostrando modal"
+        );
+      }
     }
   }, [jobIdFromUrl, selectedCompany, loading, jobInfo, workspace]);
 
@@ -2026,20 +2376,54 @@ export function AdminDashboardContainer() {
   //   });
   // }
 
+  // ⭐ BUG FIX: Mostrar modal imediatamente se há job_id na URL (antes de qualquer conteúdo)
+  // O modal deve aparecer desde o início se há job_id, mesmo sem selectedCompany ainda
+  // ⭐ CRÍTICO: NUNCA mostrar modal se usuário já fechou manualmente OU se tiles já estão completos
+  const hasCompletedTiles =
+    selectedCompany?.tiles_status === "completed" ||
+    (selectedCompany?.tiles &&
+      selectedCompany.tiles.length >=
+        (selectedCompany?.tiles_to_generate || 8));
+
+  const shouldShowLoadingModalEarly =
+    jobIdFromUrl &&
+    !userClosedModalRef.current && // ⭐ CRÍTICO: Nunca mostrar se usuário fechou
+    showLoadingModal && // ⭐ Só mostrar se showLoadingModal for true (usuário pode fechar)
+    !hasCompletedTiles && // ⭐ CRÍTICO: Não mostrar se tiles já estão completos
+    (generatingTiles ||
+      !selectedCompany ||
+      selectedCompany?.tiles_status === "generating" ||
+      selectedCompany?.tiles_status === "pending");
+
   // Render states (DEPOIS de todos os hooks)
-  if (loading) {
+  // ⭐ BUG FIX: Se já há tiles sendo gerados, mostrar cards ao invés de loading workspace
+  if (
+    loading &&
+    (!selectedCompany?.tiles || selectedCompany.tiles.length === 0)
+  ) {
     return (
-      <AppLayout
-        sidebar={<Sidebar />}
-        header={<Header breadcrumb="Loading..." />}
-      >
-        <div className="text-center py-20">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">
-            Loading your trial workspace...
-          </p>
-        </div>
-      </AppLayout>
+      <>
+        <AppLayout
+          sidebar={<Sidebar />}
+          header={<Header breadcrumb="Loading..." />}
+        >
+          <div className="text-center py-20">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600 dark:text-gray-400">
+              Loading your trial workspace...
+            </p>
+          </div>
+        </AppLayout>
+        {/* ⭐ Mostrar modal mesmo durante loading se há job_id */}
+        {shouldShowLoadingModalEarly && (
+          <LoadingModal
+            isOpen={true}
+            onAccept={handleAcceptLoadingModal}
+            companyName={selectedCompany?.name || "your company"}
+            progress={tileProgress}
+          />
+        )}
+      </>
     );
   }
 
@@ -2064,6 +2448,16 @@ export function AdminDashboardContainer() {
 
   return (
     <>
+      {/* ⭐ BUG FIX: Mostrar modal PRIMEIRO se há job_id, antes de qualquer conteúdo */}
+      {shouldShowLoadingModalEarly && (
+        <LoadingModal
+          isOpen={true}
+          onAccept={handleAcceptLoadingModal}
+          companyName={selectedCompany?.name || "your company"}
+          progress={tileProgress}
+        />
+      )}
+
       <AppLayout
         background={dashboardBackground}
         sidebar={
@@ -2175,21 +2569,24 @@ export function AdminDashboardContainer() {
                 selectedCompany.tiles_status === "pending" ||
                 selectedCompany.tiles_status === "generating"
               }
-              tilesToGenerate={selectedCompany.tiles_to_generate || 6}
+              tilesToGenerate={selectedCompany.tiles_to_generate || 8} // ⭐ CORREÇÃO: Template tem 8 tiles
               onReorder={handleTilesReorder}
             />
           </div>
         ) : (
-          <div className="text-center py-20">
-            <div className="bg-gray-100 rounded-lg p-8 max-w-md mx-auto">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Select a company from the sidebar
-              </h3>
-              <p className="text-gray-600 mb-4">
-                Click on a company to view its AI-generated insights.
-              </p>
+          // ⭐ BUG FIX: Não mostrar mensagem se há job_id e modal está aberto
+          !shouldShowLoadingModalEarly && (
+            <div className="text-center py-20">
+              <div className="bg-gray-100 rounded-lg p-8 max-w-md mx-auto">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  Select a company from the sidebar
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  Click on a company to view its AI-generated insights.
+                </p>
+              </div>
             </div>
-          </div>
+          )
         )}
 
         {/* ⭐ NOVO: Só mostrar Notes e Files se company não for temporária */}
@@ -2254,11 +2651,8 @@ export function AdminDashboardContainer() {
         }}
       />
 
-      <LoadingModal
-        isOpen={showLoadingModal}
-        onAccept={handleAcceptLoadingModal}
-        companyName={selectedCompany?.name || "your company"}
-      />
+      {/* ⭐ BUG FIX: Remover modal duplicado - já está sendo renderizado acima com shouldShowLoadingModalEarly */}
+      {/* Modal duplicado removido para evitar dois modais */}
 
       <SaveTemplateModal
         isOpen={isSaveTemplateOpen}
@@ -2307,6 +2701,8 @@ export function AdminDashboardContainer() {
           </div>
         </div>
       )}
+
+      {/* ⭐ REMOVIDO: AdminOnboardingModal - LoadingModal já mostra progresso */}
     </>
   );
 }

@@ -20,16 +20,7 @@ async function runJob({
   onError,
   onCompleted,
 }) {
-  const total = Array.isArray(items) ? items.length : 0;
-  let current = 0;
-  onStatus?.({
-    jobId,
-    status: "RUNNING",
-    progress: { current, total, remaining: total },
-    scope,
-  });
-
-  // ⭐ NOVO: Carregar template do templateId
+  // ⭐ NOVO: Carregar template do templateId PRIMEIRO para saber quantos tiles gerar
   // ⭐ CORREÇÃO: Mapear templateIds do page.js para os templates reais
   let actualTemplateId = templateId;
   if (
@@ -56,9 +47,37 @@ async function runJob({
   );
   console.log(`[Runner] 📋 ======================================`);
 
+  // ⭐ BUG FIX: Usar template.tiles.length como total (8 tiles), não items.length
+  // ⭐ Se items.length for menor, criar items vazios para os tiles restantes
+  const itemsCount = Array.isArray(items) ? items.length : 0;
+  const templateTilesCount = template.tiles.length;
+  const total = Math.max(itemsCount, templateTilesCount);
+
+  // ⭐ BUG FIX: Garantir que temos items para todos os tiles do template
+  const expandedItems = Array.from({ length: total }, (_, i) => {
+    if (i < itemsCount && items[i]) {
+      return { ...items[i], orderIndex: i };
+    }
+    // Criar item vazio para tiles restantes do template
+    return { orderIndex: i };
+  });
+
+  console.log(
+    `[Runner] 📊 Items originais: ${itemsCount}, Template tiles: ${templateTilesCount}, Total a processar: ${total}`
+  );
+
+  let current = 0;
+  onStatus?.({
+    jobId,
+    status: "RUNNING",
+    progress: { current, total, remaining: total },
+    scope,
+  });
+
   // ⭐ NOVO: Construir contexto dos items (primeiro item tem os dados do form)
   // ⭐ CORREÇÃO: Encontrar o primeiro item que tenha dados válidos (não apenas orderIndex)
-  let firstItem = items.find(
+  // ⭐ BUG FIX: Buscar em expandedItems, mas priorizar items originais com dados
+  let firstItem = (Array.isArray(items) ? items : []).find(
     (item) =>
       item &&
       (item.researchTarget ||
@@ -70,8 +89,18 @@ async function runJob({
   );
 
   // Se não encontrou, usar o primeiro item mesmo que vazio
-  if (!firstItem && items.length > 0) {
-    firstItem = items[0];
+  if (!firstItem && expandedItems.length > 0) {
+    firstItem =
+      expandedItems.find(
+        (item) =>
+          item &&
+          (item.researchTarget ||
+            item.company ||
+            item.name ||
+            item.researchWebsite ||
+            item.companyWebsite ||
+            item.solution)
+      ) || expandedItems[0];
   }
 
   firstItem = firstItem || {};
@@ -161,23 +190,31 @@ async function runJob({
   console.log(`[Runner] 📝 ======================================`);
 
   // ⭐ NOVO: Mapear orderIndex para tile do template
+  // ⭐ BUG FIX: Usar expandedItems em vez de items
   for (let i = 0; i < total; i++) {
-    const item = items[i] || {};
-    const orderIndex =
-      typeof item.orderIndex === "number" ? item.orderIndex : i;
+    const item = expandedItems[i] || {};
+    const orderIndex = i; // ⭐ SEMPRE usar i como orderIndex (0, 1, 2, ..., 7)
     const itemId = `${jobId}_${orderIndex}`;
 
     try {
+      // ⭐ CORREÇÃO: Usar tile do template baseado no orderIndex
+      const tile = template.tiles[orderIndex];
+
+      if (!tile) {
+        console.warn(
+          `[Runner] ⚠️ Tile não encontrado para orderIndex=${orderIndex}, pulando...`
+        );
+        continue;
+      }
+
       await appendLog({
         jobId,
         level: "info",
-        message: `Runner: processing item ${
-          i + 1
-        }/${total} (orderIndex=${orderIndex})`,
+        message: `Runner: processing tile "${tile.title}" (${
+          orderIndex + 1
+        }/${total})`,
       });
 
-      // ⭐ CORREÇÃO: Usar tile do template baseado no orderIndex
-      const tile = template.tiles[orderIndex];
       let prompt;
 
       if (tile && tile.prompt) {
@@ -190,7 +227,7 @@ async function runJob({
         prompt = processPromptVariables(item.prompt, context);
       } else {
         console.warn(
-          `[Runner] ⚠️ Nenhum prompt encontrado, usando JSON do item`
+          `[Runner] ⚠️ Nenhum prompt encontrado para tile "${tile.title}", usando JSON do item`
         );
         prompt = JSON.stringify(item);
       }
@@ -250,11 +287,12 @@ async function runJob({
         `[Runner] 📊 Resultado final: ${accumulatedResult.length} caracteres`
       );
 
-      // Usar resultado acumulado em vez de stub
+      // ⭐ BUG FIX: Incluir title do tile no resultado
       await onResult?.({
         jobId,
         itemId,
         orderIndex,
+        title: tile?.title || `Insight ${orderIndex + 1}`, // ⭐ Título do template
         result: accumulatedResult,
         metrics: { model },
       });

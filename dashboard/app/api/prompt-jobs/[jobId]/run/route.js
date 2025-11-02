@@ -59,7 +59,26 @@ export async function POST(request, { params }) {
       templateId: job.templateId,
       model: job.model,
       status: job.status,
+      hasInitialItems: !!job.initialItems,
+      initialItemsLength: Array.isArray(job.initialItems)
+        ? job.initialItems.length
+        : 0,
     });
+
+    // ⭐ BUG FIX: Se items está vazio mas job tem initialItems, usar initialItems
+    let finalItems = items;
+    if (
+      (!Array.isArray(items) || items.length === 0) &&
+      job.initialItems &&
+      Array.isArray(job.initialItems) &&
+      job.initialItems.length > 0
+    ) {
+      console.log("[Run Route] 🔄 Body vazio, usando initialItems do job:", {
+        initialItemsCount: job.initialItems.length,
+        firstItemKeys: Object.keys(job.initialItems[0] || {}),
+      });
+      finalItems = job.initialItems;
+    }
 
     // ⭐ Se não for fluxo guest, exigir usuário logado e ownership do job
     if (!guestId) {
@@ -82,9 +101,9 @@ export async function POST(request, { params }) {
       }
     }
 
-    // ⭐ Processar items
-    const safeItems = Array.isArray(items)
-      ? items.map((it, i) => ({
+    // ⭐ Processar items (usar finalItems que pode vir do body ou do job)
+    const safeItems = Array.isArray(finalItems)
+      ? finalItems.map((it, i) => ({
           ...it,
           orderIndex: typeof it?.orderIndex === "number" ? it.orderIndex : i,
         }))
