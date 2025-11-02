@@ -21,6 +21,10 @@
     "test:cloudinary": "node --test tests/cloudinary.test.js",
     "test:corrections": "npm run test:sidebar && npm run test:middleware && npm run test:api",
     "test:all": "npm run test:corrections && npm run test:cloudinary",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:debug": "playwright test --debug",
     "setup": "node scripts/setup-env.js",
     "setup:superadmin": "node scripts/generate-superadmin-key.js",
     "migrate:workspaces": "node scripts/run-migration.js",
@@ -72,6 +76,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.56.1",
     "@tailwindcss/postcss": "^4",
     "eslint": "^9",
     "eslint-config-next": "15.3.4",

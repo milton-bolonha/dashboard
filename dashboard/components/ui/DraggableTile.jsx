@@ -43,7 +43,7 @@ export function DraggableTile({ tile, onClick, onDelete, isDisabled = false }) {
     >
       <Tile
         title={tile.title}
-        excerpt={tile.excerpt}
+        excerpt={tile.excerpt || tile.content || tile.answer || ""}
         metrics={tile.metrics}
         onDelete={onDelete}
       />

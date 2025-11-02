@@ -11,6 +11,11 @@ const isPublicRoute = createRouteMatcher([
   "/api/public(.*)",
   "/api/deploy/webhook",
   "/api/guest(.*)",
+  "/api/streams/jobs(.*)", // SSE streams de jobs devem ser públicos (autorização por chave do canal)
+  // IAForms / Prompts: permitir fluxo guest (auth/ownerId é checado nas rotas quando necessário)
+  "/api/prompt(.*)",
+  "/api/prompt-jobs(.*)",
+  "/api/themes(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {

@@ -56,14 +56,49 @@ export async function generateTileWithMetrics(tile, context, options = {}) {
     // Usar prompt otimizado se disponível
     const processedPrompt =
       tile.optimizedPrompt || processPromptVariables(tile.prompt, context);
-    const systemPrompt =
-      tile.optimizedSystemPrompt ||
-      `You are an expert sales research assistant helping sales professionals.
+
+    // ⭐ CORREÇÃO: Normalizar contexto para evitar [object Object] no fallback
+    let systemPrompt = tile.optimizedSystemPrompt;
+    if (!systemPrompt) {
+      // Importar buildLegacyContext dinamicamente para evitar circular dependency
+      const { buildLegacyContext } = await import("@/lib/theme-context-mapper");
+      const normalizedContext = buildLegacyContext(
+        context,
+        options.theme || {}
+      );
+
+      const safeCompany =
+        typeof normalizedContext.company === "string"
+          ? normalizedContext.company
+          : String(normalizedContext.company || "");
+      const safeCompanyWebsite =
+        typeof normalizedContext.companyWebsite === "string"
+          ? normalizedContext.companyWebsite
+          : String(normalizedContext.companyWebsite || "");
+      const safeSolution =
+        typeof normalizedContext.solution === "string"
+          ? normalizedContext.solution
+          : String(normalizedContext.solution || "");
+      const safeResearchTarget =
+        typeof normalizedContext.researchTarget === "string"
+          ? normalizedContext.researchTarget
+          : String(normalizedContext.researchTarget || "");
+      const safeResearchWebsite =
+        typeof normalizedContext.researchWebsite === "string"
+          ? normalizedContext.researchWebsite
+          : String(normalizedContext.researchWebsite || "");
+
+      systemPrompt = `You are an expert sales research assistant helping sales professionals.
 Context about the sales rep:
-- Works at: ${context.company} (${context.companyWebsite})
-- Sells: ${context.solution}
-- Researching: ${context.researchTarget} (${context.researchWebsite})
+- Works at: ${safeCompany}${
+        safeCompanyWebsite ? ` (${safeCompanyWebsite})` : ""
+      }
+- Sells: ${safeSolution}
+- Researching: ${safeResearchTarget}${
+        safeResearchWebsite ? ` (${safeResearchWebsite})` : ""
+      }
 Provide detailed, actionable insights focused on sales opportunities.`;
+    }
 
     // TESTE: Usar gpt-4o-mini apenas para os dois primeiros tiles
     const isFirstTwoTiles =
@@ -78,15 +113,40 @@ Provide detailed, actionable insights focused on sales opportunities.`;
       `🤖 Tile "${tile.title}": Using model ${modelToUse} (first two tiles: ${isFirstTwoTiles})`
     );
 
+    // ⭐ CORREÇÃO: Modelos o4-mini requerem max_completion_tokens em vez de max_tokens
+    const isO4Mini =
+      modelToUse.includes("o4-mini") || modelToUse.includes("gpt-4o-mini");
+    const maxTokensValue = profile?.maxTokens || 500;
+
     const params = {
       model: modelToUse,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: processedPrompt },
       ],
-      temperature: profile?.temperature || 0.5,
-      max_tokens: profile?.maxTokens || 500,
     };
+
+    // ⭐ Usar parâmetros corretos baseado no modelo
+    if (isO4Mini) {
+      params.max_completion_tokens = maxTokensValue;
+      // ⭐ CORREÇÃO: o4-mini não suporta temperature customizado, apenas default (1)
+      // Não passar temperature para usar o padrão
+      console.log(
+        `🔧 Tile "${tile.title}": Usando max_completion_tokens (modelo ${modelToUse})`
+      );
+      console.log(
+        `🔧 Tile "${tile.title}": Temperature não será passado (modelo ${modelToUse} usa padrão 1)`
+      );
+    } else {
+      params.max_tokens = maxTokensValue;
+      params.temperature = profile?.temperature || 0.5; // ⭐ Outros modelos podem usar temperature customizado
+      console.log(
+        `🔧 Tile "${tile.title}": Usando max_tokens (modelo ${modelToUse})`
+      );
+      console.log(
+        `🔧 Tile "${tile.title}": Temperature: ${params.temperature}`
+      );
+    }
 
     // Desabilitar streaming temporariamente - usar método normal dos outros tiles
     const useStreaming = false; // options.enableStreaming !== false;

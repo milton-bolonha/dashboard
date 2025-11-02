@@ -5,6 +5,8 @@
  * para balancear velocidade, qualidade e custo
  */
 
+import { buildLegacyContext } from "@/lib/theme-context-mapper";
+
 // Profiles de otimização por criticidade
 export const TILE_PROFILES = {
   CRITICAL_FAST: {
@@ -95,14 +97,42 @@ export function classifyTileProfile(tile, position, totalTiles) {
 
 /**
  * Otimiza o system prompt baseado no profile
+ * ⭐ CORREÇÃO: Normaliza contexto dinâmico para evitar [object Object]
  */
-export function optimizeSystemPrompt(context, profile) {
-  const { company, companyWebsite, solution, researchTarget, researchWebsite } =
-    context;
+export function optimizeSystemPrompt(context, profile, theme = null) {
+  // ⭐ CRÍTICO: Normalizar contexto dinâmico para formato legado
+  // Isso evita [object Object] quando context tem objetos aninhados
+  const normalizedContext = buildLegacyContext(context, theme || {});
+
+  const {
+    company = "",
+    companyWebsite = "",
+    solution = "",
+    researchTarget = "",
+    researchWebsite = "",
+  } = normalizedContext;
+
+  // Garantir que todos sejam strings (evitar [object Object])
+  const safeCompany =
+    typeof company === "string" ? company : String(company || "");
+  const safeCompanyWebsite =
+    typeof companyWebsite === "string"
+      ? companyWebsite
+      : String(companyWebsite || "");
+  const safeSolution =
+    typeof solution === "string" ? solution : String(solution || "");
+  const safeResearchTarget =
+    typeof researchTarget === "string"
+      ? researchTarget
+      : String(researchTarget || "");
+  const safeResearchWebsite =
+    typeof researchWebsite === "string"
+      ? researchWebsite
+      : String(researchWebsite || "");
 
   if (profile === TILE_PROFILES.CRITICAL_FAST) {
     // Contexto mínimo para tiles rápidos
-    return `Sales rep from ${company} selling ${solution}. Research ${researchTarget}.`;
+    return `Sales rep from ${safeCompany} selling ${safeSolution}. Research ${safeResearchTarget}.`;
   }
 
   if (profile === TILE_PROFILES.DETAILED) {
@@ -110,9 +140,13 @@ export function optimizeSystemPrompt(context, profile) {
     return `You are an expert sales research assistant helping sales professionals.
 
 Context about the sales rep:
-- Works at: ${company} (${companyWebsite})
-- Sells: ${solution}
-- Researching: ${researchTarget} (${researchWebsite})
+- Works at: ${safeCompany}${
+      safeCompanyWebsite ? ` (${safeCompanyWebsite})` : ""
+    }
+- Sells: ${safeSolution}
+- Researching: ${safeResearchTarget}${
+      safeResearchWebsite ? ` (${safeResearchWebsite})` : ""
+    }
 
 Provide detailed, actionable insights focused on sales opportunities.
 Format your answers in clear, well-structured markdown.
@@ -121,8 +155,8 @@ Be specific and data-driven when possible.`;
 
   // Contexto padrão
   return `You are an expert sales research assistant.
-Sales rep from ${company} selling ${solution}. Research ${researchTarget} for sales opportunities.
-Provide actionable insights focused on ${solution} opportunities for ${researchTarget}.`;
+Sales rep from ${safeCompany} selling ${safeSolution}. Research ${safeResearchTarget} for sales opportunities.
+Provide actionable insights focused on ${safeSolution} opportunities for ${safeResearchTarget}.`;
 }
 
 /**
@@ -143,8 +177,15 @@ export function applyFormatConstraints(prompt, profile) {
 
 /**
  * Otimiza um tile completo (prompt + parâmetros)
+ * ⭐ CORREÇÃO: Passa theme para normalizeSystemPrompt
  */
-export function optimizeTile(tile, position, totalTiles, context) {
+export function optimizeTile(
+  tile,
+  position,
+  totalTiles,
+  context,
+  theme = null
+) {
   const profile = classifyTileProfile(tile, position, totalTiles);
 
   return {
@@ -153,7 +194,7 @@ export function optimizeTile(tile, position, totalTiles, context) {
     maxTokens: profile.maxTokens,
     temperature: profile.temperature,
     priority: profile.priority,
-    optimizedSystemPrompt: optimizeSystemPrompt(context, profile),
+    optimizedSystemPrompt: optimizeSystemPrompt(context, profile, theme),
     optimizedPrompt: applyFormatConstraints(
       tile.processedPrompt || tile.prompt,
       profile
@@ -163,12 +204,13 @@ export function optimizeTile(tile, position, totalTiles, context) {
 
 /**
  * Otimiza múltiplos tiles
+ * ⭐ CORREÇÃO: Aceita theme opcional para normalização de contexto
  */
-export function optimizeTiles(tiles, context) {
+export function optimizeTiles(tiles, context, theme = null) {
   const totalTiles = tiles.length;
 
   return tiles.map((tile, index) =>
-    optimizeTile(tile, index + 1, totalTiles, context)
+    optimizeTile(tile, index + 1, totalTiles, context, theme)
   );
 }
 

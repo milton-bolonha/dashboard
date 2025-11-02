@@ -223,8 +223,22 @@ export function listGuestTemplates() {
 }
 
 /**
+ * Helper para garantir que valor seja sempre string
+ */
+function safeStringValue(value, defaultValue = "") {
+  if (!value) return defaultValue;
+  if (typeof value === "string") return value;
+  if (typeof value === "object" && value !== null) {
+    // Se for objeto, tentar extrair propriedades comuns
+    return value.name || value.title || value.value || String(value);
+  }
+  return String(value);
+}
+
+/**
  * Processa template variables em prompts
  * ✅ ATUALIZADO: Suporta tanto formato legado quanto dinâmico
+ * ⭐ CORREÇÃO: Garante que valores sempre sejam strings (evita [object Object])
  *
  * Formatos suportados:
  * - {variable} - Formato simples
@@ -246,10 +260,12 @@ export function processPromptVariables(prompt, context) {
     entityFieldWithDefaultRegex,
     (match, entityName, fieldName, defaultValue) => {
       if (context[entityName] && context[entityName][fieldName]) {
-        console.log(
-          `✅ Substituindo ${match} por "${context[entityName][fieldName]}"`
+        const value = safeStringValue(
+          context[entityName][fieldName],
+          defaultValue
         );
-        return context[entityName][fieldName];
+        console.log(`✅ Substituindo ${match} por "${value}"`);
+        return value;
       }
       console.log(`⚠️ Usando default para ${match}: "${defaultValue}"`);
       return defaultValue;
@@ -262,10 +278,9 @@ export function processPromptVariables(prompt, context) {
     entityFieldRegex,
     (match, entityName, fieldName) => {
       if (context[entityName] && context[entityName][fieldName]) {
-        console.log(
-          `✅ Substituindo ${match} por "${context[entityName][fieldName]}"`
-        );
-        return context[entityName][fieldName];
+        const value = safeStringValue(context[entityName][fieldName]);
+        console.log(`✅ Substituindo ${match} por "${value}"`);
+        return value;
       }
       console.warn(
         `⚠️ Variável não encontrada: ${match} - context[${entityName}] =`,
@@ -282,8 +297,9 @@ export function processPromptVariables(prompt, context) {
     if (match.includes(".")) return match;
 
     if (context[varName]) {
-      console.log(`✅ Substituindo ${match} por "${context[varName]}"`);
-      return context[varName];
+      const value = safeStringValue(context[varName]);
+      console.log(`✅ Substituindo ${match} por "${value}"`);
+      return value;
     }
     return match;
   });

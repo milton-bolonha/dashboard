@@ -25,12 +25,32 @@ export async function createDynamicWorkspace(theme, context) {
     Object.keys(dynamicData)
   );
 
+  // ⭐ CORREÇÃO: Suportar mapeamento direto de campos legacy (companyName, companyUrl)
+  // para os campos esperados pelo tema (target, targetWebsite)
+  const normalizedContext = { ...context };
+  
+  // Mapear campos legacy para campos do tema
+  if (context.companyName && !context.target) {
+    normalizedContext.target = context.companyName;
+    console.log(`🔄 Mapeando companyName → target: "${context.companyName}"`);
+  }
+  if (context.companyUrl && !context.targetWebsite) {
+    normalizedContext.targetWebsite = context.companyUrl;
+    console.log(`🔄 Mapeando companyUrl → targetWebsite: "${context.companyUrl}"`);
+  }
+  if (context.solution && !normalizedContext.solution) {
+    normalizedContext.solution = context.solution;
+  }
+
+  console.log("📦 Contexto original:", JSON.stringify(context, null, 2));
+  console.log("📦 Contexto normalizado:", JSON.stringify(normalizedContext, null, 2));
+
   // Mapear dados do form (context) para entidades
   // Agrupar por entidade primeiro para criar uma só entidade com todos os campos
   const entityData = {};
 
   for (const tag of theme.landingTags) {
-    if (!context[tag.id]) continue;
+    if (!normalizedContext[tag.id]) continue;
     if (!tag.mapToEntity) continue;
 
     const entityId = tag.mapToEntity.replace("s", ""); // "books" -> "book"
@@ -47,11 +67,11 @@ export async function createDynamicWorkspace(theme, context) {
 
     console.log(
       `🏷️ Processando tag ${tag.id} -> ${tag.mapToEntity}.${tag.mapToField} = ${
-        context[tag.id]
+        normalizedContext[tag.id]
       }`
     );
 
-    entityData[entityKey][tag.mapToField] = context[tag.id];
+    entityData[entityKey][tag.mapToField] = normalizedContext[tag.id];
   }
 
   // Agora criar as entidades com todos os campos

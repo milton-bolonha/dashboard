@@ -34,8 +34,9 @@ import {
   ChevronRight,
 } from "lucide-react";
 import "./home.css";
-import DynamicHeroSection from "@/components/landing/DynamicHeroSection";
-import HeroSection from "@/components/landing/HeroSection";
+import IAFormsContainer from "@/components/landing/IAFormsContainer";
+import IAFormsPresenterClassic from "@/components/landing/iaforms/IAFormsPresenterClassic";
+import IAFormsPresenterDynamic from "@/components/landing/iaforms/IAFormsPresenterDynamic";
 import { ThemeChooser } from "@/components/landing/ThemeChooser";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { LandingFooter } from "@/components/landing/LandingFooter";
@@ -55,12 +56,11 @@ export default function LandingPage() {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const view = params.get("hero") || ""; // default: dynamic
-    console.log(view);
+    // ⭐ Removido: log desnecessário
 
     setHeroView(view);
   }, []);
-  console.log(heroView);
-  console.log(typeof heroView);
+  // ⭐ Removido: logs desnecessários que causavam poluição no console
   return (
     <div
       className="min-h-screen flex flex-col relative"
@@ -82,10 +82,31 @@ export default function LandingPage() {
 
         {/* <HeroSection mode="landing" /> */}
 
-        {heroView === "dynamic" ? <DynamicHeroSection mode="landing" /> : null}
+        {heroView === "dynamic" ? (
+          <IAFormsContainer
+            mode="landing"
+            heroType={2}
+            themeId="dynamic-default"
+            initialTemplateId="tpl_dynamic_default"
+            initialItems={Array.from({ length: 8 }, (_v, i) => ({
+              orderIndex: i,
+            }))}
+          >
+            {(p) => <IAFormsPresenterDynamic {...p} />}
+          </IAFormsContainer>
+        ) : null}
         {heroView === "" || heroView === null ? (
-          // ClassicHero: Formulário tradicional com 5 inputs fixos
-          <HeroSection mode="landing" />
+          <IAFormsContainer
+            mode="landing"
+            heroType={1}
+            themeId="classic-default"
+            initialTemplateId="tpl_classic_default"
+            initialItems={Array.from({ length: 8 }, (_v, i) => ({
+              orderIndex: i,
+            }))}
+          >
+            {(p) => <IAFormsPresenterClassic {...p} />}
+          </IAFormsContainer>
         ) : null}
         {/* Outras seções comentadas temporariamente */}
         {/* <CapabilitiesSection />

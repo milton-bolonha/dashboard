@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState, useMemo, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
 import {
   createTileDebugLogger,
   debugTileStates,
 } from "@/lib/tile-debug-logger";
+import { useSSE } from "@/hooks/useSSE";
 
 // Layout Components
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -38,6 +39,8 @@ export const dynamic = "force-dynamic";
 export function AdminDashboardContainer() {
   noStore();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const jobIdFromUrl = searchParams?.get("job_id");
 
   // Workspace State
   const [workspace, setWorkspace] = useState(null);
@@ -87,9 +90,65 @@ export function AdminDashboardContainer() {
     return entity?.name || entity?.title || "Unknown";
   };
 
+  // ⭐ CRÍTICO: Declarar jobInfo ANTES de usar nos useEffects
+  const [jobInfo, setJobInfo] = useState(null);
+  const [jobInfoError, setJobInfoError] = useState(null);
+  const guestIdFromUrl = searchParams?.get("guest_id");
+
+  // ⭐ NOVO: Helper para extrair nome da company do jobInfo
+  const getCompanyNameFromJob = () => {
+    console.debug("[AdminContainer] 🔍 getCompanyNameFromJob chamado:", {
+      hasJobInfo: !!jobInfo,
+      hasInitialItems: !!jobInfo?.initialItems,
+      initialItemsType: Array.isArray(jobInfo?.initialItems)
+        ? "array"
+        : typeof jobInfo?.initialItems,
+      initialItemsLength: Array.isArray(jobInfo?.initialItems)
+        ? jobInfo.initialItems.length
+        : 0,
+    });
+
+    if (
+      jobInfo?.initialItems &&
+      Array.isArray(jobInfo.initialItems) &&
+      jobInfo.initialItems.length > 0
+    ) {
+      const firstItem = jobInfo.initialItems[0];
+
+      console.debug("[AdminContainer] 🔍 Primeiro item completo:", {
+        keys: Object.keys(firstItem),
+        researchTarget: firstItem.researchTarget || "N/A",
+        company: firstItem.company || "N/A",
+        name: firstItem.name || "N/A",
+      });
+
+      // ⭐ CORREÇÃO: researchTarget é o nome da empresa a pesquisar (companies.name)
+      const companyName =
+        firstItem.researchTarget || firstItem.company || firstItem.name;
+
+      if (companyName && companyName !== "Preview Company") {
+        console.log(
+          "[AdminContainer] ✅ Nome da company extraído do job:",
+          companyName
+        );
+        return companyName;
+      } else {
+        console.warn(
+          "[AdminContainer] ⚠️ Nome da company inválido ou vazio, usando fallback"
+        );
+      }
+    } else {
+      console.warn(
+        "[AdminContainer] ⚠️ initialItems não disponível no jobInfo"
+      );
+    }
+
+    return "Preview Company"; // Fallback
+  };
+
   // Auto-selecionar primeira entidade quando workspace carregar
   useEffect(() => {
-    if (!workspace?.workspace || selectedCompany) return;
+    if (!workspace?.workspace) return;
 
     const theme = workspace.workspace.themeSnapshot;
     let entities = [];
@@ -105,23 +164,188 @@ export function AdminDashboardContainer() {
       }
 
       entities = workspace.workspace[entityKey] || [];
+    } else {
+      entities = workspace.workspace.companies || [];
+    }
 
-      if (entities && entities.length > 0) {
+    if (entities && entities.length > 0) {
+      // ⭐ CORREÇÃO CRÍTICA: Se há job_id, tentar encontrar company pelo nome do researchTarget
+      if (jobIdFromUrl && jobInfo?.initialItems?.[0]?.researchTarget) {
+        const researchTarget = jobInfo.initialItems[0].researchTarget;
+        const matchingCompany = entities.find(
+          (e) => e.name === researchTarget || e.title === researchTarget
+        );
+
+        if (matchingCompany) {
+          console.log(
+            `🎯 Company encontrada no workspace pelo researchTarget:`,
+            matchingCompany.name,
+            `(${matchingCompany.tiles?.length || 0} tiles, status: ${
+              matchingCompany.tiles_status
+            })`
+          );
+          setSelectedCompany(matchingCompany);
+
+          // ⭐ CORREÇÃO: Se tiles estão completos ou tem tiles, desativar loading
+          if (
+            matchingCompany.tiles_status === "completed" ||
+            (matchingCompany.tiles?.length || 0) > 0
+          ) {
+            console.log(
+              `✅ Desativando loading - company encontrada com tiles`
+            );
+            setGeneratingTiles(false);
+            setShowLoadingModal(false);
+          }
+
+          return;
+        }
+      }
+
+      // Se não há company selecionada OU se não encontrou match com job_id, selecionar primeira
+      if (!selectedCompany) {
         console.log(
-          `🎯 Auto-selecionando primeira ${primaryEntity.namePlural}:`,
+          `🎯 Auto-selecionando primeira entidade:`,
           entities[0].name || entities[0].title
         );
         setSelectedCompany(entities[0]);
-      }
-    } else {
-      entities = workspace.workspace.companies || [];
+      } else if (selectedCompany?.id?.startsWith("temp_")) {
+        // ⭐ NOVO: Se há company temporária, tentar substituir pela do workspace se match por nome
+        const matchingCompany = entities.find(
+          (e) =>
+            e.name === selectedCompany.name || e.title === selectedCompany.name
+        );
 
-      if (entities && entities.length > 0) {
-        console.log("🎯 Auto-selecionando primeira company:", entities[0].name);
-        setSelectedCompany(entities[0]);
+        if (matchingCompany) {
+          console.log(
+            `🔍 Company encontrada no workspace:`,
+            matchingCompany.name,
+            {
+              id: matchingCompany.id,
+              tilesCount: matchingCompany.tiles?.length || 0,
+              tiles_status: matchingCompany.tiles_status,
+              hasTiles: !!matchingCompany.tiles?.length,
+              firstTileId: matchingCompany.tiles?.[0]?.id,
+              firstTileTitle: matchingCompany.tiles?.[0]?.title,
+            }
+          );
+
+          // ⭐ CORREÇÃO: Sempre substituir company temporária pela do workspace
+          // O workspace tem a fonte de verdade dos tiles
+          console.log(
+            `🔄 Substituindo company temporária pela do workspace:`,
+            matchingCompany.name,
+            `(${matchingCompany.tiles?.length || 0} tiles, status: ${
+              matchingCompany.tiles_status
+            })`
+          );
+          setSelectedCompany(matchingCompany);
+
+          // ⭐ CORREÇÃO: Se tiles estão completos ou tem tiles, desativar loading
+          if (
+            matchingCompany.tiles_status === "completed" ||
+            (matchingCompany.tiles?.length || 0) > 0
+          ) {
+            console.log(
+              `✅ Desativando loading - tiles_status: ${
+                matchingCompany.tiles_status
+              }, tiles: ${matchingCompany.tiles?.length || 0}`
+            );
+            setGeneratingTiles(false);
+            setShowLoadingModal(false);
+          }
+        }
       }
     }
-  }, [workspace]);
+  }, [workspace, jobInfo, jobIdFromUrl, selectedCompany?.name]);
+
+  // ⭐ NOVO: Monitorar atualizações do workspace para atualizar company selecionada
+  useEffect(() => {
+    if (!workspace?.workspace || !selectedCompany) return;
+
+    const theme = workspace.workspace.themeSnapshot;
+    let entities = [];
+    let entityKey = "companies";
+
+    if (theme) {
+      const primaryEntity = theme.entities.find((e) => e.isPrimary);
+      entityKey = `${primaryEntity.id}s`;
+      if (entityKey === "companys") entityKey = "companies";
+      entities = workspace.workspace[entityKey] || [];
+    } else {
+      entities = workspace.workspace.companies || [];
+    }
+
+    // ⭐ CORREÇÃO: Encontrar company atualizada no workspace e atualizar se tiver mais tiles
+    const updatedCompany = entities.find(
+      (e) =>
+        e.name === selectedCompany.name ||
+        e.title === selectedCompany.name ||
+        e.id === selectedCompany.id ||
+        (!selectedCompany.id?.startsWith("temp_") &&
+          e.id === selectedCompany.id)
+    );
+
+    if (updatedCompany) {
+      const currentTilesCount = selectedCompany.tiles?.length || 0;
+      const updatedTilesCount = updatedCompany.tiles?.length || 0;
+
+      // ⭐ CORREÇÃO CRÍTICA: Se há company temporária E workspace tem tiles, SEMPRE substituir
+      // Isso garante que tiles do workspace sempre sobrescrevem temporária
+      const isTempCompany = selectedCompany.id?.startsWith("temp_");
+      const shouldUpdate =
+        updatedTilesCount > currentTilesCount ||
+        updatedCompany.tiles_status !== selectedCompany.tiles_status ||
+        (updatedTilesCount > 0 && isTempCompany) ||
+        (isTempCompany && updatedTilesCount > 0);
+
+      if (shouldUpdate) {
+        console.log(
+          `🔄 [CRÍTICO] Atualizando company do workspace:`,
+          updatedCompany.name,
+          {
+            currentTiles: currentTilesCount,
+            updatedTiles: updatedTilesCount,
+            currentStatus: selectedCompany.tiles_status,
+            updatedStatus: updatedCompany.tiles_status,
+            isTempCompany,
+            firstTileId: updatedCompany.tiles?.[0]?.id,
+            firstTileTitle: updatedCompany.tiles?.[0]?.title,
+            firstTileHasAnswer: !!updatedCompany.tiles?.[0]?.answer,
+            firstTileHasExcerpt: !!updatedCompany.tiles?.[0]?.excerpt,
+          }
+        );
+        setSelectedCompany(updatedCompany);
+
+        // Se tiles estão completos ou tem tiles, desativar loading
+        if (
+          updatedCompany.tiles_status === "completed" ||
+          (updatedTilesCount > 0 &&
+            updatedCompany.tiles_status !== "generating")
+        ) {
+          console.log(
+            `✅ Desativando loading - tiles do workspace carregados (${updatedTilesCount} tiles)`
+          );
+          setGeneratingTiles(false);
+          setShowLoadingModal(false);
+        }
+      } else {
+        console.debug(
+          `⏭️ Não atualizando company - sem mudanças significativas`,
+          {
+            currentTiles: currentTilesCount,
+            updatedTiles: updatedTilesCount,
+            isTempCompany,
+          }
+        );
+      }
+    }
+  }, [
+    workspace?.workspace?.companies,
+    workspace?.workspace,
+    selectedCompany?.name,
+    selectedCompany?.id,
+  ]);
 
   // ⭐ CRITICAL: Detectar status de geração de tiles e mostrar loading
   useEffect(() => {
@@ -129,13 +353,14 @@ export function AdminDashboardContainer() {
 
     const status = selectedCompany.tiles_status;
     const tilesCount = selectedCompany.tiles?.length || 0;
-    const expectedTiles = selectedCompany.tiles_to_generate || 6;
+    const expectedTiles = selectedCompany.tiles_to_generate || 8; // ⭐ CORREÇÃO: Template tem 8 tiles
 
-    console.log("🔍 Debug geração de tiles:");
-    console.log("- status:", status);
-    console.log("- tilesCount:", tilesCount);
-    console.log("- expectedTiles:", expectedTiles);
-    console.log("- generatingTiles:", generatingTiles);
+    console.debug("🔍 Debug geração de tiles:", {
+      status,
+      tilesCount,
+      expectedTiles,
+      generatingTiles,
+    });
 
     // ⭐ CRITICAL: Status "pending" ou "generating" deve mostrar tiles de loading
     if ((status === "pending" || status === "generating") && !generatingTiles) {
@@ -184,23 +409,601 @@ export function AdminDashboardContainer() {
       setGeneratingTiles(false);
       setShowLoadingModal(false);
     }
-  }, [selectedCompany?.name, selectedCompany?.tiles_status]);
+
+    // ⭐ CORREÇÃO: Se tiles já estão completos no workspace, desativar loading imediatamente
+    if (status === "completed" && tilesCount > 0 && generatingTiles) {
+      console.log(
+        `✅ Tiles já completos no workspace (${tilesCount} tiles), desativando loading`
+      );
+      setGeneratingTiles(false);
+      setShowLoadingModal(false);
+    }
+  }, [
+    selectedCompany?.name,
+    selectedCompany?.tiles_status,
+    selectedCompany?.tiles?.length,
+  ]);
+
+  // ⭐ NOVO: Buscar informações do job quando há job_id (ANTES de carregar workspace)
+  // ⭐ CORREÇÃO: jobInfo já foi declarado acima
+
+  useEffect(() => {
+    if (!jobIdFromUrl) return;
+
+    console.debug(
+      "[AdminContainer] 🔍 Buscando informações do job:",
+      jobIdFromUrl
+    );
+    const url = `/api/prompt-jobs/${jobIdFromUrl}${
+      guestIdFromUrl ? `?guest_id=${guestIdFromUrl}` : ""
+    }`;
+    console.debug("[AdminContainer] 📡 URL de busca:", url);
+
+    fetch(url)
+      .then((res) => {
+        console.debug("[AdminContainer] 📥 Response status:", res.status);
+        if (!res.ok) {
+          if (res.status === 404) {
+            throw new Error(`Job ${jobIdFromUrl} não encontrado`);
+          } else if (res.status === 401 || res.status === 403) {
+            throw new Error(`Acesso negado ao job ${jobIdFromUrl}`);
+          }
+          throw new Error(`Erro HTTP ${res.status}`);
+        }
+        return res.json();
+      })
+      .then(async (data) => {
+        console.debug("[AdminContainer] 📋 Job info recebida:", data);
+        console.debug("[AdminContainer] 🔍 initialItems no jobInfo:", {
+          hasInitialItems: !!data.initialItems,
+          isArray: Array.isArray(data.initialItems),
+          length: Array.isArray(data.initialItems)
+            ? data.initialItems.length
+            : "N/A",
+          firstItem: data.initialItems?.[0],
+          allKeys: Object.keys(data),
+        });
+
+        if (data.jobId) {
+          setJobInfo(data);
+          setJobInfoError(null);
+          const totalItems = data.totals?.items || 6;
+          console.debug(
+            "[AdminContainer] 📊 Total de items do job:",
+            totalItems
+          );
+
+          // ⭐ NOVO: Se o job já está COMPLETED, buscar resultados do banco
+          if (data.status === "COMPLETED" && data.totals?.completed > 0) {
+            console.log(
+              "[AdminContainer] ⚡ Job já concluído, buscando resultados..."
+            );
+            try {
+              const resultsUrl = `/api/prompt-jobs/${jobIdFromUrl}/results${
+                guestIdFromUrl ? `?guest_id=${guestIdFromUrl}` : ""
+              }`;
+              const resultsRes = await fetch(resultsUrl);
+              if (resultsRes.ok) {
+                const resultsData = await resultsRes.json();
+                console.log(
+                  "[AdminContainer] ✅ Resultados carregados:",
+                  resultsData.items?.length || 0
+                );
+
+                // Criar company temporária se não existe
+                if (!selectedCompany) {
+                  let companyName = "Preview Company";
+                  if (
+                    data.initialItems &&
+                    Array.isArray(data.initialItems) &&
+                    data.initialItems.length > 0
+                  ) {
+                    const firstItem = data.initialItems[0];
+                    // ⭐ CORREÇÃO: researchTarget é o nome da empresa a pesquisar (companies.name)
+                    companyName =
+                      firstItem.researchTarget ||
+                      firstItem.company ||
+                      firstItem.name ||
+                      companyName;
+                    console.log(
+                      "[AdminContainer] 📝 Nome da company extraído dos items:",
+                      companyName
+                    );
+                  }
+
+                  // Converter resultados para tiles
+                  const tiles = (resultsData.items || []).map((item) => ({
+                    id: `tile_${jobIdFromUrl}_${item.orderIndex}`,
+                    orderIndex: item.orderIndex,
+                    title: `Insight ${item.orderIndex + 1}`,
+                    content: item.result || "",
+                    status: "completed",
+                    createdAt: item.createdAt || new Date().toISOString(),
+                    metrics: item.metrics,
+                  }));
+
+                  const tempCompany = {
+                    id: `temp_${jobIdFromUrl}`,
+                    name: companyName,
+                    title: companyName,
+                    tiles,
+                    tiles_status: "completed",
+                    tiles_to_generate: totalItems,
+                  };
+                  setSelectedCompany(tempCompany);
+                  console.log(
+                    "[AdminContainer] ✅ Company temporária criada com tiles:",
+                    tempCompany
+                  );
+                  setGeneratingTiles(false);
+                  setShowLoadingModal(false);
+                  return;
+                }
+              }
+            } catch (resultsErr) {
+              console.error(
+                "[AdminContainer] ❌ Erro ao buscar resultados:",
+                resultsErr
+              );
+            }
+          }
+
+          // ⭐ CRÍTICO: Criar company temporária se não existe workspace/company ainda
+          if (!selectedCompany) {
+            console.log("[AdminContainer] 🏗️  Criando company temporária...");
+            // ⭐ NOVO: Extrair nome da company dos items iniciais do job
+            let companyName = "Preview Company";
+            if (
+              data.initialItems &&
+              Array.isArray(data.initialItems) &&
+              data.initialItems.length > 0
+            ) {
+              const firstItem = data.initialItems[0];
+              // ⭐ CORREÇÃO: researchTarget é o nome da empresa a pesquisar (companies.name)
+              companyName =
+                firstItem.researchTarget ||
+                firstItem.company ||
+                firstItem.name ||
+                companyName;
+              console.log(
+                "[AdminContainer] 📝 Nome da company extraído dos items:",
+                companyName
+              );
+            }
+            const tempCompany = {
+              id: `temp_${jobIdFromUrl}`,
+              name: companyName,
+              title: companyName,
+              tiles: [],
+              tiles_status: "generating",
+              tiles_to_generate: totalItems,
+            };
+            setSelectedCompany(tempCompany);
+            console.log(
+              "[AdminContainer] ✅ Company temporária criada:",
+              tempCompany
+            );
+          } else {
+            // Atualizar company existente com tiles_to_generate
+            setSelectedCompany({
+              ...selectedCompany,
+              tiles_to_generate: totalItems,
+              tiles_status: "generating",
+            });
+          }
+
+          // Mostrar loading modal e setar estado de geração
+          console.log("[AdminContainer] 🚀 Ativando estados de loading...");
+          setGeneratingTiles(true);
+          setShowLoadingModal(true);
+        } else {
+          console.warn(
+            "[AdminContainer] ⚠️  Job info inválida ou não encontrada"
+          );
+          setJobInfoError("Job info inválida");
+        }
+      })
+      .catch((err) => {
+        console.error("[AdminContainer] ❌ Erro ao buscar job info:", err);
+        setJobInfoError(err.message || "Erro desconhecido ao buscar job");
+        // Não quebrar a UI, apenas logar o erro
+      });
+  }, [jobIdFromUrl, guestIdFromUrl]);
+
+  // ⭐ NOVO: Tentar criar workspace quando jobInfo estiver disponível e workspace não existir
+  const creatingWorkspaceRef = useRef(false);
+  const hasTriedCreateRef = useRef(false); // ⭐ Prevenir múltiplas tentativas
+  useEffect(() => {
+    if (
+      !jobIdFromUrl ||
+      !guestIdFromUrl ||
+      !jobInfo ||
+      workspace ||
+      loading ||
+      creatingWorkspaceRef.current ||
+      hasTriedCreateRef.current // ⭐ Prevenir tentativas repetidas
+    ) {
+      return;
+    }
+
+    // ⭐ CORREÇÃO: Só tentar criar se initialItems tiver dados válidos
+    const hasValidInitialItems =
+      jobInfo.initialItems &&
+      Array.isArray(jobInfo.initialItems) &&
+      jobInfo.initialItems.length > 0 &&
+      jobInfo.initialItems[0] &&
+      Object.keys(jobInfo.initialItems[0]).some(
+        (key) => key !== "orderIndex" && jobInfo.initialItems[0][key]
+      );
+
+    if (!hasValidInitialItems) {
+      console.log(
+        "[AdminContainer] ⏳ JobInfo sem initialItems válidos, aguardando..."
+      );
+      return;
+    }
+
+    console.log(
+      "[AdminContainer] 🔄 JobInfo carregado com initialItems válidos, tentando criar workspace..."
+    );
+    creatingWorkspaceRef.current = true;
+    hasTriedCreateRef.current = true; // ⭐ Marcar como tentado
+    // Tentar carregar workspace novamente (vai criar se não existir)
+    loadGuestWorkspace().finally(() => {
+      creatingWorkspaceRef.current = false;
+    });
+  }, [jobInfo, jobIdFromUrl, guestIdFromUrl, workspace, loading]);
 
   // Load workspace on mount
   useEffect(() => {
-    console.log("🔍 Admin useEffect executado");
-    console.log("📞 Chamando loadGuestWorkspace...");
+    console.debug("🔍 Admin useEffect executado");
+    console.debug("📞 Chamando loadGuestWorkspace...");
 
-    try {
-      loadGuestWorkspace();
-      console.log("✅ Admin useEffect: loadGuestWorkspace chamado com sucesso");
-    } catch (err) {
-      console.error(
-        "❌ Admin useEffect: Erro ao chamar loadGuestWorkspace:",
-        err
+    // ⭐ CRÍTICO: Sempre carregar workspace (mesmo com job_id)
+    // O workspace é necessário para ter companies e estrutura básica da UI
+    // ⭐ CORREÇÃO: Não criar automaticamente aqui - deixar o useEffect acima cuidar disso
+    // quando jobInfo estiver disponível
+    loadGuestWorkspace().catch((err) => {
+      // ⭐ CORREÇÃO: Não logar erro se for 404 esperado (workspace será criado depois)
+      if (err.message && err.message.includes("404")) {
+        console.log(
+          "[AdminContainer] ℹ️ Workspace não encontrado no mount - será criado quando jobInfo estiver disponível"
+        );
+      } else {
+        console.error("[AdminContainer] ❌ Erro no loadGuestWorkspace:", err);
+      }
+      // Não quebrar a UI, apenas logar o erro
+    });
+  }, [router]);
+
+  // ⭐ NOVO: Integração SSE para atualizar tiles quando há job_id
+  const tokenFromUrl = searchParams?.get("token");
+  const streamUrl = jobIdFromUrl
+    ? `/api/streams/jobs/${jobIdFromUrl}${
+        guestIdFromUrl ? `?guest_id=${guestIdFromUrl}` : ""
+      }${
+        tokenFromUrl ? `${guestIdFromUrl ? "&" : "?"}token=${tokenFromUrl}` : ""
+      }`
+    : null;
+
+  // ⭐ CRÍTICO: Usar useRef para listeners estáveis (evitar reconexões constantes)
+  const selectedCompanyRef = useRef(selectedCompany);
+  const workspaceRef = useRef(workspace);
+  const jobIdFromUrlRef = useRef(jobIdFromUrl);
+  const jobInfoRef = useRef(jobInfo);
+
+  // Atualizar refs quando valores mudam
+  useEffect(() => {
+    selectedCompanyRef.current = selectedCompany;
+  }, [selectedCompany]);
+  useEffect(() => {
+    workspaceRef.current = workspace;
+  }, [workspace]);
+  useEffect(() => {
+    jobIdFromUrlRef.current = jobIdFromUrl;
+  }, [jobIdFromUrl]);
+  useEffect(() => {
+    jobInfoRef.current = jobInfo;
+  }, [jobInfo]);
+
+  // ⭐ NOVO: Helper para extrair nome da company do jobInfo (via ref)
+  const getCompanyNameFromJobRef = () => {
+    const job = jobInfoRef.current;
+
+    console.debug("[AdminContainer] 🔍 getCompanyNameFromJobRef chamado:", {
+      hasJob: !!job,
+      hasInitialItems: !!job?.initialItems,
+      initialItemsType: Array.isArray(job?.initialItems)
+        ? "array"
+        : typeof job?.initialItems,
+      initialItemsLength: Array.isArray(job?.initialItems)
+        ? job.initialItems.length
+        : 0,
+    });
+
+    if (
+      job?.initialItems &&
+      Array.isArray(job.initialItems) &&
+      job.initialItems.length > 0
+    ) {
+      const firstItem = job.initialItems[0];
+
+      console.debug("[AdminContainer] 🔍 Primeiro item completo:", {
+        keys: Object.keys(firstItem),
+        researchTarget: firstItem.researchTarget || "N/A",
+        company: firstItem.company || "N/A",
+        name: firstItem.name || "N/A",
+      });
+
+      // ⭐ CORREÇÃO: researchTarget é o nome da empresa a pesquisar (companies.name)
+      const companyName =
+        firstItem.researchTarget || firstItem.company || firstItem.name;
+
+      if (companyName && companyName !== "Preview Company") {
+        console.log(
+          "[AdminContainer] ✅ Nome da company extraído do job (via ref):",
+          companyName
+        );
+        return companyName;
+      } else {
+        console.warn(
+          "[AdminContainer] ⚠️ Nome da company inválido ou vazio, usando fallback"
+        );
+      }
+    } else {
+      console.warn(
+        "[AdminContainer] ⚠️ initialItems não disponível no job (via ref)"
       );
     }
-  }, [router]);
+
+    return "Preview Company"; // Fallback
+  };
+
+  // ⭐ CRÍTICO: Criar listeners ANTES do useSSE ser chamado
+  // Inicializar com objeto vazio para evitar passar null/undefined
+  const listenersRef = useRef({
+    "sse:connected": (data) => {
+      console.debug("[AdminContainer] ✅ SSE Connected:", data);
+    },
+    "job:status": (data) => {
+      console.debug("[AdminContainer] 📊 job:status recebido:", data);
+      if (!jobIdFromUrlRef.current) {
+        console.warn("[AdminContainer] ⚠️  Sem jobIdFromUrl, ignorando evento");
+        return;
+      }
+
+      // ⭐ CRÍTICO: Se não há company, criar temporária baseado no evento
+      let currentCompany = selectedCompanyRef.current;
+      if (!currentCompany && data?.progress?.total) {
+        console.log(
+          "[AdminContainer] 🏗️  Criando company temporária via job:status..."
+        );
+        const companyName = getCompanyNameFromJobRef();
+        const tempCompany = {
+          id: `temp_${jobIdFromUrlRef.current}`,
+          name: companyName,
+          title: companyName,
+          tiles: [],
+          tiles_status: "generating",
+          tiles_to_generate: data.progress.total,
+        };
+        setSelectedCompany(tempCompany);
+        selectedCompanyRef.current = tempCompany;
+        currentCompany = tempCompany;
+        setGeneratingTiles(true);
+        setShowLoadingModal(true);
+      }
+
+      if (!currentCompany) {
+        console.warn(
+          "[AdminContainer] ⚠️  Sem company, ignorando evento (aguardando criação)"
+        );
+        return;
+      }
+
+      // Se receber progress.total, atualizar tiles_to_generate e status
+      // ⭐ IMPORTANTE: NÃO criar placeholders aqui - deixar SortableTilesGrid criar LoadingTiles
+      if (data?.progress?.total) {
+        const total = data.progress.total;
+        const currentTilesCount = currentCompany.tiles?.length || 0;
+
+        console.log(
+          `[AdminContainer] 📊 Progress: ${currentTilesCount}/${total} tiles`
+        );
+
+        // Atualizar company com tiles_to_generate (para o SortableTilesGrid criar LoadingTiles)
+        const updatedCompany = {
+          ...currentCompany,
+          tiles_status: "generating",
+          tiles_to_generate: total,
+        };
+
+        setSelectedCompany(updatedCompany);
+        selectedCompanyRef.current = updatedCompany;
+        setGeneratingTiles(true);
+        console.log(
+          `[AdminContainer] ✅ Company atualizada: tiles_to_generate=${total}, status=generating`
+        );
+      }
+
+      // Atualizar status se job completou
+      if (data?.status === "COMPLETED") {
+        console.log("[AdminContainer] ✅ Job completado!");
+        setGeneratingTiles(false);
+        setShowLoadingModal(false);
+        if (currentCompany) {
+          const completedCompany = {
+            ...currentCompany,
+            tiles_status: "completed",
+          };
+          setSelectedCompany(completedCompany);
+          selectedCompanyRef.current = completedCompany;
+        }
+      }
+    },
+    "job:result-completed": (data) => {
+      console.debug("[AdminContainer] ✨ job:result-completed recebido:", data);
+
+      if (typeof data?.orderIndex !== "number") {
+        console.warn(
+          "[AdminContainer] ⚠️  orderIndex inválido:",
+          data?.orderIndex
+        );
+        return;
+      }
+
+      // ⭐ CRÍTICO: Se não há company, criar temporária
+      let currentCompany = selectedCompanyRef.current;
+      if (!currentCompany && jobIdFromUrlRef.current) {
+        console.log(
+          "[AdminContainer] 🏗️  Criando company temporária via job:result-completed..."
+        );
+        const companyName = getCompanyNameFromJobRef();
+        const tempCompany = {
+          id: `temp_${jobIdFromUrlRef.current}`,
+          name: companyName,
+          title: companyName,
+          tiles: [],
+          tiles_status: "generating",
+          tiles_to_generate: 6, // Default, será atualizado quando job:status chegar
+        };
+        setSelectedCompany(tempCompany);
+        selectedCompanyRef.current = tempCompany;
+        currentCompany = tempCompany;
+        setGeneratingTiles(true);
+        setShowLoadingModal(true);
+      }
+
+      if (!currentCompany) {
+        console.warn(
+          "[AdminContainer] ⚠️  Sem company, ignorando result-completed"
+        );
+        return;
+      }
+
+      // Criar/atualizar tile com o resultado
+      const newTile = {
+        id: `tile_${jobIdFromUrlRef.current}_${data.orderIndex}`,
+        orderIndex: data.orderIndex,
+        title: `Insight ${data.orderIndex + 1}`,
+        content: data.result || "",
+        status: "completed",
+        createdAt: new Date().toISOString(),
+        metrics: data.metrics,
+      };
+
+      console.log(
+        `[AdminContainer] 🎯 Atualizando tile orderIndex=${data.orderIndex}`,
+        {
+          tileId: newTile.id,
+          orderIndex: newTile.orderIndex,
+          contentLength: newTile.content?.length || 0,
+        }
+      );
+
+      // Atualizar tiles da company
+      const currentTiles = currentCompany.tiles || [];
+      const tileIndex = currentTiles.findIndex(
+        (t) => t.orderIndex === data.orderIndex
+      );
+
+      const updatedTiles =
+        tileIndex >= 0
+          ? currentTiles.map((t, i) => (i === tileIndex ? newTile : t))
+          : [...currentTiles, newTile].sort(
+              (a, b) => (a.orderIndex || 0) - (b.orderIndex || 0)
+            );
+
+      console.log(
+        `[AdminContainer] ✅ Tiles atualizados: ${
+          updatedTiles.length
+        } total (esperado: ${currentCompany.tiles_to_generate || 0})`
+      );
+
+      // ⭐ CORREÇÃO: Verificar se todos os tiles foram gerados
+      const expectedTiles = currentCompany.tiles_to_generate || 0;
+      const allTilesGenerated = updatedTiles.length >= expectedTiles;
+
+      const updatedCompany = {
+        ...currentCompany,
+        tiles: updatedTiles,
+        // ⭐ CORREÇÃO: Atualizar status se todos os tiles foram gerados
+        tiles_status: allTilesGenerated
+          ? "completed"
+          : currentCompany.tiles_status || "generating",
+      };
+
+      if (allTilesGenerated) {
+        console.log("[AdminContainer] 🎉 Todos os tiles foram gerados!");
+        setGeneratingTiles(false);
+        setShowLoadingModal(false);
+      }
+
+      setSelectedCompany(updatedCompany);
+      selectedCompanyRef.current = updatedCompany;
+
+      // Atualizar workspace também (se existe)
+      const currentWorkspace = workspaceRef.current;
+      if (currentWorkspace?.workspace) {
+        const theme = currentWorkspace.workspace.themeSnapshot;
+        let entityKey = "companies";
+        if (theme) {
+          const primaryEntity = theme.entities.find((e) => e.isPrimary);
+          entityKey = `${primaryEntity.id}s`;
+          if (entityKey === "companys") entityKey = "companies";
+        }
+
+        const updatedWorkspace = {
+          ...currentWorkspace,
+          workspace: {
+            ...currentWorkspace.workspace,
+            [entityKey]: (currentWorkspace.workspace[entityKey] || []).map(
+              (company) =>
+                company.name === currentCompany.name ||
+                company.title === currentCompany.name ||
+                company.id === currentCompany.id
+                  ? updatedCompany
+                  : company
+            ),
+          },
+        };
+        setWorkspace(updatedWorkspace);
+        workspaceRef.current = updatedWorkspace;
+      }
+    },
+    "job:error": (data) => {
+      // ⭐ CORREÇÃO: Log mais detalhado do erro
+      console.error("[AdminContainer] ❌ job:error recebido:", {
+        jobId: data.jobId,
+        itemId: data.itemId,
+        orderIndex: data.orderIndex,
+        error: data.error,
+        message: data.error?.message || data.message,
+      });
+
+      // ⭐ Atualizar status do tile específico se houver itemId
+      if (data.itemId && data.error) {
+        // Marcar tile como erro (opcional - pode ser implementado depois)
+        console.warn(
+          `[AdminContainer] ⚠️ Tile ${data.orderIndex} falhou: ${
+            data.error.message || data.error
+          }`
+        );
+      }
+    },
+  });
+
+  const { isConnected: sseConnected } = useSSE(streamUrl, listenersRef.current);
+
+  // ⭐ DEBUG: Log detalhado da conexão SSE (reduzido)
+  useEffect(() => {
+    if (jobIdFromUrl && streamUrl && !sseConnected) {
+      // Apenas logar quando não conectado para evitar spam
+      console.debug("[AdminContainer] ⏳ SSE conectando...", jobIdFromUrl);
+    } else if (jobIdFromUrl && streamUrl && sseConnected) {
+      console.debug("[AdminContainer] ✅ SSE conectado", jobIdFromUrl);
+    }
+  }, [jobIdFromUrl, streamUrl, sseConnected]);
 
   // Handlers
   const handleTileClick = (tile) => {
@@ -561,14 +1364,23 @@ export function AdminDashboardContainer() {
     try {
       // ⭐ FIX: Sem timeout para não bloquear usuário no admin
       // Requisições devem completar naturalmente
-      const response = await fetch(`/api/guest/workspace?_t=${Date.now()}`, {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          Pragma: "no-cache",
-        },
-      });
+      // ⭐ NOVO: Incluir guest_id da URL se disponível (fluxo job_id)
+      const params = new URLSearchParams();
+      params.set("_t", Date.now().toString());
+      if (guestIdFromUrl) {
+        params.set("guest_id", guestIdFromUrl);
+      }
+      const response = await fetch(
+        `/api/guest/workspace?${params.toString()}`,
+        {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            Pragma: "no-cache",
+          },
+        }
+      );
 
       if (response.status === 401) {
         console.log("⚠️ Sem guest session, redirecionando para landing");
@@ -577,17 +1389,302 @@ export function AdminDashboardContainer() {
       }
 
       if (!response.ok) {
-        let errorData;
+        // ⭐ CORREÇÃO: Melhor tratamento de erro com logs detalhados
+        let errorData = {
+          status: response.status,
+          statusText: response.statusText,
+          url: response.url,
+        };
+
         try {
-          errorData = await response.json();
-        } catch (jsonError) {
+          const text = await response.text();
+          console.log(
+            "[AdminContainer] 📥 Resposta de erro (text):",
+            text?.substring(0, 200)
+          );
+
+          if (text && text.trim().length > 0) {
+            try {
+              const parsed = JSON.parse(text);
+              errorData = { ...errorData, ...parsed };
+            } catch (parseError) {
+              errorData = {
+                ...errorData,
+                error: `Erro ${response.status}: ${response.statusText}`,
+                rawResponse: text.substring(0, 200),
+                parseError: parseError.message,
+              };
+            }
+          } else {
+            errorData = {
+              ...errorData,
+              error: `Erro ${response.status}: ${response.statusText}`,
+              message: "Resposta vazia do servidor",
+            };
+          }
+        } catch (textError) {
+          console.error(
+            "[AdminContainer] ❌ Erro ao ler response.text():",
+            textError
+          );
           errorData = {
+            ...errorData,
             error: `Erro ${response.status}: ${response.statusText}`,
+            textError: textError.message,
           };
         }
 
-        console.error("❌ Erro no fetch:", errorData);
+        // ⭐ CORREÇÃO: Se for 404 e vamos criar workspace, não logar como erro crítico
+        const is404AndWillCreate =
+          response.status === 404 && jobIdFromUrl && guestIdFromUrl;
 
+        if (!is404AndWillCreate) {
+          // ⭐ Apenas logar erro crítico se NÃO for 404 que vamos resolver
+          console.error(
+            "[AdminContainer] ❌ ========== ERRO NO FETCH =========="
+          );
+          console.error("[AdminContainer] ❌ Status:", errorData.status);
+          console.error(
+            "[AdminContainer] ❌ StatusText:",
+            errorData.statusText
+          );
+          console.error("[AdminContainer] ❌ URL:", errorData.url);
+          console.error(
+            "[AdminContainer] ❌ ErrorData completo:",
+            JSON.stringify(errorData, null, 2)
+          );
+          console.error(
+            "[AdminContainer] ❌ ===================================="
+          );
+        } else {
+          // ⭐ Log informativo para 404 que será resolvido
+          console.log(
+            "[AdminContainer] ℹ️ Workspace não encontrado (404) - será criado automaticamente"
+          );
+        }
+
+        // ⭐ NOVO: Se 404 e há job_id, criar workspace automaticamente usando dados do job
+        if (response.status === 404 && jobIdFromUrl && guestIdFromUrl) {
+          console.log(
+            "[AdminContainer] 🔧 Workspace não encontrado, mas há job_id - tentando criar workspace..."
+          );
+
+          // ⭐ CORREÇÃO: Se jobInfo não está disponível ou initialItems está vazio, buscar novamente
+          let currentJobInfo = jobInfo;
+          if (
+            !currentJobInfo ||
+            !currentJobInfo.initialItems ||
+            !Array.isArray(currentJobInfo.initialItems) ||
+            currentJobInfo.initialItems.length === 0
+          ) {
+            console.log(
+              "[AdminContainer] ⏳ JobInfo não disponível ou initialItems vazio, buscando novamente..."
+            );
+            try {
+              const jobUrl = `/api/prompt-jobs/${jobIdFromUrl}?guest_id=${guestIdFromUrl}`;
+              const jobRes = await fetch(jobUrl);
+              if (jobRes.ok) {
+                currentJobInfo = await jobRes.json();
+                console.debug("[AdminContainer] ✅ JobInfo atualizado:", {
+                  hasInitialItems: !!currentJobInfo?.initialItems,
+                  length: Array.isArray(currentJobInfo?.initialItems)
+                    ? currentJobInfo.initialItems.length
+                    : 0,
+                });
+              }
+            } catch (err) {
+              console.error("[AdminContainer] ❌ Erro ao buscar jobInfo:", err);
+            }
+          }
+
+          // Extrair dados do jobInfo.initialItems
+          let companyName = "Preview Company";
+          let companyWebsite = "";
+          let solution = "";
+
+          console.debug("[AdminContainer] 🔍 JobInfo recebido:", {
+            hasInitialItems: !!currentJobInfo?.initialItems,
+            initialItemsType: Array.isArray(currentJobInfo?.initialItems)
+              ? "array"
+              : typeof currentJobInfo?.initialItems,
+            initialItemsLength: Array.isArray(currentJobInfo?.initialItems)
+              ? currentJobInfo.initialItems.length
+              : "N/A",
+            firstItem: currentJobInfo?.initialItems?.[0],
+            allKeys: currentJobInfo ? Object.keys(currentJobInfo) : [],
+          });
+
+          if (
+            currentJobInfo?.initialItems &&
+            Array.isArray(currentJobInfo.initialItems) &&
+            currentJobInfo.initialItems.length > 0
+          ) {
+            const firstItem = currentJobInfo.initialItems[0];
+            console.debug(
+              "[AdminContainer] 🔍 Primeiro item completo:",
+              firstItem
+            );
+            console.debug(
+              "[AdminContainer] 🔍 Campos disponíveis:",
+              Object.keys(firstItem)
+            );
+
+            // ⭐ CORREÇÃO: Priorizar researchTarget (nome da empresa pesquisada)
+            companyName =
+              firstItem.researchTarget ||
+              firstItem.company ||
+              firstItem.name ||
+              companyName;
+            companyWebsite =
+              firstItem.researchWebsite ||
+              firstItem.companyWebsite ||
+              firstItem.website ||
+              "";
+            solution = firstItem.solution || "";
+
+            console.debug("[AdminContainer] 📝 Dados extraídos do job:", {
+              companyName,
+              companyWebsite,
+              solution,
+              source: {
+                researchTarget: firstItem.researchTarget,
+                company: firstItem.company,
+                name: firstItem.name,
+              },
+            });
+          } else {
+            console.warn(
+              "[AdminContainer] ⚠️ initialItems vazio ou inválido:",
+              {
+                initialItems: currentJobInfo?.initialItems,
+                isArray: Array.isArray(currentJobInfo?.initialItems),
+                length: Array.isArray(currentJobInfo?.initialItems)
+                  ? currentJobInfo.initialItems.length
+                  : "N/A",
+              }
+            );
+            // ⭐ CORREÇÃO: Se ainda não tem initialItems, não tentar criar workspace
+            // O workspace será criado quando os items chegarem via SSE ou quando recarregar a página
+            console.warn(
+              "[AdminContainer] ⚠️ initialItems vazio - workspace não será criado automaticamente"
+            );
+            console.warn(
+              "[AdminContainer] ⚠️ Aguarde os tiles serem gerados ou recarregue a página quando o job completar"
+            );
+            setLoading(false);
+            setError(
+              "Workspace não encontrado e não foi possível criar automaticamente. Aguarde a geração dos tiles ou recarregue a página."
+            );
+            return;
+          }
+
+          try {
+            // ⭐ CORREÇÃO CRÍTICA: Mapear para os campos esperados pelo tema sales-assistant
+            // O tema espera: company, companyWebsite, solution, target, targetWebsite
+            // Não: companyName, companyUrl!
+            const createParams = new URLSearchParams();
+            createParams.set("guest_id", guestIdFromUrl);
+
+            // ⭐ CORREÇÃO: Usar campos corretos do landingTags do tema sales-assistant
+            const contextPayload = {
+              // Campos do workspace (sales rep)
+              company: "", // Será preenchido depois se necessário
+              companyWebsite: "", // Será preenchido depois se necessário
+              solution: solution || "",
+
+              // Campos da company pesquisada (target)
+              target: companyName || "",
+              targetWebsite: companyWebsite || "",
+            };
+
+            console.debug(
+              "[AdminContainer] 📤 ========== CRIANDO WORKSPACE =========="
+            );
+            console.debug(
+              "[AdminContainer] 📤 Context payload:",
+              JSON.stringify(contextPayload, null, 2)
+            );
+            console.debug(
+              "[AdminContainer] 📤 Company Name extraído:",
+              companyName
+            );
+            console.debug(
+              "[AdminContainer] 📤 Company Website extraído:",
+              companyWebsite
+            );
+            console.debug("[AdminContainer] 📤 Solution extraído:", solution);
+            console.debug(
+              "[AdminContainer] 📤 ======================================"
+            );
+
+            // ⭐ CORREÇÃO: Verificar se já não existe antes de criar (evitar race condition)
+            // Se creatingWorkspaceRef.current já está true, outra tentativa está em andamento
+            if (creatingWorkspaceRef.current) {
+              console.log(
+                "[AdminContainer] ⏳ Workspace já está sendo criado por outra requisição, aguardando..."
+              );
+              // Aguardar um pouco e tentar recarregar
+              setTimeout(async () => {
+                await loadGuestWorkspace();
+              }, 1000);
+              return;
+            }
+
+            creatingWorkspaceRef.current = true;
+            try {
+              const createResponse = await fetch(
+                `/api/guest/workspace?${createParams.toString()}`,
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    context: contextPayload,
+                    themeId: "sales-assistant", // ⭐ Garantir que usa o tema correto
+                  }),
+                }
+              );
+
+              if (createResponse.ok) {
+                const createdWorkspace = await createResponse.json();
+                console.log(
+                  "[AdminContainer] ✅ Workspace criado com sucesso!"
+                );
+                console.log(
+                  "[AdminContainer] 📦 Workspace criado:",
+                  createdWorkspace.name || "N/A"
+                );
+                // Recarregar o workspace recém-criado
+                await loadGuestWorkspace();
+                // ⭐ CORREÇÃO: Retornar após criar workspace com sucesso
+                // Não lançar erro de 404 se workspace foi criado
+                return;
+              } else {
+                const createErrorText = await createResponse.text();
+                console.error(
+                  "[AdminContainer] ❌ Erro ao criar workspace:",
+                  createErrorText
+                );
+                throw new Error(
+                  "Não foi possível criar o workspace automaticamente."
+                );
+              }
+            } finally {
+              creatingWorkspaceRef.current = false;
+            }
+          } catch (createErr) {
+            console.error(
+              "[AdminContainer] ❌ Erro ao criar workspace:",
+              createErr
+            );
+            // ⭐ CORREÇÃO: Não lançar erro aqui - apenas logar
+            // O workspace pode já ter sido criado por outra requisição
+            setLoading(false);
+            return;
+          }
+        }
+
+        // ⭐ CORREÇÃO: Só lançar erro 404 se NÃO tentamos criar workspace
+        // Se chegou aqui e é 404, significa que não conseguiu criar
         if (response.status === 404) {
           throw new Error(
             "Workspace não encontrado. Tente criar um novo workspace."
@@ -686,6 +1783,16 @@ export function AdminDashboardContainer() {
 
   // ⭐ PERFORMANCE: Polling effect (com lógica completa de detecção)
   useEffect(() => {
+    // ⭐ NOVO: Se job_id está na URL, desativar polling (usar SSE)
+    if (jobIdFromUrl) {
+      console.log("🛑 job_id detectado – desativando polling (usando SSE)");
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+        setPollingInterval(null);
+      }
+      return;
+    }
+
     // ⭐ EDGE CASE: Evitar polling desnecessário
     if (!generatingTiles && !isGeneratingCustomTile) {
       if (pollingInterval) {
@@ -733,14 +1840,23 @@ export function AdminDashboardContainer() {
       try {
         // ⭐ FIX: Sem AbortController no polling - deixa requisição completar
         // ⭐ NOVO: Cache-busting + headers de não-cache para detectar mudanças imediatamente
-        const response = await fetch(`/api/guest/workspace?_t=${Date.now()}`, {
-          method: "GET",
-          headers: {
-            Accept: "application/json",
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            Pragma: "no-cache",
-          },
-        });
+        // ⭐ NOVO: Incluir guest_id da URL se disponível (fluxo job_id)
+        const params = new URLSearchParams();
+        params.set("_t", Date.now().toString());
+        if (guestIdFromUrl) {
+          params.set("guest_id", guestIdFromUrl);
+        }
+        const response = await fetch(
+          `/api/guest/workspace?${params.toString()}`,
+          {
+            method: "GET",
+            headers: {
+              Accept: "application/json",
+              "Cache-Control": "no-cache, no-store, must-revalidate",
+              Pragma: "no-cache",
+            },
+          }
+        );
 
         if (response.ok) {
           const data = await response.json();
@@ -842,9 +1958,75 @@ export function AdminDashboardContainer() {
     generatingTiles,
     isGeneratingCustomTile,
     selectedCompany?.name, // Mudar para name em vez de tiles.length
+    jobIdFromUrl, // Adicionar para desativar polling quando há job_id
   ]);
 
-  // Render states
+  // ⭐ FALLBACK FINAL: Se há job_id mas não há company, criar imediatamente
+  // ⭐ CRÍTICO: Este hook DEVE vir ANTES dos early returns
+  // ⭐ CORREÇÃO: Só criar temporária se não há workspace ainda OU se workspace não tem companies
+  useEffect(() => {
+    if (jobIdFromUrl && !selectedCompany && !loading) {
+      // ⭐ NOVO: Verificar se workspace já tem companies antes de criar temporária
+      const theme = workspace?.workspace?.themeSnapshot;
+      let entities = [];
+      let entityKey = "companies";
+
+      if (theme) {
+        const primaryEntity = theme.entities.find((e) => e.isPrimary);
+        entityKey = `${primaryEntity.id}s`;
+        if (entityKey === "companys") entityKey = "companies";
+        entities = workspace?.workspace?.[entityKey] || [];
+      } else {
+        entities = workspace?.workspace?.companies || [];
+      }
+
+      // Se já tem entities no workspace, não criar temporária (deixar useEffect acima cuidar)
+      if (entities && entities.length > 0) {
+        console.log(
+          "[AdminContainer] ℹ️ Workspace já tem companies, não criando temporária"
+        );
+        return;
+      }
+
+      console.log(
+        "[AdminContainer] 🚨 FALLBACK: Criando company temporária imediatamente..."
+      );
+      const companyName = getCompanyNameFromJob();
+      const tempCompany = {
+        id: `temp_${jobIdFromUrl}`,
+        name: companyName,
+        title: companyName,
+        tiles: [],
+        tiles_status: "generating",
+        tiles_to_generate: jobInfo?.totals?.items || 6,
+      };
+      setSelectedCompany(tempCompany);
+      setGeneratingTiles(true);
+      setShowLoadingModal(true);
+    }
+  }, [jobIdFromUrl, selectedCompany, loading, jobInfo, workspace]);
+
+  // ⭐ DEBUG: Log detalhado do estado (ANTES dos early returns para não quebrar hooks)
+  // ⭐ COMENTADO: Log excessivo removido - descomente apenas para debug
+  // if (process.env.NODE_ENV === 'development') {
+  //   console.log("🔍 [Render] Estado completo:", {
+  //     jobIdFromUrl,
+  //     guestIdFromUrl,
+  //     selectedCompany: selectedCompany ? {
+  //       id: selectedCompany.id,
+  //       name: selectedCompany.name,
+  //       tiles_count: selectedCompany.tiles?.length || 0,
+  //       tiles_status: selectedCompany.tiles_status,
+  //       tiles_to_generate: selectedCompany.tiles_to_generate,
+  //     } : null,
+  //     generatingTiles,
+  //     showLoadingModal,
+  //     workspace_loaded: !!workspace,
+  //     sseConnected,
+  //   });
+  // }
+
+  // Render states (DEPOIS de todos os hooks)
   if (loading) {
     return (
       <AppLayout
@@ -879,9 +2061,6 @@ export function AdminDashboardContainer() {
       </AppLayout>
     );
   }
-
-  console.log("🔍 Render - selectedCompany:", selectedCompany);
-  console.log("🔍 Render - selectedCompany.tiles:", selectedCompany?.tiles);
 
   return (
     <>
@@ -930,6 +2109,7 @@ export function AdminDashboardContainer() {
             }
             workspaceName={workspace?.workspace?.name}
             onRefresh={loadGuestWorkspace}
+            disableGuestApis={Boolean(jobIdFromUrl)}
             onSave={() => console.log("💾 Save dashboard changes")}
             onCustomizeBackground={() => {
               setShowBackgroundCustomizer(true);
@@ -1012,7 +2192,8 @@ export function AdminDashboardContainer() {
           </div>
         )}
 
-        {selectedCompany && (
+        {/* ⭐ NOVO: Só mostrar Notes e Files se company não for temporária */}
+        {selectedCompany && !selectedCompany.id?.startsWith("temp_") && (
           <div className="mb-8">
             <NotesEditor
               companyId={getEntityName(selectedCompany)}
@@ -1021,7 +2202,7 @@ export function AdminDashboardContainer() {
           </div>
         )}
 
-        {selectedCompany && (
+        {selectedCompany && !selectedCompany.id?.startsWith("temp_") && (
           <div className="mb-8">
             <FilesManager
               companyId={selectedCompany.id}

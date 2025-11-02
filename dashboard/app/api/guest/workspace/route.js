@@ -35,7 +35,17 @@ export async function GET(req) {
     console.log("📥 GET /api/guest/workspace - Iniciando...");
 
     const cookieStore = await cookies();
-    const guestId = cookieStore.get("guest_id")?.value;
+    let guestId = cookieStore.get("guest_id")?.value;
+
+    // ⭐ FALLBACK: Se não há cookie, tentar da query string (fluxo job_id)
+    if (!guestId) {
+      const { searchParams } = new URL(req.url);
+      guestId = searchParams.get("guest_id");
+      console.log(
+        "🔍 guest_id não encontrado no cookie, tentando query string:",
+        guestId
+      );
+    }
 
     if (!guestId) {
       return NextResponse.json(
@@ -215,7 +225,23 @@ export async function POST(req) {
     console.log("📥 POST /api/guest/workspace - Iniciando...");
 
     const cookieStore = await cookies();
-    const guestId = cookieStore.get("guest_id")?.value;
+    let guestId = cookieStore.get("guest_id")?.value;
+    let shouldSetCookie = false;
+
+    // ⭐ FALLBACK: Se não há cookie, tentar da query string (fluxo job_id)
+    if (!guestId) {
+      const { searchParams } = new URL(req.url);
+      guestId = searchParams.get("guest_id");
+      console.log(
+        "🔍 guest_id não encontrado no cookie, tentando query string:",
+        guestId
+      );
+
+      // ⭐ IMPORTANTE: Se guest_id veio da query string, precisamos definir no cookie
+      if (guestId) {
+        shouldSetCookie = true;
+      }
+    }
 
     if (!guestId) {
       return NextResponse.json(
@@ -224,8 +250,30 @@ export async function POST(req) {
       );
     }
 
-    const body = await req.json();
-    console.log("📦 Body:", JSON.stringify(body, null, 2));
+    // ⭐ CORREÇÃO: Tratar body vazio ou inválido
+    let body = {};
+    try {
+      const bodyText = await req.text();
+      if (bodyText && bodyText.trim().length > 0) {
+        body = JSON.parse(bodyText);
+        console.log("📦 Body:", JSON.stringify(body, null, 2));
+      } else {
+        console.warn("⚠️ POST /api/guest/workspace - Body vazio ou ausente");
+        body = {}; // Usar objeto vazio
+      }
+    } catch (parseError) {
+      console.error("❌ Erro ao parsear body:", parseError);
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
+
+    // ⭐ DEBUG: Log completo do contexto recebido
+    console.log("📦 ========== WORKSPACE CREATE REQUEST ==========");
+    console.log("📦 guestId:", guestId);
+    console.log("📦 body.context:", body.context);
+    console.log("📦 body.context.companyName:", body.context?.companyName);
+    console.log("📦 body.context.companyUrl:", body.context?.companyUrl);
+    console.log("📦 body.context.solution:", body.context?.solution);
+    console.log("📦 ==============================================");
 
     // Validar input
     const { error, value } = workspaceCreateSchema.validate(body);
@@ -527,7 +575,12 @@ export async function POST(req) {
             order: tile.order,
           }));
 
-          const optimizedTiles = optimizeTiles(tiles, promptContext);
+          // ⭐ CORREÇÃO: Passar theme para normalização de contexto
+          const optimizedTiles = optimizeTiles(
+            tiles,
+            promptContext,
+            selectedTheme
+          );
 
           // Callback para salvar cada tile gerado
           const saveTileCallback = async (generatedTile) => {
@@ -591,12 +644,25 @@ export async function POST(req) {
       console.log("✅ Geração de tiles iniciada em background");
     })();
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       guest_id: guestId,
       workspace: newWorkspace.workspace_data,
       message: "Guest workspace created successfully",
     });
+
+    // ⭐ IMPORTANTE: Definir cookie se veio da query string
+    if (shouldSetCookie) {
+      response.cookies.set("guest_id", guestId, {
+        httpOnly: false, // Acesso via JS (para logs)
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 7, // 7 dias
+        path: "/",
+      });
+    }
+
+    return response;
   } catch (error) {
     console.error("❌ Erro ao criar workspace:", error);
     return NextResponse.json(
@@ -624,8 +690,20 @@ export async function PUT(req) {
       );
     }
 
-    const body = await req.json();
-    console.log("📦 Body:", JSON.stringify(body, null, 2));
+    // ⭐ CORREÇÃO: Tratar body vazio ou inválido
+    let body = {};
+    try {
+      const bodyText = await req.text();
+      if (bodyText && bodyText.trim().length > 0) {
+        body = JSON.parse(bodyText);
+        console.log("📦 Body:", JSON.stringify(body, null, 2));
+      } else {
+        console.warn("⚠️ PUT /api/guest/workspace - Body vazio ou ausente");
+      }
+    } catch (parseError) {
+      console.error("❌ Erro ao parsear body:", parseError);
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
 
     // Validar input
     const { error, value } = workspaceUpdateSchema.validate(body);

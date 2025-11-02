@@ -12,8 +12,9 @@ out/
 
 # Logs
 *.log
-logs/
-
+./logs/
+!./dashboard/*.log
+!./dashboard/logs/*
 # OS generated files
 .DS_Store
 Thumbs.db

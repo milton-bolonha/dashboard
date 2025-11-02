@@ -31,9 +31,8 @@ export async function generateTilesForCompany(
   console.log(`⏰ ${new Date().toISOString()}`);
   console.log(`${"=".repeat(80)}`);
   console.log(`📋 Contexto:`, { guestId, companyName, companyUrl });
-  
-  try {
 
+  try {
     // Buscar guest workspace
     const guestWorkspace = await db.findOne("guest_workspaces", {
       guest_id: guestId,
@@ -97,7 +96,8 @@ export async function generateTilesForCompany(
     }));
 
     // Otimizar tiles
-    const optimizedTiles = optimizeTiles(baseTiles, context);
+    // ⭐ Nota: context já está no formato legado aqui, então não precisa de theme
+    const optimizedTiles = optimizeTiles(baseTiles, context, null);
 
     console.log(
       `🤖 Gerando ${optimizedTiles.length} tiles otimizados para ${companyName}...`
@@ -225,7 +225,9 @@ export async function generateTilesForCompany(
     console.log(`\n${"=".repeat(80)}`);
     console.log(`✅ GERAÇÃO CONCLUÍDA - ${companyName}`);
     console.log(`📊 Tiles gerados: ${results.length}`);
-    console.log(`⏱️  Tempo total: ${totalTime}ms (${(totalTime/1000).toFixed(1)}s)`);
+    console.log(
+      `⏱️  Tempo total: ${totalTime}ms (${(totalTime / 1000).toFixed(1)}s)`
+    );
     console.log(`${"=".repeat(80)}\n`);
 
     return { success: true, tilesGenerated: results.length };
@@ -233,7 +235,9 @@ export async function generateTilesForCompany(
     const totalTime = Date.now() - startTime;
     console.error(`\n${"=".repeat(80)}`);
     console.error(`❌ ERRO NA GERAÇÃO - ${companyName}`);
-    console.error(`⏱️  Tempo até erro: ${totalTime}ms (${(totalTime/1000).toFixed(1)}s)`);
+    console.error(
+      `⏱️  Tempo até erro: ${totalTime}ms (${(totalTime / 1000).toFixed(1)}s)`
+    );
     console.error(`❌ Erro:`, error);
     console.error(`${"=".repeat(80)}\n`);
 

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { ChevronDown, Plus, Save, Copy, Settings } from "lucide-react";
 import { LoadingSpinner } from "../ui/LoadingSpinner";
+import { ThemeToggle } from "../ui/ThemeToggle";
 
 export function Header({
   title,
@@ -12,6 +13,7 @@ export function Header({
   onSaveTemplate,
   onCloneDashboard,
   onCreateBlank,
+  disableGuestApis,
 }) {
   const { isSignedIn } = useUser();
   const [templates, setTemplates] = useState([]);
@@ -20,13 +22,23 @@ export function Header({
   const [isTemplatesLoading, setIsTemplatesLoading] = useState(false);
 
   useEffect(() => {
+    if (disableGuestApis) return;
     loadTemplates();
-  }, []);
+  }, [disableGuestApis]);
 
   const loadTemplates = async () => {
     setIsTemplatesLoading(true);
     try {
-      const response = await fetch("/api/guest/templates");
+      // ⭐ NOVO: Pegar guest_id da URL se disponível (fluxo job_id)
+      const params = new URLSearchParams(
+        typeof window !== "undefined" ? window.location.search : ""
+      );
+      const guestId = params.get("guest_id");
+      const url = guestId
+        ? `/api/guest/templates?guest_id=${guestId}`
+        : "/api/guest/templates";
+
+      const response = await fetch(url);
       const data = await response.json();
       setTemplates(data.templates || []);
     } catch (error) {
@@ -49,22 +61,27 @@ export function Header({
           {isLoading ? (
             <LoadingSpinner text="Loading..." />
           ) : (
-            <h1 className="text-2xl font-semibold text-gray-800">
+            <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">
               {workspaceName || "Trial Workspace"}
             </h1>
           )}
-          <div className="text-sm text-gray-500">{title}</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            {title}
+          </div>
         </div>
 
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
+            {/* Dark Mode Toggle */}
+            <ThemeToggle />
+
             {onCustomizeBackground && (
               <button
                 onClick={onCustomizeBackground}
-                className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
+                className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors"
                 title="Customize Background"
               >
-                <Settings className="w-5 h-5 text-gray-600" />
+                <Settings className="w-5 h-5 text-gray-600 dark:text-gray-300" />
               </button>
             )}
 
@@ -72,13 +89,13 @@ export function Header({
             <div className="relative">
               <button
                 onClick={() => setShowDashboardSelector(!showDashboardSelector)}
-                className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
                 <span>Dashboards</span>
                 <ChevronDown className="w-4 h-4" />
               </button>
               {showDashboardSelector && (
-                <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                <div className="absolute top-full right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
                   <div className="p-4">
                     <div className="space-y-2">
                       <button
@@ -117,13 +134,13 @@ export function Header({
             <div className="relative">
               <button
                 onClick={() => setShowTemplateSelector(!showTemplateSelector)}
-                className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
                 <span>Templates</span>
                 <ChevronDown className="w-4 h-4" />
               </button>
               {showTemplateSelector && (
-                <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                <div className="absolute top-full right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
                   <div className="p-4">
                     <div className="space-y-2">
                       {isTemplatesLoading ? (

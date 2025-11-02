@@ -33,8 +33,8 @@ export function CollectionList({
             onClick={() => onCollectionClick && onCollectionClick(collection)}
             className={`w-full flex items-center space-x-3 transition-colors py-2 px-2 rounded-md text-sm cursor-pointer ${
               isSelected
-                ? "text-black font-medium"
-                : "text-[#6B6B6B] hover:text-black"
+                ? "text-black dark:text-gray-100 font-medium bg-gray-100 dark:bg-gray-800"
+                : "text-[#6B6B6B] dark:text-gray-400 hover:text-black dark:hover:text-gray-100"
             }`}
           >
             <div

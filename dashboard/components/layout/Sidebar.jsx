@@ -31,12 +31,12 @@ export function Sidebar({
 
   const primaryEntityLabel = getPrimaryEntityLabel(theme);
 
-  const navLinkClasses = `flex items-center space-x-3 text-[#6B6B6B] hover:text-black transition-colors py-2 px-2 rounded-md`;
-  const activeNavLinkClasses = `flex items-center justify-between text-black font-medium py-2 px-2 rounded-md bg-gray-200`;
+  const navLinkClasses = `flex items-center space-x-3 text-[#6B6B6B] dark:text-gray-400 hover:text-black dark:hover:text-gray-100 transition-colors py-2 px-2 rounded-md`;
+  const activeNavLinkClasses = `flex items-center justify-between text-black dark:text-gray-100 font-medium py-2 px-2 rounded-md bg-gray-200 dark:bg-gray-800`;
 
   return (
     <aside
-      className={`hidden md:flex flex-col bg-[#efefef] p-4 flex-shrink-0 transition-all duration-300 ease-in-out ${
+      className={`hidden md:flex flex-col bg-[#efefef] dark:bg-gray-900 p-4 flex-shrink-0 transition-all duration-300 ease-in-out ${
         isCollapsed ? "w-20" : "w-64"
       }`}
     >
@@ -50,7 +50,9 @@ export function Sidebar({
             isCollapsed ? "hidden" : "flex"
           }`}
         >
-          <span className="font-semibold text-lg">{workspaceName}</span>
+          <span className="font-semibold text-lg dark:text-gray-100">
+            {workspaceName}
+          </span>
           <Image
             src="/images/down-arrow.svg"
             width={16}

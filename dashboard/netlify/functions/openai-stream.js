@@ -40,7 +40,7 @@ export default async function handler(event, context) {
       messages,
       model = "gpt-4o-mini",
       temperature = 0.5,
-      max_tokens = 500,
+      max_tokens = 400,
       stream = false,
     } = JSON.parse(event.body);
 

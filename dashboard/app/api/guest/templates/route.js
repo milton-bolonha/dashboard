@@ -29,12 +29,22 @@ const templateSchema = Joi.object({
  * GET /api/guest/templates
  * Lista todos os templates disponíveis
  */
-export async function GET() {
+export async function GET(req) {
   try {
     console.log("📥 GET /api/guest/templates - Iniciando...");
 
     const cookieStore = await cookies();
-    const guestId = cookieStore.get("guest_id")?.value;
+    let guestId = cookieStore.get("guest_id")?.value;
+
+    // ⭐ FALLBACK: Se não há cookie, tentar da query string (fluxo job_id)
+    if (!guestId) {
+      const { searchParams } = new URL(req.url);
+      guestId = searchParams.get("guest_id");
+      console.log(
+        "🔍 guest_id não encontrado no cookie, tentando query string:",
+        guestId
+      );
+    }
 
     if (!guestId) {
       return NextResponse.json(

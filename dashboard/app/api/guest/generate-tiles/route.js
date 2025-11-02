@@ -202,12 +202,17 @@ export async function POST(req) {
     console.log("🎯 Contexto gerado:", JSON.stringify(tileContext, null, 2));
 
     // Processar prompts do template
-    const prompts = template.tiles.map((tile) => ({
+    const baseTiles = template.tiles.map((tile) => ({
       id: tile.id,
       title: tile.title,
       prompt: processPromptVariables(tile.prompt, tileContext),
       category: tile.category,
+      order: tile.order,
     }));
+
+    // ⭐ CORREÇÃO: Passar theme para normalização de contexto
+    const { optimizeTiles } = await import("@/lib/prompt-optimizer");
+    const optimizedTiles = optimizeTiles(baseTiles, tileContext, theme);
 
     // --- Geração Assíncrona de Tiles ---
 
@@ -222,18 +227,6 @@ export async function POST(req) {
       template.id,
       template.tiles.length
     );
-
-    // Preparar tiles com otimização
-    const baseTiles = template.tiles.map((tile) => ({
-      id: tile.id,
-      title: tile.title,
-      prompt: tile.prompt,
-      category: tile.category,
-      order: tile.order,
-    }));
-
-    // Otimizar tiles
-    const optimizedTiles = optimizeTiles(baseTiles, tileContext);
 
     // Não bloquear a resposta. Gerar em segundo plano.
     (async () => {

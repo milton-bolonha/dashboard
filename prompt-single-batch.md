@@ -244,6 +244,24 @@ A execução dos jobs será assíncrona para não travar a UI e não estourar ti
 - Autorização por `jobId` e `ownerId` em endpoints `/api/prompt-jobs/*`.
 - Sanitização/validação de variáveis de template e limites de tokens por plano.
 
+### Papéis de Acesso e Billing
+
+- Papéis iniciais:
+
+  - Visitor: acesso público; sem edição; pode iniciar IAForms em modo guest (Home) para preview.
+  - Guest User: identidade efêmera/limitada; canal WS/SSE isolado; sem edição do dashboard.
+  - User Pago (logado): desbloqueia recursos mediante pagamento; usa o Dashboard (versão paga do Admin). Sem editar elementos restritos se o plano não permitir.
+  - Admin/Owner/SuperAdmin: conforme o sistema atual.
+
+- Regras de UI:
+
+  - Dashboard é a versão paga do Admin: sem plano → esconder ações de edição do dashboard.
+  - IAForms guest envia dados externos com segurança e isolamento; UI idêntica ao Admin, mudando apenas permissões e escopo.
+
+- Billing via Stripe (será implementado aos poucos, não temos os produtos configurados, por isso precisamos resolver internamente simulando o cenário):
+  - Fase 1 (manual): checkout resolvido externamente; endpoint interno marca plano/limites; `Access Engine` libera features.
+  - Fase 2 (Stripe Checkout + Webhook): confirmação automática atualiza plano/limites e remove modo manual.
+
 ## 6. Monetização
 
 Este recurso é um candidato perfeito para um **addon premium**.
@@ -253,3 +271,393 @@ Este recurso é um candidato perfeito para um **addon premium**.
 - **Pay-as-you-go**: Cobrança por número de prompts executados.
 
 A lógica de acesso será controlada pelo `Access Engine` existente, verificando o plano do usuário antes de permitir a criação de `Prompt Jobs` ou a execução deles.
+
+---
+
+## Anexo A — Contratos de Eventos e Interfaces Minimais
+
+### A.1 Contratos de Eventos (SSE/WS)
+
+```ts
+// Canal: job:{jobId}
+type JobStatus =
+  | "QUEUED"
+  | "RUNNING"
+  | "PAUSED"
+  | "COMPLETED"
+  | "FAILED"
+  | "CANCELLED";
+
+type JobStatusEvent = {
+  jobId: string;
+  status: JobStatus;
+  progress?: { current: number; total: number };
+};
+
+type JobLogEvent = {
+  jobId: string;
+  level: "info" | "warn" | "error";
+  message: string;
+  ts: string; // ISO
+};
+
+type JobResultChunkEvent = {
+  jobId: string;
+  itemId: string;
+  orderIndex: number; // garante ordenação determinística no grid
+  chunk: string;
+  ix: number; // índice do chunk
+};
+
+type JobResultCompletedEvent = {
+  jobId: string;
+  itemId: string;
+  orderIndex: number;
+  result: string; // texto completo
+  metrics?: { model: string; tokens?: any; ms?: number };
+};
+
+type JobErrorEvent = {
+  jobId: string;
+  itemId?: string;
+  error: { code?: string; message: string };
+};
+```
+
+Observação: em SSE, usar `event: job:status` etc. Em WS, o payload é idêntico.
+
+### A.2 Interface IAForms (Server-Driven)
+
+```ts
+// IAFormsContainer (Server Component)
+type IAFormsContainerProps = {
+  mode: "landing" | "admin";
+  heroType: 1 | 2 | 3; // 1=Classic (tema fixo), 2=Dynamic (tema selecionável), 3=futuro
+  // heroType 1 (Classic): tema fixo vindo da config do app/workspace; sem seletor de tema
+  // heroType 2 (Dynamic): o usuário escolhe o tema antes do formulário; aplicação dinâmica
+  themeId?: string; // usado quando heroType=1 (fixo) ou quando já houver um tema pré-selecionado
+  initialTemplateId?: string;
+};
+
+// Render prop para Presenter
+type IAFormsPresenterProps = {
+  tags: Array<{
+    id: string;
+    label: string;
+    type: "text" | "textarea" | "select" | "file" | "number";
+    value?: any;
+    options?: Array<{ value: string; label: string }>;
+    orderIndex: number;
+  }>;
+  theme: any; // snapshot do theme aplicado
+  onChangeTag: (id: string, value: any) => void;
+  onRun: () => Promise<void>; // dispara Server Action que chama deckEngine
+  onPause: () => Promise<void>;
+  onResume: () => Promise<void>;
+  onCancel: () => Promise<void>;
+  jobId?: string; // definido após Run
+};
+
+// Server Actions esperadas (pseudoassinaturas)
+declare function createOrUpdateJobAction(payload: {
+  templateId: string;
+  model: string;
+  dataSource?: any;
+  half?: "home" | "admin"; // redistribuição
+}): Promise<{ jobId: string }>;
+
+declare function controlJobAction(
+  jobId: string,
+  action: "pause" | "resume" | "cancel"
+): Promise<void>;
+```
+
+### A.3 Especificação de Ordenação
+
+- O `orderIndex` vem do template (posição do prompt na coleção) e é carregado para cada item do batch.
+- A UI (Home/Admin) ordena pela chave `orderIndex` em grids/listas e mantém estabilidade quando chunks chegam fora de ordem.
+
+---
+
+## Anexo B — IAForms com Hero Types (1/2/3)
+
+### B.1 Objetivo
+
+Unificar `HeroSection.jsx` (clássico) e `DynamicHeroSection.jsx` (dinâmico) sob um único componente server-driven (`IAForms`) com troca simples via prop `heroType`.
+
+### B.2 Estrutura (Container/Presenter)
+
+- `IAFormsContainer` (Server Component):
+
+  - Carrega `theme`, `tags` e `template` do backend.
+  - heroType 1 (Classic): aplica tema fixo (sem seletor); origem: config do app/workspace.
+  - heroType 2 (Dynamic): exibe etapa de seleção de tema antes do formulário, isso já existe no DynamicHero, e aplica dinamicamente.
+  - Faz o split Home/Admin (meia coleção) quando aplicável.
+  - Expõe Server Actions (`onRun`, `onPause`, `onResume`, `onCancel`).
+  - Seleciona o Presenter com base em `heroType`.
+
+- Presenters (Client Components):
+  - `IAFormsPresenterClassic` (Hero type 1): layout inspirado no `HeroSection` (form progressivo simples).
+  - `IAFormsPresenterDynamic` (Hero type 2): layout inspirado no `DynamicHero` (UI dinâmica com tags).
+  - `IAFormsPresenterAlt` (Hero type 3): reservado para variações futuras.
+
+```ts
+// API do componente unificado
+<IAFormsContainer mode="landing" heroType={2} themeId="sales-assistant" />
+```
+
+### B.3 Diretrizes de Implementação
+
+- Containerizado: lógica no container (data loading, actions, orchestration); presenters visuais e com lógica mínima de input.
+- Troca fácil de tipo: `heroType` controla o Presenter; manter prop signature idêntica para todos os presenters.
+- Suspense: envolver presenters e blocos não cacheados com `React.Suspense`.
+- Compatibilidade: manter compatível com as props atuais do `HeroSection` e `DynamicHeroSection` para migração suave.
+- Tema: respeitar regra de tema — Classic usa tema fixo (sem troca), Dynamic inclui seletor de tema como primeira etapa.
+
+### B.4 Integração com Redistribuição Home/Admin
+
+- `IAFormsContainer` decide, conforme `mode`, se dispara a metade de prompts (modelo "o4-mini" na Home) ou a segunda metade no Admin.
+- Ambos preservam `orderIndex` e publicam no canal `job:{jobId}`; presenters consomem via `useSSE`.
+
+### B.5 Ajustes de UX Específicos
+
+- Admin Header: acionar diálogo simples com ColorPicker e Dark Mode (Server Action para persistir) sem sair da página.
+- Notes: remover outline/border ao foco (padronizar tokens CSS e classes utilitárias).
+
+---
+
+Vou acrescentar detalhes no plano: especificações de API (payloads e respostas), modelos de dados, exemplos de eventos SSE, composição do IAForms e presenters, integração Home/Admin, e critérios de aceite. Vou atualizar o arquivo `\plano.plan.md` agora.
+
+[4 tools called]
+
+Segue a continuação do plano para você colar ao final de `plano.plan.md` (mantém total alinhamento com `prompt-single-batch.md`):
+
+## Especificações de API (Detalhadas)
+
+### 1) Single Prompt
+
+- POST `/api/prompt/run`
+  - Request:
+    ```json
+    {
+      "templateId": "tpl_123",
+      "variables": { "company": "Tesla", "website": "tesla.com" },
+      "model": "o4-mini"
+    }
+    ```
+  - Response (201): `{"jobId": "job_abc"}`
+  - Eventos: canal `job:{jobId}` com `job:*`
+
+### 2) Jobs (Batch)
+
+- POST `/api/prompt-jobs`
+  - Cria job do IAForms (template + dataSource mapping).
+  - Request: `{"templateId":"tpl_123","model":"gpt-4-turbo-preview","dataSource":{}}`
+  - Response (201): `{"jobId":"job_abc"}`
+- GET `/api/prompt-jobs/{jobId}`
+  - Response: `{"jobId","status","totals":{"items","completed","failed"},"createdAt","updatedAt"}`
+- POST `/api/prompt-jobs/{jobId}/run`
+  - Response: `{"ok":true,"status":"QUEUED"}`
+- POST `/api/prompt-jobs/{jobId}/{action}` onde `{action}` ∈ `cancel|pause|resume`
+  - Response: `{"ok":true,"status":"PAUSED"}` (exemplo)
+
+### 3) Results
+
+- GET `/api/prompt-jobs/{jobId}/results?cursor=...&limit=50`
+  - Response: `{"items":[{"itemId","orderIndex","status","result","error","metrics"}],"nextCursor":"..." }`
+- DELETE `/api/prompt-jobs/{jobId}/results/{itemId}`
+  - Response: `{"ok":true}`
+
+### 4) Logs
+
+- GET `/api/prompt-jobs/{jobId}/logs?level=info|warn|error&cursor=...`
+  - Response: `{"items":[{"level","message","ts"}],"nextCursor":"..."}`
+
+### 5) Export
+
+- GET `/api/prompt-jobs/{jobId}/export?format=csv|json&fields=jobId,itemId,status,model,tokens`
+  - Response: arquivo CSV/JSON (stream). Opcional SSE `export-progress`.
+
+### 6) Tiles
+
+- POST `/api/tiles` → `{"title","content","orderIndex","status","jobId?"}`
+- PUT `/api/tiles/{id}`
+- DELETE `/api/tiles/{id}`
+- GET `/api/tiles?jobId=...`
+
+## Modelos de Dados (MongoDB)
+
+```json
+// prompt_jobs
+{
+  "jobId": "job_abc",
+  "templateId": "tpl_123",
+  "model": "o4-mini",
+  "dataSource": { "type": "collection|csv|manual", "mapping": {"company": "title"} },
+  "status": "QUEUED",
+  "totals": { "items": 10, "completed": 0, "failed": 0 },
+  "ownerId": "user_x",
+  "createdAt": "2025-10-30T10:00:00Z",
+  "updatedAt": "2025-10-30T10:00:00Z"
+}
+
+// prompt_results
+{
+  "jobId": "job_abc",
+  "itemId": "it_1",
+  "orderIndex": 0,
+  "status": "COMPLETED",
+  "result": "...",
+  "error": null,
+  "metrics": { "model": "o4-mini", "tokens": {"prompt": 120, "completion": 300}, "ms": 2400 },
+  "createdAt": "2025-10-30T10:01:01Z"
+}
+
+// prompt_logs
+{
+  "jobId": "job_abc",
+  "level": "info",
+  "message": "Runner started",
+  "ts": "2025-10-30T10:00:01Z"
+}
+```
+
+Índices:
+
+- prompt_jobs: `{ jobId:1 } unique`, `{ status:1, createdAt:-1 }`, `{ ownerId:1, createdAt:-1 }`
+- prompt_results: `{ jobId:1, itemId:1 } unique`, `{ jobId:1, createdAt:-1 }`
+- prompt_logs: `{ jobId:1, ts:-1 }`
+
+## Exemplos de Eventos SSE/WS
+
+- job:status
+  ```text
+  event: job:status
+  data: {"jobId":"job_abc","status":"RUNNING","progress":{"current":1,"total":10}}
+  ```
+- job:result-chunk
+  ```text
+  event: job:result-chunk
+  data: {"jobId":"job_abc","itemId":"it_1","orderIndex":0,"chunk":"partial ...","ix":0}
+  ```
+- job:result-completed
+  ```text
+  event: job:result-completed
+  data: {"jobId":"job_abc","itemId":"it_1","orderIndex":0,"result":"final ...","metrics":{"model":"o4-mini","ms":2400}}
+  ```
+- job:error
+  ```text
+  event: job:error
+  data: {"jobId":"job_abc","itemId":"it_2","error":{"message":"rate limit"}}
+  ```
+
+## IAForms — Composição e Troca de Hero Type
+
+- Container (Server): carrega theme/tags/template, decide split Home/Admin, expõe Server Actions.
+- Presenters (Client):
+  - IAFormsPresenterClassic (type 1, tema fixo).
+  - IAFormsPresenterDynamic (type 2, seletor de tema inicial).
+  - IAFormsPresenterAlt (type 3).
+- Prop principal: `<IAFormsContainer mode="landing|admin" heroType={1|2|3} themeId? />`
+- Suspense: envolver presenters e blocos não cacheados.
+
+## Integração Home/Admin e Ordenação
+
+- Home: metade dos prompts (modelo “o4-mini”), batch com rate limit; `orderIndex` por item; grid atualiza por `orderIndex`.
+- Admin: segunda metade com modelo superior; mesmo canal de eventos; pause/resume/cancel.
+- Grids: ordenação estável por `orderIndex` e reconciliação de chunks fora de ordem.
+
+## Segurança e Checklist (Execução)
+
+- Autenticação: `getCurrentAuth()` em todas as rotas novas.
+- Autorização: validar `ownerId`/workspace em jobs/results/logs/tiles.
+- SSE: limite 10 conexões/IP e timeout 120s; keep-alive a cada 30s.
+- Variáveis: validar/sanear placeholders `{{...}}`.
+- CSP: avaliar política mínima para bloquear inline scripts.
+
+## Testes (Plano)
+
+- Unit: mapeamento de variáveis, cálculo de `orderIndex`, assembly de chunks, rate limit de batch.
+- Integração: `prompt/run`, `prompt-jobs/*`, `results`, `export`, `tiles`.
+- E2E: Home (stream metade) e Admin (restante) com ordenação correta e controles.
+- Observabilidade: métricas por item/job, tokens (quando disponível) e erros por modelo.
+
+## Riscos e Mitigações
+
+- SSE em Netlify: keep-alive/edge runtime; fallback WS se necessário.
+- Rate limits OpenAI: backoff + batch size dinâmico.
+- Ordem inconsistente: `orderIndex` como fonte única da verdade.
+
+---
+
+Entendi. Vou ajustar o plano para refletir exatamente o que você descreveu: a Home dispara imediatamente a geração de “metade” dos tiles (para acelerar a experiência), com fila assíncrona inteligente, placeholders de loading que vão diminuindo conforme chegam os resultados, ordenação determinística, isolamento total via guest + WS/SSE, e UI/visuais iguais entre Home e Admin (IAForms), apenas mudando o fluxo e o “modo”.
+
+Segue o complemento de plano para colar no final do plano atual (mantém tudo existente e corrige a intenção do fluxo):
+
+### Correção de Fluxo: Home acelera metade dos tiles
+
+- Home (IAForms em modo guest) dispara um job parcial com metade dos prompts do template (modelo “o4-mini”), com fila assíncrona inteligente.
+- Admin recebe o restante dos prompts do mesmo template/job (ou um job encadeado) assim que o usuário avança, mantendo a mesma ordenação.
+- Ambos os lados usam o mesmo canal de eventos e o mesmo sistema de ordenação por `orderIndex`.
+
+### Placeholders de Loading e Decremento
+
+- Antes de começar, o frontend conhece `totals.items` e quantos pertencem à “metade” da Home (ex.: `totals.homePart`).
+- Renderizar `homePart` placeholders (ex.: “Generating Insights...”), todos com `status: loading`.
+- A cada `job:result-completed`, substituir um placeholder pelo tile final e decrementar o contador de placeholders.
+- No Admin, repetir a mesma lógica para a metade restante.
+
+Eventos passam a carregar contadores:
+
+- `job:status`: `{ jobId, status, progress: { current, total, remaining }, scope: "home" | "admin" }`
+- `job:result-completed`: `{ jobId, itemId, orderIndex, result, scope: "home" | "admin" }`
+
+### Ordenação determinística
+
+- Usar `orderIndex` do template como fonte única da verdade.
+- Placeholders já entram posicionados por `orderIndex`.
+- Ao chegar um tile final, o placeholder correspondente (mesmo `orderIndex`) é substituído no mesmo slot, evitando “pulos” de layout.
+
+### IAForms Guest com Isolamento e WS/SSE
+
+- Guest workflow: IAForms em modo “guest” cria job isolado por `guestId` e `jobId`.
+- Canal de stream por combinação: `guest:{guestId}:job:{jobId}` (ou um token isolado por job).
+- SSE/WS com autorização mínima: valida `guestId`/`jobId` e escopo do stream; nenhum dado sensível no payload.
+- Admin e Home consomem o mesmo contrato, apenas com `scope` diferente (“home” para metade inicial; “admin” para a segunda metade).
+
+### Unificação visual (Heroes e Dashboard)
+
+- IAForms apresenta UI idêntica entre Home e Admin (presenters classic/dynamic), mudando apenas:
+  - Hero type (1 fixo no clássico; 2 com seletor no dinâmico).
+  - Modo (landing/admin) que determina: qual “metade” de prompts iniciar, limites e ações disponíveis.
+- Resultado visual final deve ser “o dashboard em preview” no guest (Home) e “o dashboard completo” no Admin, com a mesma grid, placeholders, cards e ordering.
+
+### API e Eventos (ajustes pontuais)
+
+- Single:
+  - `POST /api/prompt/run` → efêmero (1 tile) com `{orderIndex, scope:"home"}` quando usado no fluxo simplificado.
+- Batch:
+  - `POST /api/prompt-jobs` → cria job com `totals.items` e `split: { homePart, adminPart }`.
+  - `POST /api/prompt-jobs/{jobId}/run` → aceita `scope: "home" | "admin"` para disparar apenas a fração designada.
+- Results/Logs/Export permanecem iguais, com `scope` opcional no filtro.
+- Eventos:
+  - `job:status`: `progress` agora inclui `remaining` e `scope`.
+  - `job:result-chunk`/`job:result-completed`: incluem `orderIndex` e `scope`.
+
+Exemplo de eventos:
+
+```text
+event: job:status
+data: {"jobId":"job_1","status":"RUNNING","progress":{"current":2,"total":10,"remaining":8},"scope":"home"}
+
+event: job:result-completed
+data: {"jobId":"job_1","itemId":"it_3","orderIndex":2,"result":"...","scope":"home"}
+```
+
+### Critérios de aceite (ajustados)
+
+- Home (guest) mostra placeholders de `homePart` e substitui por tiles finais conforme o stream chega; contadores de loading diminuem corretamente.
+- Admin, ao abrir, exibe placeholders da “segunda metade” e vai substituindo conforme resultados chegam; pause/resume/cancel funcionam.
+- Ordenação estável por `orderIndex` em Home e Admin, sem saltos.
+- Canal de stream isolado por `guestId`/`jobId` funciona igual em Home e Admin.
+- Visual/UX idênticos entre Home (guest) e Admin, diferenciando só o escopo e permissões.

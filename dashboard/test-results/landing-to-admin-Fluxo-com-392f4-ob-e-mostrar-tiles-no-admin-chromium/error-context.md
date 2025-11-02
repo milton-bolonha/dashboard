@@ -1,0 +1,127 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - generic [ref=e6]: Target
+          - img "Switch workspace" [ref=e7]
+        - button "Collapse sidebar" [ref=e8] [cursor=pointer]:
+          - img "Collapse sidebar" [ref=e9]
+      - navigation [ref=e10]:
+        - heading "Actions" [level=3] [ref=e11]
+        - link "Earn Credits Earn Credits" [ref=e12] [cursor=pointer]:
+          - /url: "#"
+          - img "Earn Credits" [ref=e13]
+          - generic [ref=e14]: Earn Credits
+        - link "Invite Friends" [ref=e15] [cursor=pointer]:
+          - /url: "#"
+          - generic [ref=e16]: Invite Friends
+        - link "Suggest Features" [ref=e17] [cursor=pointer]:
+          - /url: "#"
+          - generic [ref=e18]: Suggest Features
+        - generic [ref=e19]:
+          - heading "Companies" [level=3] [ref=e20]
+          - generic [ref=e21]:
+            - link "Companies Companies" [ref=e22] [cursor=pointer]:
+              - /url: "#"
+              - img "Companies" [ref=e23]
+              - generic [ref=e24]: Companies
+            - button [ref=e25] [cursor=pointer]:
+              - img [ref=e26]
+          - generic [ref=e28]:
+            - link "Contacts Contacts" [ref=e29] [cursor=pointer]:
+              - /url: "#"
+              - img "Contacts" [ref=e30]
+              - generic [ref=e31]: Contacts
+            - button [ref=e32] [cursor=pointer]:
+              - img [ref=e33]
+      - generic [ref=e36]: Sign up to access your profile and settings.
+    - generic [ref=e37]:
+      - banner [ref=e38]:
+        - generic [ref=e39]:
+          - heading "Target" [level=1] [ref=e41]
+          - generic [ref=e42]:
+            - generic [ref=e43]:
+              - button "Customize Background" [ref=e44]:
+                - img [ref=e45]
+              - button "Dashboards" [ref=e49]:
+                - generic [ref=e50]: Dashboards
+                - img [ref=e51]
+              - button "Templates" [ref=e54]:
+                - generic [ref=e55]: Templates
+                - img [ref=e56]
+            - link "Log in" [ref=e58] [cursor=pointer]:
+              - /url: /sign-in
+            - link "Sign up" [ref=e59] [cursor=pointer]:
+              - /url: /sign-up
+      - main [ref=e60]:
+        - generic [ref=e62]:
+          - generic [ref=e63]:
+            - generic [ref=e64]:
+              - heading "Preview Company" [level=1] [ref=e65]
+              - button "Edit company" [ref=e66]:
+                - img "Edit company" [ref=e67]
+            - button "Bulk Upload Your Prompts" [ref=e69]
+          - generic [ref=e70]:
+            - generic [ref=e73]:
+              - generic [ref=e74]:
+                - img [ref=e77]
+                - img [ref=e81]
+              - generic [ref=e92]: Generating insights...
+            - generic [ref=e95]:
+              - generic [ref=e96]:
+                - img [ref=e99]
+                - img [ref=e103]
+              - generic [ref=e114]: Generating insights...
+            - generic [ref=e117]:
+              - generic [ref=e118]:
+                - img [ref=e121]
+                - img [ref=e125]
+              - generic [ref=e136]: Generating insights...
+            - generic [ref=e139]:
+              - generic [ref=e140]:
+                - img [ref=e143]
+                - img [ref=e147]
+              - generic [ref=e158]: Generating insights...
+            - generic [ref=e161]:
+              - generic [ref=e162]:
+                - img [ref=e165]
+                - img [ref=e169]
+              - generic [ref=e180]: Generating insights...
+            - generic [ref=e183]:
+              - generic [ref=e184]:
+                - img [ref=e187]
+                - img [ref=e191]
+              - generic [ref=e202]: Generating insights...
+            - button "Add Prompt" [ref=e203] [cursor=pointer]:
+              - generic [ref=e204]:
+                - img [ref=e206]
+                - generic [ref=e207]: Add Prompt
+          - status [ref=e208]
+  - generic [ref=e213] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e214]:
+      - img [ref=e215]
+    - generic [ref=e218]:
+      - button "Open issues overlay" [ref=e219]:
+        - generic [ref=e220]:
+          - generic [ref=e221]: "0"
+          - generic [ref=e222]: "1"
+        - generic [ref=e223]: Issue
+      - button "Collapse issues badge" [ref=e224]:
+        - img [ref=e225]
+  - alert [ref=e227]
+  - generic [ref=e229]:
+    - generic [ref=e231]:
+      - img [ref=e233]
+      - img [ref=e237]
+    - heading "Generating AI Insights" [level=2] [ref=e242]
+    - paragraph [ref=e243]:
+      - text: Our AI is analyzing
+      - strong [ref=e244]: Preview Company
+      - text: and generating personalized research tiles for your dashboard.
+    - paragraph [ref=e246]: 📊 Tiles will appear as they're generated
+    - button "Got it, let's go!" [ref=e248]
+```

@@ -273,23 +273,36 @@ export async function generateTileWithOpenAI(
       model: "gpt-4-turbo-preview",
     });
 
+    // ⭐ CORREÇÃO: Modelos o4-mini requerem max_completion_tokens em vez de max_tokens
+    const modelToUse = "gpt-4-turbo-preview"; // Este modelo não é o4-mini, então pode usar max_tokens
+    const isO4Mini =
+      modelToUse.includes("o4-mini") || modelToUse.includes("gpt-4o-mini");
+
+    const completionParams = {
+      model: modelToUse,
+      messages: [
+        {
+          role: "system",
+          content: systemPrompt,
+        },
+        {
+          role: "user",
+          content: fullPrompt,
+        },
+      ],
+      temperature: temperature,
+    };
+
+    // ⭐ Usar parâmetro correto baseado no modelo
+    if (isO4Mini) {
+      completionParams.max_completion_tokens = maxTokens;
+    } else {
+      completionParams.max_tokens = maxTokens;
+    }
+
     // ⭐ OPENAI CALL: Chamada com timeout
     const completion = await Promise.race([
-      openai.chat.completions.create({
-        model: "gpt-4-turbo-preview",
-        messages: [
-          {
-            role: "system",
-            content: systemPrompt,
-          },
-          {
-            role: "user",
-            content: fullPrompt,
-          },
-        ],
-        temperature: temperature,
-        max_tokens: maxTokens,
-      }),
+      openai.chat.completions.create(completionParams),
       // ⭐ TIMEOUT: 30 segundos de timeout
       new Promise((_, reject) =>
         setTimeout(() => reject(new Error("OpenAI timeout após 30s")), 30000)
