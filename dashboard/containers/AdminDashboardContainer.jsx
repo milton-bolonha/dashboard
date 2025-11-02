@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
@@ -86,13 +86,51 @@ export function AdminDashboardContainer() {
   const [showBackgroundCustomizer, setShowBackgroundCustomizer] =
     useState(false);
 
-  // Debug State
-  const [debugLogger, setDebugLogger] = useState(null);
-  const [pollingInterval, setPollingInterval] = useState(null);
+  // ⭐ NOVO: Configuração de polling
+  const POLLING_INTERVAL = 5000; // 5 segundos
+  const MAX_POLLING_ATTEMPTS = 10; // Máximo de tentativas de polling
+  const pollingAttemptsRef = useRef(0);
 
-  // Refs for polling
-  const previousTilesRef = useRef([]);
-  const previousCustomTileRef = useRef(0);
+  // ⭐ NOVO: Função para ativar polling
+  const startPolling = useCallback(() => {
+    console.log("[AdminContainer] 🔄 Ativando polling como fallback");
+    if (pollingInterval) return; // Já está ativo
+
+    const interval = setInterval(async () => {
+      if (!selectedCompany || pollingAttemptsRef.current >= MAX_POLLING_ATTEMPTS) {
+        console.log("[AdminContainer] 🛑 Parando polling (limite atingido ou sem company)");
+        clearInterval(interval);
+        setPollingInterval(null);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/companies/${selectedCompany.id}/tiles`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const data = await response.json();
+        
+        // Atualizar tiles e status
+        if (data.tiles) {
+          const company = { ...selectedCompany, tiles: data.tiles };
+          setSelectedCompany(company);
+          
+          // Verificar se geração completou
+          if (data.status === "completed") {
+            console.log("[AdminContainer] ✅ Geração completada, parando polling");
+            clearInterval(interval);
+            setPollingInterval(null);
+          }
+        }
+        
+        pollingAttemptsRef.current++;
+      } catch (error) {
+        console.error("[AdminContainer] ❌ Erro no polling:", error);
+        pollingAttemptsRef.current++;
+      }
+    }, POLLING_INTERVAL);
+
+    setPollingInterval(interval);
+  }, [selectedCompany, pollingInterval]);
 
   // Helper para obter nome/título de uma entidade
   const getEntityName = (entity) => {
@@ -1286,17 +1324,21 @@ export function AdminDashboardContainer() {
     },
   });
 
-  const { isConnected: sseConnected } = useSSE(streamUrl, listenersRef.current);
+  // ⭐ NOVO: Handler para falhas do SSE
+  const handleSSEError = useCallback((error) => {
+    console.warn("[AdminContainer] ⚠️ SSE falhou permanentemente:", error);
+    startPolling();
+  }, [startPolling]);
 
-  // ⭐ DEBUG: Log detalhado da conexão SSE (reduzido)
+  const { isConnected: sseConnected, hasFailedPermanently } = useSSE(streamUrl, listenersRef.current, handleSSEError);
+
+  // ⭐ NOVO: Efeito para ativar polling quando SSE falhar
   useEffect(() => {
-    if (jobIdFromUrl && streamUrl && !sseConnected) {
-      // Apenas logar quando não conectado para evitar spam
-      console.debug("[AdminContainer] ⏳ SSE conectando...", jobIdFromUrl);
-    } else if (jobIdFromUrl && streamUrl && sseConnected) {
-      console.debug("[AdminContainer] ✅ SSE conectado", jobIdFromUrl);
+    if (hasFailedPermanently && selectedCompany) {
+      console.log("[AdminContainer] 🔄 SSE falhou, ativando polling como fallback");
+      startPolling();
     }
-  }, [jobIdFromUrl, streamUrl, sseConnected]);
+  }, [hasFailedPermanently, selectedCompany, startPolling]);
 
   // Handlers
   const handleTileClick = (tile) => {
@@ -2376,24 +2418,47 @@ export function AdminDashboardContainer() {
   //   });
   // }
 
-  // ⭐ BUG FIX: Mostrar modal imediatamente se há job_id na URL (antes de qualquer conteúdo)
-  // O modal deve aparecer desde o início se há job_id, mesmo sem selectedCompany ainda
-  // ⭐ CRÍTICO: NUNCA mostrar modal se usuário já fechou manualmente OU se tiles já estão completos
-  const hasCompletedTiles =
-    selectedCompany?.tiles_status === "completed" ||
-    (selectedCompany?.tiles &&
-      selectedCompany.tiles.length >=
-        (selectedCompany?.tiles_to_generate || 8));
+  // ⭐ MELHORIA: Função simplificada para verificar se tiles estão completos
+  const checkCompletedTiles = useCallback((company) => {
+    if (!company) return false;
+    return (
+      company.tiles_status === "completed" ||
+      (company.tiles && company.tiles.length >= (company.tiles_to_generate || 8))
+    );
+  }, []);
 
-  const shouldShowLoadingModalEarly =
-    jobIdFromUrl &&
-    !userClosedModalRef.current && // ⭐ CRÍTICO: Nunca mostrar se usuário fechou
-    showLoadingModal && // ⭐ Só mostrar se showLoadingModal for true (usuário pode fechar)
-    !hasCompletedTiles && // ⭐ CRÍTICO: Não mostrar se tiles já estão completos
-    (generatingTiles ||
-      !selectedCompany ||
-      selectedCompany?.tiles_status === "generating" ||
-      selectedCompany?.tiles_status === "pending");
+  // ⭐ MELHORIA: Função simplificada para verificar se deve mostrar modal
+  const shouldShowLoadingModal = useMemo(() => {
+    // Nunca mostrar se usuário fechou manualmente
+    if (userClosedModalRef.current) return false;
+
+    // Nunca mostrar se não há job_id
+    if (!jobIdFromUrl) return false;
+
+    // Se tem company selecionada, verificar se tem tiles completos
+    if (selectedCompany) {
+      return !checkCompletedTiles(selectedCompany);
+    }
+
+    // Se tem workspace, verificar todas as companies
+    if (workspace?.workspace) {
+      const theme = workspace.workspace.themeSnapshot;
+      let entities = [];
+      
+      if (theme) {
+        const primaryEntity = theme.entities.find((e) => e.isPrimary);
+        const entityKey = `${primaryEntity.id}s`.replace("companys", "companies");
+        entities = workspace.workspace[entityKey] || [];
+      } else {
+        entities = workspace.workspace.companies || [];
+      }
+
+      return !entities.some(checkCompletedTiles);
+    }
+
+    // Se não tem nem company nem workspace, mostrar modal
+    return true;
+  }, [jobIdFromUrl, selectedCompany, workspace, checkCompletedTiles, userClosedModalRef]);
 
   // Render states (DEPOIS de todos os hooks)
   // ⭐ BUG FIX: Se já há tiles sendo gerados, mostrar cards ao invés de loading workspace
@@ -2414,8 +2479,8 @@ export function AdminDashboardContainer() {
             </p>
           </div>
         </AppLayout>
-        {/* ⭐ Mostrar modal mesmo durante loading se há job_id */}
-        {shouldShowLoadingModalEarly && (
+        {/* ⭐ MELHORIA: Mostrar modal se necessário */}
+        {shouldShowLoadingModal && (
           <LoadingModal
             isOpen={true}
             onAccept={handleAcceptLoadingModal}
@@ -2448,8 +2513,8 @@ export function AdminDashboardContainer() {
 
   return (
     <>
-      {/* ⭐ BUG FIX: Mostrar modal PRIMEIRO se há job_id, antes de qualquer conteúdo */}
-      {shouldShowLoadingModalEarly && (
+      {/* ⭐ MELHORIA: Mostrar modal se necessário */}
+      {shouldShowLoadingModal && (
         <LoadingModal
           isOpen={true}
           onAccept={handleAcceptLoadingModal}
@@ -2574,8 +2639,8 @@ export function AdminDashboardContainer() {
             />
           </div>
         ) : (
-          // ⭐ BUG FIX: Não mostrar mensagem se há job_id e modal está aberto
-          !shouldShowLoadingModalEarly && (
+          // ⭐ MELHORIA: Não mostrar mensagem se modal está aberto
+          !shouldShowLoadingModal && (
             <div className="text-center py-20">
               <div className="bg-gray-100 rounded-lg p-8 max-w-md mx-auto">
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">

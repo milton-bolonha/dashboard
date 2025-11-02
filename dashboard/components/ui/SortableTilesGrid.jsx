@@ -33,6 +33,21 @@ export function SortableTilesGrid({
   const [orderedTiles, setOrderedTiles] = useState([]);
   const orderMapRef = useRef(new Map()); // Mapa de ordem original
   const tilesRef = useRef(new Map()); // Cache de tiles por ID
+  const lastTilesRef = useRef([]); // ⭐ NOVO: Referência para último estado válido dos tiles
+
+  // ⭐ NOVO: Helper para verificar se um tile tem conteúdo
+  const hasTileContent = (tile) => !!(tile.content || tile.answer || tile.excerpt);
+
+  // ⭐ NOVO: Helper para criar placeholder
+  const createPlaceholder = (orderIndex) => ({
+    id: `placeholder_${orderIndex}`,
+    orderIndex,
+    isPlaceholder: true,
+    title: `Insight ${orderIndex + 1}`,
+    content: "",
+    answer: "",
+    excerpt: "",
+  });
 
   // Configuração dos sensores para drag and drop
   const sensors = useSensors(
@@ -46,74 +61,63 @@ export function SortableTilesGrid({
     })
   );
 
-  // Inicializar tiles com ordem e IDs únicos
-  // ⭐ CORREÇÃO: Removido SSE duplicado - tiles são atualizados via props do AdminDashboardContainer
-  // ⭐ BUG 1 FIX: Criar placeholders com orderIndex desde o início para substituição correta
+  // Inicializar e atualizar tiles com ordem preservada
   useEffect(() => {
-    const initialTiles = tiles.map((tile, index) => {
-      // ⭐ BUG FIX: Detectar placeholder corretamente - tile tem conteúdo se content, answer ou excerpt existirem
-      const hasContent = !!(tile.content || tile.answer || tile.excerpt);
-      const isPlaceholderValue =
-        tile.isPlaceholder !== undefined ? tile.isPlaceholder : !hasContent;
+    // ⭐ MELHORIA: Se não há tiles e não está gerando, manter último estado válido
+    if (!isGeneratingTiles && tiles.length === 0 && lastTilesRef.current.length > 0) {
+      console.log("🔄 Mantendo último estado válido dos tiles");
+      return;
+    }
+
+    // ⭐ MELHORIA: Processar tiles atuais
+    const processedTiles = tiles.map((tile, index) => {
+      const hasContent = hasTileContent(tile);
+      const isPlaceholderValue = tile.isPlaceholder !== undefined ? tile.isPlaceholder : !hasContent;
 
       return {
         ...tile,
-        id:
-          tile.id ||
-          `tile_${Date.now()}_${index}_${Math.random()
-            .toString(36)
-            .substr(2, 9)}`,
+        id: tile.id || `tile_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`,
         orderIndex: tile.orderIndex ?? index,
         isPlaceholder: isPlaceholderValue,
       };
     });
 
-    // ⭐ BUG 1 FIX: Criar placeholders para tiles que ainda não foram gerados
-    // Isso garante que quando um tile real chega com orderIndex, ele substitui o placeholder correto
-    // ⭐ BUG FIX: Só criar placeholders se realmente está gerando E não há tile completo com conteúdo para esse orderIndex
+    // ⭐ MELHORIA: Criar ou atualizar placeholders
+    let finalTiles = [...processedTiles];
     if (isGeneratingTiles && !isGeneratingCustomTile && tilesToGenerate > 0) {
-      // ⭐ BUG FIX: Criar placeholders para orderIndex de 0 até tilesToGenerate-1 que não existem
       for (let orderIndex = 0; orderIndex < tilesToGenerate; orderIndex++) {
-        // Verificar se já existe tile com esse orderIndex E com conteúdo
-        const existingTile = initialTiles.find(
-          (t) => t.orderIndex === orderIndex
-        );
-
-        // ⭐ BUG FIX: Só criar placeholder se não existe tile OU se o tile existente não tem conteúdo
-        const hasContent =
-          existingTile &&
-          (existingTile.content || existingTile.answer || existingTile.excerpt);
-        const shouldCreatePlaceholder =
-          !existingTile || (!hasContent && existingTile.isPlaceholder);
-
-        if (shouldCreatePlaceholder && !existingTile) {
-          // ⭐ ID estável: mesmo orderIndex sempre gera mesmo ID placeholder
-          const placeholderId = `placeholder_${orderIndex}`;
-          initialTiles.push({
-            id: placeholderId,
-            orderIndex: orderIndex,
-            isPlaceholder: true,
-            title: `Insight ${orderIndex + 1}`,
-            content: "",
-            answer: "",
-            excerpt: "",
-          });
+        const existingTile = finalTiles.find(t => t.orderIndex === orderIndex);
+        
+        if (!existingTile) {
+          // Criar novo placeholder
+          finalTiles.push(createPlaceholder(orderIndex));
+        } else if (!hasTileContent(existingTile)) {
+          // Atualizar placeholder existente
+          const placeholderIndex = finalTiles.findIndex(t => t.orderIndex === orderIndex);
+          finalTiles[placeholderIndex] = {
+            ...existingTile,
+            ...createPlaceholder(orderIndex),
+            id: existingTile.id, // Manter ID original
+          };
         }
       }
     }
 
-    // Ordenar por orderIndex para garantir ordem correta
-    initialTiles.sort(
-      (a, b) => (a.orderIndex ?? Infinity) - (b.orderIndex ?? Infinity)
-    );
+    // Ordenar por orderIndex
+    finalTiles.sort((a, b) => (a.orderIndex ?? Infinity) - (b.orderIndex ?? Infinity));
 
-    // Atualizar mapa de ordem e cache de tiles
-    initialTiles.forEach((tile) => {
+    // Atualizar mapas e cache
+    finalTiles.forEach(tile => {
       orderMapRef.current.set(tile.id, tile.orderIndex);
       tilesRef.current.set(tile.id, tile);
     });
 
-    setOrderedTiles(initialTiles);
+    // ⭐ MELHORIA: Atualizar último estado válido se houver tiles com conteúdo
+    if (finalTiles.some(hasTileContent)) {
+      lastTilesRef.current = finalTiles;
+    }
+
+    setOrderedTiles(finalTiles);
   }, [tiles, isGeneratingTiles, isGeneratingCustomTile, tilesToGenerate]);
 
   // Handler para reordenação via drag and drop
@@ -128,13 +132,29 @@ export function SortableTilesGrid({
 
       if (oldIndex >= 0 && newIndex >= 0) {
         // Reordenar mantendo orderIndex original
-        const reorderedTiles = arrayMove(orderedTiles, oldIndex, newIndex);
+        const reorderedTiles = arrayMove(orderedTiles, oldIndex, newIndex).map(
+          (tile, index) => ({
+            ...tile,
+            orderIndex: index, // ⭐ MELHORIA: Atualizar orderIndex após reordenação
+          })
+        );
+
+        // ⭐ MELHORIA: Atualizar último estado válido
+        if (reorderedTiles.some(hasTileContent)) {
+          lastTilesRef.current = reorderedTiles;
+        }
 
         // Atualizar ordem no parent
         onReorder?.(reorderedTiles);
 
         // Atualizar estado local
         setOrderedTiles(reorderedTiles);
+
+        // ⭐ MELHORIA: Atualizar mapas
+        reorderedTiles.forEach(tile => {
+          orderMapRef.current.set(tile.id, tile.orderIndex);
+          tilesRef.current.set(tile.id, tile);
+        });
       }
     }
   };
@@ -146,13 +166,13 @@ export function SortableTilesGrid({
       onDragEnd={handleDragEnd}
     >
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-[192px]">
-        {/* Tiles sortable */}
-        {orderedTiles.length > 0 && (
+        {/* ⭐ MELHORIA: Usar último estado válido se não há tiles e não está gerando */}
+        {(orderedTiles.length > 0 || lastTilesRef.current.length > 0) && (
           <SortableContext
-            items={orderedTiles.map((tile) => tile.id)}
+            items={(orderedTiles.length > 0 ? orderedTiles : lastTilesRef.current).map((tile) => tile.id)}
             strategy={rectSortingStrategy}
           >
-            {orderedTiles.map((tile, index) => (
+            {(orderedTiles.length > 0 ? orderedTiles : lastTilesRef.current).map((tile, index) => (
               <DraggableTile
                 key={`tile-${tile.id}-${index}`}
                 tile={tile}
@@ -166,9 +186,6 @@ export function SortableTilesGrid({
 
         {/* LoadingTile para tile customizado */}
         {isGeneratingCustomTile && <LoadingTile index={0} />}
-
-        {/* ⭐ BUG 1 FIX: Placeholders já estão incluídos em orderedTiles com orderIndex */}
-        {/* Não precisamos mais de LoadingTiles separados - eles são renderizados como DraggableTile com isPlaceholder */}
 
         {/* Add Prompt Tile */}
         <AddPromptTile onClick={onAddPrompt} />

@@ -1,16 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 
-export function useSSE(streamUrl, listeners = {}) {
+export function useSSE(streamUrl, listeners = {}, onError = null) {
   const [isConnected, setIsConnected] = useState(false);
+  const [hasFailedPermanently, setHasFailedPermanently] = useState(false);
   const eventSourceRef = useRef(null);
   const retryRef = useRef({ attempts: 0, timeoutId: null });
   // ⭐ CRÍTICO: Usar useRef para listeners estáveis (evita reconexões)
   const listenersRef = useRef(listeners);
+  const onErrorRef = useRef(onError);
 
-  // Atualizar ref quando listeners mudarem (sem causar reconexão)
+  // Atualizar refs quando as props mudarem
   useEffect(() => {
     listenersRef.current = listeners;
   }, [listeners]);
+
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
 
   useEffect(() => {
     if (!streamUrl) {
@@ -63,6 +69,10 @@ export function useSSE(streamUrl, listeners = {}) {
             streamUrl
           );
           setIsConnected(false);
+          setHasFailedPermanently(true);
+          if (onErrorRef.current) {
+            onErrorRef.current({ type: "MAX_RETRIES_EXCEEDED", attempts });
+          }
           try {
             es.close();
           } catch {}
@@ -140,5 +150,5 @@ export function useSSE(streamUrl, listeners = {}) {
     };
   }, [streamUrl]); // ⭐ CRÍTICO: Remover listeners da dependência
 
-  return { isConnected };
+  return { isConnected, hasFailedPermanently };
 }
