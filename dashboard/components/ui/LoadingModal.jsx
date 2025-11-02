@@ -1,22 +1,38 @@
 "use client";
 
+import { memo } from "react";
 import { motion } from "framer-motion";
 import { Bot, Sparkles } from "lucide-react";
 
-export default function LoadingModal({
+// ⭐ MELHORIA: Memoizado para evitar re-renderizações desnecessárias
+const LoadingModal = memo(function LoadingModal({
   isOpen,
   onAccept,
   onCancel,
   companyName,
-  progress, // ⭐ NOVO: Progress object { current, total, remaining }
+  progress, // { current, total, remaining }
 }) {
+  // ⭐ MELHORIA: Early return se não estiver aberto
   if (!isOpen) return null;
 
+  // ⭐ MELHORIA: Calcular progresso uma vez
+  const showProgress = progress && progress.total > 0;
+  const current = progress?.current || 0;
+  const total = progress?.total || 0;
+  const remaining = progress?.remaining;
+  const hasRemaining = typeof remaining === "number";
+
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999]">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999]"
+    >
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9 }}
         className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-8"
       >
         {/* Icon */}
@@ -48,17 +64,16 @@ export default function LoadingModal({
 
         {/* Info */}
         <div className="bg-blue-50 rounded-lg p-4 mb-6">
-          {progress && progress.total > 0 ? (
-            <p className="text-sm text-blue-800 text-center">
-              📊 Progress: {progress.current || 0}/{progress.total}
-              {typeof progress.remaining === "number" &&
-                ` • remaining: ${progress.remaining}`}
-            </p>
-          ) : (
-            <p className="text-sm text-blue-800 text-center">
-              📊 Tiles will appear as they're generated
-            </p>
-          )}
+          <p className="text-sm text-blue-800 text-center">
+            {showProgress ? (
+              <>
+                📊 Progress: {current}/{total}
+                {hasRemaining && ` • remaining: ${remaining}`}
+              </>
+            ) : (
+              "📊 Tiles will appear as they're generated"
+            )}
+          </p>
         </div>
 
         {/* Buttons */}
@@ -81,6 +96,8 @@ export default function LoadingModal({
           </button>
         </div>
       </motion.div>
-    </div>
+    </motion.div>
   );
-}
+});
+
+export default LoadingModal;
