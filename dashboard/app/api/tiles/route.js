@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);

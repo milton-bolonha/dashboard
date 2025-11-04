@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { ObjectId } from "mongodb";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 
 export async function PUT(request, { params }) {
   const body = await request.json().catch(() => ({}));
