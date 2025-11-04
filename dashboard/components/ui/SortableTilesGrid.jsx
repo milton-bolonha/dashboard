@@ -36,7 +36,8 @@ export function SortableTilesGrid({
   const lastTilesRef = useRef([]); // ⭐ NOVO: Referência para último estado válido dos tiles
 
   // ⭐ NOVO: Helper para verificar se um tile tem conteúdo
-  const hasTileContent = (tile) => !!(tile.content || tile.answer || tile.excerpt);
+  const hasTileContent = (tile) =>
+    !!(tile.content || tile.answer || tile.excerpt);
 
   // ⭐ NOVO: Helper para criar placeholder
   const createPlaceholder = (orderIndex) => ({
@@ -64,20 +65,42 @@ export function SortableTilesGrid({
   // Inicializar e atualizar tiles com ordem preservada
   useEffect(() => {
     // ⭐ MELHORIA: Se não há tiles e não está gerando, manter último estado válido
-    if (!isGeneratingTiles && tiles.length === 0 && lastTilesRef.current.length > 0) {
+    if (
+      !isGeneratingTiles &&
+      tiles.length === 0 &&
+      lastTilesRef.current.length > 0
+    ) {
       console.log("🔄 Mantendo último estado válido dos tiles");
       return;
     }
 
     // ⭐ MELHORIA: Processar tiles atuais
     const processedTiles = tiles.map((tile, index) => {
+      const tileCopy = { ...tile };
       const hasContent = hasTileContent(tile);
-      const isPlaceholderValue = tile.isPlaceholder !== undefined ? tile.isPlaceholder : !hasContent;
+
+      if (!hasContent && !isGeneratingTiles) {
+        const fallbackMessage =
+          "⚠️ No AI output was generated for this insight. Please regenerate or adjust the prompt.";
+        tileCopy.content = fallbackMessage;
+        tileCopy.answer = fallbackMessage;
+        tileCopy.excerpt = fallbackMessage;
+      }
+
+      const computedHasContent = hasTileContent(tileCopy);
+      const isPlaceholderValue =
+        tile.isPlaceholder !== undefined
+          ? tile.isPlaceholder
+          : !computedHasContent;
 
       return {
-        ...tile,
-        id: tile.id || `tile_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`,
-        orderIndex: tile.orderIndex ?? index,
+        ...tileCopy,
+        id:
+          tileCopy.id ||
+          `tile_${Date.now()}_${index}_${Math.random()
+            .toString(36)
+            .substr(2, 9)}`,
+        orderIndex: tileCopy.orderIndex ?? index,
         isPlaceholder: isPlaceholderValue,
       };
     });
@@ -86,14 +109,18 @@ export function SortableTilesGrid({
     let finalTiles = [...processedTiles];
     if (isGeneratingTiles && !isGeneratingCustomTile && tilesToGenerate > 0) {
       for (let orderIndex = 0; orderIndex < tilesToGenerate; orderIndex++) {
-        const existingTile = finalTiles.find(t => t.orderIndex === orderIndex);
-        
+        const existingTile = finalTiles.find(
+          (t) => t.orderIndex === orderIndex
+        );
+
         if (!existingTile) {
           // Criar novo placeholder
           finalTiles.push(createPlaceholder(orderIndex));
         } else if (!hasTileContent(existingTile)) {
           // Atualizar placeholder existente
-          const placeholderIndex = finalTiles.findIndex(t => t.orderIndex === orderIndex);
+          const placeholderIndex = finalTiles.findIndex(
+            (t) => t.orderIndex === orderIndex
+          );
           finalTiles[placeholderIndex] = {
             ...existingTile,
             ...createPlaceholder(orderIndex),
@@ -104,10 +131,12 @@ export function SortableTilesGrid({
     }
 
     // Ordenar por orderIndex
-    finalTiles.sort((a, b) => (a.orderIndex ?? Infinity) - (b.orderIndex ?? Infinity));
+    finalTiles.sort(
+      (a, b) => (a.orderIndex ?? Infinity) - (b.orderIndex ?? Infinity)
+    );
 
     // Atualizar mapas e cache
-    finalTiles.forEach(tile => {
+    finalTiles.forEach((tile) => {
       orderMapRef.current.set(tile.id, tile.orderIndex);
       tilesRef.current.set(tile.id, tile);
     });
@@ -117,8 +146,27 @@ export function SortableTilesGrid({
       lastTilesRef.current = finalTiles;
     }
 
-    setOrderedTiles(finalTiles);
-  }, [tiles, isGeneratingTiles, isGeneratingCustomTile, tilesToGenerate]);
+    // ⭐ FIX: Prevenir loop infinito comparando estado atual com o novo
+    const currentIds = orderedTiles.map((t) => t.id).join(",");
+    const newIds = finalTiles.map((t) => t.id).join(",");
+    const contentChanged = finalTiles.some((tile, i) => {
+      const currentTile = orderedTiles[i];
+      // Verifica se o tile é novo ou se seu status de 'ter conteúdo' mudou
+      return (
+        !currentTile || hasTileContent(tile) !== hasTileContent(currentTile)
+      );
+    });
+
+    if (currentIds !== newIds || contentChanged) {
+      setOrderedTiles(finalTiles);
+    }
+  }, [
+    tiles,
+    isGeneratingTiles,
+    isGeneratingCustomTile,
+    tilesToGenerate,
+    orderedTiles,
+  ]);
 
   // Handler para reordenação via drag and drop
   const handleDragEnd = (event) => {
@@ -151,7 +199,7 @@ export function SortableTilesGrid({
         setOrderedTiles(reorderedTiles);
 
         // ⭐ MELHORIA: Atualizar mapas
-        reorderedTiles.forEach(tile => {
+        reorderedTiles.forEach((tile) => {
           orderMapRef.current.set(tile.id, tile.orderIndex);
           tilesRef.current.set(tile.id, tile);
         });
@@ -169,10 +217,16 @@ export function SortableTilesGrid({
         {/* ⭐ MELHORIA: Usar último estado válido se não há tiles e não está gerando */}
         {(orderedTiles.length > 0 || lastTilesRef.current.length > 0) && (
           <SortableContext
-            items={(orderedTiles.length > 0 ? orderedTiles : lastTilesRef.current).map((tile) => tile.id)}
+            items={(orderedTiles.length > 0
+              ? orderedTiles
+              : lastTilesRef.current
+            ).map((tile) => tile.id)}
             strategy={rectSortingStrategy}
           >
-            {(orderedTiles.length > 0 ? orderedTiles : lastTilesRef.current).map((tile, index) => (
+            {(orderedTiles.length > 0
+              ? orderedTiles
+              : lastTilesRef.current
+            ).map((tile, index) => (
               <DraggableTile
                 key={`tile-${tile.id}-${index}`}
                 tile={tile}

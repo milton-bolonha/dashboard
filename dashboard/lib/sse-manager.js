@@ -1,35 +1,33 @@
+const MAX_BUFFER_SIZE = 50;
+
 class SSEManager {
   constructor() {
-    this.connections = new Map(); // key -> controller
-    this.eventBuffer = new Map(); // key -> Array<{ eventType, data, timestamp }>
-    this.bufferSize = 50; // máximo de eventos por key
+    this.connections = new Map();
+    this.buffer = new Map();
   }
 
-  add(key, controller) {
-    this.connections.set(key, controller);
-    console.debug(
-      "[SSE Manager] ➕ Conexão adicionada:",
-      key,
-      "total conexões:",
-      this.connections.size
+  // O handler é a função onEvent(event) que a rota SSE nos passa
+  add(key, handler) {
+    if (!this.connections.has(key)) {
+      this.connections.set(key, new Set());
+    }
+    this.connections.get(key).add(handler);
+    console.log(
+      `[SSE Manager] ➕ Conexão adicionada: ${key} | Total: ${
+        this.connections.get(key).size
+      }`
     );
 
-    // Reenviar eventos do buffer quando conexão é estabelecida
-    const buffered = this.eventBuffer.get(key) || [];
-    if (buffered.length > 0) {
-      console.debug(
-        "[SSE Manager] 🔄 Reenviando",
-        buffered.length,
-        "eventos do buffer para key:",
-        key
+    // Reenviar eventos do buffer se houver algum
+    const bufferedEvents = this.buffer.get(key) || [];
+    if (bufferedEvents.length > 0) {
+      console.log(
+        `[SSE Manager] 🔄 Reenviando ${bufferedEvents.length} eventos do buffer para: ${key}`
       );
-      const encoder = new TextEncoder();
-      buffered.forEach(({ eventType, data }) => {
+      bufferedEvents.forEach((event) => {
         try {
-          const message = `event: ${eventType}\ndata: ${JSON.stringify(
-            data
-          )}\n\n`;
-          controller.enqueue(encoder.encode(message));
+          // ⭐ CORREÇÃO: Chamar o handler (onEvent) em vez de controller.enqueue
+          handler(event);
         } catch (err) {
           console.error(
             "[SSE Manager] ❌ Erro ao reenviar evento do buffer:",
@@ -37,71 +35,67 @@ class SSEManager {
           );
         }
       });
-      this.eventBuffer.delete(key); // Limpar após reenvio
+      this.buffer.set(key, []); // Limpar buffer após envio
     }
   }
 
-  emit(key, eventType, data) {
-    console.debug("[SSE Manager] 📤 Tentando emitir:", {
-      key,
-      eventType,
-      hasConnection: this.connections.has(key),
+  // O handler é a mesma referência de função passada para o add
+  remove(key, handler) {
+    const handlers = this.connections.get(key);
+    if (handlers) {
+      handlers.delete(handler);
+      if (handlers.size === 0) {
+        this.connections.delete(key);
+      }
+    }
+    console.log(
+      `[SSE Manager] ➖ Conexão removida: ${key} | Restantes: ${
+        handlers?.size || 0
+      }`
+    );
+  }
+
+  emit(key, event) {
+    const handlers = this.connections.get(key);
+    const hasConnection = handlers && handlers.size > 0;
+
+    console.log(`[SSE Manager] 📤 Emitindo para '${key}':`, {
+      type: event.type,
+      hasConnection,
     });
 
-    // Sempre adicionar ao buffer (para replay em caso de reconexão)
-    if (!this.eventBuffer.has(key)) {
-      this.eventBuffer.set(key, []);
-    }
-    const buffer = this.eventBuffer.get(key);
-    buffer.push({ eventType, data, timestamp: Date.now() });
-
-    // Limitar tamanho do buffer
-    if (buffer.length > this.bufferSize) {
-      buffer.shift(); // Remove o mais antigo
-    }
-
-    // Se há conexão ativa, enviar imediatamente também
-    const controller = this.connections.get(key);
-    if (controller) {
-      const message = `event: ${eventType}\ndata: ${JSON.stringify(data)}\n\n`;
-      try {
-        controller.enqueue(new TextEncoder().encode(message));
-        console.debug("[SSE Manager] ✅ Evento emitido com sucesso:", {
-          key,
-          eventType,
-        });
-      } catch (err) {
-        console.error("[SSE Manager] ❌ Erro ao enqueue:", err, {
-          key,
-          eventType,
-        });
-      }
+    if (hasConnection) {
+      handlers.forEach((handler) => {
+        try {
+          // ⭐ CORREÇÃO: Chamar o handler (onEvent)
+          handler(event);
+        } catch (e) {
+          console.error(`[SSE Manager] ❌ Erro ao emitir para ${key}:`, e);
+          this.remove(key, handler);
+        }
+      });
     } else {
-      console.debug(
-        "[SSE Manager] 💾 Evento armazenado no buffer (sem conexão ainda):",
-        { key, eventType, bufferSize: buffer.length }
+      // Armazenar no buffer se não houver conexão
+      if (!this.buffer.has(key)) {
+        this.buffer.set(key, []);
+      }
+      const keyBuffer = this.buffer.get(key);
+      keyBuffer.push(event);
+      if (keyBuffer.length > MAX_BUFFER_SIZE) {
+        keyBuffer.shift(); // Manter o buffer no tamanho máximo
+      }
+      console.log(
+        `[SSE Manager] 💾 Evento bufferizado para '${key}' (Buffer: ${keyBuffer.length})`
       );
     }
   }
-
-  remove(key) {
-    const controller = this.connections.get(key);
-    if (controller) {
-      try {
-        controller.close();
-      } catch {}
-    }
-    this.connections.delete(key);
-  }
-
-  has(key) {
-    return this.connections.has(key);
-  }
 }
 
-// Garantir singleton entre rotas/node workers em dev
+// Garantir singleton para o SSEManager, especialmente em ambiente de desenvolvimento com hot-reloading.
+// Isso evita que o buffer de eventos seja perdido a cada recarga de módulo.
 const g = globalThis;
-if (!g.__dash_sse_manager__) {
-  g.__dash_sse_manager__ = new SSEManager();
+if (!g.__DASH_SSE_MANAGER__) {
+  g.__DASH_SSE_MANAGER__ = new SSEManager();
 }
-export const sseManager = g.__dash_sse_manager__;
+
+export const sseManager = g.__DASH_SSE_MANAGER__;

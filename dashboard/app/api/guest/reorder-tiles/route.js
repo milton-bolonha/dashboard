@@ -1,45 +1,44 @@
 /**
  * Guest Reorder Tiles API
- * POST: Salva a nova ordem dos tiles de uma company
+ * POST: Salva a nova ordem dos tiles de uma entidade do workspace
  */
 
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { db } from "@/lib/db";
+import { getJob } from "@/lib/db/prompt-jobs";
 import Joi from "joi";
-import sanitizeHtml from "sanitize-html";
+import crypto from "crypto";
 
 const reorderTilesSchema = Joi.object({
-  companyName: Joi.string().max(100).trim().required(),
-  tilesOrder: Joi.array().items(Joi.string()).min(1).required(),
+  jobId: Joi.string().required(),
+  guestId: Joi.string().required(),
+  token: Joi.string().required(),
+  companyId: Joi.string().required(),
+  entityKey: Joi.string().optional(),
+  tilesOrder: Joi.array()
+    .items(Joi.string().trim().required())
+    .min(1)
+    .required(),
 }).strict();
+
+const normalizeEntityKey = (themeSnapshot, providedKey) => {
+  if (providedKey) return providedKey;
+  if (!themeSnapshot) return "companies";
+  const primaryEntity = themeSnapshot.entities?.find(
+    (entity) => entity.isPrimary
+  );
+  if (!primaryEntity?.id) return "companies";
+  const candidate = `${primaryEntity.id}s`;
+  return candidate === "companys" ? "companies" : candidate;
+};
 
 export async function POST(req) {
   try {
     console.log("📥 POST /api/guest/reorder-tiles - Iniciando...");
 
-    // ⭐ Next.js 15: await cookies()
-    const cookieStore = await cookies();
-    const guestId = cookieStore.get("guest_id")?.value;
-
-    console.log("📦 Guest ID:", guestId);
-
-    if (!guestId) {
-      return NextResponse.json({ error: "No guest session" }, { status: 401 });
-    }
-
     const body = await req.json();
     console.log("📦 Body:", JSON.stringify(body, null, 2));
 
-    // ⭐ CORREÇÃO: Filtrar IDs gerados automaticamente antes de validar
-    if (body.tilesOrder && Array.isArray(body.tilesOrder)) {
-      body.tilesOrder = body.tilesOrder.filter(
-        (id) => id && !id.toString().startsWith("tile_generated_")
-      );
-      console.log("📦 TilesOrder filtrado:", body.tilesOrder);
-    }
-
-    // Validar input
     const { error, value } = reorderTilesSchema.validate(body);
     if (error) {
       console.error("❌ Erro de validação:", error);
@@ -49,15 +48,28 @@ export async function POST(req) {
       );
     }
 
-    // Sanitizar inputs
-    const sanitized = {
-      companyName: sanitizeHtml(value.companyName, { allowedTags: [] }),
-      tilesOrder: value.tilesOrder.map((id) =>
-        sanitizeHtml(id, { allowedTags: [] })
-      ),
-    };
+    const { jobId, guestId, token, companyId } = value;
+    const tilesOrder = Array.from(new Set(value.tilesOrder));
 
-    // Buscar guest workspace
+    const job = await getJob(jobId);
+    if (!job) {
+      return NextResponse.json({ error: "Job not found" }, { status: 404 });
+    }
+    if (job.guestId !== guestId) {
+      return NextResponse.json(
+        { error: "Guest ID mismatch for this job" },
+        { status: 403 }
+      );
+    }
+
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    if (job.accessTokenHash !== tokenHash) {
+      return NextResponse.json(
+        { error: "Invalid access token for this job" },
+        { status: 403 }
+      );
+    }
+
     const guestWorkspace = await db.findOne("guest_workspaces", {
       guest_id: guestId,
     });
@@ -69,125 +81,92 @@ export async function POST(req) {
       );
     }
 
-    console.log("📊 Workspace encontrado:");
-    console.log("- themeSnapshot:", guestWorkspace.themeSnapshot?.id);
-    console.log(
-      "- workspace_data keys:",
-      Object.keys(guestWorkspace.workspace_data || {})
-    );
-    console.log(
-      "- dynamicData keys:",
-      Object.keys(guestWorkspace.dynamicData || {})
-    );
-    console.log(
-      "- workspace_data.companies:",
-      guestWorkspace.workspace_data?.companies
+    const entityKey = normalizeEntityKey(
+      guestWorkspace.themeSnapshot,
+      value.entityKey
     );
 
-    // ⭐ NOVO: Determinar a chave correta baseada no tema
-    let entityKey = "companies";
-    let company = null;
+    const entities = Array.isArray(guestWorkspace.workspace_data?.[entityKey])
+      ? [...guestWorkspace.workspace_data[entityKey]]
+      : [];
 
-    if (guestWorkspace.themeSnapshot) {
-      const primaryEntity = guestWorkspace.themeSnapshot.entities.find(
-        (e) => e.isPrimary
-      );
-      entityKey = `${primaryEntity.id}s`;
-
-      // Corrigir companys -> companies
-      if (entityKey === "companys") {
-        entityKey = "companies";
-      }
-
-      // ⭐ FIX: Buscar no workspace_data ao invés de guestWorkspace raiz
-      // As entidades estão em workspace_data[entityKey] após o POST
-      const entities = guestWorkspace.workspace_data?.[entityKey] || [];
-      company = entities.find((c) => {
-        // Procurar por name ou title (Book Creator usa title)
-        return (
-          c.name === sanitized.companyName || c.title === sanitized.companyName
-        );
-      });
-
-      console.log(
-        `🔍 Buscando entidade "${sanitized.companyName}" em ${entityKey}:`,
-        {
-          totalEntities: entities.length,
-          entityNames: entities.map((e) => e.name || e.title),
-          found: !!company,
-        }
-      );
-    } else {
-      // Fallback para companies antigas
-      const entities = guestWorkspace.workspace_data?.companies || [];
-      company = entities.find((c) => c.name === sanitized.companyName);
-    }
+    const companyIndex = entities.findIndex(
+      (entity) => entity.id === companyId
+    );
+    const company = companyIndex >= 0 ? entities[companyIndex] : null;
 
     if (!company) {
       console.error(`❌ Entidade não encontrada:`, {
-        searchedName: sanitized.companyName,
+        searchedId: companyId,
         entityKey,
         workspaceKeys: Object.keys(guestWorkspace.workspace_data || {}),
       });
       return NextResponse.json(
-        { error: `Entity "${sanitized.companyName}" not found` },
+        { error: `Entity not found for id "${companyId}"` },
         { status: 404 }
       );
     }
 
-    // Reordenar tiles baseado na nova ordem
+    const existingTiles = Array.isArray(company.tiles) ? company.tiles : [];
     const reorderedTiles = [];
 
-    // Adicionar tiles na nova ordem
-    for (const tileId of sanitized.tilesOrder) {
-      const tile = company.tiles.find((t) => t.id === tileId);
+    for (const tileId of tilesOrder) {
+      const tile = existingTiles.find((t) => t.id === tileId);
       if (tile) {
         reorderedTiles.push(tile);
       }
     }
 
-    // Adicionar tiles que não estão na ordem (caso de tiles novos)
-    for (const tile of company.tiles) {
-      if (!sanitized.tilesOrder.includes(tile.id)) {
+    const orderSet = new Set(tilesOrder);
+    for (const tile of existingTiles) {
+      if (!orderSet.has(tile.id)) {
         reorderedTiles.push(tile);
       }
     }
 
-    // ⭐ NOVO: Atualizar no lugar correto baseado no tema
-    if (guestWorkspace.themeSnapshot) {
-      // Usar a chave dinâmica com workspace_data
-      const queryName = company.name || company.title;
+    const normalizedTiles = reorderedTiles.map((tile, index) => ({
+      ...tile,
+      orderIndex: index,
+    }));
 
-      await db.updateOne(
-        "guest_workspaces",
-        {
-          guest_id: guestId,
-          [`workspace_data.${entityKey}.name`]: queryName,
-        },
-        {
-          $set: { [`workspace_data.${entityKey}.$.tiles`]: reorderedTiles },
-        }
-      );
-    } else {
-      // Fallback para estrutura antiga
-      await db.updateOne(
-        "guest_workspaces",
-        {
-          guest_id: guestId,
-          "workspace_data.companies.name": sanitized.companyName,
-        },
-        {
-          $set: { "workspace_data.companies.$.tiles": reorderedTiles },
-        }
-      );
+    const updatedEntity = {
+      ...company,
+      tiles: normalizedTiles,
+    };
+
+    if (
+      typeof updatedEntity.tiles_to_generate === "number" &&
+      updatedEntity.tiles_to_generate > 0
+    ) {
+      updatedEntity.tiles_status =
+        normalizedTiles.length >= updatedEntity.tiles_to_generate
+          ? "completed"
+          : normalizedTiles.length === 0
+          ? "pending"
+          : "partial";
     }
 
-    console.log(`✅ Tiles reordered for ${sanitized.companyName}`);
+    entities[companyIndex] = updatedEntity;
+
+    const updateData = {
+      [`workspace_data.${entityKey}`]: entities,
+      updatedAt: new Date(),
+    };
+
+    await db.updateOne(
+      "guest_workspaces",
+      { guest_id: guestId },
+      {
+        $set: updateData,
+      }
+    );
+
+    console.log(`✅ Tiles reordered for entity ${companyId}`);
 
     return NextResponse.json({
       success: true,
       message: "Tiles order saved successfully",
-      tilesOrder: sanitized.tilesOrder,
+      tilesOrder,
     });
   } catch (error) {
     console.error("❌ Erro ao reordenar tiles:", error);

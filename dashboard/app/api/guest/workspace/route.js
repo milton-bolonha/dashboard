@@ -12,6 +12,8 @@ import { createDynamicWorkspace } from "@/lib/dynamic-workspace";
 import { createTileDebugLogger } from "@/lib/tile-debug-logger";
 import { buildPromptContext } from "@/lib/theme-context-mapper";
 import Joi from "joi";
+import { getJob } from "@/lib/db/prompt-jobs";
+import crypto from "crypto";
 
 const workspaceCreateSchema = Joi.object({
   template_id: Joi.string().optional(), // Backward compatibility
@@ -24,7 +26,23 @@ const workspaceUpdateSchema = Joi.object({
     type: Joi.string().valid("solid", "image").required(),
     value: Joi.string().required(),
   }).optional(),
-}).strict();
+  // ⭐ RE-ADICIONADO: Permitir atualização de tiles
+  companyName: Joi.string().optional(),
+  tiles: Joi.array().items(Joi.object()).optional(),
+  tiles_status: Joi.string()
+    .valid("pending", "generating", "completed", "partial", "failed")
+    .optional(),
+})
+  .min(1)
+  .unknown(true); // min(1) exige pelo menos um campo; unknown(true) permite outros campos
+
+const shouldLogVerbose = process.env.WORKSPACE_VERBOSE_LOGS === "true";
+const vLog = (...args) => {
+  if (shouldLogVerbose) console.log(...args);
+};
+const vWarn = (...args) => {
+  if (shouldLogVerbose) console.warn(...args);
+};
 
 /**
  * GET /api/guest/workspace
@@ -32,22 +50,45 @@ const workspaceUpdateSchema = Joi.object({
  */
 export async function GET(req) {
   try {
-    console.log("📥 GET /api/guest/workspace - Iniciando...");
+    const { searchParams } = new URL(req.url);
+    const guestId = searchParams.get("guest_id");
+    const jobId = searchParams.get("job_id");
+    const token = searchParams.get("token");
 
-    const cookieStore = await cookies();
-    let guestId = cookieStore.get("guest_id")?.value;
-
-    // ⭐ FALLBACK: Se não há cookie, tentar da query string (fluxo job_id)
-    if (!guestId) {
-      const { searchParams } = new URL(req.url);
-      guestId = searchParams.get("guest_id");
-      console.log(
-        "🔍 guest_id não encontrado no cookie, tentando query string:",
-        guestId
-      );
-    }
-
-    if (!guestId) {
+    // No modo "job", a autenticação é obrigatória
+    if (jobId) {
+      if (!guestId || !token) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Authentication required for job-specific workspace access",
+          },
+          { status: 401 }
+        );
+      }
+      const job = await getJob(jobId);
+      if (!job) {
+        return NextResponse.json(
+          { success: false, error: "Job not found" },
+          { status: 404 }
+        );
+      }
+      if (job.guestId !== guestId) {
+        return NextResponse.json(
+          { success: false, error: "Guest ID mismatch for this job" },
+          { status: 403 }
+        );
+      }
+      const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+      if (job.accessTokenHash !== tokenHash) {
+        return NextResponse.json(
+          { success: false, error: "Invalid access token for this job" },
+          { status: 403 }
+        );
+      }
+      vLog(`✅ [GET /api/guest/workspace] Acesso autorizado para job ${jobId}`);
+    } else if (!guestId) {
+      // Se não for modo job, o guestId (do cookie, por ex.) ainda é necessário
       return NextResponse.json(
         { success: false, error: "Guest session not found" },
         { status: 401 }
@@ -106,10 +147,10 @@ export async function GET(req) {
         last_activity: new Date(),
       };
 
-      console.log(`🔄 Workspace migrado: limits e usage adicionados`);
+      vLog(`🔄 Workspace migrado: limits e usage adicionados`);
     }
 
-    console.log("✅ Workspace encontrado");
+    vLog("✅ Workspace encontrado");
 
     // Incluir themeSnapshot e dynamicData se existirem
     const response = {
@@ -126,7 +167,7 @@ export async function GET(req) {
     // ⭐ CRÍTICO: Mesclar dynamicData E workspace_data das entidades
     // Isso permite que o frontend acesse as entidades do tema (books, projects, etc.)
     if (guestWorkspace.dynamicData) {
-      console.log(
+      vLog(
         "🔍 DynamicData do banco:",
         JSON.stringify(guestWorkspace.dynamicData, null, 2)
       );
@@ -139,7 +180,7 @@ export async function GET(req) {
           // ⭐ CRÍTICO: Buscar entities do workspace_data também, com tiles
           let workspaceEntities = response[entityKey] || entities;
 
-          console.log(
+          vLog(
             `🔍 Buscando ${entityKey} em workspace_data:`,
             workspaceEntities
           );
@@ -150,7 +191,7 @@ export async function GET(req) {
             typeof workspaceEntities === "object"
           ) {
             workspaceEntities = Object.values(workspaceEntities);
-            console.log(`🔄 Convertido para array:`, workspaceEntities);
+            vLog(`🔄 Convertido para array:`, workspaceEntities);
           }
 
           // Mesclar tiles e outros dados de workspace_data
@@ -167,11 +208,9 @@ export async function GET(req) {
                 "template_1";
               const template = getGuestTemplate(templateId);
               templateTilesCount = template?.tiles?.length || 0;
-              console.log(
-                `📊 Template ${templateId} tem ${templateTilesCount} tiles`
-              );
+              vLog(`📊 Template ${templateId} tem ${templateTilesCount} tiles`);
             } catch (templateError) {
-              console.warn(
+              vWarn(
                 "⚠️ Erro ao buscar template para tiles_to_generate:",
                 templateError
               );
@@ -186,85 +225,75 @@ export async function GET(req) {
               let tilesToGenerate =
                 wsEntity.tiles_to_generate ||
                 dynamicEntity.tiles_to_generate ||
-                0;
+                templateTilesCount ||
+                8;
 
-              // ⭐ Se tiles_to_generate é 0 ou não existe, usar template (dinâmico)
-              if (tilesToGenerate === 0 && templateTilesCount > 0) {
-                tilesToGenerate = templateTilesCount;
-                console.log(
+              if (wsEntity.tiles_to_generate === 0 && templateTilesCount > 0) {
+                vLog(
                   `🔄 tiles_to_generate corrigido de 0 para ${templateTilesCount} (baseado no template)`
                 );
+                tilesToGenerate = templateTilesCount;
               }
 
-              // ⭐ BUG FIX CRÍTICO: Se há job_id na query, filtrar tiles apenas do job atual
-              // Isso evita carregar tiles antigos de pesquisas anteriores
-              let filteredTiles = wsEntity.tiles || dynamicEntity.tiles || [];
-              const { searchParams } = new URL(req.url);
-              const jobIdFromQuery = searchParams.get("job_id");
+              // Se um job_id for fornecido, filtre os tiles para incluir apenas os desse job.
+              if (jobId) {
+                vLog(
+                  `🔍 Filtrando tiles para o job_id: ${jobId} de um total de ${
+                    wsEntity.tiles?.length || 0
+                  } tiles.`
+                );
 
-              if (jobIdFromQuery && Array.isArray(filteredTiles)) {
-                // Filtrar tiles que pertencem ao job atual (ID começa com job_id)
-                // ⭐ BUG FIX: Também remover tiles com IDs antigos (como "ceo_email", "international_offices", etc)
-                const jobTiles = filteredTiles.filter((t) => {
-                  const tileId = t.id || "";
-                  // Manter apenas tiles do job atual OU placeholders
-                  const isFromCurrentJob = tileId.startsWith(
-                    `tile_${jobIdFromQuery}_`
-                  );
-                  const isPlaceholder = tileId.startsWith(`placeholder_`);
-                  // ⭐ CRÍTICO: Remover tiles com IDs antigos (sem job_id no ID)
-                  const isOldTile =
-                    !isFromCurrentJob &&
-                    !isPlaceholder &&
-                    !tileId.startsWith(`tile_`) &&
-                    tileId.length > 0;
+                const jobTiles = (wsEntity.tiles || []).filter(
+                  (t) => t.jobId === jobId
+                );
 
-                  return isFromCurrentJob || isPlaceholder;
-                });
                 if (jobTiles.length > 0) {
-                  console.log(
-                    `🔍 Filtrando tiles do job ${jobIdFromQuery}: ${jobTiles.length} tiles do job atual (total antes: ${filteredTiles.length})`
-                  );
-                  filteredTiles = jobTiles;
+                  vLog(`✅ Encontrados ${jobTiles.length} tiles para o job.`);
+                  wsEntity.tiles = jobTiles;
                 } else {
-                  // Se não há tiles do job atual, limpar tiles antigos
-                  console.log(
-                    `⚠️ Nenhum tile do job ${jobIdFromQuery} encontrado, limpando tiles antigos`
+                  vLog(
+                    `⚠️ Nenhum tile correspondente ao job ${jobId} encontrado. Retornando array de tiles vazio para esta entidade.`
                   );
-                  filteredTiles = [];
+                  wsEntity.tiles = []; // Retorna vazio, mas apenas para a resposta da API, não altera o DB
                 }
               }
 
+              // Mescla a entidade encontrada no workspace com os dados dinâmicos
               const mergedEntity = {
                 ...dynamicEntity,
-                ...wsEntity, // workspace_data sobrescreve dynamicData
-                // ⭐ CRÍTICO: Garantir tiles e status são incluídos (filtrados se há job_id)
-                tiles: filteredTiles,
-                tiles_status:
-                  wsEntity.tiles_status ||
-                  dynamicEntity.tiles_status ||
-                  "pending",
-                tiles_to_generate: tilesToGenerate, // ⭐ Usar valor dinâmico corrigido
+                ...wsEntity,
+                tiles: wsEntity.tiles || dynamicEntity.tiles || [],
+                tiles_to_generate: tilesToGenerate, // ⭐ CORREÇÃO: Força o uso do valor recalculado
               };
 
-              console.log(
-                `🔍 Debug merged entity para ${entityKey}[${index}]:`,
-                {
-                  hasTiles: !!mergedEntity.tiles,
-                  tilesCount: mergedEntity.tiles?.length || 0,
-                  tiles_status: mergedEntity.tiles_status,
-                  tiles_to_generate: mergedEntity.tiles_to_generate,
-                }
-              );
+              // ⭐ CORREÇÃO CRÍTICA 2: Recalcular o status da company/entidade.
+              // Usar o `tilesToGenerate` recalculado para a comparação.
+              if (
+                mergedEntity.tiles &&
+                mergedEntity.tiles.length >= tilesToGenerate &&
+                tilesToGenerate > 0
+              ) {
+                vLog(
+                  `✅ Status recalculado para 'completed' (${mergedEntity.tiles.length}/${tilesToGenerate} tiles)`
+                );
+                mergedEntity.tiles_status = "completed";
+              }
+
+              vLog(`🔍 Debug merged entity para ${entityKey}[${index}]:`, {
+                hasTiles: !!mergedEntity.tiles,
+                tilesCount: mergedEntity.tiles?.length || 0,
+                tiles_status: mergedEntity.tiles_status,
+                tiles_to_generate: mergedEntity.tiles_to_generate,
+              });
 
               return mergedEntity;
             });
 
             response[entityKey] = mergedEntities;
-            console.log(
+            vLog(
               `✅ Entidade ${entityKey} mesclada no response com ${mergedEntities.length} items`
             );
-            console.log(
+            vLog(
               `🔍 Primeira entidade mesclada:`,
               JSON.stringify(mergedEntities[0], null, 2)
             );
@@ -274,7 +303,7 @@ export async function GET(req) {
       response.dynamicData = guestWorkspace.dynamicData;
     }
 
-    console.log("📤 Response final keys:", Object.keys(response));
+    vLog("📤 Response final keys:", Object.keys(response));
 
     return NextResponse.json({
       success: true,
@@ -764,22 +793,17 @@ export async function PUT(req) {
       );
     }
 
-    // ⭐ CORREÇÃO: Tratar body vazio ou inválido
     let body = {};
     try {
       const bodyText = await req.text();
       if (bodyText && bodyText.trim().length > 0) {
         body = JSON.parse(bodyText);
-        console.log("📦 Body:", JSON.stringify(body, null, 2));
-      } else {
-        console.warn("⚠️ PUT /api/guest/workspace - Body vazio ou ausente");
       }
     } catch (parseError) {
       console.error("❌ Erro ao parsear body:", parseError);
       return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
-    // Validar input
     const { error, value } = workspaceUpdateSchema.validate(body);
     if (error) {
       return NextResponse.json(
@@ -788,7 +812,6 @@ export async function PUT(req) {
       );
     }
 
-    // Buscar guest workspace
     const guestWorkspace = await db.findOne("guest_workspaces", {
       guest_id: guestId,
     });
@@ -800,7 +823,6 @@ export async function PUT(req) {
       );
     }
 
-    // Atualizar workspace
     const updateData = {
       updatedAt: new Date(),
     };
@@ -810,13 +832,48 @@ export async function PUT(req) {
         value.dashboardBackground;
     }
 
+    // ⭐ RE-ADICIONADO: Lógica para atualizar tiles de uma company específica
+    if (value.companyName && Array.isArray(value.tiles)) {
+      const theme = guestWorkspace.themeSnapshot;
+      let entityKey = "companies";
+      if (theme) {
+        const primaryEntity = theme.entities.find((e) => e.isPrimary);
+        if (primaryEntity) {
+          entityKey = `${primaryEntity.id}s`.replace("companys", "companies");
+        }
+      }
+
+      const companies = guestWorkspace.workspace_data?.[entityKey] || [];
+      const companyIndex = companies.findIndex(
+        (c) => c.name === value.companyName
+      );
+
+      if (companyIndex > -1) {
+        console.log(
+          `✅ Atualizando tiles para ${value.companyName} no índice ${companyIndex}`
+        );
+        updateData[`workspace_data.${entityKey}.${companyIndex}.tiles`] =
+          value.tiles;
+
+        if (value.tiles_status) {
+          updateData[
+            `workspace_data.${entityKey}.${companyIndex}.tiles_status`
+          ] = value.tiles_status;
+        }
+      } else {
+        console.warn(
+          `⚠️ Company ${value.companyName} não encontrada para atualização de tiles.`
+        );
+      }
+    }
+
     await db.updateOne(
       "guest_workspaces",
       { guest_id: guestId },
       { $set: updateData }
     );
 
-    console.log("✅ Workspace atualizado:", updateData);
+    console.log("✅ Workspace atualizado:", Object.keys(updateData));
 
     return NextResponse.json({
       success: true,

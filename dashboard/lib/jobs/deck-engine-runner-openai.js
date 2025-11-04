@@ -6,6 +6,19 @@ import {
   processPromptVariables,
 } from "@/lib/guest-templates";
 
+const TILE_MAX_ATTEMPTS = 3;
+const TILE_REFUSAL_PATTERNS = [
+  /i['’`]?m sorry/i,
+  /i cannot/i,
+  /i can't/i,
+  /i do not have/i,
+  /as an ai language model/i,
+  /unable to comply/i,
+  /cannot comply/i,
+];
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 // Runner default baseado no provider de IA com streaming
 // Assinatura esperada pelo adapter: runJob({ jobId, templateId, model, items, scope, onStatus, onChunk, onResult, onError, onCompleted })
 async function runJob({
@@ -245,56 +258,161 @@ async function runJob({
       );
       console.log(`[Runner] 🔧 Model: ${model}`);
 
-      let accumulatedResult = "";
-      let ix = 0;
-      const streamStartTime = Date.now();
+      const fallbackMessage =
+        "⚠️ No AI output was generated for this insight. Please regenerate or adjust the prompt.";
 
-      // ⭐ STREAMING REAL COM LOGS
-      for await (const chunk of generateStreamedCompletion({ model, prompt })) {
-        // ⭐ CORREÇÃO: chunk já é string (conteúdo), não objeto
-        const chunkContent =
-          typeof chunk === "string"
-            ? chunk
-            : chunk.chunk || chunk.content || String(chunk);
+      let attempt = 0;
+      let finalResult = "";
+      let finalChunks = [];
+      let usedFallback = false;
+      let attemptsUsed = 0;
+      let lastError = null;
 
+      while (attempt < TILE_MAX_ATTEMPTS) {
+        attempt += 1;
+        attemptsUsed = attempt;
+        const attemptLabel = `${
+          orderIndex + 1
+        }/${total} (attempt ${attempt}/${TILE_MAX_ATTEMPTS})`;
+
+        await appendLog({
+          jobId,
+          level: "info",
+          message: `Runner: processing tile "${tile.title}" ${attemptLabel}`,
+        });
+
+        let accumulatedResult = "";
+        const collectedChunks = [];
+        let ix = 0;
+        const streamStartTime = Date.now();
+        let attemptFailed = false;
+
+        try {
+          for await (const chunk of generateStreamedCompletion({
+            model,
+            prompt,
+          })) {
+            const chunkContent =
+              typeof chunk === "string"
+                ? chunk
+                : chunk.chunk || chunk.content || String(chunk);
+
+            collectedChunks.push({ chunk: chunkContent, ix });
+            accumulatedResult += chunkContent;
+            ix += 1;
+
+            if (ix % 50 === 0) {
+              console.log(
+                `[Runner] 📊 Tile ${
+                  orderIndex + 1
+                } (attempt ${attempt}): ${ix} chunks recebidos, ${
+                  accumulatedResult.length
+                } chars`
+              );
+            }
+          }
+        } catch (error) {
+          attemptFailed = true;
+          lastError = error;
+          console.error(
+            `[Runner] ❌ Erro na tentativa ${attempt} para tile ${
+              orderIndex + 1
+            }:`,
+            error
+          );
+          await appendLog({
+            jobId,
+            level: "error",
+            message: `Runner: attempt ${attempt} failed for tile "${tile.title}" - ${error.message}`,
+          });
+        }
+
+        const streamDuration = Date.now() - streamStartTime;
+        console.log(
+          `[Runner] ⏱️ Tile ${
+            orderIndex + 1
+          } attempt ${attempt} finalizado em ${streamDuration}ms (length=${
+            accumulatedResult.length
+          })`
+        );
+
+        const trimmedResult = accumulatedResult.trim();
+        const looksLikeRefusal = trimmedResult
+          ? TILE_REFUSAL_PATTERNS.some((regex) => regex.test(trimmedResult))
+          : true;
+
+        const invalidResponse =
+          attemptFailed || !trimmedResult || looksLikeRefusal;
+
+        if (!invalidResponse) {
+          finalResult = accumulatedResult;
+          finalChunks = collectedChunks;
+          usedFallback = false;
+          break;
+        }
+
+        const failureReason = attemptFailed
+          ? lastError?.message || "stream_error"
+          : looksLikeRefusal
+          ? "model_refusal"
+          : "empty_response";
+
+        await appendLog({
+          jobId,
+          level: "warn",
+          message: `Runner: attempt ${attempt} produced invalid response (${failureReason}) for tile "${tile.title}"`,
+        });
+
+        if (attempt < TILE_MAX_ATTEMPTS) {
+          const backoff =
+            Math.min(Math.pow(2, attempt) * 500, 4000) +
+            Math.floor(Math.random() * 200);
+          console.log(
+            `[Runner] 🔁 Reattempting tile ${
+              orderIndex + 1
+            } em ${backoff}ms (reason: ${failureReason})`
+          );
+          await sleep(backoff);
+          continue;
+        }
+
+        finalResult = fallbackMessage;
+        finalChunks = [{ chunk: fallbackMessage, ix: 0 }];
+        usedFallback = true;
+        break;
+      }
+
+      if (!finalResult) {
+        finalResult = fallbackMessage;
+        finalChunks = [{ chunk: fallbackMessage, ix: 0 }];
+        usedFallback = true;
+      }
+
+      let finalChunkIndex = 0;
+      for (const chunkData of finalChunks) {
         onChunk?.({
           jobId,
           itemId,
           orderIndex,
-          chunk: chunkContent,
-          ix,
+          chunk: chunkData.chunk,
+          ix: finalChunkIndex,
           scope,
         });
-
-        accumulatedResult += chunkContent;
-        ix += 1;
-
-        // Log a cada 50 chunks para não poluir muito
-        if (ix % 50 === 0) {
-          console.log(
-            `[Runner] 📊 Tile ${orderIndex + 1}: ${ix} chunks recebidos, ${
-              accumulatedResult.length
-            } chars`
-          );
-        }
+        finalChunkIndex += 1;
       }
 
-      const streamDuration = Date.now() - streamStartTime;
-      console.log(
-        `[Runner] ✅ Tile ${orderIndex + 1} completado em ${streamDuration}ms`
-      );
-      console.log(
-        `[Runner] 📊 Resultado final: ${accumulatedResult.length} caracteres`
-      );
-
-      // ⭐ BUG FIX: Incluir title do tile no resultado
       await onResult?.({
         jobId,
         itemId,
         orderIndex,
-        title: tile?.title || `Insight ${orderIndex + 1}`, // ⭐ Título do template
-        result: accumulatedResult,
-        metrics: { model },
+        title: tile?.title || `Insight ${orderIndex + 1}`,
+        result: finalResult,
+        metrics: {
+          model,
+          attempts: attemptsUsed,
+          fallback: usedFallback,
+          lastError: usedFallback && lastError ? lastError.message : undefined,
+        },
       });
 
       current += 1;

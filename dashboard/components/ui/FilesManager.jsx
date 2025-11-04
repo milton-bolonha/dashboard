@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Upload,
   File,
@@ -14,7 +14,14 @@ import {
 /**
  * Gerenciador de arquivos para uma company específica
  */
-export default function FilesManager({ companyId, companyName }) {
+export default function FilesManager({
+  companyId,
+  companyName,
+  jobId,
+  guestId,
+  token,
+  entityKey,
+}) {
   const [files, setFiles] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -28,30 +35,38 @@ export default function FilesManager({ companyId, companyName }) {
     { id: "archives", name: "Archives", icon: Archive },
   ];
 
-  useEffect(() => {
-    if (companyName) {
-      loadFiles();
-    } else {
-      console.warn("FilesManager: companyName is missing, cannot load files.");
+  const hasSessionData =
+    !!companyId && !!jobId && !!guestId && typeof token === "string";
+
+  const buildSearchParams = useCallback(() => {
+    const params = new URLSearchParams({
+      job_id: jobId,
+      guest_id: guestId,
+      token,
+      company_id: companyId,
+      category: selectedCategory,
+    });
+    if (entityKey) {
+      params.set("entity_key", entityKey);
     }
-  }, [companyName, selectedCategory]);
+    return params;
+  }, [jobId, guestId, token, companyId, entityKey, selectedCategory]);
 
-  const loadFiles = async () => {
+  const loadFiles = useCallback(async () => {
+    if (!hasSessionData) {
+      return;
+    }
+
     setIsLoading(true);
-    try {
-      console.log("📁 Carregando arquivos para:", companyName);
-      console.log("📁 Categoria:", selectedCategory);
+    setError("");
 
+    try {
       const response = await fetch(
-        `/api/guest/files?companyName=${companyName}&category=${selectedCategory}`
+        `/api/guest/files?${buildSearchParams().toString()}`
       );
       const data = await response.json();
 
       if (data.success) {
-        console.log(
-          "📁 Arquivos carregados do banco:",
-          data.files?.length || 0
-        );
         setFiles(data.files || []);
       } else {
         setError(data.error || "Failed to load files");
@@ -62,7 +77,26 @@ export default function FilesManager({ companyId, companyName }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [hasSessionData, buildSearchParams]);
+
+  useEffect(() => {
+    if (hasSessionData) {
+      loadFiles();
+    } else if (companyId) {
+      console.warn("FilesManager: missing session data, cannot load files.");
+    }
+  }, [hasSessionData, loadFiles, companyId]);
+
+  const withSessionGuard = useCallback(
+    (action) => {
+      if (!hasSessionData) {
+        setError("Missing session information");
+        return Promise.resolve();
+      }
+      return action();
+    },
+    [hasSessionData]
+  );
 
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
@@ -71,119 +105,124 @@ export default function FilesManager({ companyId, companyName }) {
     }
   };
 
-  const uploadFile = async (file) => {
-    if (!companyName) {
-      setError("Cannot upload: Company name is missing.");
-      console.error(
-        "FilesManager: uploadFile aborted, companyName is missing."
-      );
-      return;
-    }
-    // Validar tamanho do arquivo (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      setError("File size must be less than 10MB");
-      return;
-    }
-
-    setIsUploading(true);
-    setError("");
-
-    try {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const base64Data = e.target.result.split(",")[1];
-
-        // Step 1: Upload to Cloudinary via our new endpoint
-        const uploadResponse = await fetch("/api/guest/upload", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fileData: base64Data,
-            fileName: file.name,
-            companyName: companyName,
-            category: selectedCategory,
-          }),
-        });
-
-        const uploadData = await uploadResponse.json();
-
-        if (!uploadData.success) {
-          throw new Error(uploadData.error || "Failed to upload file");
-        }
-
-        console.log("✅ Arquivo enviado para Cloudinary:", uploadData.file);
-
-        // Verificar se fileUrl existe antes de salvar
-        if (!uploadData.file?.secure_url) {
-          throw new Error("Upload successful but no file URL returned");
-        }
-
-        // Step 2: Save metadata to our database
-        const saveResponse = await fetch("/api/guest/files", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            companyName: companyName,
-            fileName: file.name,
-            fileUrl: uploadData.file.secure_url,
-            fileType: file.type,
-            fileSize: file.size,
-            category: selectedCategory,
-          }),
-        });
-
-        const saveData = await saveResponse.json();
-
-        if (saveData.success) {
-          console.log(
-            "✅ Metadados do arquivo salvos no banco:",
-            saveData.file
-          );
-          setFiles((prevFiles) => [...prevFiles, saveData.file]);
-        } else {
-          throw new Error(saveData.error || "Failed to save file metadata.");
-        }
-
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
-        }
-      };
-      reader.readAsDataURL(file);
-    } catch (error) {
-      console.error("❌ Erro no processo de upload:", error);
-      setError(error.message);
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleDeleteFile = async (fileId) => {
-    if (!confirm("Are you sure you want to delete this file?")) {
-      return;
-    }
-
-    setIsLoading(true);
-    setError("");
-
-    try {
-      const response = await fetch(`/api/guest/files/${fileId}`, {
-        method: "DELETE",
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setFiles(files.filter((file) => file.id !== fileId));
-      } else {
-        setError(data.error || "Failed to delete file");
+  const uploadFile = async (file) =>
+    withSessionGuard(async () => {
+      if (file.size > 10 * 1024 * 1024) {
+        setError("File size must be less than 10MB");
+        return;
       }
-    } catch (error) {
-      console.error("❌ Erro ao deletar arquivo:", error);
-      setError("Failed to delete file");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+
+      setIsUploading(true);
+      setError("");
+
+      try {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          const base64Data = e.target.result.split(",")[1];
+
+          const uploadResponse = await fetch("/api/guest/upload", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              jobId,
+              guestId,
+              token,
+              companyId,
+              entityKey,
+              companyName,
+              category: selectedCategory,
+              fileData: base64Data,
+              fileName: file.name,
+            }),
+          });
+
+          const uploadData = await uploadResponse.json();
+
+          if (!uploadData.success) {
+            throw new Error(uploadData.error || "Failed to upload file");
+          }
+
+          if (!uploadData.file?.secure_url) {
+            throw new Error("Upload successful but no file URL returned");
+          }
+
+          const saveResponse = await fetch("/api/guest/files", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              jobId,
+              guestId,
+              token,
+              companyId,
+              entityKey,
+              fileName: file.name,
+              fileUrl: uploadData.file.secure_url,
+              fileType: file.type,
+              fileSize: file.size,
+              category: selectedCategory,
+              cloudinaryId:
+                uploadData.file?.public_id || uploadData.file?.asset_id || null,
+            }),
+          });
+
+          const saveData = await saveResponse.json();
+
+          if (saveData.success) {
+            setFiles((prevFiles) => [...prevFiles, saveData.file]);
+            if (fileInputRef.current) {
+              fileInputRef.current.value = "";
+            }
+          } else {
+            throw new Error(saveData.error || "Failed to save file metadata.");
+          }
+        };
+        reader.readAsDataURL(file);
+      } catch (error) {
+        console.error("❌ Erro no processo de upload:", error);
+        setError(error.message);
+      } finally {
+        setIsUploading(false);
+      }
+    });
+
+  const handleDeleteFile = async (fileId) =>
+    withSessionGuard(async () => {
+      if (!confirm("Are you sure you want to delete this file?")) {
+        return;
+      }
+
+      setIsLoading(true);
+      setError("");
+
+      try {
+        const response = await fetch(`/api/guest/files/${fileId}`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jobId,
+            guestId,
+            token,
+            companyId,
+            entityKey,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          setFiles((prevFiles) =>
+            prevFiles.filter((file) => file.id !== fileId)
+          );
+        } else {
+          setError(data.error || "Failed to delete file");
+        }
+      } catch (error) {
+        console.error("❌ Erro ao deletar arquivo:", error);
+        setError("Failed to delete file");
+      } finally {
+        setIsLoading(false);
+      }
+    });
 
   const formatFileSize = (bytes) => {
     if (bytes === 0) return "0 Bytes";
@@ -207,6 +246,14 @@ export default function FilesManager({ companyId, companyName }) {
     );
   }
 
+  if (!hasSessionData) {
+    return (
+      <div className="p-6 text-center text-gray-500">
+        Missing session information to manage files.
+      </div>
+    );
+  }
+
   return (
     <div className="files-manager">
       <div className="header mb-6">
@@ -224,7 +271,6 @@ export default function FilesManager({ companyId, companyName }) {
         </div>
       )}
 
-      {/* Category Tabs */}
       <div className="mb-6">
         <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
           {categories.map((category) => {
@@ -247,7 +293,6 @@ export default function FilesManager({ companyId, companyName }) {
         </div>
       </div>
 
-      {/* Upload Area */}
       <div className="mb-6">
         <div
           className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors cursor-pointer"
@@ -271,7 +316,6 @@ export default function FilesManager({ companyId, companyName }) {
         />
       </div>
 
-      {/* Files List */}
       {isLoading ? (
         <div className="flex justify-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -334,17 +378,6 @@ export default function FilesManager({ companyId, companyName }) {
               </div>
             );
           })}
-        </div>
-      )}
-
-      {isUploading && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
-            <div className="flex items-center space-x-3">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-              <p className="text-gray-900">Uploading file...</p>
-            </div>
-          </div>
         </div>
       )}
     </div>

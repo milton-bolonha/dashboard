@@ -7,7 +7,14 @@ import { Plus, Edit2, Trash2 } from "lucide-react";
  * Editor de notas para uma company específica
  * Mantém o design original com cards laranjinhas
  */
-export default function NotesEditor({ companyId, companyName }) {
+export default function NotesEditor({
+  companyId,
+  companyName,
+  jobId,
+  guestId,
+  token,
+  entityKey,
+}) {
   const [notes, setNotes] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -15,16 +22,36 @@ export default function NotesEditor({ companyId, companyName }) {
   const [newNote, setNewNote] = useState({ title: "", content: "" });
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (companyId) {
-      loadNotes();
-    }
-  }, [companyId]);
+  const hasSessionData =
+    !!companyId && !!jobId && !!guestId && typeof token === "string";
 
-  const loadNotes = async () => {
+  const buildSearchParams = useCallback(() => {
+    const params = new URLSearchParams({
+      job_id: jobId,
+      guest_id: guestId,
+      token,
+      company_id: companyId,
+    });
+
+    if (entityKey) {
+      params.set("entity_key", entityKey);
+    }
+
+    return params;
+  }, [jobId, guestId, token, companyId, entityKey]);
+
+  const loadNotes = useCallback(async () => {
+    if (!hasSessionData) {
+      return;
+    }
+
     setIsLoading(true);
+    setError("");
+
     try {
-      const response = await fetch(`/api/guest/notes?companyId=${companyId}`);
+      const response = await fetch(
+        `/api/guest/notes?${buildSearchParams().toString()}`
+      );
       const data = await response.json();
 
       if (data.success) {
@@ -38,108 +65,139 @@ export default function NotesEditor({ companyId, companyName }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [hasSessionData, buildSearchParams]);
 
-  const handleCreateNote = async () => {
-    if (!newNote.title.trim()) {
-      setError("Title is required");
-      return;
+  useEffect(() => {
+    if (hasSessionData) {
+      loadNotes();
     }
+  }, [hasSessionData, loadNotes]);
 
-    setIsLoading(true);
-    setError("");
-
-    try {
-      const response = await fetch("/api/guest/notes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          companyId,
-          title: newNote.title.trim(),
-          content: newNote.content.trim(),
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        // Recarregar a lista de notas para garantir sincronização
-        await loadNotes();
-        setNewNote({ title: "", content: "" });
-        setIsCreating(false);
-      } else {
-        setError(data.error || "Failed to create note");
+  const withSessionGuard = useCallback(
+    (action) => {
+      if (!hasSessionData) {
+        setError("Missing session information");
+        return Promise.resolve();
       }
-    } catch (error) {
-      console.error("❌ Erro ao criar nota:", error);
-      setError("Failed to create note");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      return action();
+    },
+    [hasSessionData]
+  );
 
-  const handleUpdateNote = async (noteId, updatedData) => {
-    setIsLoading(true);
-    setError("");
-
-    try {
-      // Filtrar apenas campos permitidos pelo schema
-      const allowedFields = {
-        title: updatedData.title,
-        content: updatedData.content,
-      };
-
-      const response = await fetch(`/api/guest/notes/${noteId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(allowedFields),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        // Recarregar a lista de notas para garantir sincronização
-        await loadNotes();
-        setEditingNote(null);
-      } else {
-        setError(data.error || "Failed to update note");
+  const handleCreateNote = async () =>
+    withSessionGuard(async () => {
+      if (!newNote.title.trim()) {
+        setError("Title is required");
+        return;
       }
-    } catch (error) {
-      console.error("❌ Erro ao atualizar nota:", error);
-      setError("Failed to update note");
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
-  const handleDeleteNote = async (noteId) => {
-    if (!confirm("Are you sure you want to delete this note?")) {
-      return;
-    }
+      setIsLoading(true);
+      setError("");
 
-    setIsLoading(true);
-    setError("");
+      try {
+        const response = await fetch("/api/guest/notes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jobId,
+            guestId,
+            token,
+            companyId,
+            entityKey,
+            title: newNote.title.trim(),
+            content: newNote.content.trim(),
+          }),
+        });
 
-    try {
-      const response = await fetch(`/api/guest/notes/${noteId}`, {
-        method: "DELETE",
-      });
+        const data = await response.json();
 
-      const data = await response.json();
-
-      if (data.success) {
-        // Recarregar a lista de notas para garantir sincronização
-        await loadNotes();
-      } else {
-        setError(data.error || "Failed to delete note");
+        if (data.success) {
+          await loadNotes();
+          setNewNote({ title: "", content: "" });
+          setIsCreating(false);
+        } else {
+          setError(data.error || "Failed to create note");
+        }
+      } catch (error) {
+        console.error("❌ Erro ao criar nota:", error);
+        setError("Failed to create note");
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error("❌ Erro ao deletar nota:", error);
-      setError("Failed to delete note");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    });
+
+  const handleUpdateNote = async (noteId, updatedData) =>
+    withSessionGuard(async () => {
+      setIsLoading(true);
+      setError("");
+
+      try {
+        const response = await fetch(`/api/guest/notes/${noteId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jobId,
+            guestId,
+            token,
+            companyId,
+            entityKey,
+            title: updatedData.title,
+            content: updatedData.content,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          await loadNotes();
+          setEditingNote(null);
+        } else {
+          setError(data.error || "Failed to update note");
+        }
+      } catch (error) {
+        console.error("❌ Erro ao atualizar nota:", error);
+        setError("Failed to update note");
+      } finally {
+        setIsLoading(false);
+      }
+    });
+
+  const handleDeleteNote = async (noteId) =>
+    withSessionGuard(async () => {
+      if (!confirm("Are you sure you want to delete this note?")) {
+        return;
+      }
+
+      setIsLoading(true);
+      setError("");
+
+      try {
+        const response = await fetch(`/api/guest/notes/${noteId}`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jobId,
+            guestId,
+            token,
+            companyId,
+            entityKey,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          await loadNotes();
+        } else {
+          setError(data.error || "Failed to delete note");
+        }
+      } catch (error) {
+        console.error("❌ Erro ao deletar nota:", error);
+        setError("Failed to delete note");
+      } finally {
+        setIsLoading(false);
+      }
+    });
 
   const formatDate = (date) => {
     const now = new Date();
@@ -168,20 +226,34 @@ export default function NotesEditor({ companyId, companyName }) {
     setError("");
   }, []);
 
-  const handleSaveNote = useCallback(async (noteId, updatedData) => {
-    // Remover id do updatedData para evitar erro de schema
-    const { id, ...dataToSend } = updatedData;
-    await handleUpdateNote(noteId, dataToSend);
-  }, []);
+  const handleSaveNote = useCallback(
+    async (noteId, updatedData) => {
+      // Remover id do updatedData para evitar erro de schema
+      const { id, ...dataToSend } = updatedData;
+      await handleUpdateNote(noteId, dataToSend);
+    },
+    [handleUpdateNote]
+  );
 
-  const handleDeleteNoteCallback = useCallback(async (noteId) => {
-    await handleDeleteNote(noteId);
-  }, []);
+  const handleDeleteNoteCallback = useCallback(
+    async (noteId) => {
+      await handleDeleteNote(noteId);
+    },
+    [handleDeleteNote]
+  );
 
   if (!companyId) {
     return (
       <div className="p-6 text-center text-gray-500">
         Select a company to view notes
+      </div>
+    );
+  }
+
+  if (!hasSessionData) {
+    return (
+      <div className="p-6 text-center text-gray-500">
+        Missing session information to load notes.
       </div>
     );
   }

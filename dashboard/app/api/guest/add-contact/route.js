@@ -5,30 +5,45 @@
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { cookies } from "next/headers";
+import { getJob } from "@/lib/db/prompt-jobs";
 import Joi from "joi";
 import sanitizeHtml from "sanitize-html";
+import crypto from "crypto";
 import { generateContactOutreachOnServer } from "@/lib/contact-outreach-generator";
 
 const addContactSchema = Joi.object({
+  jobId: Joi.string().required(),
+  guestId: Joi.string().required(),
+  token: Joi.string().required(),
+  companyId: Joi.string().required(),
+  entityKey: Joi.string().optional(),
   contactName: Joi.string().max(100).trim().required(),
   jobTitle: Joi.string().max(100).trim().required(),
   linkedinUrl: Joi.string().max(200).trim().allow(null, ""),
-  companyName: Joi.string().max(100).required(),
 }).strict();
+
+const normalizeEntityKey = (themeSnapshot, providedKey) => {
+  if (providedKey) return providedKey;
+  if (!themeSnapshot) return "companies";
+  const primaryEntity = themeSnapshot.entities?.find(
+    (entity) => entity.isPrimary
+  );
+  if (!primaryEntity?.id) return "companies";
+  const candidate = `${primaryEntity.id}s`;
+  return candidate === "companys" ? "companies" : candidate;
+};
+
+const findEntityIndex = (entities, companyId) =>
+  entities.findIndex(
+    (entity) =>
+      entity.id === companyId ||
+      entity.name === companyId ||
+      entity.title === companyId
+  );
 
 export async function POST(req) {
   try {
     console.log("📥 POST /api/guest/add-contact - Iniciando...");
-    const cookieStore = await cookies();
-    const guestId = cookieStore.get("guest_id")?.value;
-
-    if (!guestId) {
-      return NextResponse.json(
-        { error: "No guest session found" },
-        { status: 401 }
-      );
-    }
 
     const body = await req.json();
     const { error, value } = addContactSchema.validate(body);
@@ -39,15 +54,40 @@ export async function POST(req) {
       );
     }
 
-    const sanitized = {
-      contactName: sanitizeHtml(value.contactName),
-      jobTitle: sanitizeHtml(value.jobTitle),
-      linkedinUrl: sanitizeHtml(value.linkedinUrl || ""),
-    };
+    const {
+      jobId,
+      guestId,
+      token,
+      companyId,
+      entityKey: providedEntityKey,
+      contactName,
+      jobTitle,
+      linkedinUrl,
+    } = value;
+
+    const job = await getJob(jobId);
+    if (!job) {
+      return NextResponse.json({ error: "Job not found" }, { status: 404 });
+    }
+    if (job.guestId !== guestId) {
+      return NextResponse.json(
+        { error: "Guest ID mismatch for this job" },
+        { status: 403 }
+      );
+    }
+
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    if (job.accessTokenHash !== tokenHash) {
+      return NextResponse.json(
+        { error: "Invalid access token for this job" },
+        { status: 403 }
+      );
+    }
 
     const guestWorkspace = await db.findOne("guest_workspaces", {
       guest_id: guestId,
     });
+
     if (!guestWorkspace) {
       return NextResponse.json(
         { error: "Guest workspace not found" },
@@ -55,54 +95,87 @@ export async function POST(req) {
       );
     }
 
-    const companyIndex = guestWorkspace.workspace_data.companies.findIndex(
-      (c) => c.name === value.companyName
+    const entityKey = normalizeEntityKey(
+      guestWorkspace.themeSnapshot,
+      providedEntityKey
     );
 
+    const entities = Array.isArray(guestWorkspace.workspace_data?.[entityKey])
+      ? [...guestWorkspace.workspace_data[entityKey]]
+      : [];
+
+    const companyIndex = findEntityIndex(entities, companyId);
     if (companyIndex === -1) {
-      return NextResponse.json({ error: "Company not found" }, { status: 404 });
+      return NextResponse.json({ error: "Entity not found" }, { status: 404 });
     }
 
-    const newContact = {
-      id: `contact_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      name: sanitized.contactName,
-      title: sanitized.jobTitle,
-      linkedin: sanitized.linkedinUrl,
+    const company = entities[companyIndex];
+
+    const sanitizedContact = {
+      name: sanitizeHtml(contactName),
+      title: sanitizeHtml(jobTitle),
+      linkedin: sanitizeHtml(linkedinUrl || ""),
+    };
+
+    const contact = {
+      id: `contact_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      ...sanitizedContact,
       createdAt: new Date().toISOString(),
       outreachTiles: null,
     };
 
-    // Generate outreach tiles
-    console.log(`🚀 Gerando tiles de outreach para: ${value.contactName}`);
-    const company = guestWorkspace.workspace_data.companies[companyIndex];
-    const outreachTiles = await generateContactOutreachOnServer(
-      newContact,
-      company,
-      guestWorkspace.context
-    );
-    newContact.outreachTiles = outreachTiles;
-    console.log("✅ Tiles de outreach gerados.");
+    const context = {
+      businessGoals: company.tiles
+        ?.find((tile) => tile.title?.toLowerCase().includes("goal"))
+        ?.excerpt?.slice(0, 200),
+      challenges: company.tiles
+        ?.find((tile) => tile.title?.toLowerCase().includes("challenge"))
+        ?.excerpt?.slice(0, 200),
+      revenueModel: company.tiles
+        ?.find((tile) => tile.title?.toLowerCase().includes("revenue"))
+        ?.excerpt?.slice(0, 200),
+      noteCount: Array.isArray(company.notes) ? company.notes.length : 0,
+      fileCount: Array.isArray(company.files) ? company.files.length : 0,
+    };
 
-    guestWorkspace.workspace_data.companies[companyIndex].contacts.push(
-      newContact
-    );
+    try {
+      const outreachTiles = await generateContactOutreachOnServer(
+        contact,
+        company,
+        context
+      );
+      contact.outreachTiles = outreachTiles;
+    } catch (generationError) {
+      console.error("⚠️ Erro ao gerar outreach tiles:", generationError);
+    }
+
+    const contacts = Array.isArray(company.contacts)
+      ? [...company.contacts]
+      : [];
+    contacts.push(contact);
+
+    entities[companyIndex] = {
+      ...company,
+      contacts,
+    };
 
     await db.updateOne(
       "guest_workspaces",
       { guest_id: guestId },
       {
         $set: {
-          "workspace_data.companies": guestWorkspace.workspace_data.companies,
+          [`workspace_data.${entityKey}`]: entities,
+          "usage.last_activity": new Date(),
           updatedAt: new Date(),
         },
       }
     );
 
     console.log(
-      `✅ Contato "${newContact.name}" adicionado com tiles à company "${company.name}"!`
+      `✅ Contato "${contact.name}" adicionado para entidade ${companyId}`
     );
 
-    return NextResponse.json({ success: true, contact: newContact });
+    return NextResponse.json({ success: true, contact });
   } catch (error) {
     console.error("❌ Erro ao adicionar contact:", error);
     return NextResponse.json(

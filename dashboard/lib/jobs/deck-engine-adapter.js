@@ -6,6 +6,7 @@ import { appendResult } from "@/lib/db/prompt-results";
 import { appendLog } from "@/lib/db/prompt-logs";
 import { getDeckEngineRunner } from "@/lib/jobs/deck-engine-bridge";
 import "@/lib/jobs/deck-engine-runner-openai"; // registra runner default (side-effect)
+import { db } from "@/lib/db";
 
 export async function queueJob({
   guestId,
@@ -15,25 +16,106 @@ export async function queueJob({
   items,
   scope,
   token,
+  entityKey = "companies",
+  companyName = null,
 }) {
   const total = Array.isArray(items) ? items.length : 0;
-  emitJobEvent({
-    guestId,
-    jobId,
-    type: "job:status",
-    payload: {
+  let successCount = 0;
+  let errorCount = 0;
+
+  const resolvedEntityKey = entityKey || "companies";
+  const resolvedCompanyName =
+    companyName ||
+    (Array.isArray(items) && items[0]?.company && items[0].company?.name
+      ? items[0].company.name
+      : null) ||
+    (Array.isArray(items) && items[0]?.target ? items[0].target : null) ||
+    (Array.isArray(items) && items[0]?.researchTarget
+      ? items[0].researchTarget
+      : null);
+
+  const persistTileDirectly = async (tileDoc) => {
+    if (!guestId || !resolvedCompanyName) {
+      return false;
+    }
+
+    const companyQueryField = `workspace_data.${resolvedEntityKey}.name`;
+    const tilesField = `workspace_data.${resolvedEntityKey}.$.tiles`;
+
+    try {
+      // Remove versões antigas do mesmo tile
+      await db.updateOne(
+        "guest_workspaces",
+        {
+          guest_id: guestId,
+          [companyQueryField]: resolvedCompanyName,
+        },
+        {
+          $pull: {
+            [tilesField]: { id: tileDoc.id },
+          },
+        }
+      );
+
+      const result = await db.updateOne(
+        "guest_workspaces",
+        {
+          guest_id: guestId,
+          [companyQueryField]: resolvedCompanyName,
+        },
+        {
+          $push: {
+            [tilesField]: tileDoc,
+          },
+          $inc: { "usage.total_tiles_generated": 1 },
+          $set: { updatedAt: new Date() },
+        }
+      );
+
+      const modified = result?.modifiedCount || 0;
+
+      if (modified === 0) {
+        console.warn(
+          `[DeckEngine] ⚠️ Tile ${tileDoc.id} não pôde ser salvo diretamente (company=${resolvedCompanyName}).`
+        );
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error(
+        `[DeckEngine] ❌ Erro ao salvar tile ${tileDoc.id} diretamente no backend:`,
+        error
+      );
+      return false;
+    }
+  };
+
+  const emitStatus = (status, customProgress = null) => {
+    const progress = customProgress || {
+      current: successCount + errorCount,
+      total,
+      remaining: Math.max(total - (successCount + errorCount), 0),
+    };
+    emitJobEvent({
+      guestId,
       jobId,
-      status: "QUEUED",
-      progress: { current: 0, total },
-      scope,
-    },
-    token,
-  });
+      type: "job:status",
+      payload: { jobId, status, progress, scope },
+      token,
+    });
+  };
+
+  emitStatus("QUEUED", { current: 0, total, remaining: total });
+
   await appendLog({
     jobId,
     level: "info",
     message: `Job ${jobId} queued (${total} items)`,
   });
+
+  emitStatus("RUNNING");
+
   const runner = getDeckEngineRunner();
   console.debug("[DeckEngine] 🎬 Verificando runner:", {
     hasRunner: !!runner,
@@ -64,6 +146,7 @@ export async function queueJob({
           token,
         }),
       onResult: async (payload) => {
+        successCount++;
         await appendResult({
           jobId,
           itemId: payload.itemId,
@@ -73,29 +156,89 @@ export async function queueJob({
           error: null,
           metrics: payload.metrics,
         });
+
+        const tileDoc = {
+          id: `tile_${jobId}_${payload.orderIndex}`,
+          title: payload.title || `Insight ${payload.orderIndex + 1}`,
+          content: payload.result || "",
+          answer: payload.result || "",
+          excerpt:
+            payload.result?.slice(0, 200) ||
+            payload.excerpt ||
+            payload.answer?.slice(0, 200) ||
+            "",
+          orderIndex: payload.orderIndex,
+          metrics: payload.metrics,
+          createdAt: new Date().toISOString(),
+          jobId,
+        };
+
+        const persisted = await persistTileDirectly(tileDoc);
+
+        const eventPayload = {
+          ...payload,
+          title: tileDoc.title,
+          persisted,
+          entityKey: resolvedEntityKey,
+        };
+
+        if (persisted) {
+          eventPayload.tile = tileDoc;
+        }
+
         emitJobEvent({
           guestId,
           jobId,
           type: "job:result-completed",
-          payload,
+          payload: eventPayload,
           token,
         });
+        // Atualiza o status de progresso a cada sucesso
+        emitStatus("RUNNING");
       },
       onError: async (payload) => {
+        errorCount++;
         await appendLog({
           jobId,
           level: "error",
           message: payload?.error?.message || "runner error",
         });
         emitJobEvent({ guestId, jobId, type: "job:error", payload, token });
+        // Atualiza o status para refletir que erros ocorreram
+        emitStatus("RUNNING_WITH_ERRORS");
       },
       onCompleted: async (payload) => {
+        const finalStatus =
+          errorCount > 0 ? "COMPLETED_WITH_ERRORS" : "COMPLETED";
+        console.log(
+          `[DeckEngine] ✅ Job ${jobId} finalizado com status: ${finalStatus} (Sucessos: ${successCount}, Erros: ${errorCount})`
+        );
+
         await appendLog({
           jobId,
           level: "info",
-          message: `Job ${jobId} completed`,
+          message: `Job ${jobId} completed with status ${finalStatus}`,
         });
-        emitJobEvent({ guestId, jobId, type: "job:status", payload, token });
+
+        // Garante que o payload final em 'onCompleted' reflita o estado real
+        const finalPayload = {
+          ...payload,
+          jobId,
+          status: finalStatus,
+          progress: {
+            current: successCount, // Apenas os sucessos contam como 'current' no final
+            total,
+            remaining: 0,
+          },
+          scope,
+        };
+        emitJobEvent({
+          guestId,
+          jobId,
+          type: "job:status",
+          payload: finalPayload,
+          token,
+        });
       },
     });
     return;
@@ -120,7 +263,6 @@ export async function queueJob({
     });
     const chunks = ["Parte 1...", " Parte 2...", " Fim."];
     for (let ix = 0; ix < chunks.length; ix++) {
-      // eslint-disable-next-line no-await-in-loop
       await new Promise((r) => setTimeout(r, 80));
       emitJobEvent({
         guestId,

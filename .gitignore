@@ -57,3 +57,6 @@ next-env.d.ts
 
 gatsby-landing/.netlify
 dashboard/.netlify
+
+
+*.bak

@@ -6,24 +6,36 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
+import { getJob } from "@/lib/db/prompt-jobs";
+import Joi from "joi";
 
-/**
- * POST /api/guest/tiles
- * Salva tile no workspace quando gerado via job
- * Body: { companyName, tile, tiles_to_generate?, entityKey? }
- */
+// Schema de validação para o tile que será salvo
+const tileSchema = Joi.object({
+  id: Joi.string().required(),
+  title: Joi.string().required(),
+  content: Joi.string().allow(""),
+  answer: Joi.string().allow(""),
+  excerpt: Joi.string().allow(""),
+  orderIndex: Joi.number().required(),
+  metrics: Joi.object().optional(),
+  createdAt: Joi.date().iso().required(),
+  jobId: Joi.string().required(),
+});
+
+// Schema para o corpo da requisição
+const requestBodySchema = Joi.object({
+  // companyName: Joi.string().required(), // REMOVIDO - Será obtido via Job
+  tile: tileSchema.required(),
+  jobId: Joi.string().required(),
+  entityKey: Joi.string().optional(),
+  tiles_to_generate: Joi.number().optional(),
+});
+
 export async function POST(req) {
   try {
-    console.log("📥 POST /api/guest/tiles - Iniciando...");
-
-    const cookieStore = await cookies();
-    let guestId = cookieStore.get("guest_id")?.value;
-
-    // ⭐ FALLBACK: Se não há cookie, tentar da query string (fluxo job_id)
-    if (!guestId) {
-      const { searchParams } = new URL(req.url);
-      guestId = searchParams.get("guest_id");
-    }
+    const { searchParams } = new URL(req.url);
+    const guestId =
+      searchParams.get("guest_id") || cookies().get("guest_id")?.value;
 
     if (!guestId) {
       return NextResponse.json(
@@ -32,154 +44,61 @@ export async function POST(req) {
       );
     }
 
+    // 1. Validação Robusta do Input
     const body = await req.json();
-    const {
-      companyName,
-      tile,
-      tiles_to_generate,
-      entityKey: providedEntityKey,
-    } = body;
-
-    if (!companyName || !tile) {
+    const { error, value } = requestBodySchema.validate(body);
+    if (error) {
+      console.warn(
+        "⚠️ [POST /api/guest/tiles] Erro de validação:",
+        error.details
+      );
       return NextResponse.json(
-        { success: false, error: "companyName and tile are required" },
+        { error: "Invalid request body", details: error.details },
         { status: 400 }
       );
     }
+    const { tile, jobId, entityKey: providedEntityKey } = value;
 
-    // Buscar workspace para determinar entityKey
-    const guestWorkspace = await db.findOne("guest_workspaces", {
-      guest_id: guestId,
-    });
-
-    if (!guestWorkspace) {
+    // 2. ⭐ MUDANÇA ARQUITETURAL: Obter o nome da empresa a partir do Job
+    const job = await getJob(jobId);
+    if (!job) {
       return NextResponse.json(
-        { success: false, error: "Guest workspace not found" },
+        { success: false, error: "Job not found, cannot determine company" },
+        { status: 404 }
+      );
+    }
+    // A fonte da verdade para o nome da empresa é o `target` no `dataSource` do job.
+    const companyName = job.dataSource?.data?.target;
+    if (!companyName) {
+      return NextResponse.json(
+        { success: false, error: "Company name not found in job data" },
         { status: 404 }
       );
     }
 
-    // ⭐ Determinar entityKey dinamicamente
-    let entityKey = providedEntityKey || "companies";
-    if (guestWorkspace.themeSnapshot) {
-      const primaryEntity = guestWorkspace.themeSnapshot.entities?.find(
-        (e) => e.isPrimary
-      );
-      if (primaryEntity) {
-        entityKey = `${primaryEntity.id}s`;
-        if (entityKey === "companys") entityKey = "companies";
-      }
-    }
+    console.log(
+      `✅ [POST /api/guest/tiles] Payload validado para: { guestId: ${guestId}, companyName: ${companyName} (do Job), tileId: ${tile.id} }`
+    );
 
-    console.log(`💾 Salvando tile no workspace:`, {
-      guestId,
-      companyName,
-      entityKey,
-      tileId: tile.id,
-      tileTitle: tile.title,
-    });
+    // TODO: Usar o theme para determinar a chave da entidade (`companies`, `projects`, etc.)
+    const entityKey = providedEntityKey || "companies";
 
-    // ⭐ Preparar tile para salvar
-    // ⭐ BUG FIX: Não salvar se não tem conteúdo
-    if (!tile.result && !tile.content && !tile.answer && !tile.excerpt) {
-      console.warn(`⚠️ Tile sem conteúdo, não salvando:`, tile);
-      return NextResponse.json(
-        { success: false, error: "Tile has no content" },
-        { status: 400 }
-      );
-    }
-
-    const tileToSave = {
-      id:
-        tile.id ||
-        `tile_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      title: tile.title,
-      content: tile.result || tile.content || tile.answer || "",
-      answer: tile.result || tile.answer || "",
-      excerpt: tile.excerpt || tile.result?.substring(0, 200) || "",
-      orderIndex: tile.orderIndex ?? 0,
-      metrics: tile.metrics,
-      createdAt: tile.createdAt || new Date().toISOString(),
-    };
-
-    // ⭐ BUG FIX: Verificar se já existe tile com mesmo orderIndex antes de salvar
-    // Evitar duplicação no banco de dados
-    if (guestWorkspace?.workspace_data?.[entityKey]) {
-      const existingEntity = guestWorkspace.workspace_data[entityKey].find(
-        (e) => e.name === companyName
-      );
-
-      if (existingEntity?.tiles) {
-        const existingTileIndex = existingEntity.tiles.findIndex(
-          (t) =>
-            t.orderIndex === tileToSave.orderIndex &&
-            t.title === tileToSave.title
-        );
-
-        if (existingTileIndex >= 0) {
-          const existingTile = existingEntity.tiles[existingTileIndex];
-          // Se já existe e tem conteúdo, substituir ao invés de duplicar
-          if (
-            existingTile.content ||
-            existingTile.answer ||
-            existingTile.excerpt
-          ) {
-            console.log(
-              `🔄 Tile com orderIndex ${tileToSave.orderIndex} já existe, substituindo...`
-            );
-            // Usar $set para substituir o tile existente
-            const updateQuery = {
-              guest_id: guestId,
-              [`workspace_data.${entityKey}.name`]: companyName,
-            };
-            const updateData = {
-              $set: {
-                [`workspace_data.${entityKey}.$.tiles.${existingTileIndex}`]:
-                  tileToSave,
-                updatedAt: new Date(),
-              },
-            };
-            const result = await db.updateOne(
-              "guest_workspaces",
-              updateQuery,
-              updateData
-            );
-            if (result.modifiedCount > 0) {
-              console.log(
-                `✅ Tile "${tileToSave.title}" substituído no workspace`
-              );
-              return NextResponse.json({
-                success: true,
-                message: "Tile replaced successfully",
-                tile: tileToSave,
-              });
-            }
-          }
-        }
-      }
-    }
-
-    // Salvar tile no workspace (novo tile)
+    // A lógica original de busca da entidade para atualização.
+    // Ela busca pelo `guest_id` e por um elemento no array `workspace_data.companies`
+    // que tenha o `name` que acabamos de obter do job.
     const updateQuery = {
       guest_id: guestId,
       [`workspace_data.${entityKey}.name`]: companyName,
     };
-
-    const updateData = {
-      $push: {
-        [`workspace_data.${entityKey}.$.tiles`]: tileToSave,
-      },
-      $inc: { "usage.total_tiles_generated": 1 },
-      $set: { updatedAt: new Date() },
+    const tileToSave = {
+      ...tile,
+      jobId: jobId, // Garante que o jobId esteja no objeto do tile
     };
 
-    // ⭐ BUG FIX: Atualizar tiles_to_generate se fornecido
-    if (typeof tiles_to_generate === "number" && tiles_to_generate > 0) {
-      updateData.$set[`workspace_data.${entityKey}.$.tiles_to_generate`] =
-        tiles_to_generate;
-      updateData.$set[`dynamicData.${entityKey}.$.tiles_to_generate`] =
-        tiles_to_generate;
-    }
+    const updateData = {
+      $push: { [`workspace_data.${entityKey}.$.tiles`]: tileToSave },
+      $set: { updatedAt: new Date() },
+    };
 
     const result = await db.updateOne(
       "guest_workspaces",
@@ -188,23 +107,33 @@ export async function POST(req) {
     );
 
     if (result.modifiedCount > 0) {
-      console.log(`✅ Tile "${tileToSave.title}" salvo no workspace`);
+      console.log(
+        `✅ Tile "${tileToSave.title}" salvo com sucesso para a empresa "${companyName}"`
+      );
       return NextResponse.json({
         success: true,
         message: "Tile saved successfully",
         tile: tileToSave,
       });
     } else {
-      console.warn(`⚠️ Company não encontrada no workspace: ${companyName}`);
+      console.warn(
+        `⚠️ Empresa "${companyName}" (do job ${jobId}) não encontrada no workspace para o guestId "${guestId}". O tile não foi salvo.`
+      );
       return NextResponse.json(
-        { success: false, error: "Company not found in workspace" },
+        {
+          success: false,
+          error: "Company not found in workspace, could not save tile",
+        },
         { status: 404 }
       );
     }
   } catch (error) {
-    console.error("❌ Erro ao salvar tile:", error);
+    console.error("❌ [POST /api/guest/tiles] Erro inesperado:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to save tile" },
+      {
+        success: false,
+        error: "Failed to save tile due to an unexpected server error",
+      },
       { status: 500 }
     );
   }

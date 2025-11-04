@@ -4,28 +4,99 @@
  */
 
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { db } from "@/lib/db";
-import { deleteFile } from "@/lib/cloudinary";
+import { getJob } from "@/lib/db/prompt-jobs";
+import { deleteFile as deleteFromCloudinary } from "@/lib/cloudinary";
+import Joi from "joi";
+import crypto from "crypto";
 
-/**
- * DELETE /api/guest/files/[id]
- * Deleta um arquivo específico
- */
+const deleteFileSchema = Joi.object({
+  jobId: Joi.string().required(),
+  guestId: Joi.string().required(),
+  token: Joi.string().required(),
+  companyId: Joi.string().required(),
+  entityKey: Joi.string().optional(),
+}).strict();
+
+const normalizeEntityKey = (themeSnapshot, providedKey) => {
+  if (providedKey) return providedKey;
+  if (!themeSnapshot) return "companies";
+  const primaryEntity = themeSnapshot.entities?.find(
+    (entity) => entity.isPrimary
+  );
+  if (!primaryEntity?.id) return "companies";
+  const candidate = `${primaryEntity.id}s`;
+  return candidate === "companys" ? "companies" : candidate;
+};
+
+const findEntityIndex = (entities, companyId) =>
+  entities.findIndex(
+    (entity) =>
+      entity.id === companyId ||
+      entity.name === companyId ||
+      entity.title === companyId
+  );
+
 export async function DELETE(req, { params }) {
   try {
-    console.log(`📥 DELETE /api/guest/files/${params.id} - Iniciando...`);
+    const fileId = params.id;
+    console.log(`📥 DELETE /api/guest/files/${fileId} - Iniciando...`);
 
-    const cookieStore = await cookies();
-    const guestId = cookieStore.get("guest_id")?.value;
-
-    if (!guestId) {
-      return NextResponse.json({ error: "No guest session" }, { status: 401 });
+    let payload = {};
+    const contentType = req.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      try {
+        payload = await req.json();
+      } catch (error) {
+        console.warn("⚠️ Body JSON inválido em DELETE /guest/files", error);
+      }
     }
 
-    const fileId = params.id;
+    const { searchParams } = new URL(req.url);
+    const parsed = {
+      jobId: payload.jobId || searchParams.get("job_id"),
+      guestId: payload.guestId || searchParams.get("guest_id"),
+      token: payload.token || searchParams.get("token"),
+      companyId: payload.companyId || searchParams.get("company_id"),
+      entityKey:
+        payload.entityKey || searchParams.get("entity_key") || undefined,
+    };
 
-    // Buscar guest workspace
+    const { error, value } = deleteFileSchema.validate(parsed);
+    if (error) {
+      return NextResponse.json(
+        { error: error.details[0].message },
+        { status: 400 }
+      );
+    }
+
+    const {
+      jobId,
+      guestId,
+      token,
+      companyId,
+      entityKey: providedEntityKey,
+    } = value;
+
+    const job = await getJob(jobId);
+    if (!job) {
+      return NextResponse.json({ error: "Job not found" }, { status: 404 });
+    }
+    if (job.guestId !== guestId) {
+      return NextResponse.json(
+        { error: "Guest ID mismatch for this job" },
+        { status: 403 }
+      );
+    }
+
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    if (job.accessTokenHash !== tokenHash) {
+      return NextResponse.json(
+        { error: "Invalid access token for this job" },
+        { status: 403 }
+      );
+    }
+
     const guestWorkspace = await db.findOne("guest_workspaces", {
       guest_id: guestId,
     });
@@ -37,59 +108,62 @@ export async function DELETE(req, { params }) {
       );
     }
 
-    // Buscar e deletar arquivo
-    let fileFound = false;
-    const companies = guestWorkspace.workspace_data.companies;
+    const entityKey = normalizeEntityKey(
+      guestWorkspace.themeSnapshot,
+      providedEntityKey
+    );
 
-    for (let i = 0; i < companies.length; i++) {
-      const company = companies[i];
-      if (company.files) {
-        const fileIndex = company.files.findIndex((file) => file.id === fileId);
-        if (fileIndex !== -1) {
-          const file = company.files[fileIndex];
+    const entities = Array.isArray(guestWorkspace.workspace_data?.[entityKey])
+      ? [...guestWorkspace.workspace_data[entityKey]]
+      : [];
 
-          // Deletar do Cloudinary
-          const cloudinaryResult = await deleteFile(file.cloudinaryId);
-          if (!cloudinaryResult.success) {
-            console.warn(
-              `⚠️ Failed to delete from Cloudinary: ${file.cloudinaryId}`
-            );
-          }
+    const entityIndex = findEntityIndex(entities, companyId);
+    if (entityIndex === -1) {
+      return NextResponse.json({ error: "Entity not found" }, { status: 404 });
+    }
 
-          // Deletar referência do banco
-          await db.updateOne(
-            "guest_workspaces",
-            { guest_id: guestId },
-            {
-              $unset: {
-                [`workspace_data.companies.${i}.files.${fileIndex}`]: 1,
-              },
-              $set: {
-                "usage.last_activity": new Date(),
-              },
-            }
+    const entity = entities[entityIndex];
+    const files = Array.isArray(entity.files) ? [...entity.files] : [];
+    const fileIndex = files.findIndex((file) => file.id === fileId);
+
+    if (fileIndex === -1) {
+      return NextResponse.json({ error: "File not found" }, { status: 404 });
+    }
+
+    const [file] = files.splice(fileIndex, 1);
+
+    if (file?.cloudinaryId) {
+      try {
+        const cloudinaryResult = await deleteFromCloudinary(file.cloudinaryId);
+        if (!cloudinaryResult.success) {
+          console.warn(
+            `⚠️ Falha ao remover do Cloudinary: ${file.cloudinaryId}`
           );
-
-          // Limpar array de arquivos (remover nulls)
-          await db.updateOne(
-            "guest_workspaces",
-            { guest_id: guestId },
-            {
-              $pull: {
-                [`workspace_data.companies.${i}.files`]: null,
-              },
-            }
-          );
-
-          fileFound = true;
-          break;
         }
+      } catch (cloudinaryError) {
+        console.warn(
+          `⚠️ Erro ao remover do Cloudinary (${file.cloudinaryId}):`,
+          cloudinaryError
+        );
       }
     }
 
-    if (!fileFound) {
-      return NextResponse.json({ error: "File not found" }, { status: 404 });
-    }
+    entities[entityIndex] = {
+      ...entity,
+      files,
+    };
+
+    await db.updateOne(
+      "guest_workspaces",
+      { guest_id: guestId },
+      {
+        $set: {
+          [`workspace_data.${entityKey}`]: entities,
+          "usage.last_activity": new Date(),
+          updatedAt: new Date(),
+        },
+      }
+    );
 
     console.log(`✅ Arquivo deletado: ${fileId}`);
 

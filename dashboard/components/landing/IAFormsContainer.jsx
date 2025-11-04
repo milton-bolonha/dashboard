@@ -155,109 +155,85 @@ export default function IAFormsContainer({
     console.log("[IAFormsContainer] 📋 ======================================");
 
     // ⭐ CORREÇÃO: Usar executeRunFlow para evitar duplicação de código
-    executeRunFlow(gid, tok, itemsPayload);
+    executeRunFlow(itemsPayload);
   }
 
   // ⭐ Extrair lógica de execução do run para reutilizar (declarado antes de handleRunWithItems)
   const executeRunFlow = useCallback(
-    async (gid, tok, itemsPayload) => {
+    async (itemsPayload) => {
       try {
-        // ⭐ PASSO 1: Criar job (não bloqueia)
-        console.log("[IAFormsContainer] 🚀 Criando job...");
+        console.log("[IAFormsContainer v2.0] 🚀 Iniciando Fluxo 2.0...");
+
+        // Extrair o primeiro item para criar o contexto
+        const firstItem = itemsPayload[0] || {};
+        const context = {
+          themeId: themeId,
+          target:
+            firstItem.researchTarget ||
+            firstItem.company ||
+            firstItem.name ||
+            "Preview",
+          targetWebsite:
+            firstItem.researchWebsite ||
+            firstItem.companyWebsite ||
+            firstItem.website ||
+            "",
+          solution: firstItem.solution || "N/A",
+        };
+
+        // ⭐ PASSO ÚNICO: Criar job, workspace e iniciar em background
         const createRes = await fetch("/api/prompt-jobs", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             templateId: initialTemplateId,
-            model: scope === "home" ? "o4-mini" : "gpt-4-turbo-preview",
-            totals: {
-              items: Array.isArray(itemsPayload) ? itemsPayload.length : 0,
-            },
-            guestId: gid,
+            model: "o4-mini",
+            context: context,
           }),
         });
 
         if (!createRes.ok) {
           const errorData = await createRes.json().catch(() => ({}));
-          console.error("[IAFormsContainer] ❌ Erro ao criar job:", errorData);
+          console.error(
+            "[IAFormsContainer v2.0] ❌ Erro ao criar job e workspace:",
+            errorData
+          );
           setRunning(false);
           return;
         }
 
-        const created = await createRes.json();
-        const newJobId = created.jobId;
-        console.log("[IAFormsContainer] ✅ Job criado:", newJobId);
-        setJobId(newJobId);
-
-        // ⭐ PASSO 2: Iniciar job em background (fire-and-forget)
-        // ⭐ CORREÇÃO: Não aguardar - job roda em background, admin recebe via SSE
-        console.log(
-          "[IAFormsContainer] 🚀 Iniciando job em background (não bloqueante)..."
-        );
-        const runPayload = {
-          guestId: gid,
-          scope,
-          items: Array.isArray(itemsPayload) ? itemsPayload : [],
-          token: tok,
-        };
-
-        console.log("[IAFormsContainer] 📤 Payload do /run:", {
+        // A resposta agora contém jobId, guestId e token
+        const {
           jobId: newJobId,
-          itemsCount: runPayload.items.length,
-          firstItemKeys: runPayload.items[0]
-            ? Object.keys(runPayload.items[0])
-            : [],
-          firstItemValues: runPayload.items[0] ? runPayload.items[0] : null,
-        });
-
-        // ⭐ CORREÇÃO: Enviar fetch SEM keepalive para garantir que body seja enviado
-        // ⭐ IMPORTANTE: Usar sendBeacon ou aguardar um pouco para garantir envio do body
-        // O job roda em background e o admin recebe atualizações via SSE
-        const runFetchPromise = fetch(`/api/prompt-jobs/${newJobId}/run`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(runPayload),
-          keepalive: true, // ⭐ Manter conexão aberta para garantir envio
-        })
-          .then((runRes) => {
-            if (runRes.ok) {
-              console.log(
-                "[IAFormsContainer] ✅ Job iniciado em background com sucesso"
-              );
-            } else {
-              console.warn(
-                "[IAFormsContainer] ⚠️ Job pode ter falhado ao iniciar (admin tentará reconectar)"
-              );
-            }
-          })
-          .catch((err) => {
-            console.error(
-              "[IAFormsContainer] ⚠️ Erro ao iniciar job (admin tentará reconectar):",
-              err
-            );
-          });
-
-        // ⭐ PASSO 3: Redirecionar após um pequeno delay para garantir envio do body
-        // ⭐ CORREÇÃO: Aguardar um pouco para garantir que o fetch seja iniciado antes do redirect
+          guestId: newGuestId,
+          token: newToken,
+        } = await createRes.json();
         console.log(
-          "[IAFormsContainer] 🔄 Redirecionando para admin após iniciar job..."
+          `[IAFormsContainer v2.0] ✅ Job e Workspace criados: JobID=${newJobId}, GuestID=${newGuestId}, Token=${
+            newToken ? "***" : "N/A"
+          }`
         );
+        setJobId(newJobId);
+        setGuestId(newGuestId);
+
+        // ⭐ REDIRECIONAMENTO IMEDIATO
         const qp = new URLSearchParams();
         qp.set("job_id", newJobId);
-        qp.set("guest_id", gid);
-        qp.set("token", tok);
+        qp.set("guest_id", newGuestId);
+        if (newToken) {
+          qp.set("token", newToken);
+        }
 
-        // ⭐ Aguardar um pouco para garantir que o fetch seja iniciado
-        // O keepalive garante que o body seja enviado mesmo após redirect
-        setTimeout(() => {
-          window.location.href = `/admin?${qp.toString()}`;
-        }, 300); // ⭐ Aumentado para 300ms para garantir envio
+        window.location.href = `/admin?${qp.toString()}`;
       } catch (err) {
-        console.error("[IAFormsContainer] ❌ Erro no executeRunFlow:", err);
+        console.error(
+          "[IAFormsContainer v2.0] ❌ Erro no executeRunFlow:",
+          err
+        );
         setRunning(false);
       }
     },
-    [initialTemplateId, scope, setJobId, setRunning]
+    [initialTemplateId, themeId, setJobId, setGuestId, setRunning, token]
   );
 
   // ⭐ NOVO: Função para executar o run com valores diretos
@@ -270,23 +246,10 @@ export default function IAFormsContainer({
           directItems.length
         );
         // Criar uma função handleRun modificada que usa os items diretos
-        const gid =
-          guestId ||
-          `guest_${crypto?.randomUUID?.() || Date.now().toString(36)}`;
-        setGuestId(gid);
-        if (!initialTemplateId) {
-          console.error(
-            "[IAFormsContainer] ❌ initialTemplateId não definido!"
-          );
-          return;
-        }
-        const tok =
-          token || `tok_${crypto?.randomUUID?.() || Date.now().toString(36)}`;
-        setToken(tok);
         setRunning(true);
 
         // Continuar com o fluxo normal usando directItems
-        executeRunFlow(gid, tok, directItems);
+        executeRunFlow(directItems);
       } else {
         // Fallback para o fluxo normal com itemsBuilder
         handleRun();

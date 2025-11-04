@@ -99,7 +99,7 @@ export default function LandingPage() {
           <IAFormsContainer
             mode="landing"
             heroType={1}
-            themeId="classic-default"
+            themeId="sales-assistant"
             initialTemplateId="tpl_classic_default"
             initialItems={Array.from({ length: 8 }, (_v, i) => ({
               orderIndex: i,

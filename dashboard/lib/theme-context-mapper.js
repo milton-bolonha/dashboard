@@ -74,6 +74,40 @@ export function buildPromptContext(theme, entity, originalContext = {}) {
 }
 
 /**
+ * Mapeia o contexto da landing page para as estruturas de 'entidades' e 'workspace'.
+ * Esta função é o core da criação do workspace dinâmico.
+ * @param {object} theme - O objeto de tema.
+ * @param {object} context - Os dados brutos do formulário da landing page.
+ * @returns {{entities: object, workspace: object}}
+ */
+export function mapContextToEntities(theme, context) {
+  const entities = {};
+  const workspace = {};
+
+  if (!theme.landingTags || !context) {
+    return { entities, workspace };
+  }
+
+  theme.landingTags.forEach((tag) => {
+    if (context[tag.id] === undefined) return;
+
+    const value = context[tag.id];
+
+    if (tag.mapToEntity === "workspace") {
+      workspace[tag.mapToField] = value;
+    } else {
+      const entityKey = tag.mapToEntity; // ex: "companies"
+      if (!entities[entityKey]) {
+        entities[entityKey] = {};
+      }
+      entities[entityKey][tag.mapToField] = value;
+    }
+  });
+
+  return { entities, workspace };
+}
+
+/**
  * Converte contexto dinâmico em formato legado (backward compatibility)
  * Para templates que ainda usam {target_company}, {user_solution}, etc.
  *

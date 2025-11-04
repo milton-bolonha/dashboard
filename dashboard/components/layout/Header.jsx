@@ -1,6 +1,6 @@
 import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { ChevronDown, Plus, Save, Copy, Settings } from "lucide-react";
 import { LoadingSpinner } from "../ui/LoadingSpinner";
 import { ThemeToggle } from "../ui/ThemeToggle";
@@ -21,12 +21,7 @@ export function Header({
   const [showDashboardSelector, setShowDashboardSelector] = useState(false);
   const [isTemplatesLoading, setIsTemplatesLoading] = useState(false);
 
-  useEffect(() => {
-    if (disableGuestApis) return;
-    loadTemplates();
-  }, [disableGuestApis]);
-
-  const loadTemplates = async () => {
+  const loadTemplates = useCallback(async () => {
     setIsTemplatesLoading(true);
     try {
       // ⭐ NOVO: Pegar guest_id da URL se disponível (fluxo job_id)
@@ -46,7 +41,12 @@ export function Header({
     } finally {
       setIsTemplatesLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (disableGuestApis) return;
+    loadTemplates();
+  }, [disableGuestApis, loadTemplates]);
 
   const handleTemplateSelect = (template) => {
     console.log("📋 Template selecionado:", template);

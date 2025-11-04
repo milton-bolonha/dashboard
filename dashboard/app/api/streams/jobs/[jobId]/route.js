@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
+// SSE Manager agora é um singleton com uma interface mais simples
 import { sseManager } from "@/lib/sse-manager";
+import { getJob } from "@/lib/db/prompt-jobs";
+import crypto from "crypto";
 
 export const runtime = "nodejs";
 
@@ -8,90 +11,81 @@ export async function GET(request, { params }) {
   const { searchParams } = new URL(request.url);
   const guestId = searchParams.get("guest_id");
   const token = searchParams.get("token");
-  if (!jobId)
-    return NextResponse.json({ error: "jobId required" }, { status: 400 });
 
-  const base = guestId ? `guest:${guestId}:job:${jobId}` : `job:${jobId}`;
-  const key = token ? `${base}:token:${token}` : base;
-  console.log("[SSE Route] 🔌 ========== NOVA CONEXÃO SSE ==========");
-  console.log("[SSE Route] 🔌 Parâmetros:", {
-    jobId,
-    guestId: guestId || "N/A",
-    token: token ? "***" : "N/A",
-    key,
-  });
-  console.log("[SSE Route] 🔌 ======================================");
+  try {
+    // 1. Validação de Segurança
+    if (!jobId || !guestId || !token) {
+      return NextResponse.json(
+        { error: "jobId, guest_id, and token are required" },
+        { status: 401 }
+      );
+    }
 
-  // Rate limit por IP (máx. 10 conexões simultâneas por IP)
-  const ip =
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    request.headers.get("cf-connecting-ip") ||
-    "unknown";
-  if (!globalThis.__sseIpCounts) globalThis.__sseIpCounts = new Map();
-  const counts = globalThis.__sseIpCounts;
-  const current = counts.get(ip) || 0;
-  if (current >= 10) {
+    const job = await getJob(jobId);
+    if (!job) {
+      return NextResponse.json({ error: "Job not found" }, { status: 404 });
+    }
+
+    if (job.guestId !== guestId) {
+      return NextResponse.json({ error: "Guest ID mismatch" }, { status: 403 });
+    }
+
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    if (job.accessTokenHash !== tokenHash) {
+      return NextResponse.json(
+        { error: "Invalid access token" },
+        { status: 403 }
+      );
+    }
+    console.log(`[SSE Route] ✅ Acesso autorizado para job ${jobId}`);
+  } catch (authError) {
+    console.error(
+      `[SSE Route] ❌ Erro de autenticação para job ${jobId}:`,
+      authError
+    );
     return NextResponse.json(
-      { error: "Too many SSE connections" },
-      { status: 429 }
+      { error: "Authentication failed" },
+      { status: 500 }
     );
   }
-  counts.set(ip, current + 1);
+
+  const key = `guest:${guestId}:job:${jobId}`;
+  console.log(`[SSE Route] 🔌 Nova conexão para a chave: ${key}`);
 
   const stream = new ReadableStream({
     start(controller) {
-      console.log(
-        "[SSE Route] ✅ Stream iniciado, adicionando ao SSE Manager..."
-      );
-      sseManager.add(key, controller);
+      // O handler que será chamado pelo sseManager para enviar dados
+      const onEvent = (event) => {
+        try {
+          // ⭐ CORREÇÃO CRÍTICA: Enviar eventos nomeados
+          // O frontend usa addEventListener("job:status", ...) e precisa do nome do evento.
+          const message = `event: ${event.type}\ndata: ${JSON.stringify(
+            event.payload
+          )}\n\n`;
+          controller.enqueue(new TextEncoder().encode(message));
+        } catch (e) {
+          console.error("[SSE Route] ❌ Erro ao enfileirar evento:", e);
+        }
+      };
 
-      // Emite um evento inicial para confirmar conexão do cliente
-      try {
-        const connectEvent = `event: sse:connected\ndata: ${JSON.stringify({
-          ok: true,
-          key,
-          jobId,
-          timestamp: Date.now(),
-        })}\n\n`;
-        controller.enqueue(new TextEncoder().encode(connectEvent));
-        console.log("[SSE Route] ✅ Evento sse:connected enviado");
-      } catch (err) {
-        console.error("[SSE Route] ❌ Erro ao enviar evento inicial:", err);
-      }
+      sseManager.add(key, onEvent);
+
+      // Lógica de keep-alive e cleanup
       const keepAlive = setInterval(() => {
         try {
           controller.enqueue(new TextEncoder().encode(": keep-alive\n\n"));
         } catch (err) {
           console.debug(
-            "[SSE Route] ⚠️ Erro no keep-alive (fechando conexão):",
-            err
+            "[SSE Route] ⚠️ Conexão já fechada, limpando keep-alive."
           );
           clearInterval(keepAlive);
         }
-      }, 30000);
-
-      const timeoutId = setTimeout(() => {
-        console.log(
-          "[SSE Route] ⏱️ Timeout de 120s atingido, fechando conexão"
-        );
-        try {
-          controller.close();
-        } catch (err) {
-          console.debug("[SSE Route] ⚠️ Erro ao fechar controller:", err);
-        }
-        clearInterval(keepAlive);
-        sseManager.remove(key);
-        const c = counts.get(ip) || 1;
-        counts.set(ip, Math.max(c - 1, 0));
-      }, 120000);
+      }, 25000); // 25 segundos
 
       request.signal.addEventListener("abort", () => {
-        console.log("[SSE Route] 🔌 Cliente desconectou (abort signal)");
+        console.log(`[SSE Route] 🔌 Cliente desconectou da chave: ${key}`);
         clearInterval(keepAlive);
-        clearTimeout(timeoutId);
-        sseManager.remove(key);
-        const c = counts.get(ip) || 1;
-        counts.set(ip, Math.max(c - 1, 0));
+        sseManager.remove(key, onEvent);
       });
     },
   });
@@ -101,7 +95,7 @@ export async function GET(request, { params }) {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache, no-transform",
       Connection: "keep-alive",
-      "X-Accel-Buffering": "no",
+      "X-Accel-Buffering": "no", // Essencial para NGINX/Vercel
     },
   });
 }

@@ -2,130 +2,84 @@
  * Helpers para manipular workspaces dinâmicos por tema
  */
 
+import { mapContextToEntities } from "./theme-context-mapper";
+import { v4 as uuidv4 } from "uuid";
+
 export async function createDynamicWorkspace(theme, context) {
-  const dynamicData = {};
-
-  // Para cada entidade principal, criar entrada inicial
-  // Se nenhuma entidade tem isPrimary, usar a primeira como principal
-  const primaryEntities = theme.entities.filter((e) => e.isPrimary);
-  const entitiesToInitialize =
-    primaryEntities.length > 0 ? primaryEntities : [theme.entities[0]]; // Fallback para primeira entidade
-
-  for (const entity of entitiesToInitialize) {
-    // Corrigir entity key para plural correto
-    let entityKey = `${entity.id}s`; // Ex: company -> companys (incorreto)
-    if (entityKey === "companys") {
-      entityKey = "companies";
-    }
-    dynamicData[entityKey] = [];
-  }
-
-  console.log(
-    `🗂️ Entidades inicializadas para tema ${theme.id}:`,
-    Object.keys(dynamicData)
-  );
-
-  // ⭐ CORREÇÃO: Suportar mapeamento direto de campos legacy (companyName, companyUrl)
-  // para os campos esperados pelo tema (target, targetWebsite)
-  const normalizedContext = { ...context };
-  
-  // Mapear campos legacy para campos do tema
-  if (context.companyName && !context.target) {
-    normalizedContext.target = context.companyName;
-    console.log(`🔄 Mapeando companyName → target: "${context.companyName}"`);
-  }
-  if (context.companyUrl && !context.targetWebsite) {
-    normalizedContext.targetWebsite = context.companyUrl;
-    console.log(`🔄 Mapeando companyUrl → targetWebsite: "${context.companyUrl}"`);
-  }
-  if (context.solution && !normalizedContext.solution) {
-    normalizedContext.solution = context.solution;
-  }
-
-  console.log("📦 Contexto original:", JSON.stringify(context, null, 2));
-  console.log("📦 Contexto normalizado:", JSON.stringify(normalizedContext, null, 2));
-
-  // Mapear dados do form (context) para entidades
-  // Agrupar por entidade primeiro para criar uma só entidade com todos os campos
-  const entityData = {};
-
-  for (const tag of theme.landingTags) {
-    if (!normalizedContext[tag.id]) continue;
-    if (!tag.mapToEntity) continue;
-
-    const entityId = tag.mapToEntity.replace("s", ""); // "books" -> "book"
-    let entityKey = tag.mapToEntity; // "books" (já está correto)
-
-    // ⭐ CORREÇÃO: Garantir que o entityKey seja o plural correto
-    if (entityKey === "companys") {
-      entityKey = "companies";
-    }
-
-    if (!entityData[entityKey]) {
-      entityData[entityKey] = {};
-    }
-
+  try {
     console.log(
-      `🏷️ Processando tag ${tag.id} -> ${tag.mapToEntity}.${tag.mapToField} = ${
-        normalizedContext[tag.id]
-      }`
+      "🏗️ [dynamic-workspace] Iniciando criação com o tema:",
+      theme.id
     );
+    console.log("  Input Context:", context);
 
-    entityData[entityKey][tag.mapToField] = normalizedContext[tag.id];
-  }
+    const { entities: entityMappings, workspace: workspaceMappings } =
+      mapContextToEntities(theme, context);
 
-  // Agora criar as entidades com todos os campos
-  for (const [entityKey, fields] of Object.entries(entityData)) {
-    let entityId = entityKey.replace("s", "");
+    console.log("  ✅ Mapeamento concluído:", {
+      entityMappings,
+      workspaceMappings,
+    });
 
-    // Correção para companies -> company (remove último 's')
-    if (entityKey === "companies") {
-      entityId = "company";
-    } else if (entityId === "compani") {
-      entityId = "company";
-    }
-
-    // Buscar definição da entidade no tema
-    const entityDef = theme.entities.find((e) => e.id === entityId);
-
-    if (!dynamicData[entityKey]) {
-      dynamicData[entityKey] = [];
-    }
-
-    console.log(
-      `📝 Criando entidade ${entityKey} com campos:`,
-      Object.keys(fields)
-    );
-
-    const entity = {
-      id: `${entityId}_${Date.now()}`,
-      ...fields,
-      createdAt: new Date().toISOString(),
-      // ⭐ NOVO: Campos de geração de tiles
-      tiles: [],
-      tiles_status: "pending",
-      tiles_to_generate: 0, // Será setado depois na API
+    const timestamp = new Date().toISOString();
+    const dynamicData = {
+      // Inicializa todas as entidades definidas no tema para garantir que existam
+      ...theme.entities.reduce((acc, entity) => {
+        const entityKey = `${entity.id}s`.replace("companys", "companies");
+        acc[entityKey] = [];
+        return acc;
+      }, {}),
     };
 
-    // Adicionar campos padrão da entidade que não foram preenchidos
-    if (entityDef) {
-      for (const field of entityDef.fields) {
-        if (!entity[field.id]) {
-          entity[field.id] =
-            field.type === "date" ? new Date().toISOString() : "";
-        }
+    const workspaceData = {};
+
+    // Processa as entidades mapeadas (ex: companies)
+    for (const entityKey in entityMappings) {
+      const entityData = entityMappings[entityKey];
+      const newEntity = {
+        id: `${entityKey.slice(0, -1)}_${Date.now()}`,
+        ...entityData,
+        createdAt: timestamp,
+        tiles: [],
+        tiles_status: "pending",
+        tiles_to_generate: 0,
+        description: "",
+      };
+      if (!dynamicData[entityKey]) {
+        dynamicData[entityKey] = [];
       }
+      dynamicData[entityKey].push(newEntity);
     }
 
-    dynamicData[entityKey].push(entity);
+    // Processa os dados do workspace mapeados (ex: sellingSolutionsFor)
+    const newWorkspace = {
+      id: `workpace_${Date.now()}`,
+      ...workspaceMappings,
+      createdAt: timestamp,
+      tiles: [],
+      tiles_status: "pending",
+      tiles_to_generate: 0,
+    };
+
+    // A estrutura original armazena os dados do workspace em um array
+    // chamado 'workspace'. Vamos manter esse padrão.
+    workspaceData.workspace = [newWorkspace];
+
+    console.log("  ✅ Estruturas de dados finais geradas.");
+
+    return {
+      workspaceData: { ...dynamicData, ...workspaceData },
+      dynamicData: dynamicData, // Retorna separadamente para referência, se necessário
+      themeSnapshot: theme,
+    };
+  } catch (error) {
+    console.error(
+      "❌ [dynamic-workspace] Erro fatal durante a criação do workspace:",
+      error
+    );
+    // Lança o erro para que a API que o chamou possa tratá-lo
+    throw new Error(`Failed to create dynamic workspace: ${error.message}`);
   }
-
-  console.log(
-    `✅ DynamicData final para tema ${theme.id}:`,
-    JSON.stringify(dynamicData, null, 2)
-  );
-
-  return dynamicData;
 }
 
 export function getEntityFromTheme(theme, entityId) {
