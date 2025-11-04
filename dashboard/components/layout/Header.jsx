@@ -29,9 +29,26 @@ export function Header({
         typeof window !== "undefined" ? window.location.search : ""
       );
       const guestId = params.get("guest_id");
-      const url = guestId
-        ? `/api/guest/templates?guest_id=${guestId}`
-        : "/api/guest/templates";
+      const jobId = params.get("job_id");
+      const token = params.get("token");
+
+      let url = "/api/guest/templates";
+
+      if (guestId && jobId && token) {
+        const query = new URLSearchParams({
+          guest_id: guestId,
+          job_id: jobId,
+          token,
+        });
+        url = `/api/guest/templates?${query.toString()}`;
+      } else if (guestId) {
+        // Evitar 400 no backend: requisição guest requer trio completo
+        console.warn(
+          "[Header] guest_id encontrado sem job_id/token. Pulando fetch de templates."
+        );
+        setTemplates([]);
+        return;
+      }
 
       const response = await fetch(url);
       const data = await response.json();

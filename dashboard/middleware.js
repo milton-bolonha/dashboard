@@ -19,6 +19,10 @@ const isPublicRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
+  // Permitir acesso direto às Netlify Functions utilitárias
+  if (req.nextUrl.pathname.startsWith("/.netlify/")) {
+    return;
+  }
   // Se a rota não for pública, protege
   if (!isPublicRoute(req)) {
     await auth.protect();
