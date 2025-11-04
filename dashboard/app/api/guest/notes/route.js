@@ -6,6 +6,7 @@
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withMongoErrorHandler } from "@/lib/withMongoErrorHandler";
 import { getJob } from "@/lib/db/prompt-jobs";
 import Joi from "joi";
 import sanitizeHtml from "sanitize-html";
@@ -63,7 +64,7 @@ const findEntityIndex = (entities, companyId) =>
       entity.title === companyId
   );
 
-export async function GET(req) {
+const listNotesHandler = async (req) => {
   try {
     console.log("📥 GET /api/guest/notes - Iniciando...");
 
@@ -150,15 +151,15 @@ export async function GET(req) {
       },
     });
   } catch (error) {
-    console.error("❌ Erro ao buscar notas:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch notes" },
-      { status: 500 }
-    );
+    throw error;
   }
-}
+};
 
-export async function POST(req) {
+export const GET = withMongoErrorHandler(listNotesHandler, {
+  message: "Failed to fetch notes",
+});
+
+const createNoteHandler = async (req) => {
   try {
     console.log("📥 POST /api/guest/notes - Iniciando...");
 
@@ -259,10 +260,10 @@ export async function POST(req) {
       note: newNote,
     });
   } catch (error) {
-    console.error("❌ Erro ao criar nota:", error);
-    return NextResponse.json(
-      { error: "Failed to create note" },
-      { status: 500 }
-    );
+    throw error;
   }
-}
+};
+
+export const POST = withMongoErrorHandler(createNoteHandler, {
+  message: "Failed to create note",
+});

@@ -5,6 +5,7 @@
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withMongoErrorHandler } from "@/lib/withMongoErrorHandler";
 import { getJob } from "@/lib/db/prompt-jobs";
 import Joi from "joi";
 import crypto from "crypto";
@@ -32,7 +33,7 @@ const normalizeEntityKey = (themeSnapshot, providedKey) => {
   return candidate === "companys" ? "companies" : candidate;
 };
 
-export async function POST(req) {
+const reorderTilesHandler = async (req) => {
   try {
     console.log("📥 POST /api/guest/reorder-tiles - Iniciando...");
 
@@ -169,15 +170,10 @@ export async function POST(req) {
       tilesOrder,
     });
   } catch (error) {
-    console.error("❌ Erro ao reordenar tiles:", error);
-    console.error("❌ Stack:", error.stack);
-    return NextResponse.json(
-      {
-        error: "Failed to reorder tiles",
-        details: error.message,
-        stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
-      },
-      { status: 500 }
-    );
+    throw error;
   }
-}
+};
+
+export const POST = withMongoErrorHandler(reorderTilesHandler, {
+  message: "Failed to reorder tiles",
+});

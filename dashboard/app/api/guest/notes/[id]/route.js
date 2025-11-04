@@ -6,6 +6,7 @@
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withMongoErrorHandler } from "@/lib/withMongoErrorHandler";
 import { getJob } from "@/lib/db/prompt-jobs";
 import Joi from "joi";
 import sanitizeHtml from "sanitize-html";
@@ -65,7 +66,7 @@ const findEntityIndex = (entities, companyId) =>
       entity.title === companyId
   );
 
-export async function PUT(req, { params }) {
+const updateNoteHandler = async (req, { params }) => {
   try {
     const { id: noteId } = params;
     console.log(`📥 PUT /api/guest/notes/${noteId} - Iniciando...`);
@@ -173,15 +174,15 @@ export async function PUT(req, { params }) {
       note: notes[noteIndex],
     });
   } catch (error) {
-    console.error("❌ Erro ao atualizar nota:", error);
-    return NextResponse.json(
-      { error: "Failed to update note" },
-      { status: 500 }
-    );
+    throw error;
   }
-}
+};
 
-export async function DELETE(req, { params }) {
+export const PUT = withMongoErrorHandler(updateNoteHandler, {
+  message: "Failed to update note",
+});
+
+const deleteNoteHandler = async (req, { params }) => {
   try {
     const { id: noteId } = params;
     console.log(`📥 DELETE /api/guest/notes/${noteId} - Iniciando...`);
@@ -298,10 +299,10 @@ export async function DELETE(req, { params }) {
       message: "Note deleted successfully",
     });
   } catch (error) {
-    console.error("❌ Erro ao deletar nota:", error);
-    return NextResponse.json(
-      { error: "Failed to delete note" },
-      { status: 500 }
-    );
+    throw error;
   }
-}
+};
+
+export const DELETE = withMongoErrorHandler(deleteNoteHandler, {
+  message: "Failed to delete note",
+});

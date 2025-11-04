@@ -8,6 +8,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
+import { withMongoErrorHandler } from "@/lib/withMongoErrorHandler";
 import { createDynamicWorkspace } from "@/lib/dynamic-workspace";
 import { createTileDebugLogger } from "@/lib/tile-debug-logger";
 import { buildPromptContext } from "@/lib/theme-context-mapper";
@@ -48,7 +49,7 @@ const vWarn = (...args) => {
  * GET /api/guest/workspace
  * Busca configurações do workspace
  */
-export async function GET(req) {
+const getWorkspaceHandler = async (req) => {
   try {
     const { searchParams } = new URL(req.url);
     const guestId = searchParams.get("guest_id");
@@ -311,19 +312,19 @@ export async function GET(req) {
       message: "Workspace retrieved successfully",
     });
   } catch (error) {
-    console.error("❌ Erro ao buscar workspace:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to retrieve workspace" },
-      { status: 500 }
-    );
+    throw error;
   }
-}
+};
+
+export const GET = withMongoErrorHandler(getWorkspaceHandler, {
+  message: "Failed to retrieve workspace",
+});
 
 /**
  * POST /api/guest/workspace
  * Cria novo guest workspace (onboarding)
  */
-export async function POST(req) {
+const createWorkspaceHandler = async (req) => {
   try {
     console.log("📥 POST /api/guest/workspace - Iniciando...");
 
@@ -767,19 +768,19 @@ export async function POST(req) {
 
     return response;
   } catch (error) {
-    console.error("❌ Erro ao criar workspace:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to create workspace" },
-      { status: 500 }
-    );
+    throw error;
   }
-}
+};
+
+export const POST = withMongoErrorHandler(createWorkspaceHandler, {
+  message: "Failed to create workspace",
+});
 
 /**
  * PUT /api/guest/workspace
  * Atualiza configurações do workspace
  */
-export async function PUT(req) {
+const updateWorkspaceHandler = async (req) => {
   try {
     console.log("📥 PUT /api/guest/workspace - Iniciando...");
 
@@ -880,10 +881,10 @@ export async function PUT(req) {
       message: "Workspace updated successfully",
     });
   } catch (error) {
-    console.error("❌ Erro ao atualizar workspace:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to update workspace" },
-      { status: 500 }
-    );
+    throw error;
   }
-}
+};
+
+export const PUT = withMongoErrorHandler(updateWorkspaceHandler, {
+  message: "Failed to update workspace",
+});

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withMongoErrorHandler } from "@/lib/withMongoErrorHandler";
 import { getJob } from "@/lib/db/prompt-jobs";
 import Joi from "joi";
 import crypto from "crypto";
@@ -209,7 +210,7 @@ const authorizeRequest = async ({ jobId, guestId, token }) => {
   return job;
 };
 
-export async function GET(req) {
+const listTemplatesHandler = async (req) => {
   try {
     const { searchParams } = new URL(req.url);
     const payload = {
@@ -244,15 +245,15 @@ export async function GET(req) {
       templates: [...defaultTemplates, ...customTemplates],
     });
   } catch (error) {
-    console.error("❌ Erro ao listar templates:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to list templates" },
-      { status: 500 }
-    );
+    throw error;
   }
-}
+};
 
-export async function POST(req) {
+export const GET = withMongoErrorHandler(listTemplatesHandler, {
+  message: "Failed to list templates",
+});
+
+const createTemplateHandler = async (req) => {
   try {
     const body = await req.json();
     const { jobId, guestId, token, template } = body || {};
@@ -311,10 +312,10 @@ export async function POST(req) {
 
     return NextResponse.json({ success: true, template: newTemplate });
   } catch (error) {
-    console.error("❌ Erro ao salvar template:", error);
-    return NextResponse.json(
-      { error: "Failed to save template" },
-      { status: 500 }
-    );
+    throw error;
   }
-}
+};
+
+export const POST = withMongoErrorHandler(createTemplateHandler, {
+  message: "Failed to save template",
+});

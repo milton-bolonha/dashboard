@@ -2,6 +2,13 @@ import { MongoClient } from "mongodb";
 
 const uri =
   process.env.MONGODB_URI || "mongodb://localhost:27017/dashboard-engine";
+
+function sanitizeMongoUri(value) {
+  if (!value) return "<empty>";
+  return value.replace(/\/\/([^@]+)@/, "//***:***@");
+}
+
+const sanitizedUri = sanitizeMongoUri(uri);
 const options = {
   serverSelectionTimeoutMS: 10000, // 10 segundos - mais rápido para Netlify
   connectTimeoutMS: 10000, // 10 segundos
@@ -23,8 +30,18 @@ let clientPromise;
 // Para Netlify Functions (AWS Lambda), usar variável global para reutilizar conexão
 // Isso é seguro porque cada container Lambda mantém o estado entre invocações
 if (!global._mongoClientPromise) {
+  console.log("[MongoDB] Initializing client with URI:", sanitizedUri);
   client = new MongoClient(uri, options);
-  global._mongoClientPromise = client.connect();
+  global._mongoClientPromise = client
+    .connect()
+    .then((connectedClient) => {
+      console.log("[MongoDB] Connection established successfully");
+      return connectedClient;
+    })
+    .catch((error) => {
+      console.error("[MongoDB] Connection failed:", error);
+      throw error;
+    });
   console.log("🔌 Nova conexão MongoDB criada");
 }
 clientPromise = global._mongoClientPromise;

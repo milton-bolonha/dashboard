@@ -6,6 +6,7 @@
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withMongoErrorHandler } from "@/lib/withMongoErrorHandler";
 import { getJob } from "@/lib/db/prompt-jobs";
 import Joi from "joi";
 import crypto from "crypto";
@@ -58,7 +59,7 @@ const filterFilesByCategory = (files, category) => {
   return files.filter((file) => (file.category || "documents") === category);
 };
 
-export async function GET(req) {
+const listFilesHandler = async (req) => {
   try {
     console.log("📥 GET /api/guest/files - Iniciando...");
 
@@ -153,15 +154,15 @@ export async function GET(req) {
       message: "Files retrieved successfully",
     });
   } catch (error) {
-    console.error("❌ Erro ao listar arquivos:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to list files" },
-      { status: 500 }
-    );
+    throw error;
   }
-}
+};
 
-export async function POST(req) {
+export const GET = withMongoErrorHandler(listFilesHandler, {
+  message: "Failed to list files",
+});
+
+const createFileHandler = async (req) => {
   try {
     console.log("📥 POST /api/guest/files - Iniciando...");
 
@@ -277,10 +278,10 @@ export async function POST(req) {
       message: "File saved successfully",
     });
   } catch (error) {
-    console.error("❌ Erro ao salvar arquivo:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to save file" },
-      { status: 500 }
-    );
+    throw error;
   }
-}
+};
+
+export const POST = withMongoErrorHandler(createFileHandler, {
+  message: "Failed to save file",
+});

@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
+import { withMongoErrorHandler } from "@/lib/withMongoErrorHandler";
 import { getJob } from "@/lib/db/prompt-jobs";
 import Joi from "joi";
 
@@ -31,7 +32,7 @@ const requestBodySchema = Joi.object({
   tiles_to_generate: Joi.number().optional(),
 });
 
-export async function POST(req) {
+const saveTileHandler = async (req) => {
   try {
     const { searchParams } = new URL(req.url);
     const guestId =
@@ -128,13 +129,10 @@ export async function POST(req) {
       );
     }
   } catch (error) {
-    console.error("❌ [POST /api/guest/tiles] Erro inesperado:", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to save tile due to an unexpected server error",
-      },
-      { status: 500 }
-    );
+    throw error;
   }
-}
+};
+
+export const POST = withMongoErrorHandler(saveTileHandler, {
+  message: "Failed to save tile",
+});

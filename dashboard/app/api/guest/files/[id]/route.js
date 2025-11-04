@@ -5,6 +5,7 @@
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withMongoErrorHandler } from "@/lib/withMongoErrorHandler";
 import { getJob } from "@/lib/db/prompt-jobs";
 import { deleteFile as deleteFromCloudinary } from "@/lib/cloudinary";
 import Joi from "joi";
@@ -37,7 +38,7 @@ const findEntityIndex = (entities, companyId) =>
       entity.title === companyId
   );
 
-export async function DELETE(req, { params }) {
+const deleteFileHandler = async (req, { params }) => {
   try {
     const fileId = params.id;
     console.log(`📥 DELETE /api/guest/files/${fileId} - Iniciando...`);
@@ -172,10 +173,10 @@ export async function DELETE(req, { params }) {
       message: "File deleted successfully",
     });
   } catch (error) {
-    console.error("❌ Erro ao deletar arquivo:", error);
-    return NextResponse.json(
-      { error: "Failed to delete file" },
-      { status: 500 }
-    );
+    throw error;
   }
-}
+};
+
+export const DELETE = withMongoErrorHandler(deleteFileHandler, {
+  message: "Failed to delete file",
+});

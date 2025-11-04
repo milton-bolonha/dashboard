@@ -5,6 +5,7 @@
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withMongoErrorHandler } from "@/lib/withMongoErrorHandler";
 import { getJob } from "@/lib/db/prompt-jobs";
 import crypto from "crypto";
 import Joi from "joi";
@@ -28,7 +29,7 @@ const normalizeEntityKey = (themeSnapshot, providedKey) => {
   return candidate === "companys" ? "companies" : candidate;
 };
 
-export async function DELETE(req, { params }) {
+const deleteTileHandler = async (req, { params }) => {
   try {
     console.log("📥 DELETE /api/guest/tiles/[id] - Iniciando...");
 
@@ -181,14 +182,10 @@ export async function DELETE(req, { params }) {
       remainingTiles: normalizedTiles.length,
     });
   } catch (error) {
-    console.error("❌ Erro ao deletar tile:", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to delete tile",
-        details: error.message,
-      },
-      { status: 500 }
-    );
+    throw error;
   }
-}
+};
+
+export const DELETE = withMongoErrorHandler(deleteTileHandler, {
+  message: "Failed to delete tile",
+});
