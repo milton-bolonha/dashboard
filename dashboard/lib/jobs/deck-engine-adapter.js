@@ -253,7 +253,13 @@ export async function queueJob({
           jobId,
         };
 
+        console.log(
+          `[DeckEngine] 💾 Persistindo tile ${tileDoc.id} diretamente no backend...`
+        );
         const persisted = await persistTileDirectly(tileDoc);
+        console.log(
+          `[DeckEngine] 📊 Tile ${tileDoc.id} persistido: ${persisted}`
+        );
 
         const eventPayload = {
           ...payload,
@@ -266,6 +272,9 @@ export async function queueJob({
           eventPayload.tile = tileDoc;
         }
 
+        console.log(
+          `[DeckEngine] 📤 Emitindo job:result-completed para tile ${tileDoc.id} (persisted=${persisted})`
+        );
         emitJobEvent({
           guestId,
           jobId,

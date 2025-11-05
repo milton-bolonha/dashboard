@@ -10,8 +10,11 @@
 - ✅ Timeout configurado (10s)
 - ✅ Retry logic implementado (`withRetry()`)
 - ✅ Connection pooling reutilizável
-- ⚠️ **Promise rejection não tratada na inicialização da conexão**
-- ⚠️ **Erro não propagado adequadamente para rotas**
+- ✅ Circuit breaker implementado (`withMongoConnection`)
+- ✅ Health check endpoint (`/api/health/mongodb`)
+- ✅ Bulk operations otimizadas
+- ⚠️ **SSE fechando prematuramente** (readyState: 2 = CLOSED)
+- ⚠️ **Eventos SSE não chegando no frontend** (hasConnection: undefined)
 
 **Causa Raiz**: A conexão MongoDB falha durante a inicialização, e a Promise rejeitada não é resetada, causando falhas em cascata em todas as operações subsequentes.
 
@@ -710,3 +713,55 @@ clientPromise = global._mongoClientPromise;
    - Implementar connection pool monitoring
    - Otimizar configurações de timeout baseado em métricas reais
    - Considerar estratégias de warm-up para evitar cold starts
+
+---
+
+## Apêndice M: Problema SSE Fechando e Tiles Não Aparecendo
+
+**Data**: 05/11/2025
+
+### Problema
+
+- **Sintoma**: SSE está fechando prematuramente (`readyState: 2` = CLOSED) antes dos tiles serem gerados
+- **Sintoma**: Eventos SSE não estão chegando no frontend (`hasConnection: undefined` no SSE Manager)
+- **Sintoma**: Tiles não aparecem na interface mesmo sendo processados pelo runner
+- **Sintoma**: Background function retorna 202 mas não executa (nenhum log de execução)
+
+### Análise dos Logs
+
+```
+[SSE Manager] 📤 job:status para 'guest:...': { status: 'QUEUED', hasConnection: undefined }
+[SSE Manager] 💾 Buffer: 1 eventos para 'guest:...'
+[Create Job Route v2.0] 📥 Resposta da background function: 202
+[Runner] 🔄 Mapeando templateId...
+[Runner] 🚀 Tile 1/8: "What They Do"
+[SSE Manager] 📤 job:status para 'guest:...': { status: 'RUNNING', hasConnection: undefined }
+```
+
+**Observações**:
+
+1. Eventos estão sendo emitidos mas `hasConnection: undefined` indica que não há conexão SSE ativa
+2. Eventos estão sendo bufferizados (não entregues)
+3. SSE está sendo estabelecido mas fecha logo após (`readyState: 2`)
+4. Runner está processando tiles mas eventos não chegam ao frontend
+
+### Causas Prováveis
+
+1. **Timing Issue**: SSE está sendo conectado DEPOIS que os eventos já foram emitidos
+2. **SSE Timeout**: Netlify pode estar fechando a conexão SSE após 60s sem keep-alive adequado
+3. **Background Function Não Executa**: A função retorna 202 mas não processa (problema de configuração Netlify)
+4. **Fallback Direto**: `runJobInBackground` está rodando mas sem SSE ativo, tiles não aparecem
+
+### Soluções Implementadas
+
+1. **Keep-Alive Mais Frequente**: Reduzido de 25s para 20s no SSE route
+2. **Logs de Persistência**: Adicionados logs detalhados em `persistTileDirectly` e `emitJobEvent`
+3. **Logs de SSE Manager**: Logs de `job:result-completed` sempre (não apenas eventos críticos)
+4. **Verificação de Conexão**: Logs incluem `hasConnection`, `orderIndex`, `persisted` para debug
+
+### Próximos Passos
+
+1. **Verificar se SSE está conectando ANTES dos eventos serem emitidos**
+2. **Verificar se `persistTileDirectly` está salvando tiles corretamente**
+3. **Verificar se background function está sendo invocada corretamente**
+4. **Implementar retry no SSE se fechar prematuramente**

@@ -82,10 +82,15 @@ export async function GET(request, { params }) {
         }
       };
 
+      console.log(
+        `[SSE Route] ➕ Adicionando handler ao SSE Manager para: ${key}`
+      );
       sseManager.add(key, onEvent);
+      console.log(`[SSE Route] ✅ Handler adicionado. Verificando buffer...`);
 
       // Forçar flush imediato com comentário keep-alive e snapshot de status atual
       controller.enqueue(encoder.encode(`: connected ${Date.now()}\n\n`));
+      console.log(`[SSE Route] ✅ Comentário de conexão enviado`);
       if (job) {
         const initialStatus = {
           jobId,
@@ -110,15 +115,16 @@ export async function GET(request, { params }) {
         }
       }
 
-      // Lógica de keep-alive e cleanup (sem logs para reduzir spam)
+      // Lógica de keep-alive e cleanup
+      // IMPORTANTE: Netlify Functions têm timeout de 60s, então precisamos manter conexão viva
       const keepAlive = setInterval(() => {
         try {
           controller.enqueue(encoder.encode(": keep-alive\n\n"));
         } catch (err) {
-          // Conexão fechada, limpar silenciosamente
+          console.error("[SSE Route] ❌ Erro ao enviar keep-alive:", err);
           clearInterval(keepAlive);
         }
-      }, 25000); // 25 segundos
+      }, 20000); // 20 segundos (mais frequente para evitar timeout)
 
       request.signal.addEventListener("abort", () => {
         // Log removido (muito repetitivo)

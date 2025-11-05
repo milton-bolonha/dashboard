@@ -23,18 +23,26 @@ class SSEManager {
       console.log(
         `[SSE Manager] 🔄 Reenviando ${bufferedEvents.length} eventos do buffer para: ${key}`
       );
-      bufferedEvents.forEach((event) => {
+      bufferedEvents.forEach((event, index) => {
         try {
+          console.log(
+            `[SSE Manager] 📤 Reenviando evento ${index + 1}/${
+              bufferedEvents.length
+            }: ${event.type}`
+          );
           // ⭐ CORREÇÃO: Chamar o handler (onEvent) em vez de controller.enqueue
           handler(event);
         } catch (err) {
           console.error(
-            "[SSE Manager] ❌ Erro ao reenviar evento do buffer:",
+            `[SSE Manager] ❌ Erro ao reenviar evento ${index + 1} do buffer:`,
             err
           );
         }
       });
       this.buffer.set(key, []); // Limpar buffer após envio
+      console.log(`[SSE Manager] ✅ Buffer limpo para: ${key}`);
+    } else {
+      console.log(`[SSE Manager] ℹ️ Nenhum evento no buffer para: ${key}`);
     }
   }
 
@@ -58,6 +66,9 @@ class SSEManager {
     const handlers = this.connections.get(key);
     const hasConnection = handlers && handlers.size > 0;
 
+    // Log eventos de result-completed sempre (para debug)
+    const isResultCompleted = event.type === "job:result-completed";
+
     // Log apenas eventos críticos ou mudanças de estado (não todos os eventos)
     const isCriticalEvent =
       event.type === "job:status" &&
@@ -65,10 +76,12 @@ class SSEManager {
         event.payload?.status === "FAILED" ||
         event.payload?.status === "QUEUED");
 
-    if (isCriticalEvent || !hasConnection) {
+    if (isCriticalEvent || !hasConnection || isResultCompleted) {
       console.log(`[SSE Manager] 📤 ${event.type} para '${key}':`, {
         status: event.payload?.status,
         hasConnection,
+        orderIndex: event.payload?.orderIndex,
+        persisted: event.payload?.persisted,
       });
     }
 

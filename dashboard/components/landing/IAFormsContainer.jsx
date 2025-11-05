@@ -166,20 +166,33 @@ export default function IAFormsContainer({
 
         // Extrair o primeiro item para criar o contexto
         const firstItem = itemsPayload[0] || {};
+
+        // ⭐ NORMALIZAÇÃO: Garantir que company seja string (não objeto)
+        // Se firstItem.company for objeto, extrair o name
+        const companyName =
+          typeof firstItem.company === "object"
+            ? firstItem.company?.name || firstItem.company?.title || ""
+            : firstItem.company || "";
+
         const context = {
           themeId: themeId,
           target:
             firstItem.researchTarget ||
-            firstItem.company ||
+            companyName ||
             firstItem.name ||
             "Preview",
           targetWebsite:
             firstItem.researchWebsite ||
             firstItem.companyWebsite ||
+            (typeof firstItem.company === "object"
+              ? firstItem.company?.website || ""
+              : "") ||
             firstItem.website ||
             "",
           solution: firstItem.solution || "N/A",
         };
+
+        console.log("[IAFormsContainer v2.0] 📋 Contexto construído:", context);
 
         // ⭐ PASSO ÚNICO: Criar job, workspace e iniciar em background
         const createRes = await fetch("/api/prompt-jobs", {
