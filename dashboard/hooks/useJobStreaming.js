@@ -24,13 +24,7 @@ export function useJobStreaming({
   const pollingRef = useRef({ active: false, attempts: 0, timeoutId: null });
   const isGeneratingRef = useRef(false);
 
-  useEffect(() => {
-    isGeneratingRef.current = isGenerating;
-    if (!isGenerating) {
-      stopPolling("tiles-ready");
-    }
-  }, [isGenerating, stopPolling]);
-
+  // Definir stopPolling ANTES de qualquer useEffect que o use
   const stopPolling = useCallback((reason = "manual") => {
     if (!pollingRef.current.active) return;
     if (pollingRef.current.timeoutId) {
@@ -40,6 +34,13 @@ export function useJobStreaming({
     pollingRef.current.active = false;
     console.log(`[useJobStreaming] 🛑 Polling stopped (${reason}).`);
   }, []);
+
+  useEffect(() => {
+    isGeneratingRef.current = isGenerating;
+    if (!isGenerating) {
+      stopPolling("tiles-ready");
+    }
+  }, [isGenerating, stopPolling]);
 
   const startPolling = useCallback(() => {
     if (pollingRef.current.active) return;
