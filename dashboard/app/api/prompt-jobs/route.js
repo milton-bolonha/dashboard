@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { db, withMongoConnection } from "@/lib/db";
 import { createJob } from "@/lib/db/prompt-jobs";
 import { createDynamicWorkspace } from "@/lib/dynamic-workspace";
 import { runJobInBackground } from "@/lib/jobs/runner";
@@ -44,6 +44,18 @@ export async function POST(req) {
       model,
       context,
     });
+
+    await withMongoConnection(
+      async ({ db: mongoDb }) => {
+        await mongoDb.admin().ping();
+      },
+      {
+        label: "create-job:prewarm",
+        stage: "create-job",
+        retries: 3,
+        metadata: { templateId },
+      }
+    );
 
     // 2. Gerar novos IDs e Token de Acesso
     const guestId = `guest_${uuidv4()}`;
@@ -91,6 +103,8 @@ export async function POST(req) {
     const { workspaceData, dynamicData, themeSnapshot } =
       await createDynamicWorkspace(theme, context);
 
+    const normalizedContext = buildNormalizedContext(context, dynamicData);
+
     // 4. Salvar o Guest Workspace completo no DB
     const newWorkspace = {
       guest_id: guestId,
@@ -98,7 +112,7 @@ export async function POST(req) {
       themeSnapshot: themeSnapshot,
       dynamicData: dynamicData,
       workspace_data: workspaceData,
-      context: context,
+      context: normalizedContext,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -110,12 +124,8 @@ export async function POST(req) {
 
     // Constrói um contexto enriquecido para o job, incluindo dados da entidade criada
     const jobContext = {
-      ...context,
-      company: {
-        name: dynamicData.companies[0]?.name || context.target,
-        website: dynamicData.companies[0]?.website || context.targetWebsite,
-      },
-      // Futuramente, pode incluir outras entidades como 'book', 'project', etc.
+      ...normalizedContext,
+      company: normalizedContext.company,
     };
 
     // 5. Criar o Job no Banco de Dados
@@ -151,4 +161,55 @@ export async function POST(req) {
       { status: 500 }
     );
   }
+}
+
+function buildNormalizedContext(rawContext = {}, dynamicData = {}) {
+  const safeString = (value, fallback = "") => {
+    if (!value) return fallback;
+    if (typeof value === "string") return value;
+    if (typeof value === "object") {
+      return value?.name || value?.title || value?.value || fallback;
+    }
+    return String(value);
+  };
+
+  const normalized = { ...rawContext };
+  const companies = Array.isArray(dynamicData.companies)
+    ? dynamicData.companies
+    : [];
+  const primaryCompany = companies[0] || {};
+
+  const companyName = safeString(
+    primaryCompany.name,
+    safeString(rawContext.company?.name, rawContext.target || "")
+  );
+  const companyWebsite = safeString(
+    primaryCompany.website,
+    safeString(
+      rawContext.company?.website,
+      rawContext.targetWebsite || rawContext.companyWebsite || ""
+    )
+  );
+
+  normalized.company = {
+    name: companyName,
+    website: companyWebsite,
+  };
+
+  normalized.companyWebsite = companyWebsite;
+  normalized.researchTarget = safeString(
+    rawContext.researchTarget,
+    companyName
+  );
+  normalized.researchWebsite = safeString(
+    rawContext.researchWebsite,
+    companyWebsite
+  );
+  normalized.sellingSolutionsFor = safeString(
+    rawContext.sellingSolutionsFor,
+    rawContext.solution || ""
+  );
+  normalized.salesRepAt = safeString(rawContext.salesRepAt, companyName);
+
+  return normalized;
 }
