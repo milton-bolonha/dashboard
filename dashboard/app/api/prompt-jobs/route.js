@@ -158,6 +158,23 @@ export async function POST(req) {
       );
 
       // Fire-and-forget: não esperar resposta (background function retorna 202 imediatamente)
+      // IMPORTANTE: Background functions no Netlify são detectadas automaticamente pelo sufixo "-background"
+      console.log(
+        `[Create Job Route v2.0] 📞 Chamando background function: ${backgroundFunctionUrl}`
+      );
+
+      // Tentar chamar background function, mas se não funcionar, usar fallback imediatamente
+      // (por enquanto, vamos usar o fallback direto já que background functions podem ter problemas)
+      console.log(
+        `[Create Job Route v2.0] ⚠️ Background functions podem ter problemas no Netlify. Usando fallback direto...`
+      );
+
+      // Por enquanto, usar o método direto que já funciona
+      // TODO: Depois que background functions estiverem funcionando, remover este fallback
+      const { runJobInBackground } = await import("@/lib/jobs/runner");
+      runJobInBackground(jobId);
+
+      // Tentar também chamar a background function (para ver se funciona)
       fetch(backgroundFunctionUrl, {
         method: "POST",
         headers: {
@@ -167,27 +184,17 @@ export async function POST(req) {
       })
         .then(async (response) => {
           const text = await response.text().catch(() => "");
-          if (response.status === 202 || response.ok) {
-            console.log(
-              `[Create Job Route v2.0] ✅ Background function iniciada: ${response.status}`
-            );
-          } else {
-            throw new Error(
-              `Background function failed: ${response.status} ${text}`
-            );
-          }
-        })
-        .catch(async (error) => {
-          console.error(
-            `[Create Job Route v2.0] ⚠️ Erro ao disparar background function:`,
-            error
-          );
-          // Fallback: executar diretamente se a background function falhar
           console.log(
-            `[Create Job Route v2.0] 🔄 Fallback: executando localmente...`
+            `[Create Job Route v2.0] 📥 Resposta da background function: ${
+              response.status
+            } - ${text.substring(0, 200)}`
           );
-          const { runJobInBackground } = await import("@/lib/jobs/runner");
-          runJobInBackground(jobId);
+        })
+        .catch((error) => {
+          console.error(
+            `[Create Job Route v2.0] ⚠️ Background function não respondeu (mas fallback já está rodando):`,
+            error.message
+          );
         });
 
       console.log(
