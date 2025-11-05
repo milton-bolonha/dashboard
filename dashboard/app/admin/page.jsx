@@ -3,6 +3,9 @@ import { AdminDashboardContainer } from "@/containers/AdminDashboardContainer";
 
 // ⭐ Loading fallback para Suspense
 function AdminDashboardLoading() {
+  console.log(
+    "[Admin Page] ⏳ Renderizando o fallback do Suspense. O erro ocorre quando o AdminDashboardContainer tenta renderizar em seguida."
+  );
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
       <div className="text-center">

@@ -608,6 +608,33 @@ export async function bulkWriteWithMetrics(
   - Todas as APIs sensíveis (workspace, tiles, notes, files, templates, etc.) passam por pre-warm e devolvem 503 rápido quando o cluster ainda acorda — adeus 504 + F5.
   - SSE ganhou backoff e callback (`onPermanentError`) que ativa o polling incremental até os tiles estarem salvos.
 
+### ✅ Atualização (06/11/2025) — SSE + Fallback em Produção
+
+- `dashboard/hooks/useSSEManager.js`
+
+  - Sanitização de inputs (`streamUrl`, `listeners`, `options`) antes de criar `EventSource` para evitar exceções silenciosas.
+  - Tratamento com `try/catch` ao instanciar `EventSource` + retry com backoff exponencial quando a camada de rede falha.
+  - Callbacks (`onReconnect`, `onPermanentError`) guardados em refs estáveis → elimina race conditions e garante que o fallback de polling seja disparado mesmo após re-renderizações.
+
+- `dashboard/containers/AdminDashboardContainer.jsx`
+
+  - Reordenação dos hooks e callbacks (`stopPolling`, `startPolling`) antes dos `useEffect` que dependem deles → corrige o `ReferenceError: Cannot access 'stopPolling' before initialization` observado em produção.
+  - Hardening de callbacks com `try/catch` para isolar efeitos colaterais caso o polling ou SSE levantem exceção.
+  - Tela de erro “Crítico” temporária e logs instrumentados para facilitar o diagnóstico em ambientes serverless (pode ser removida após estabilização).
+
+**Aprendizados**
+
+1. SSR + Suspense amplificam erros de ordem dos hooks: qualquer `useEffect` que depende de um `useCallback` precisa que o callback seja declarado antes.
+2. Camada de SSE precisa ser defensiva: qualquer input nulo, URL vazia ou instância que falha em `EventSource` deve gerar retry automático para acionar o fallback.
+3. O padrão adotado (refs estáveis + fallback polling) pode ser replicado para outras streams (ex.: jobs, notificações) para evitar regressões semelhantes.
+
+**Checklist de Boas Práticas Reforçadas**
+
+- [x] Hooks sempre declarados antes de uso em dependências.
+- [x] Callbacks compartilhados expostos via refs ou memoização estável.
+- [x] Fallbacks idempotentes (polling) acionados apenas via interfaces públicas do hook.
+- [ ] Remover logs provisórios e UI de erro customizada após monitoramento confirmar estabilidade (pendente).
+
 ## Análise Técnica do Código
 
 ### Problema na Inicialização da Conexão (`dashboard/lib/db.js`)
