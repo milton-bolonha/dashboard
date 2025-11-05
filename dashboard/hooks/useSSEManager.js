@@ -5,10 +5,11 @@ const MAX_RETRIES = 3;
 export function useSSEManager(streamUrl, listeners = {}, options = {}) {
   const eventSourceRef = useRef(null);
   const retryRef = useRef({ attempts: 0, timeoutId: null });
-  const listenersRef = useRef(listeners);
   const stoppedRef = useRef(false);
+  const listenersRef = useRef(listeners);
   const optionsRef = useRef(options);
 
+  // Sincronizar refs antes de qualquer uso
   useEffect(() => {
     listenersRef.current = listeners;
   }, [listeners]);
@@ -24,7 +25,7 @@ export function useSSEManager(streamUrl, listeners = {}, options = {}) {
 
     stoppedRef.current = false;
 
-    const cleanup = async () => {
+    const cleanup = () => {
       stoppedRef.current = true;
       if (retryRef.current.timeoutId) {
         clearTimeout(retryRef.current.timeoutId);
@@ -52,7 +53,10 @@ export function useSSEManager(streamUrl, listeners = {}, options = {}) {
           clearTimeout(retryRef.current.timeoutId);
           retryRef.current.timeoutId = null;
         }
-        optionsRef.current?.onReconnect?.();
+        const currentOptions = optionsRef.current;
+        if (typeof currentOptions?.onReconnect === "function") {
+          currentOptions.onReconnect();
+        }
       };
 
       eventSource.onerror = (error) => {
@@ -60,10 +64,11 @@ export function useSSEManager(streamUrl, listeners = {}, options = {}) {
 
         if (eventSource.readyState === EventSource.CLOSED) {
           console.debug("[useSSEManager] SSE closed by server.");
-          optionsRef.current?.onPermanentError?.(error);
-          cleanup()
-            .then(() => {})
-            .catch(() => {});
+          const currentOptions = optionsRef.current;
+          if (typeof currentOptions?.onPermanentError === "function") {
+            currentOptions.onPermanentError(error);
+          }
+          cleanup();
           return;
         }
 
@@ -76,10 +81,11 @@ export function useSSEManager(streamUrl, listeners = {}, options = {}) {
           console.warn(
             "[useSSEManager] Max retry attempts reached. Triggering fallback."
           );
-          optionsRef.current?.onPermanentError?.(error);
-          cleanup()
-            .then(() => {})
-            .catch(() => {});
+          const currentOptions = optionsRef.current;
+          if (typeof currentOptions?.onPermanentError === "function") {
+            currentOptions.onPermanentError(error);
+          }
+          cleanup();
           return;
         }
 
@@ -99,7 +105,9 @@ export function useSSEManager(streamUrl, listeners = {}, options = {}) {
           try {
             const parsedData = JSON.parse(event.data || "{}");
             const currentHandler = listenersRef.current[eventName];
-            currentHandler?.(parsedData);
+            if (typeof currentHandler === "function") {
+              currentHandler(parsedData);
+            }
           } catch (err) {
             console.error(
               `[useSSEManager] Error parsing SSE data for event ${eventName}:`,
@@ -113,7 +121,7 @@ export function useSSEManager(streamUrl, listeners = {}, options = {}) {
     connect();
 
     return () => {
-      cleanup().catch(() => {});
+      cleanup();
     };
   }, [streamUrl]);
 

@@ -379,6 +379,14 @@ export function AdminDashboardContainer() {
     tick();
   }, [revalidateWorkspace, stopPolling]);
 
+  const handleSSEPermanentError = useCallback(() => {
+    startPolling();
+  }, [startPolling]);
+
+  const handleSSEReconnect = useCallback(() => {
+    stopPolling("reconnected");
+  }, [stopPolling]);
+
   const sseListeners = useMemo(() => {
     if (!jobIdFromUrl) return {};
     return {
@@ -396,10 +404,15 @@ export function AdminDashboardContainer() {
     };
   }, [jobIdFromUrl, persistTileAndRefresh, revalidateWorkspace]);
 
-  useSSEManager(streamUrl, sseListeners, {
-    onPermanentError: startPolling,
-    onReconnect: () => stopPolling("reconnected"),
-  });
+  const sseOptions = useMemo(
+    () => ({
+      onPermanentError: handleSSEPermanentError,
+      onReconnect: handleSSEReconnect,
+    }),
+    [handleSSEPermanentError, handleSSEReconnect]
+  );
+
+  useSSEManager(streamUrl, sseListeners, sseOptions);
 
   const handleTileClick = useCallback((tile) => {
     setSelectedTile(tile);
