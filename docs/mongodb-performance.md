@@ -10,6 +10,7 @@ Este guia compila as práticas adotadas no projeto para manter o MongoDB estáve
   - `withMongoConnection` garante compatibilidade com o pipeline SSE/polling descrito em `dashboard/docs/relatorio-cards.md`.
   - Circuit breaker configurável (`MONGODB_CONNECT_RETRIES`, `MONGODB_CIRCUIT_BREAKER_TIMEOUT_MS`).
   - `closeMongoClient` permite encerrar a conexão após fluxos específicos (ex.: tarefas pontuais na home/admin/onboarding).
+- `withMongoConnectionHandler` aplica o pre-warm + short-circuit 503 em todas as rotas guest (workspace, tiles, notes, files, templates, upload etc.).
 
 ## 2. Bulk Operations
 
@@ -35,6 +36,9 @@ Este guia compila as práticas adotadas no projeto para manter o MongoDB estáve
   - Responde `ok` com `durationMs` quando o `admin().ping()` é bem-sucedido.
   - Abre circuito local após `MONGODB_HEALTH_FAILURE_THRESHOLD` falhas, retornando `503` com `Retry-After`.
 - Combine com dashboards do Atlas (Connection Count, Operation Latency) e logs do Netlify.
+- SSE/Fallback:
+  - `useSSEManager` possui retries exponenciais (3 tentativas) e dispara polling automático via `AdminDashboardContainer` quando a conexão não estabiliza.
+  - Polling roda de forma controlada (`POLLING_INTERVAL_MS`, `MAX_POLLING_ATTEMPTS`) e se auto encerra quando os tiles finalizam.
 
 ## 5. Variáveis de Ambiente
 
@@ -51,6 +55,7 @@ Este guia compila as práticas adotadas no projeto para manter o MongoDB estáve
 ## 6. Checklist Rápido
 
 - [ ] Sempre usar `withMongoConnection` em novas rotas/serviços antes de tocar o banco.
+- [ ] Avaliar se a rota deve usar `withMongoConnectionHandler` para garantir short-circuit (guest APIs).
 - [ ] Preferir `bulkUpsert`/`bulkWriteWithMetrics` a loops `findOne` + `insertOne`.
 - [ ] Atualizar `bug-mongo-netlify.md` quando uma otimização relevante for implementada.
 - [ ] Validar `/api/health/mongodb` em pré-produção (esperado `status=ok`).

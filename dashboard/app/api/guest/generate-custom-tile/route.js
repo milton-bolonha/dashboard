@@ -10,6 +10,8 @@ import { buildPromptContext } from "@/lib/theme-context-mapper";
 import { generateTileWithMetrics } from "@/lib/ai-tile-generator-optimized";
 import Joi from "joi";
 import crypto from "crypto";
+import { withMongoErrorHandler } from "@/lib/withMongoErrorHandler";
+import { withMongoConnectionHandler } from "@/lib/withMongoConnectionHandler";
 
 const customTileSchema = Joi.object({
   jobId: Joi.string().required(),
@@ -39,7 +41,7 @@ const findEntityIndex = (entities, companyId) =>
       entity.title === companyId
   );
 
-export async function POST(req) {
+const generateCustomTileHandler = async (req) => {
   try {
     console.log("📥 POST /api/guest/generate-custom-tile - Iniciando...");
 
@@ -212,4 +214,14 @@ export async function POST(req) {
       { status: 500 }
     );
   }
-}
+};
+
+export const POST = withMongoConnectionHandler(
+  withMongoErrorHandler(generateCustomTileHandler, {
+    message: "Failed to generate custom tile",
+  }),
+  {
+    label: "guest-custom-tile:post",
+    stage: "guest-custom-tile",
+  }
+);

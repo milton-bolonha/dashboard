@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withMongoErrorHandler } from "@/lib/withMongoErrorHandler";
+import { withMongoConnectionHandler } from "@/lib/withMongoConnectionHandler";
 import { getJob } from "@/lib/db/prompt-jobs";
 import { deleteFile as deleteFromCloudinary } from "@/lib/cloudinary";
 import Joi from "joi";
@@ -177,6 +178,12 @@ const deleteFileHandler = async (req, { params }) => {
   }
 };
 
-export const DELETE = withMongoErrorHandler(deleteFileHandler, {
-  message: "Failed to delete file",
-});
+export const DELETE = withMongoConnectionHandler(
+  withMongoErrorHandler(deleteFileHandler, {
+    message: "Failed to delete file",
+  }),
+  {
+    label: "guest-files:delete",
+    stage: "guest-files",
+  }
+);

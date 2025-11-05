@@ -7,6 +7,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { withMongoErrorHandler } from "@/lib/withMongoErrorHandler";
+import { withMongoConnectionHandler } from "@/lib/withMongoConnectionHandler";
 import { getJob } from "@/lib/db/prompt-jobs";
 import Joi from "joi";
 
@@ -133,6 +134,12 @@ const saveTileHandler = async (req) => {
   }
 };
 
-export const POST = withMongoErrorHandler(saveTileHandler, {
-  message: "Failed to save tile",
-});
+export const POST = withMongoConnectionHandler(
+  withMongoErrorHandler(saveTileHandler, {
+    message: "Failed to save tile",
+  }),
+  {
+    label: "guest-tiles:post",
+    stage: "guest-tiles",
+  }
+);

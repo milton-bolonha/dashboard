@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -25,6 +25,8 @@ import { BackgroundCustomizer } from "@/components/dashboard/BackgroundCustomize
 import { TemplatePreviewModal } from "@/components/ui/TemplatePreviewModal";
 
 const DEFAULT_PROGRESS = { current: 0, total: 0, remaining: 0 };
+const POLLING_INTERVAL_MS = 4000;
+const MAX_POLLING_ATTEMPTS = 40;
 
 export function AdminDashboardContainer() {
   const searchParams = useSearchParams();
@@ -122,6 +124,9 @@ export function AdminDashboardContainer() {
   const [userDismissedLoading, setUserDismissedLoading] = useState(false);
   const [isGeneratingCustomTile, setIsGeneratingCustomTile] = useState(false);
 
+  const pollingRef = useRef({ active: false, attempts: 0, timeoutId: null });
+  const isGeneratingRef = useRef(false);
+
   const tiles = useMemo(() => selectedCompany?.tiles || [], [selectedCompany]);
   const tilesToGenerate = useMemo(() => {
     return (
@@ -136,6 +141,19 @@ export function AdminDashboardContainer() {
     const status = selectedCompany?.tiles_status;
     return status === "pending" || status === "generating";
   }, [selectedCompany]);
+
+  useEffect(() => {
+    isGeneratingRef.current = isGenerating;
+    if (!isGenerating) {
+      stopPolling("tiles-ready");
+    }
+  }, [isGenerating, stopPolling]);
+
+  useEffect(() => {
+    return () => {
+      stopPolling("unmount");
+    };
+  }, [stopPolling]);
 
   const streamUrl = useMemo(() => {
     if (!jobIdFromUrl || !guestIdFromUrl || !tokenFromUrl) return null;
@@ -334,7 +352,54 @@ export function AdminDashboardContainer() {
     };
   }, [jobIdFromUrl, persistTileAndRefresh, revalidateWorkspace]);
 
-  useSSEManager(streamUrl, sseListeners);
+  const stopPolling = useCallback((reason = "manual") => {
+    if (!pollingRef.current.active) return;
+    if (pollingRef.current.timeoutId) {
+      clearTimeout(pollingRef.current.timeoutId);
+      pollingRef.current.timeoutId = null;
+    }
+    pollingRef.current.active = false;
+    console.log(`[AdminContainer] 🛑 Polling stopped (${reason}).`);
+  }, []);
+
+  const startPolling = useCallback(() => {
+    if (pollingRef.current.active) return;
+    console.log("[AdminContainer] 🔄 SSE fallback: starting polling loop...");
+    pollingRef.current.active = true;
+    pollingRef.current.attempts = 0;
+
+    const tick = async () => {
+      if (!pollingRef.current.active) return;
+      pollingRef.current.attempts += 1;
+
+      try {
+        await revalidateWorkspace();
+      } catch (error) {
+        console.error("[AdminContainer] ⚠️ Polling error:", error);
+      }
+
+      if (!pollingRef.current.active) return;
+
+      if (!isGeneratingRef.current) {
+        stopPolling("tiles-ready");
+        return;
+      }
+
+      if (pollingRef.current.attempts >= MAX_POLLING_ATTEMPTS) {
+        stopPolling("max-attempts");
+        return;
+      }
+
+      pollingRef.current.timeoutId = setTimeout(tick, POLLING_INTERVAL_MS);
+    };
+
+    tick();
+  }, [revalidateWorkspace, stopPolling]);
+
+  useSSEManager(streamUrl, sseListeners, {
+    onPermanentError: () => startPolling(),
+    onReconnect: () => stopPolling("reconnected"),
+  });
 
   const handleTileClick = useCallback((tile) => {
     setSelectedTile(tile);

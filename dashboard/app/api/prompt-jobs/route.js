@@ -72,16 +72,16 @@ export async function POST(req) {
 
     // ⭐ FIX: Se o tema não for encontrado, usar o tema padrão como fallback.
     if (!theme) {
-      console.warn(
-        `[Create Job Route v2.0] ⚠️ Tema '${themeId}' não encontrado. Usando fallback 'sales-assistant'.`
+      console.info(
+        `[Create Job Route v2.0] Tema '${themeId}' não encontrado. Usando fallback 'sales-assistant'.`
       );
       theme = await db.findOne("themes", { id: "sales-assistant" });
     }
 
     // ⭐ FIX FINAL: Se nem o fallback for encontrado, usar um tema base do código.
     if (!theme) {
-      console.warn(
-        `[Create Job Route v2.0] ⚠️ Tema 'sales-assistant' não encontrado no DB. Usando BASE_THEMES.`
+      console.debug(
+        `[Create Job Route v2.0] Tema 'sales-assistant' ausente no DB. Usando BASE_THEMES.`
       );
       const { BASE_THEMES } = await import("@/lib/base-themes");
       theme = BASE_THEMES.sales;

@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withMongoErrorHandler } from "@/lib/withMongoErrorHandler";
+import { withMongoConnectionHandler } from "@/lib/withMongoConnectionHandler";
 import { getJob } from "@/lib/db/prompt-jobs";
 import crypto from "crypto";
 import Joi from "joi";
@@ -186,6 +187,12 @@ const deleteTileHandler = async (req, { params }) => {
   }
 };
 
-export const DELETE = withMongoErrorHandler(deleteTileHandler, {
-  message: "Failed to delete tile",
-});
+export const DELETE = withMongoConnectionHandler(
+  withMongoErrorHandler(deleteTileHandler, {
+    message: "Failed to delete tile",
+  }),
+  {
+    label: "guest-tiles:delete",
+    stage: "guest-tiles",
+  }
+);

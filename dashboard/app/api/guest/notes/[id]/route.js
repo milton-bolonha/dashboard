@@ -7,6 +7,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withMongoErrorHandler } from "@/lib/withMongoErrorHandler";
+import { withMongoConnectionHandler } from "@/lib/withMongoConnectionHandler";
 import { getJob } from "@/lib/db/prompt-jobs";
 import Joi from "joi";
 import sanitizeHtml from "sanitize-html";
@@ -178,9 +179,15 @@ const updateNoteHandler = async (req, { params }) => {
   }
 };
 
-export const PUT = withMongoErrorHandler(updateNoteHandler, {
-  message: "Failed to update note",
-});
+export const PUT = withMongoConnectionHandler(
+  withMongoErrorHandler(updateNoteHandler, {
+    message: "Failed to update note",
+  }),
+  {
+    label: "guest-notes:put",
+    stage: "guest-notes",
+  }
+);
 
 const deleteNoteHandler = async (req, { params }) => {
   try {
@@ -303,6 +310,12 @@ const deleteNoteHandler = async (req, { params }) => {
   }
 };
 
-export const DELETE = withMongoErrorHandler(deleteNoteHandler, {
-  message: "Failed to delete note",
-});
+export const DELETE = withMongoConnectionHandler(
+  withMongoErrorHandler(deleteNoteHandler, {
+    message: "Failed to delete note",
+  }),
+  {
+    label: "guest-notes:delete",
+    stage: "guest-notes",
+  }
+);

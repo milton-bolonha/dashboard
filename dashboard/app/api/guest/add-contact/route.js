@@ -10,6 +10,8 @@ import Joi from "joi";
 import sanitizeHtml from "sanitize-html";
 import crypto from "crypto";
 import { generateContactOutreachOnServer } from "@/lib/contact-outreach-generator";
+import { withMongoErrorHandler } from "@/lib/withMongoErrorHandler";
+import { withMongoConnectionHandler } from "@/lib/withMongoConnectionHandler";
 
 const addContactSchema = Joi.object({
   jobId: Joi.string().required(),
@@ -41,7 +43,7 @@ const findEntityIndex = (entities, companyId) =>
       entity.title === companyId
   );
 
-export async function POST(req) {
+const addContactHandler = async (req) => {
   try {
     console.log("📥 POST /api/guest/add-contact - Iniciando...");
 
@@ -183,4 +185,14 @@ export async function POST(req) {
       { status: 500 }
     );
   }
-}
+};
+
+export const POST = withMongoConnectionHandler(
+  withMongoErrorHandler(addContactHandler, {
+    message: "Failed to add contact",
+  }),
+  {
+    label: "guest-add-contact:post",
+    stage: "guest-add-contact",
+  }
+);

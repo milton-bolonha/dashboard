@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { withMongoErrorHandler } from "@/lib/withMongoErrorHandler";
+import { withMongoConnectionHandler } from "@/lib/withMongoConnectionHandler";
 import { createDynamicWorkspace } from "@/lib/dynamic-workspace";
 import { createTileDebugLogger } from "@/lib/tile-debug-logger";
 import { buildPromptContext } from "@/lib/theme-context-mapper";
@@ -316,9 +317,15 @@ const getWorkspaceHandler = async (req) => {
   }
 };
 
-export const GET = withMongoErrorHandler(getWorkspaceHandler, {
-  message: "Failed to retrieve workspace",
-});
+export const GET = withMongoConnectionHandler(
+  withMongoErrorHandler(getWorkspaceHandler, {
+    message: "Failed to retrieve workspace",
+  }),
+  {
+    label: "guest-workspace:get",
+    stage: "guest-workspace",
+  }
+);
 
 /**
  * POST /api/guest/workspace
@@ -772,9 +779,15 @@ const createWorkspaceHandler = async (req) => {
   }
 };
 
-export const POST = withMongoErrorHandler(createWorkspaceHandler, {
-  message: "Failed to create workspace",
-});
+export const POST = withMongoConnectionHandler(
+  withMongoErrorHandler(createWorkspaceHandler, {
+    message: "Failed to create workspace",
+  }),
+  {
+    label: "guest-workspace:post",
+    stage: "guest-workspace",
+  }
+);
 
 /**
  * PUT /api/guest/workspace
@@ -885,6 +898,12 @@ const updateWorkspaceHandler = async (req) => {
   }
 };
 
-export const PUT = withMongoErrorHandler(updateWorkspaceHandler, {
-  message: "Failed to update workspace",
-});
+export const PUT = withMongoConnectionHandler(
+  withMongoErrorHandler(updateWorkspaceHandler, {
+    message: "Failed to update workspace",
+  }),
+  {
+    label: "guest-workspace:put",
+    stage: "guest-workspace",
+  }
+);

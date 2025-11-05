@@ -10,6 +10,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/webhooks(.*)",
   "/api/public(.*)",
   "/api/deploy/webhook",
+  "/api/health/mongodb",
   "/api/guest(.*)",
   "/api/streams/jobs(.*)", // SSE streams de jobs devem ser públicos (autorização por chave do canal)
   // IAForms / Prompts: permitir fluxo guest (auth/ownerId é checado nas rotas quando necessário)

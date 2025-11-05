@@ -4,6 +4,8 @@ import { getJob } from "@/lib/db/prompt-jobs";
 import { uploadFile as uploadToCloudinary } from "@/lib/cloudinary";
 import Joi from "joi";
 import crypto from "crypto";
+import { withMongoErrorHandler } from "@/lib/withMongoErrorHandler";
+import { withMongoConnectionHandler } from "@/lib/withMongoConnectionHandler";
 
 const uploadSchema = Joi.object({
   jobId: Joi.string().required(),
@@ -17,7 +19,7 @@ const uploadSchema = Joi.object({
   fileName: Joi.string().required(),
 }).strict();
 
-export async function POST(req) {
+const uploadHandler = async (req) => {
   try {
     console.log("📥 POST /api/guest/upload - Iniciando upload...");
 
@@ -71,7 +73,9 @@ export async function POST(req) {
     }`;
 
     const fileBuffer = Buffer.from(value.fileData, "base64");
-    console.log(`📊 File info: ${value.fileName}, size: ${fileBuffer.length} bytes`);
+    console.log(
+      `📊 File info: ${value.fileName}, size: ${fileBuffer.length} bytes`
+    );
 
     const result = await uploadToCloudinary(fileBuffer, value.fileName, folder);
     console.log("✅ Arquivo enviado com sucesso para o Cloudinary:", result);
@@ -87,4 +91,14 @@ export async function POST(req) {
       { status: 500 }
     );
   }
-}
+};
+
+export const POST = withMongoConnectionHandler(
+  withMongoErrorHandler(uploadHandler, {
+    message: "Failed to upload file",
+  }),
+  {
+    label: "guest-upload:post",
+    stage: "guest-upload",
+  }
+);

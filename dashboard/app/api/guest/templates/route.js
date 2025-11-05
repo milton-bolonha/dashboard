@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withMongoErrorHandler } from "@/lib/withMongoErrorHandler";
+import { withMongoConnectionHandler } from "@/lib/withMongoConnectionHandler";
 import { getJob } from "@/lib/db/prompt-jobs";
 import Joi from "joi";
 import crypto from "crypto";
@@ -249,9 +250,15 @@ const listTemplatesHandler = async (req) => {
   }
 };
 
-export const GET = withMongoErrorHandler(listTemplatesHandler, {
-  message: "Failed to list templates",
-});
+export const GET = withMongoConnectionHandler(
+  withMongoErrorHandler(listTemplatesHandler, {
+    message: "Failed to list templates",
+  }),
+  {
+    label: "guest-templates:get",
+    stage: "guest-templates",
+  }
+);
 
 const createTemplateHandler = async (req) => {
   try {
@@ -316,6 +323,12 @@ const createTemplateHandler = async (req) => {
   }
 };
 
-export const POST = withMongoErrorHandler(createTemplateHandler, {
-  message: "Failed to save template",
-});
+export const POST = withMongoConnectionHandler(
+  withMongoErrorHandler(createTemplateHandler, {
+    message: "Failed to save template",
+  }),
+  {
+    label: "guest-templates:post",
+    stage: "guest-templates",
+  }
+);

@@ -600,7 +600,13 @@ export async function bulkWriteWithMetrics(
   - Variáveis documentadas para controle fino de conexão/batching e fallback de tiles.
 
 - `docs/mongodb-performance.md`
+
   - Guia rápido consolidando bulk writes, ordered vs unordered, e tuning baseado nas fontes de referência (vídeo e talk anexados).
+
+- Rotas guest + SSE (`withMongoConnectionHandler`, `useSSEManager`, `AdminDashboardContainer`)
+
+  - Todas as APIs sensíveis (workspace, tiles, notes, files, templates, etc.) passam por pre-warm e devolvem 503 rápido quando o cluster ainda acorda — adeus 504 + F5.
+  - SSE ganhou backoff e callback (`onPermanentError`) que ativa o polling incremental até os tiles estarem salvos.
 
 ## Análise Técnica do Código
 

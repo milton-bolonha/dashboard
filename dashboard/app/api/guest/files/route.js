@@ -7,6 +7,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withMongoErrorHandler } from "@/lib/withMongoErrorHandler";
+import { withMongoConnectionHandler } from "@/lib/withMongoConnectionHandler";
 import { getJob } from "@/lib/db/prompt-jobs";
 import Joi from "joi";
 import crypto from "crypto";
@@ -158,9 +159,15 @@ const listFilesHandler = async (req) => {
   }
 };
 
-export const GET = withMongoErrorHandler(listFilesHandler, {
-  message: "Failed to list files",
-});
+export const GET = withMongoConnectionHandler(
+  withMongoErrorHandler(listFilesHandler, {
+    message: "Failed to list files",
+  }),
+  {
+    label: "guest-files:get",
+    stage: "guest-files",
+  }
+);
 
 const createFileHandler = async (req) => {
   try {
@@ -282,6 +289,12 @@ const createFileHandler = async (req) => {
   }
 };
 
-export const POST = withMongoErrorHandler(createFileHandler, {
-  message: "Failed to save file",
-});
+export const POST = withMongoConnectionHandler(
+  withMongoErrorHandler(createFileHandler, {
+    message: "Failed to save file",
+  }),
+  {
+    label: "guest-files:post",
+    stage: "guest-files",
+  }
+);

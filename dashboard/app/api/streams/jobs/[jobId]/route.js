@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 // SSE Manager agora é um singleton com uma interface mais simples
 import { sseManager } from "@/lib/sse-manager";
 import { getJob } from "@/lib/db/prompt-jobs";
+import { withMongoConnection } from "@/lib/db";
 import crypto from "crypto";
 
 export const runtime = "nodejs";
@@ -21,7 +22,12 @@ export async function GET(request, { params }) {
       );
     }
 
-    const job = await getJob(jobId);
+    const job = await withMongoConnection(async () => await getJob(jobId), {
+      label: "sse:get-job",
+      stage: "sse",
+      retries: 2,
+      metadata: { jobId, guestId },
+    });
     if (!job) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
@@ -43,10 +49,13 @@ export async function GET(request, { params }) {
       `[SSE Route] ❌ Erro de autenticação para job ${jobId}:`,
       authError
     );
-    return NextResponse.json(
-      { error: "Authentication failed" },
-      { status: 500 }
-    );
+    const statusCode = authError?.code === "MONGODB_CIRCUIT_OPEN" ? 503 : 500;
+    const body = {
+      error:
+        statusCode === 503 ? "MongoDB unavailable" : "Authentication failed",
+      retry: statusCode === 503 ? "retry-later" : undefined,
+    };
+    return NextResponse.json(body, { status: statusCode });
   }
 
   const key = `guest:${guestId}:job:${jobId}`;

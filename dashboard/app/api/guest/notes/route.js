@@ -7,6 +7,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withMongoErrorHandler } from "@/lib/withMongoErrorHandler";
+import { withMongoConnectionHandler } from "@/lib/withMongoConnectionHandler";
 import { getJob } from "@/lib/db/prompt-jobs";
 import Joi from "joi";
 import sanitizeHtml from "sanitize-html";
@@ -33,7 +34,9 @@ const createNoteSchema = Joi.object({
 const normalizeEntityKey = (themeSnapshot, providedKey) => {
   if (providedKey) return providedKey;
   if (!themeSnapshot) return "companies";
-  const primaryEntity = themeSnapshot.entities?.find((entity) => entity.isPrimary);
+  const primaryEntity = themeSnapshot.entities?.find(
+    (entity) => entity.isPrimary
+  );
   if (!primaryEntity?.id) return "companies";
   const candidate = `${primaryEntity.id}s`;
   return candidate === "companys" ? "companies" : candidate;
@@ -85,8 +88,13 @@ const listNotesHandler = async (req) => {
       );
     }
 
-    const { jobId, guestId, token, companyId, entityKey: providedEntityKey } =
-      value;
+    const {
+      jobId,
+      guestId,
+      token,
+      companyId,
+      entityKey: providedEntityKey,
+    } = value;
 
     const job = await getJob(jobId);
     if (!job) {
@@ -123,9 +131,7 @@ const listNotesHandler = async (req) => {
       providedEntityKey
     );
 
-    const entities = Array.isArray(
-      guestWorkspace.workspace_data?.[entityKey]
-    )
+    const entities = Array.isArray(guestWorkspace.workspace_data?.[entityKey])
       ? guestWorkspace.workspace_data[entityKey]
       : [];
 
@@ -155,9 +161,15 @@ const listNotesHandler = async (req) => {
   }
 };
 
-export const GET = withMongoErrorHandler(listNotesHandler, {
-  message: "Failed to fetch notes",
-});
+export const GET = withMongoConnectionHandler(
+  withMongoErrorHandler(listNotesHandler, {
+    message: "Failed to fetch notes",
+  }),
+  {
+    label: "guest-notes:get",
+    stage: "guest-notes",
+  }
+);
 
 const createNoteHandler = async (req) => {
   try {
@@ -174,8 +186,13 @@ const createNoteHandler = async (req) => {
       );
     }
 
-    const { jobId, guestId, token, companyId, entityKey: providedEntityKey } =
-      value;
+    const {
+      jobId,
+      guestId,
+      token,
+      companyId,
+      entityKey: providedEntityKey,
+    } = value;
 
     const job = await getJob(jobId);
     if (!job) {
@@ -212,9 +229,7 @@ const createNoteHandler = async (req) => {
       providedEntityKey
     );
 
-    const entities = Array.isArray(
-      guestWorkspace.workspace_data?.[entityKey]
-    )
+    const entities = Array.isArray(guestWorkspace.workspace_data?.[entityKey])
       ? [...guestWorkspace.workspace_data[entityKey]]
       : [];
 
@@ -264,6 +279,12 @@ const createNoteHandler = async (req) => {
   }
 };
 
-export const POST = withMongoErrorHandler(createNoteHandler, {
-  message: "Failed to create note",
-});
+export const POST = withMongoConnectionHandler(
+  withMongoErrorHandler(createNoteHandler, {
+    message: "Failed to create note",
+  }),
+  {
+    label: "guest-notes:post",
+    stage: "guest-notes",
+  }
+);

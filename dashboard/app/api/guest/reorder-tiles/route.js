@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withMongoErrorHandler } from "@/lib/withMongoErrorHandler";
+import { withMongoConnectionHandler } from "@/lib/withMongoConnectionHandler";
 import { getJob } from "@/lib/db/prompt-jobs";
 import Joi from "joi";
 import crypto from "crypto";
@@ -174,6 +175,12 @@ const reorderTilesHandler = async (req) => {
   }
 };
 
-export const POST = withMongoErrorHandler(reorderTilesHandler, {
-  message: "Failed to reorder tiles",
-});
+export const POST = withMongoConnectionHandler(
+  withMongoErrorHandler(reorderTilesHandler, {
+    message: "Failed to reorder tiles",
+  }),
+  {
+    label: "guest-tiles:reorder",
+    stage: "guest-tiles",
+  }
+);
