@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { db, withMongoConnection } from "@/lib/db";
 import { createJob } from "@/lib/db/prompt-jobs";
 import { createDynamicWorkspace } from "@/lib/dynamic-workspace";
-import { runJobInBackground } from "@/lib/jobs/runner";
 import { v4 as uuidv4 } from "uuid";
 import Joi from "joi";
 import crypto from "crypto";
@@ -143,11 +142,51 @@ export async function POST(req) {
     });
     console.log(`[Create Job Route v2.0] ✅ Job criado: ${jobId}`);
 
-    // 6. Disparar a geração de tiles em background (não esperar a conclusão)
-    runJobInBackground(jobId);
-    console.log(
-      `[Create Job Route v2.0] 🚀 Geração de tiles iniciada em background para o job ${jobId}`
-    );
+    // 6. Disparar a geração de tiles via Netlify Background Function
+    // Isso permite que o job rode por até 15 minutos sem bloquear a requisição
+    try {
+      // Em produção, usar a URL do app; em dev, usar localhost do Netlify Dev
+      const netlifyUrl =
+        process.env.NEXT_PUBLIC_APP_URL ||
+        process.env.APP_PUBLIC_URL ||
+        "http://localhost:8888";
+      const backgroundUrl = `${netlifyUrl}/.netlify/functions/process-job-background`;
+
+      // Invocar background function de forma assíncrona (fire-and-forget)
+      fetch(backgroundUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ jobId }),
+      }).catch(async (error) => {
+        console.error(
+          `[Create Job Route v2.0] ⚠️ Erro ao disparar background function para ${jobId}:`,
+          error
+        );
+        // Se falhar, tentar fallback local (não ideal, mas melhor que nada)
+        console.log(
+          `[Create Job Route v2.0] 🔄 Tentando fallback local para ${jobId}...`
+        );
+        const { runJobInBackground } = await import("@/lib/jobs/runner");
+        runJobInBackground(jobId);
+      });
+
+      console.log(
+        `[Create Job Route v2.0] 🚀 Background function disparada para processar job ${jobId}`
+      );
+    } catch (error) {
+      console.error(
+        `[Create Job Route v2.0] ❌ Erro ao configurar background function:`,
+        error
+      );
+      // Fallback: usar o método antigo se a background function não estiver disponível
+      const { runJobInBackground } = await import("@/lib/jobs/runner");
+      runJobInBackground(jobId);
+      console.log(
+        `[Create Job Route v2.0] 🔄 Fallback: usando runJobInBackground local para ${jobId}`
+      );
+    }
 
     // 7. Retornar IDs e o token de acesso para o frontend redirecionar
     return NextResponse.json(

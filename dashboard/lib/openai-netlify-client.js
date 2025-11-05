@@ -10,7 +10,9 @@ export class NetlifyOpenAIClient {
     this.baseUrl =
       typeof window !== "undefined"
         ? ""
-        : process.env.NETLIFY_URL || "http://localhost:8888";
+        : process.env.NEXT_PUBLIC_APP_URL ||
+          process.env.APP_PUBLIC_URL ||
+          "http://localhost:8888";
   }
 
   async createCompletion(params, options = {}) {

@@ -81,9 +81,46 @@
 - Planejar remoção dos logs manuais (console) substituindo por um logger normalizado.
 - Monitorar `/api/streams/jobs/*` e `/api/guest/workspace` em produção (latência + taxa de erro) após ajustes.
 
-## 7. Próximos Passos Sugeridos
+## 7. Avaliação Next.js (Best Practices)
 
-1. Validar estabilidade do SSE/polling em produção (deixar logs por 24h).
-2. Definir plano de refatoração incremental (começando pelos hooks customizados).
-3. Criar tarefa para mover operações `fetch` para camadas de serviço.
-4. Revisar outros containers grandes (`StoryContainer`, `DashboardStatsContainer`) para padrão semelhante.
+- **Server vs Client Components**: `AdminDashboardContainer` é `"use client"` por necessidade (hooks/SSE). Componentes como `Sidebar`, `Header`, `SortableTilesGrid` poderiam ser convertidos para server ou divididos para reduzir bundle e hidratação.
+- **Middleware Clerk**: Configuração atual permite `/api/guest/*`, `/api/streams/*`, `/api/health/mongodb` sem Clerk — alinhado ao requisito multi-tenant. Recomenda-se validar periodicamente para evitar regressões (ex.: novas rotas guest precisariam ser adicionadas).
+- **Runtimes & streaming**: SSE permanece em `runtime = "nodejs"`, keep-alive ativo. Função precisa deixar claro `Cache-Control: no-store`; já presente na rota.
+- **Env/Secrets**: `MONGODB_URI`, `CLOUDINARY_*`, tokens Clerk estão bem isolados. Ao introduzir Netlify Background Functions será necessário criar variáveis dedicadas (`NETLIFY_BACKGROUND_QUEUE?`).
+- **ISR/Edge**: Rotas guest são API routes tradicionais; consumo público ainda não usa Edge. Recomenda-se preparar camadas derivadas (ex.: `guest_public_views`) antes de mover para Edge.
+
+## 8. Estratégia DeckEngine & Escalabilidade
+
+| Opção                                                | Prós                                                                                                                                                                   | Contras / Riscos                                                                                | Uso recomendado                                                                                                                        |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **Netlify Background Functions** (`*-background.js`) | 15 min runtime, invocação async (202), sem bloquear requisição principal, retries automáticos [[docs](https://docs.netlify.com/build/functions/background-functions/)] | Sem streaming direto; precisa persistir status em Mongo e notificar via SSE/polling manualmente | “Job worker” para gerar tiles em segundo plano; executar `queueJob` dentro de background function chamada após `POST /api/prompt-jobs` |
+| **Fila externa (BullMQ/Redis)**                      | Controle de concorrência, reprocessamento, visualização                                                                                                                | Infra extra (Redis), custos, Cold start em serverless                                           | Quando volume for alto (multi-tenant pago) e for necessário rate limit custom                                                          |
+| **Fila interna (semáforo in-memory)**                | Simples, sem dependência externa                                                                                                                                       | Não escala em múltiplas instâncias; instável em serverless stateless                            | Apenas para throttling leve (poucos jobs simultâneos)                                                                                  |
+
+Recomendação prática:
+
+1. Criar background route (`api/jobs/process-background.js`) que recebe `jobId` e invoca `queueJob` fora da requisição do cliente.
+2. `POST /api/prompt-jobs` responde 202 + dados e dispara `fetch('/api/jobs/process-background', { method: 'POST', body: ... })`.
+3. SSE/polling continuam lendo status do Mongo (sem depender da resposta inline).
+4. Se volume crescer além de 15min/worker, planejar migração para fila dedicada (Bull/Redis ou serviço gerenciado).
+
+## 9. Roadmap de Melhoria (Prioritário)
+
+1. **Runner/Queue**
+   - Migrar execução para Netlify Background Function.
+   - Implementar batching Mongo (`$push` com `$each`) para reduzir round-trips.
+2. **Modularização do Container**
+   - Extrair `useJobStreaming`, `useGuestWorkspace` hooks.
+   - Dividir UI em `Provider` + `View` + componentes modulados.
+3. **Observabilidade**
+   - Toggle de logs por env (`RUNNER_VERBOSE_LOGS`).
+   - Adicionar métricas de duração por tile (`[OpenAI Metrics]`).
+4. **Promoção NetlifyDB** (ver `plan-netlifydb.md`)
+   - Implementar camada DAL NetlifyDB + worker de promoção.
+5. **UX/Feedback**
+   - Toasts para erros (falha em tile → exibir no grid).
+   - Barra de progresso que consome `job:status` (considerar exibir erros).
+
+---
+
+> Este documento deve ser revisitado após a migração para background functions e modularização inicial, para atualizar métricas e riscos.

@@ -170,7 +170,9 @@ export async function POST(req) {
 
     try {
       const netlifyUrl =
-        process.env.NETLIFY_URL || "https://dashboardsalesapp.netlify.app";
+        process.env.NEXT_PUBLIC_APP_URL ||
+        process.env.APP_PUBLIC_URL ||
+        "http://localhost:8888";
       const functionUrl = `${netlifyUrl}/.netlify/functions/generate-tiles.mjs`;
 
       console.log(`📞 Chamando background function: ${functionUrl}`);

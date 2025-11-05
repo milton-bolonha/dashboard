@@ -157,6 +157,53 @@ export async function queueJob({
           metrics: payload.metrics,
         });
 
+        const usedFallback = payload.metrics?.fallback;
+        const failureReason =
+          payload.metrics?.lastError ||
+          (usedFallback ? "model_refusal" : undefined);
+
+        await appendResult({
+          jobId,
+          itemId: payload.itemId,
+          orderIndex: payload.orderIndex,
+          status: usedFallback ? "FAILED" : "COMPLETED",
+          result: usedFallback ? null : payload.result,
+          error: usedFallback ? failureReason : null,
+          metrics: payload.metrics,
+        });
+
+        if (usedFallback) {
+          errorCount++;
+          await appendLog({
+            jobId,
+            level: "warn",
+            message: `Tile ${payload.orderIndex} entrou em fallback (${failureReason}).`,
+          });
+
+          emitJobEvent({
+            guestId,
+            jobId,
+            type: "job:error",
+            payload: {
+              jobId,
+              itemId: payload.itemId,
+              orderIndex: payload.orderIndex,
+              error: {
+                message:
+                  failureReason ||
+                  "AI fallback triggered: no usable completion returned.",
+              },
+              scope,
+            },
+            token,
+          });
+
+          emitStatus("RUNNING_WITH_ERRORS");
+          return;
+        }
+
+        successCount++;
+
         const tileDoc = {
           id: `tile_${jobId}_${payload.orderIndex}`,
           title: payload.title || `Insight ${payload.orderIndex + 1}`,
