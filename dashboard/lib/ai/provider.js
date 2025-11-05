@@ -41,9 +41,12 @@ export async function* generateStreamedCompletion({
 
   while (attempt < maxAttempts) {
     try {
-      console.log(
-        `[OpenAI Provider] 🔄 Tentativa ${attempt + 1}/${maxAttempts}...`
-      );
+      // Log apenas se for primeira tentativa
+      if (attempt === 0) {
+        console.log(
+          `[OpenAI Provider] 🔄 Tentativa ${attempt + 1}/${maxAttempts}`
+        );
+      }
 
       // ⭐ CORREÇÃO: Modelos o4-mini requerem max_completion_tokens em vez de max_tokens
       // ⭐ CORREÇÃO: Modelos o4-mini não suportam temperature customizado, apenas default (1)
@@ -68,26 +71,14 @@ export async function* generateStreamedCompletion({
       // ⭐ Usar parâmetros corretos baseado no modelo
       if (isO4Mini) {
         completionParams.max_completion_tokens = max_tokens;
-        // ⭐ CORREÇÃO: o4-mini não suporta temperature customizado, apenas default (1)
-        // Não passar temperature para usar o padrão
-        console.log(
-          `[OpenAI Provider] 🔧 Usando max_completion_tokens (modelo ${model})`
-        );
-        console.log(
-          `[OpenAI Provider] 🔧 Temperature não será passado (modelo ${model} usa padrão 1)`
-        );
       } else {
         completionParams.max_tokens = max_tokens;
-        completionParams.temperature = temperature; // ⭐ Outros modelos podem usar temperature customizado
-        console.log(`[OpenAI Provider] 🔧 Usando max_tokens (modelo ${model})`);
-        console.log(`[OpenAI Provider] 🔧 Temperature: ${temperature}`);
+        completionParams.temperature = temperature;
       }
 
       const completion = await openai.chat.completions.create(completionParams);
 
-      console.log(
-        "[OpenAI Provider] ✅ Conexão estabelecida, aguardando chunks..."
-      );
+      // Log removido (redundante)
 
       // ⭐ ITERAR SOBRE OS CHUNKS EM STREAMING
       for await (const chunk of completion) {
@@ -98,9 +89,10 @@ export async function* generateStreamedCompletion({
           if (!firstTokenTime) {
             firstTokenTime = Date.now();
             const ttft = firstTokenTime - startTime;
-            console.log(
-              `[OpenAI Provider] ⚡ First token recebido em ${ttft}ms`
-            );
+            // Log apenas TTFT se for > 1s (indicador de problema)
+            if (ttft > 1000) {
+              console.log(`[OpenAI Provider] ⚡ TTFT: ${ttft}ms (lento)`);
+            }
           }
 
           tokenCount++;
@@ -108,9 +100,9 @@ export async function* generateStreamedCompletion({
           // Yield do chunk para o caller
           yield content;
 
-          // Log a cada 10 tokens para não poluir muito
-          if (tokenCount % 10 === 0) {
-            console.log(`[OpenAI Provider] 📊 Tokens recebidos: ${tokenCount}`);
+          // Log apenas a cada 50 tokens (reduzir spam)
+          if (tokenCount % 50 === 0) {
+            console.log(`[OpenAI Provider] 📊 Tokens: ${tokenCount}`);
           }
         }
       }
@@ -119,15 +111,10 @@ export async function* generateStreamedCompletion({
       const totalTime = endTime - startTime;
       const ttft = firstTokenTime ? firstTokenTime - startTime : 0;
 
+      // Log resumido apenas (métricas completas só em debug)
       console.log(
-        "[OpenAI Provider] ✅ ========== COMPLETION FINALIZADA =========="
+        `[OpenAI Provider] ✅ Completo: ${tokenCount} tokens em ${totalTime}ms`
       );
-      console.log("[OpenAI Provider] 📊 Métricas:", {
-        totalTime: `${totalTime}ms`,
-        ttft: `${ttft}ms`,
-        tokens: tokenCount,
-        model,
-      });
 
       return; // Sucesso!
     } catch (error) {
@@ -147,9 +134,10 @@ export async function* generateStreamedCompletion({
       const base = Math.pow(2, attempt) * 250; // 250ms, 500ms, 1000ms...
       const jitter = Math.floor(Math.random() * 200);
       const delay = base + jitter;
-      console.log(
-        `[OpenAI Provider] ⏳ Aguardando ${delay}ms antes de tentar novamente...`
-      );
+      // Log apenas se for primeira retentativa
+      if (attempt === 1) {
+        console.log(`[OpenAI Provider] ⏳ Retry em ${delay}ms`);
+      }
       await new Promise((r) => setTimeout(r, delay));
     }
   }

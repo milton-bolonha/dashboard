@@ -110,20 +110,18 @@ export async function GET(request, { params }) {
         }
       }
 
-      // Lógica de keep-alive e cleanup
+      // Lógica de keep-alive e cleanup (sem logs para reduzir spam)
       const keepAlive = setInterval(() => {
         try {
           controller.enqueue(encoder.encode(": keep-alive\n\n"));
         } catch (err) {
-          console.debug(
-            "[SSE Route] ⚠️ Conexão já fechada, limpando keep-alive."
-          );
+          // Conexão fechada, limpar silenciosamente
           clearInterval(keepAlive);
         }
       }, 25000); // 25 segundos
 
       request.signal.addEventListener("abort", () => {
-        console.log(`[SSE Route] 🔌 Cliente desconectou da chave: ${key}`);
+        // Log removido (muito repetitivo)
         clearInterval(keepAlive);
         sseManager.remove(key, onEvent);
       });

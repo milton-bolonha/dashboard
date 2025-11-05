@@ -7,17 +7,17 @@
  * @see https://docs.netlify.com/build/functions/background-functions/
  */
 
-const { db, withMongoConnection } = require("../../dashboard/lib/db");
-const { getJob, updateJob } = require("../../dashboard/lib/db/prompt-jobs");
-const { queueJob } = require("../../dashboard/lib/jobs/deck-engine-adapter");
-const { emitJobEvent } = require("../../dashboard/lib/jobs/events");
+import { db, withMongoConnection } from "../../dashboard/lib/db.js";
+import { getJob, updateJob } from "../../dashboard/lib/db/prompt-jobs.js";
+import { queueJob } from "../../dashboard/lib/jobs/deck-engine-adapter.js";
+import { emitJobEvent } from "../../dashboard/lib/jobs/events.js";
 
 /**
  * Handler da Background Function
  * Netlify automaticamente invoca esta função de forma assíncrona
  * quando recebe um POST com header X-NF-Background: true
  */
-exports.handler = async (event) => {
+export async function handler(event) {
   // Background functions recebem um evento com body serializado
   let body;
   try {
@@ -60,7 +60,7 @@ exports.handler = async (event) => {
       jobId,
     }),
   };
-};
+}
 
 /**
  * Processa o job completamente em background
@@ -116,7 +116,25 @@ async function processJobInBackground(jobId) {
 
     await updateJob(jobId, { status: "QUEUED", initialItems: items });
 
+    console.log(
+      `[Background Function] 📋 Preparando queueJob para job ${jobId}`,
+      {
+        guestId: job.guestId,
+        templateId: job.templateId,
+        model: job.model,
+        itemsCount: items.length,
+        entityKey,
+        companyName:
+          companyNameFromWorkspace ||
+          job.dataSource?.data?.company?.name ||
+          job.dataSource?.data?.target ||
+          job.dataSource?.data?.researchTarget ||
+          null,
+      }
+    );
+
     // Invocar queueJob que processa todos os tiles
+    // Nota: token não é necessário porque emitJobEvent no backend não precisa dele
     await queueJob({
       guestId: job.guestId,
       jobId,
@@ -131,8 +149,7 @@ async function processJobInBackground(jobId) {
         job.dataSource?.data?.target ||
         job.dataSource?.data?.researchTarget ||
         null,
-      // Não passamos token aqui porque a background function não precisa
-      // O SSE manager já está configurado para emitir eventos sem token no backend
+      token: null, // Não necessário no backend, mas passamos null explicitamente
     });
 
     console.log(

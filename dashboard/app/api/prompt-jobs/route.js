@@ -143,49 +143,64 @@ export async function POST(req) {
     console.log(`[Create Job Route v2.0] ✅ Job criado: ${jobId}`);
 
     // 6. Disparar a geração de tiles via Netlify Background Function
-    // Isso permite que o job rode por até 15 minutos sem bloquear a requisição
+    // Background Functions podem rodar por até 15 minutos sem bloquear a requisição
     try {
-      // Em produção, usar a URL do app; em dev, usar localhost do Netlify Dev
+      // Em produção, usar variável de ambiente; em dev, usar localhost do Netlify Dev
       const netlifyUrl =
         process.env.NEXT_PUBLIC_APP_URL ||
         process.env.APP_PUBLIC_URL ||
         "http://localhost:8888";
-      const backgroundUrl = `${netlifyUrl}/.netlify/functions/process-job-background`;
 
-      // Invocar background function de forma assíncrona (fire-and-forget)
-      fetch(backgroundUrl, {
+      const backgroundFunctionUrl = `${netlifyUrl}/.netlify/functions/process-job-background`;
+
+      console.log(
+        `[Create Job Route v2.0] 🚀 Disparando Netlify Background Function para job ${jobId}...`
+      );
+
+      // Fire-and-forget: não esperar resposta (background function retorna 202 imediatamente)
+      fetch(backgroundFunctionUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ jobId }),
-      }).catch(async (error) => {
-        console.error(
-          `[Create Job Route v2.0] ⚠️ Erro ao disparar background function para ${jobId}:`,
-          error
-        );
-        // Se falhar, tentar fallback local (não ideal, mas melhor que nada)
-        console.log(
-          `[Create Job Route v2.0] 🔄 Tentando fallback local para ${jobId}...`
-        );
-        const { runJobInBackground } = await import("@/lib/jobs/runner");
-        runJobInBackground(jobId);
-      });
+      })
+        .then(async (response) => {
+          const text = await response.text().catch(() => "");
+          if (response.status === 202 || response.ok) {
+            console.log(
+              `[Create Job Route v2.0] ✅ Background function iniciada: ${response.status}`
+            );
+          } else {
+            throw new Error(
+              `Background function failed: ${response.status} ${text}`
+            );
+          }
+        })
+        .catch(async (error) => {
+          console.error(
+            `[Create Job Route v2.0] ⚠️ Erro ao disparar background function:`,
+            error
+          );
+          // Fallback: executar diretamente se a background function falhar
+          console.log(
+            `[Create Job Route v2.0] 🔄 Fallback: executando localmente...`
+          );
+          const { runJobInBackground } = await import("@/lib/jobs/runner");
+          runJobInBackground(jobId);
+        });
 
       console.log(
-        `[Create Job Route v2.0] 🚀 Background function disparada para processar job ${jobId}`
+        `[Create Job Route v2.0] ✅ Job ${jobId} disparado para processamento em background`
       );
     } catch (error) {
       console.error(
         `[Create Job Route v2.0] ❌ Erro ao configurar background function:`,
         error
       );
-      // Fallback: usar o método antigo se a background function não estiver disponível
+      // Fallback: executar diretamente
       const { runJobInBackground } = await import("@/lib/jobs/runner");
       runJobInBackground(jobId);
-      console.log(
-        `[Create Job Route v2.0] 🔄 Fallback: usando runJobInBackground local para ${jobId}`
-      );
     }
 
     // 7. Retornar IDs e o token de acesso para o frontend redirecionar

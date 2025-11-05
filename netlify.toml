@@ -12,7 +12,6 @@ package = "@netlify/plugin-nextjs"
 node_bundler = "esbuild"
 directory = "netlify/functions"
 
-# Background Function para processar jobs longos (até 15 minutos)
-[[functions]]
-name = "process-job-background"
-background = true
+# Background Functions são detectadas automaticamente pelo sufixo "-background"
+# A função process-job-background.js será automaticamente configurada como background
+# Não é necessário configurar aqui - o Netlify detecta pelo nome do arquivo

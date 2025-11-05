@@ -47,18 +47,9 @@ async function runJob({
   }
 
   const template = getGuestTemplate(actualTemplateId);
-  console.log(`[Runner] 📋 ========== TEMPLATE CARREGADO ==========`);
-  console.log(`[Runner] 📋 Template ID solicitado: ${templateId}`);
-  console.log(`[Runner] 📋 Template ID usado: ${actualTemplateId}`);
-  console.log(`[Runner] 📋 Template nome: ${template.name}`);
   console.log(
-    `[Runner] 📋 Total de tiles no template: ${template.tiles.length}`
+    `[Runner] 📋 Template: ${template.name} (${template.tiles.length} tiles)`
   );
-  console.log(
-    `[Runner] 📋 Tiles disponíveis:`,
-    template.tiles.map((t) => t.title)
-  );
-  console.log(`[Runner] 📋 ======================================`);
 
   // ⭐ BUG FIX: Usar template.tiles.length como total (8 tiles), não items.length
   // ⭐ Se items.length for menor, criar items vazios para os tiles restantes
@@ -118,33 +109,15 @@ async function runJob({
 
   firstItem = firstItem || {};
 
-  console.log(`[Runner] 🔍 ========== PRIMEIRO ITEM ENCONTRADO ==========`);
-  console.log(`[Runner] 🔍 Item completo:`, JSON.stringify(firstItem, null, 2));
-  console.log(`[Runner] 🔍 Campos disponíveis:`, Object.keys(firstItem));
-  console.log(
-    `[Runner] 🔍 Has ResearchTarget: ${!!firstItem.researchTarget} = "${
-      firstItem.researchTarget
-    }"`
-  );
-  console.log(
-    `[Runner] 🔍 Has Company: ${!!firstItem.company} = "${firstItem.company}"`
-  );
-  console.log(
-    `[Runner] 🔍 Has Solution: ${!!firstItem.solution} = "${
-      firstItem.solution
-    }"`
-  );
-  console.log(
-    `[Runner] 🔍 Has ResearchWebsite: ${!!firstItem.researchWebsite} = "${
-      firstItem.researchWebsite
-    }"`
-  );
-  console.log(
-    `[Runner] 🔍 Has CompanyWebsite: ${!!firstItem.companyWebsite} = "${
-      firstItem.companyWebsite
-    }"`
-  );
-  console.log(`[Runner] 🔍 ======================================`);
+  // Log resumido do item (apenas campos principais)
+  console.log(`[Runner] 🔍 Item:`, {
+    target: firstItem.researchTarget || firstItem.target || "N/A",
+    company:
+      typeof firstItem.company === "object"
+        ? firstItem.company?.name || "N/A"
+        : firstItem.company || "N/A",
+    solution: firstItem.solution || "N/A",
+  });
 
   // ⭐ CORREÇÃO: Construir contexto no formato esperado pelos prompts
   // Templates usam {company.name} e {company.website}, então precisamos context.company
@@ -186,21 +159,13 @@ async function runJob({
     },
   };
 
-  console.log(`[Runner] 📝 ========== CONTEXTO CONSTRUÍDO ==========`);
-  console.log(`[Runner] 📝 Company Name: "${context.company.name}"`);
-  console.log(`[Runner] 📝 Company Website: "${context.company.website}"`);
-  console.log(`[Runner] 📝 Solution: "${context.solution}"`);
-  console.log(`[Runner] 📝 Research Target: "${context.researchTarget}"`);
-  console.log(`[Runner] 📝 Research Website: "${context.researchWebsite}"`);
-  console.log(
-    `[Runner] 📝 Selling Solutions For: "${context.sellingSolutionsFor}"`
-  );
-  console.log(`[Runner] 📝 Sales Rep At: "${context.salesRepAt}"`);
-  console.log(
-    `[Runner] 📝 Context completo (JSON):`,
-    JSON.stringify(context, null, 2)
-  );
-  console.log(`[Runner] 📝 ======================================`);
+  // Log resumido do contexto (apenas valores principais)
+  console.log(`[Runner] 📝 Contexto:`, {
+    company: context.company.name,
+    website: context.company.website,
+    solution: context.solution,
+    researchTarget: context.researchTarget,
+  });
 
   // ⭐ NOVO: Mapear orderIndex para tile do template
   // ⭐ BUG FIX: Usar expandedItems em vez de items
@@ -233,9 +198,10 @@ async function runJob({
       if (tile && tile.prompt) {
         // Processar variáveis do prompt com contexto do item
         prompt = processPromptVariables(tile.prompt, context);
-        console.log(`[Runner] 📋 Prompt gerado para "${tile.title}":`);
-        console.log(`[Runner] 📋 Prompt completo:`, prompt);
-        console.log(`[Runner] 📋 Prompt length: ${prompt.length} caracteres`);
+        // Log apenas resumo do prompt (não o conteúdo completo)
+        console.log(
+          `[Runner] 📋 Prompt: "${tile.title}" (${prompt.length} chars)`
+        );
       } else if (typeof item.prompt === "string") {
         prompt = processPromptVariables(item.prompt, context);
       } else {
@@ -245,18 +211,12 @@ async function runJob({
         prompt = JSON.stringify(item);
       }
 
-      // ⭐ LOGS DETALHADOS: Antes de iniciar streaming
+      // Log resumido apenas no início de cada tile
       console.log(
-        `[Runner] 🚀 ========== INICIANDO TILE ${
-          orderIndex + 1
-        }/${total} ==========`
+        `[Runner] 🚀 Tile ${orderIndex + 1}/${total}: "${
+          tile?.title || "Unknown"
+        }"`
       );
-      console.log(`[Runner] 📋 Tile: ${tile?.title || "Unknown"}`);
-      console.log(
-        `[Runner] 📝 Prompt processado:`,
-        prompt.substring(0, 200) + "..."
-      );
-      console.log(`[Runner] 🔧 Model: ${model}`);
 
       const fallbackMessage =
         "⚠️ No AI output was generated for this insight. Please regenerate or adjust the prompt.";
@@ -301,11 +261,10 @@ async function runJob({
             accumulatedResult += chunkContent;
             ix += 1;
 
-            if (ix % 50 === 0) {
+            // Log apenas a cada 100 chunks (reduzir spam)
+            if (ix % 100 === 0) {
               console.log(
-                `[Runner] 📊 Tile ${
-                  orderIndex + 1
-                } (attempt ${attempt}): ${ix} chunks recebidos, ${
+                `[Runner] 📊 Tile ${orderIndex + 1}/${total}: ${ix} chunks, ${
                   accumulatedResult.length
                 } chars`
               );
@@ -328,13 +287,14 @@ async function runJob({
         }
 
         const streamDuration = Date.now() - streamStartTime;
-        console.log(
-          `[Runner] ⏱️ Tile ${
-            orderIndex + 1
-          } attempt ${attempt} finalizado em ${streamDuration}ms (length=${
-            accumulatedResult.length
-          })`
-        );
+        // Log apenas no final bem-sucedido (não a cada tentativa)
+        if (!invalidResponse || attempt === TILE_MAX_ATTEMPTS) {
+          console.log(
+            `[Runner] ⏱️ Tile ${
+              orderIndex + 1
+            }/${total}: ${streamDuration}ms, ${accumulatedResult.length} chars`
+          );
+        }
 
         const trimmedResult = accumulatedResult.trim();
         const looksLikeRefusal = trimmedResult
@@ -367,11 +327,14 @@ async function runJob({
           const backoff =
             Math.min(Math.pow(2, attempt) * 500, 4000) +
             Math.floor(Math.random() * 200);
-          console.log(
-            `[Runner] 🔁 Reattempting tile ${
-              orderIndex + 1
-            } em ${backoff}ms (reason: ${failureReason})`
-          );
+          // Log apenas se for a primeira tentativa ou se houver mudança significativa
+          if (attempt === 1) {
+            console.log(
+              `[Runner] 🔁 Retry tile ${
+                orderIndex + 1
+              }/${total} em ${backoff}ms`
+            );
+          }
           await sleep(backoff);
           continue;
         }

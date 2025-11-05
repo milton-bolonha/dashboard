@@ -12,11 +12,10 @@ class SSEManager {
       this.connections.set(key, new Set());
     }
     this.connections.get(key).add(handler);
-    console.log(
-      `[SSE Manager] ➕ Conexão adicionada: ${key} | Total: ${
-        this.connections.get(key).size
-      }`
-    );
+    // Log apenas quando conexão é criada (não repetitivo)
+    if (this.connections.get(key).size === 1) {
+      console.log(`[SSE Manager] ➕ Nova conexão: ${key}`);
+    }
 
     // Reenviar eventos do buffer se houver algum
     const bufferedEvents = this.buffer.get(key) || [];
@@ -59,10 +58,19 @@ class SSEManager {
     const handlers = this.connections.get(key);
     const hasConnection = handlers && handlers.size > 0;
 
-    console.log(`[SSE Manager] 📤 Emitindo para '${key}':`, {
-      type: event.type,
-      hasConnection,
-    });
+    // Log apenas eventos críticos ou mudanças de estado (não todos os eventos)
+    const isCriticalEvent =
+      event.type === "job:status" &&
+      (event.payload?.status === "COMPLETED" ||
+        event.payload?.status === "FAILED" ||
+        event.payload?.status === "QUEUED");
+
+    if (isCriticalEvent || !hasConnection) {
+      console.log(`[SSE Manager] 📤 ${event.type} para '${key}':`, {
+        status: event.payload?.status,
+        hasConnection,
+      });
+    }
 
     if (hasConnection) {
       handlers.forEach((handler) => {
@@ -84,9 +92,12 @@ class SSEManager {
       if (keyBuffer.length > MAX_BUFFER_SIZE) {
         keyBuffer.shift(); // Manter o buffer no tamanho máximo
       }
-      console.log(
-        `[SSE Manager] 💾 Evento bufferizado para '${key}' (Buffer: ${keyBuffer.length})`
-      );
+      // Log apenas quando buffer está ficando grande
+      if (keyBuffer.length % 10 === 0 || keyBuffer.length === 1) {
+        console.log(
+          `[SSE Manager] 💾 Buffer: ${keyBuffer.length} eventos para '${key}'`
+        );
+      }
     }
   }
 }

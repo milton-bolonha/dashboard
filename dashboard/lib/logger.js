@@ -1,57 +1,84 @@
 /**
- * Sistema de Logger Centralizado
- *
- * Este módulo fornece uma função de log para depuração que pode ser ativada/desativada
- * globalmente através de uma variável de ambiente, evitando a poluição de logs
- * em produção.
+ * Sistema de logging centralizado com controle de verbosidade
+ * Permite reduzir logs repetitivos e focar em informações importantes
  */
 
-// A verificação é feita uma vez quando o módulo é carregado para eficiência.
-const isDebugMode = process.env.DASH_DEBUG_MODE === "true";
+const LOG_LEVELS = {
+  ERROR: 0,
+  WARN: 1,
+  INFO: 2,
+  DEBUG: 3,
+};
 
-/**
- * Faz o log de uma mensagem de depuração apenas se o modo de depuração estiver ativado.
- *
- * @param {string} message A mensagem principal a ser registrada.
- * @param  {...any} args Argumentos adicionais a serem registrados, similar ao console.log.
- */
-export function logDebug(message, ...args) {
-  if (isDebugMode) {
-    // Usamos um prefixo para identificar facilmente os logs de depuração.
-    const prefix = "[DEBUG]";
-    if (args.length > 0) {
-      console.log(prefix, message, ...args);
-    } else {
-      console.log(prefix, message);
+const DEFAULT_LOG_LEVEL = process.env.LOG_LEVEL || "INFO";
+const LOG_LEVEL_NUM = LOG_LEVELS[DEFAULT_LOG_LEVEL] ?? LOG_LEVELS.INFO;
+
+// Configurações por contexto
+const CONTEXT_CONFIG = {
+  SSE: {
+    maxFrequency: 5000, // Log máximo a cada 5s para eventos repetitivos
+    enabled: true,
+  },
+  RUNNER: {
+    maxFrequency: 1000, // Log máximo a cada 1s
+    enabled: true,
+  },
+  DECKENGINE: {
+    maxFrequency: 2000, // Log máximo a cada 2s
+    enabled: true,
+  },
+};
+
+// Throttle por contexto
+const lastLogTime = new Map();
+
+function shouldLog(context, message) {
+  if (!CONTEXT_CONFIG[context]?.enabled) return false;
+
+  const now = Date.now();
+  const lastTime = lastLogTime.get(message) || 0;
+  const maxFreq = CONTEXT_CONFIG[context].maxFrequency || 1000;
+
+  if (now - lastTime > maxFreq) {
+    lastLogTime.set(message, now);
+    return true;
+  }
+
+  return false;
+}
+
+export const logger = {
+  error: (context, message, data = {}) => {
+    if (LOG_LEVEL_NUM >= LOG_LEVELS.ERROR) {
+      console.error(`[${context}] ❌ ${message}`, data);
     }
-  }
-}
+  },
 
-/**
- * Faz o log de um aviso, independentemente do modo de depuração.
- * Útil para condições que não são erros, mas que devem ser notadas.
- * @param {string} message A mensagem de aviso.
- * @param  {...any} args Argumentos adicionais.
- */
-export function logWarn(message, ...args) {
-  const prefix = "[WARN]";
-  if (args.length > 0) {
-    console.warn(prefix, message, ...args);
-  } else {
-    console.warn(prefix, message);
-  }
-}
+  warn: (context, message, data = {}) => {
+    if (LOG_LEVEL_NUM >= LOG_LEVELS.WARN) {
+      if (shouldLog(context, message)) {
+        console.warn(`[${context}] ⚠️ ${message}`, data);
+      }
+    }
+  },
 
-/**
- * Faz o log de um erro, independentemente do modo de depuração.
- * @param {string} message A mensagem de erro.
- * @param  {...any} args Argumentos adicionais.
- */
-export function logError(message, ...args) {
-  const prefix = "[ERROR]";
-  if (args.length > 0) {
-    console.error(prefix, message, ...args);
-  } else {
-    console.error(prefix, message);
-  }
-}
+  info: (context, message, data = {}) => {
+    if (LOG_LEVEL_NUM >= LOG_LEVELS.INFO) {
+      // Logs de info sempre passam (não são repetitivos normalmente)
+      console.log(`[${context}] ℹ️ ${message}`, data);
+    }
+  },
+
+  debug: (context, message, data = {}) => {
+    if (LOG_LEVEL_NUM >= LOG_LEVELS.DEBUG) {
+      if (shouldLog(context, message)) {
+        console.debug(`[${context}] 🔍 ${message}`, data);
+      }
+    }
+  },
+
+  // Logs críticos sempre passam (sem throttle)
+  critical: (context, message, data = {}) => {
+    console.error(`[${context}] 🚨 CRITICAL: ${message}`, data);
+  },
+};

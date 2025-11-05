@@ -14,11 +14,20 @@ export function runJobInBackground(jobId) {
     let job = null;
     try {
       console.log(`[Runner] 🚀 Iniciando job ${jobId} em background...`);
+      console.log(`[Runner] 📍 Stack trace:`, new Error().stack);
 
       job = await getJob(jobId);
       if (!job) {
         throw new Error(`Job ${jobId} não encontrado no banco de dados.`);
       }
+
+      console.log(`[Runner] ✅ Job encontrado:`, {
+        jobId: job.jobId,
+        guestId: job.guestId,
+        templateId: job.templateId,
+        status: job.status,
+        hasDataSource: !!job.dataSource,
+      });
 
       // No Fluxo 2.0, o workspace já deve existir
       const guestWorkspace = await db.findOne("guest_workspaces", {
@@ -49,6 +58,21 @@ export function runJobInBackground(jobId) {
       const items = job.dataSource?.data ? [job.dataSource.data] : [];
 
       await updateJob(jobId, { status: "QUEUED", initialItems: items });
+
+      console.log(`[Runner] 📋 Preparando queueJob:`, {
+        guestId: job.guestId,
+        jobId,
+        templateId: job.templateId,
+        model: job.model,
+        itemsCount: items.length,
+        entityKey,
+        companyName:
+          companyNameFromWorkspace ||
+          job.dataSource?.data?.company?.name ||
+          job.dataSource?.data?.target ||
+          job.dataSource?.data?.researchTarget ||
+          null,
+      });
 
       await queueJob({
         guestId: job.guestId,

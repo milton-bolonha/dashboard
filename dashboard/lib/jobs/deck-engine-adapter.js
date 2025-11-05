@@ -19,6 +19,15 @@ export async function queueJob({
   entityKey = "companies",
   companyName = null,
 }) {
+  console.log(`[DeckEngine] 🚀 queueJob iniciado para job ${jobId}`, {
+    guestId,
+    templateId,
+    model,
+    itemsCount: Array.isArray(items) ? items.length : 0,
+    entityKey,
+    companyName,
+  });
+
   const total = Array.isArray(items) ? items.length : 0;
   let successCount = 0;
   let errorCount = 0;
@@ -34,8 +43,16 @@ export async function queueJob({
       ? items[0].researchTarget
       : null);
 
+  console.log(
+    `[DeckEngine] 📋 Resolvido: entityKey="${resolvedEntityKey}", companyName="${resolvedCompanyName}"`
+  );
+
   const persistTileDirectly = async (tileDoc) => {
     if (!guestId || !resolvedCompanyName) {
+      console.warn(
+        `[DeckEngine] ⚠️ persistTileDirectly: faltando guestId ou companyName`,
+        { guestId, resolvedCompanyName, entityKey: resolvedEntityKey }
+      );
       return false;
     }
 
@@ -43,6 +60,10 @@ export async function queueJob({
     const tilesField = `workspace_data.${resolvedEntityKey}.$.tiles`;
 
     try {
+      console.log(
+        `[DeckEngine] 💾 Tentando salvar tile ${tileDoc.id} para company "${resolvedCompanyName}"`
+      );
+
       // Remove versões antigas do mesmo tile
       await db.updateOne(
         "guest_workspaces",
@@ -76,11 +97,23 @@ export async function queueJob({
 
       if (modified === 0) {
         console.warn(
-          `[DeckEngine] ⚠️ Tile ${tileDoc.id} não pôde ser salvo diretamente (company=${resolvedCompanyName}).`
+          `[DeckEngine] ⚠️ Tile ${tileDoc.id} não pôde ser salvo diretamente (company=${resolvedCompanyName}). Verificando se a company existe...`
+        );
+        // Verificar se a company existe
+        const workspace = await db.findOne("guest_workspaces", {
+          guest_id: guestId,
+        });
+        const companies = workspace?.workspace_data?.[resolvedEntityKey] || [];
+        console.warn(
+          `[DeckEngine] 📋 Companies encontradas:`,
+          companies.map((c) => c.name)
         );
         return false;
       }
 
+      console.log(
+        `[DeckEngine] ✅ Tile ${tileDoc.id} salvo com sucesso (modified=${modified})`
+      );
       return true;
     } catch (error) {
       console.error(
