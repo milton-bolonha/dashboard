@@ -335,23 +335,6 @@ export function AdminDashboardContainer() {
     ]
   );
 
-  const sseListeners = useMemo(() => {
-    if (!jobIdFromUrl) return {};
-    return {
-      "job:status": (payload) => {
-        if (payload?.progress) {
-          setTileProgress(payload.progress);
-        }
-        if (payload?.status === "COMPLETED") {
-          revalidateWorkspace();
-        }
-      },
-      "job:result-completed": (payload) => {
-        persistTileAndRefresh(payload);
-      },
-    };
-  }, [jobIdFromUrl, persistTileAndRefresh, revalidateWorkspace]);
-
   const stopPolling = useCallback((reason = "manual") => {
     if (!pollingRef.current.active) return;
     if (pollingRef.current.timeoutId) {
@@ -396,10 +379,32 @@ export function AdminDashboardContainer() {
     tick();
   }, [revalidateWorkspace, stopPolling]);
 
-  useSSEManager(streamUrl, sseListeners, {
-    onPermanentError: () => startPolling(),
-    onReconnect: () => stopPolling("reconnected"),
-  });
+  const sseListeners = useMemo(() => {
+    if (!jobIdFromUrl) return {};
+    return {
+      "job:status": (payload) => {
+        if (payload?.progress) {
+          setTileProgress(payload.progress);
+        }
+        if (payload?.status === "COMPLETED") {
+          revalidateWorkspace();
+        }
+      },
+      "job:result-completed": (payload) => {
+        persistTileAndRefresh(payload);
+      },
+    };
+  }, [jobIdFromUrl, persistTileAndRefresh, revalidateWorkspace]);
+
+  const sseOptions = useMemo(
+    () => ({
+      onPermanentError: () => startPolling(),
+      onReconnect: () => stopPolling("reconnected"),
+    }),
+    [startPolling, stopPolling]
+  );
+
+  useSSEManager(streamUrl, sseListeners, sseOptions);
 
   const handleTileClick = useCallback((tile) => {
     setSelectedTile(tile);
