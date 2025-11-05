@@ -7,10 +7,15 @@ export function useSSEManager(streamUrl, listeners = {}, options = {}) {
   const retryRef = useRef({ attempts: 0, timeoutId: null });
   const listenersRef = useRef(listeners);
   const stoppedRef = useRef(false);
+  const optionsRef = useRef(options);
 
   useEffect(() => {
     listenersRef.current = listeners;
   }, [listeners]);
+
+  useEffect(() => {
+    optionsRef.current = options;
+  }, [options]);
 
   useEffect(() => {
     if (!streamUrl) {
@@ -47,7 +52,7 @@ export function useSSEManager(streamUrl, listeners = {}, options = {}) {
           clearTimeout(retryRef.current.timeoutId);
           retryRef.current.timeoutId = null;
         }
-        options.onReconnect?.();
+        optionsRef.current?.onReconnect?.();
       };
 
       eventSource.onerror = (error) => {
@@ -55,7 +60,7 @@ export function useSSEManager(streamUrl, listeners = {}, options = {}) {
 
         if (eventSource.readyState === EventSource.CLOSED) {
           console.debug("[useSSEManager] SSE closed by server.");
-          options.onPermanentError?.(error);
+          optionsRef.current?.onPermanentError?.(error);
           cleanup()
             .then(() => {})
             .catch(() => {});
@@ -71,7 +76,7 @@ export function useSSEManager(streamUrl, listeners = {}, options = {}) {
           console.warn(
             "[useSSEManager] Max retry attempts reached. Triggering fallback."
           );
-          options.onPermanentError?.(error);
+          optionsRef.current?.onPermanentError?.(error);
           cleanup()
             .then(() => {})
             .catch(() => {});
@@ -110,7 +115,7 @@ export function useSSEManager(streamUrl, listeners = {}, options = {}) {
     return () => {
       cleanup().catch(() => {});
     };
-  }, [streamUrl, options]);
+  }, [streamUrl]);
 
   const stopSSE = () => {
     if (retryRef.current.timeoutId) {

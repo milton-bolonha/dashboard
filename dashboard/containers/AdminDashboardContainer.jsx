@@ -396,15 +396,10 @@ export function AdminDashboardContainer() {
     };
   }, [jobIdFromUrl, persistTileAndRefresh, revalidateWorkspace]);
 
-  const sseOptions = useMemo(
-    () => ({
-      onPermanentError: () => startPolling(),
-      onReconnect: () => stopPolling("reconnected"),
-    }),
-    [startPolling, stopPolling]
-  );
-
-  useSSEManager(streamUrl, sseListeners, sseOptions);
+  useSSEManager(streamUrl, sseListeners, {
+    onPermanentError: startPolling,
+    onReconnect: () => stopPolling("reconnected"),
+  });
 
   const handleTileClick = useCallback((tile) => {
     setSelectedTile(tile);
