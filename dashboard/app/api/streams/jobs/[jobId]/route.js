@@ -12,6 +12,7 @@ export async function GET(request, { params }) {
   const { searchParams } = new URL(request.url);
   const guestId = searchParams.get("guest_id");
   const token = searchParams.get("token");
+  let job;
 
   try {
     // 1. Validação de Segurança
@@ -22,7 +23,7 @@ export async function GET(request, { params }) {
       );
     }
 
-    const job = await withMongoConnection(async () => await getJob(jobId), {
+    job = await withMongoConnection(async () => await getJob(jobId), {
       label: "sse:get-job",
       stage: "sse",
       retries: 2,
@@ -63,15 +64,19 @@ export async function GET(request, { params }) {
 
   const stream = new ReadableStream({
     start(controller) {
+      const encoder = new TextEncoder();
+      const sendEvent = (type, payload) => {
+        controller.enqueue(
+          encoder.encode(`event: ${type}\ndata: ${JSON.stringify(payload)}\n\n`)
+        );
+      };
+
       // O handler que será chamado pelo sseManager para enviar dados
       const onEvent = (event) => {
         try {
           // ⭐ CORREÇÃO CRÍTICA: Enviar eventos nomeados
           // O frontend usa addEventListener("job:status", ...) e precisa do nome do evento.
-          const message = `event: ${event.type}\ndata: ${JSON.stringify(
-            event.payload
-          )}\n\n`;
-          controller.enqueue(new TextEncoder().encode(message));
+          sendEvent(event.type, event.payload);
         } catch (e) {
           console.error("[SSE Route] ❌ Erro ao enfileirar evento:", e);
         }
@@ -79,10 +84,36 @@ export async function GET(request, { params }) {
 
       sseManager.add(key, onEvent);
 
+      // Forçar flush imediato com comentário keep-alive e snapshot de status atual
+      controller.enqueue(encoder.encode(`: connected ${Date.now()}\n\n`));
+      if (job) {
+        const initialStatus = {
+          jobId,
+          status: job.status || "QUEUED",
+          progress: job.totals
+            ? {
+                current: job.progress?.current || 0,
+                total: job.totals.items || job.progress?.total || 0,
+                remaining:
+                  job.progress?.remaining ??
+                  Math.max(
+                    (job.totals.items || 0) - (job.progress?.current || 0),
+                    0
+                  ),
+              }
+            : job.progress || { current: 0, total: 0, remaining: 0 },
+        };
+        try {
+          sendEvent("job:status", initialStatus);
+        } catch (err) {
+          console.error("[SSE Route] ❌ Erro ao enviar status inicial:", err);
+        }
+      }
+
       // Lógica de keep-alive e cleanup
       const keepAlive = setInterval(() => {
         try {
-          controller.enqueue(new TextEncoder().encode(": keep-alive\n\n"));
+          controller.enqueue(encoder.encode(": keep-alive\n\n"));
         } catch (err) {
           console.debug(
             "[SSE Route] ⚠️ Conexão já fechada, limpando keep-alive."
