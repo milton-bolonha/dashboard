@@ -24,32 +24,200 @@ const options = {
   directConnection: false,
 };
 
-let client;
-let clientPromise;
+const MAX_CONNECT_RETRIES = parseInt(
+  process.env.MONGODB_CONNECT_RETRIES ?? "3",
+  10
+);
+const CONNECT_BACKOFF_BASE_MS = parseInt(
+  process.env.MONGODB_CONNECT_BACKOFF_MS ?? "250",
+  10
+);
+const CIRCUIT_BREAKER_TIMEOUT_MS = parseInt(
+  process.env.MONGODB_CIRCUIT_BREAKER_TIMEOUT_MS ?? "15000",
+  10
+);
 
-// Para Netlify Functions (AWS Lambda), usar variável global para reutilizar conexão
-// Isso é seguro porque cada container Lambda mantém o estado entre invocações
-if (!global._mongoClientPromise) {
-  console.log("[MongoDB] Initializing client with URI:", sanitizedUri);
-  client = new MongoClient(uri, options);
-  global._mongoClientPromise = client
-    .connect()
+export const DEFAULT_MONGODB_BATCH_SIZE = parseInt(
+  process.env.MONGODB_BATCH_SIZE ?? "50",
+  10
+);
+
+const globalStateKey = Symbol.for("dashboard.mongoConnectionState");
+
+const mongoState = (global[globalStateKey] ??= {
+  client: null,
+  clientPromise: null,
+  failureCount: 0,
+  circuitOpenUntil: 0,
+  closing: false,
+  lastConnectedAt: null,
+});
+
+function isCircuitOpen() {
+  if (!mongoState.circuitOpenUntil) return false;
+  return Date.now() < mongoState.circuitOpenUntil;
+}
+
+function openCircuit(error) {
+  mongoState.circuitOpenUntil = Date.now() + CIRCUIT_BREAKER_TIMEOUT_MS;
+  console.warn(
+    "[MongoDB] ⚠️ Circuit breaker aberto",
+    JSON.stringify({
+      until: new Date(mongoState.circuitOpenUntil).toISOString(),
+      reason: error?.message,
+    })
+  );
+}
+
+async function createMongoClient() {
+  let attempt = 0;
+  let delayMs = CONNECT_BACKOFF_BASE_MS;
+
+  while (attempt < MAX_CONNECT_RETRIES) {
+    attempt += 1;
+    const attemptLabel = `${attempt}/${MAX_CONNECT_RETRIES}`;
+    try {
+      console.log(
+        "[MongoDB] 🔄 Iniciando tentativa de conexão",
+        JSON.stringify({ attempt: attemptLabel, uri: sanitizedUri })
+      );
+
+      const startedAt = Date.now();
+      const newClient = new MongoClient(uri, options);
+      await newClient.connect();
+
+      mongoState.failureCount = 0;
+      mongoState.lastConnectedAt = Date.now();
+
+      newClient.on("close", () => {
+        console.warn(
+          "[MongoDB] ⚠️ Conexão encerrada",
+          JSON.stringify({ when: new Date().toISOString() })
+        );
+        mongoState.client = null;
+        mongoState.clientPromise = null;
+      });
+
+      newClient.on("error", (clientError) => {
+        console.error(
+          "[MongoDB] ❌ Erro emitido pelo cliente",
+          JSON.stringify({ message: clientError?.message })
+        );
+      });
+
+      console.log(
+        "[MongoDB] ✅ Conexão estabelecida",
+        JSON.stringify({
+          attempt: attemptLabel,
+          durationMs: Date.now() - startedAt,
+        })
+      );
+
+      return newClient;
+    } catch (error) {
+      console.error(
+        "[MongoDB] ❌ Falha na tentativa de conexão",
+        JSON.stringify({ attempt: attemptLabel, message: error?.message })
+      );
+
+      if (attempt >= MAX_CONNECT_RETRIES) {
+        openCircuit(error);
+        throw error;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      delayMs = Math.min(delayMs * 2, 10000);
+    }
+  }
+
+  throw new Error("MongoDB connection attempts exhausted");
+}
+
+async function getMongoClientInternal() {
+  if (mongoState.client) {
+    return mongoState.client;
+  }
+
+  if (mongoState.clientPromise) {
+    return mongoState.clientPromise;
+  }
+
+  if (isCircuitOpen()) {
+    const error = new Error("MongoDB circuit breaker aberto");
+    error.code = "MONGODB_CIRCUIT_OPEN";
+    throw error;
+  }
+
+  mongoState.clientPromise = createMongoClient()
     .then((connectedClient) => {
-      console.log("[MongoDB] Connection established successfully");
+      mongoState.client = connectedClient;
+      mongoState.clientPromise = null;
+      mongoState.circuitOpenUntil = 0;
       return connectedClient;
     })
     .catch((error) => {
-      console.error("[MongoDB] Connection failed:", error);
+      mongoState.clientPromise = null;
+      mongoState.client = null;
+      mongoState.failureCount += 1;
+      openCircuit(error);
       throw error;
     });
-  console.log("🔌 Nova conexão MongoDB criada");
+
+  return mongoState.clientPromise;
 }
-clientPromise = global._mongoClientPromise;
+
+export async function closeMongoClient(reason = "manual-close") {
+  if (!mongoState.client || mongoState.closing) {
+    return;
+  }
+
+  try {
+    mongoState.closing = true;
+    await mongoState.client.close();
+    console.log(
+      "[MongoDB] 🔌 Conexão encerrada manualmente",
+      JSON.stringify({ reason })
+    );
+  } catch (error) {
+    console.error(
+      "[MongoDB] ❌ Falha ao encerrar conexão",
+      JSON.stringify({ message: error?.message })
+    );
+  } finally {
+    mongoState.closing = false;
+    mongoState.client = null;
+    mongoState.clientPromise = null;
+  }
+}
+
+async function invalidateMongoConnection(error) {
+  console.warn(
+    "[MongoDB] ⚠️ Invalidando conexão atual",
+    JSON.stringify({ message: error?.message })
+  );
+  await closeMongoClient("invalidate-on-error");
+}
+
+export function getMongoClient(options = {}) {
+  return getMongoClientInternal(options);
+}
+
+const clientPromise = {
+  then: (onFulfilled, onRejected) =>
+    getMongoClient().then(onFulfilled, onRejected),
+  catch: (onRejected) => getMongoClient().catch(onRejected),
+  finally: (onFinally) => getMongoClient().finally(onFinally),
+};
 
 export default clientPromise;
 
 // Wrapper com retry automático para operações MongoDB
-export async function withRetry(operation, maxRetries = 3) {
+export async function withRetry(operation, options = {}) {
+  const normalizedOptions =
+    typeof options === "number" ? { maxRetries: options } : options;
+
+  const { maxRetries = 3, onRetry } = normalizedOptions;
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       return await operation();
@@ -67,6 +235,10 @@ export async function withRetry(operation, maxRetries = 3) {
       const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
       console.log(`⏳ Retrying in ${delay}ms...`);
       await new Promise((resolve) => setTimeout(resolve, delay));
+
+      if (typeof onRetry === "function") {
+        onRetry({ attempt, delay, error });
+      }
     }
   }
 }
@@ -77,9 +249,168 @@ export async function withRetry(operation, maxRetries = 3) {
  * @returns {Promise<Collection>}
  */
 export async function getCollection(collectionName) {
-  const client = await clientPromise;
+  const client = await getMongoClient();
   const db = client.db();
   return db.collection(collectionName);
+}
+
+function logMongoMetrics(payload) {
+  const {
+    operation,
+    stage = "general",
+    durationMs,
+    documents = null,
+    ordered,
+    metadata = {},
+  } = payload;
+
+  console.log(
+    "[MongoDB Metrics]",
+    JSON.stringify({
+      operation,
+      stage,
+      durationMs,
+      documents,
+      ordered,
+      ...metadata,
+      timestamp: new Date().toISOString(),
+    })
+  );
+}
+
+/**
+ * Wrapper de conveniência para garantir conexão ativa com o MongoDB.
+ * Mantém compatibilidade com o pipeline SSE/polling descrito em docs/relatorio-cards.md.
+ */
+export async function withMongoConnection(operation, options = {}) {
+  const {
+    label = "MongoDB operation",
+    stage: declaredStage = "general",
+    retries = 1,
+    closeAfter = false,
+    resetOnFailure = true,
+    onError,
+    metadata = {},
+  } = options;
+
+  const startedAt = Date.now();
+  const { stage = declaredStage, ...metadataWithoutStage } = {
+    ...metadata,
+  };
+
+  const runner = async () => {
+    const client = await getMongoClient();
+    return operation({ client, db: client.db() });
+  };
+
+  try {
+    if (retries > 1) {
+      return await withRetry(runner, {
+        maxRetries: retries,
+        onRetry: ({ attempt, error }) => {
+          logMongoMetrics({
+            operation: `${label}:retry`,
+            stage,
+            durationMs: Date.now() - startedAt,
+            metadata: {
+              attempt,
+              error: error?.message,
+              ...metadataWithoutStage,
+            },
+          });
+        },
+      });
+    }
+
+    return await runner();
+  } catch (error) {
+    console.error(
+      "[MongoDB] ❌ Erro durante operação",
+      JSON.stringify({ label, stage, message: error?.message })
+    );
+
+    if (resetOnFailure !== false) {
+      await invalidateMongoConnection(error);
+    }
+
+    if (typeof onError === "function") {
+      onError(error);
+    }
+
+    throw error;
+  } finally {
+    logMongoMetrics({
+      operation: label,
+      stage,
+      durationMs: Date.now() - startedAt,
+      metadata: metadataWithoutStage,
+    });
+
+    if (closeAfter) {
+      await closeMongoClient(`${label}::closeAfter`);
+    }
+  }
+}
+
+/**
+ * Aplica bulkWrite com logging estruturado + métricas.
+ * Inclui orientação sobre ordered vs unordered, reforçando boas práticas divulgadas nos vídeos de bulk write.
+ */
+export async function bulkWriteWithMetrics(
+  collection,
+  operations,
+  options = {},
+  metadata = {}
+) {
+  const startedAt = Date.now();
+  const coll = await getCollection(collection);
+  const result = await coll.bulkWrite(operations, options);
+
+  const { stage = "general", ...metadataWithoutStage } = metadata ?? {};
+
+  logMongoMetrics({
+    operation: "bulkWrite",
+    stage,
+    durationMs: Date.now() - startedAt,
+    documents: operations.length,
+    ordered: options?.ordered !== false,
+    metadata: metadataWithoutStage,
+  });
+
+  return result;
+}
+
+/**
+ * Helper para upsert em lote com controle de ordered/unordered.
+ */
+export async function bulkUpsert(collection, items, keyFields, options = {}) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return { insertedCount: 0, modifiedCount: 0, upsertedCount: 0 };
+  }
+
+  if (!Array.isArray(keyFields) || keyFields.length === 0) {
+    throw new Error("bulkUpsert requer keyFields para construir os filtros");
+  }
+
+  const { stage, metadata = {}, ...bulkOptions } = options;
+
+  const operations = items.map((item) => ({
+    updateOne: {
+      filter: Object.fromEntries(
+        keyFields.map((field) => [field, item[field]])
+      ),
+      update: {
+        $set: { ...item, updatedAt: new Date() },
+        $setOnInsert: { createdAt: new Date() },
+      },
+      upsert: true,
+    },
+  }));
+
+  return await bulkWriteWithMetrics(collection, operations, bulkOptions, {
+    stage,
+    ...metadata,
+  });
 }
 
 /**
@@ -151,10 +482,13 @@ export const db = {
     return result;
   },
 
-  async bulkWrite(collection, operations, options = {}) {
-    const coll = await getCollection(collection);
-    const result = await coll.bulkWrite(operations, options);
-    return result;
+  async bulkWrite(collection, operations, options = {}, metadata = {}) {
+    return await bulkWriteWithMetrics(
+      collection,
+      operations,
+      options,
+      metadata
+    );
   },
 
   async deleteMany(collection, filter) {

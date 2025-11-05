@@ -575,6 +575,33 @@ export async function bulkWriteWithMetrics(
 - **Tile Generation**: Já otimizado com batch (bom exemplo!)
 - **Geral**: Redução de 50-70% em operações de escrita em batch
 
+### ✅ Status após implementação (05/11/2025)
+
+- `dashboard/lib/db.js`
+
+  - Refatorado para circuito interno com retries configuráveis, fechamento seguro (`closeMongoClient`) e wrapper `withMongoConnection` alinhado ao fluxo SSE/polling descrito no `relatorio-cards.md`.
+  - Novos helpers `bulkWriteWithMetrics` e `bulkUpsert` com logging estruturado `[MongoDB Metrics]` + orientação ordered/unordered para reforçar boas práticas de bulk write.
+
+- `dashboard/app/api/importer/execute/route.js`
+
+  - Substitui loops `findOne`/`insertOne` por `bulkUpsert` com batches configuráveis (`MONGODB_BATCH_SIZE`).
+  - Métricas de upsert e logs por seção/contentType garantem visibilidade e reduzem round-trips.
+
+- `dashboard/lib/guest-tile-pipeline.js`
+
+  - Batch size ajustável (`GUEST_TILE_BATCH_SIZE`) e telemetria por batch via `db.bulkWrite(..., metadata)` mantendo compatibilidade com o pipeline SSE/polling.
+
+- `dashboard/app/api/health/mongodb/route.js`
+
+  - Novo endpoint de health check com circuito local (`MONGODB_HEALTH_FAILURE_THRESHOLD`, `MONGODB_HEALTH_TIMEOUT_MS`) e retry header.
+
+- `dashboard/env-template.txt`
+
+  - Variáveis documentadas para controle fino de conexão/batching e fallback de tiles.
+
+- `docs/mongodb-performance.md`
+  - Guia rápido consolidando bulk writes, ordered vs unordered, e tuning baseado nas fontes de referência (vídeo e talk anexados).
+
 ## Análise Técnica do Código
 
 ### Problema na Inicialização da Conexão (`dashboard/lib/db.js`)

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentAuth } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { db, bulkUpsert, DEFAULT_MONGODB_BATCH_SIZE } from "@/lib/db";
 import { ObjectId } from "mongodb";
 import { createSectionAndInitialItem } from "@/lib/section-operations";
 import {
@@ -100,6 +100,8 @@ export async function POST(request) {
   }
 }
 
+const IMPORT_BATCH_SIZE = DEFAULT_MONGODB_BATCH_SIZE;
+
 async function executeImportPlan(importPlan, workspaceId, userId) {
   const results = {
     contentTypesCreated: 0,
@@ -178,32 +180,46 @@ async function executeImportPlan(importPlan, workspaceId, userId) {
       if (node.section.strategy !== "singleton") {
         for (const file of node.files) {
           const contentTypeId = contentTypeIds.get(file.contentType.slug);
-          for (const item of file.itemsData) {
-            const itemFilter = {
-              workspaceId: workspaceObjectId,
+          const baseStage = "importer";
+          const itemsPayload = file.itemsData.map((item, index) => {
+            const { _id, ...rest } = item;
+            return {
+              ...rest,
+              orderIndex: rest.orderIndex ?? index,
               sectionId,
-              slug: item.slug,
+              contentTypeId,
+              workspaceId: workspaceObjectId,
+              userId,
             };
+          });
 
-            const existingItem = await db.findOne("items", itemFilter);
-            if (existingItem) {
-              // Atualizar
-              await db.updateOne(itemFilter, {
-                $set: { ...item, updatedAt: new Date() },
-              });
-              results.itemsUpdated++;
-            } else {
-              // Criar
-              await db.insertOne("items", {
-                ...item,
-                sectionId,
-                contentTypeId,
-                workspaceId: workspaceObjectId,
-                userId,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-              });
-              results.itemsCreated++;
+          const batchSize = Number.isFinite(file.batchSize)
+            ? Math.max(1, Number(file.batchSize))
+            : IMPORT_BATCH_SIZE;
+
+          for (let i = 0; i < itemsPayload.length; i += batchSize) {
+            const chunk = itemsPayload.slice(i, i + batchSize);
+            if (chunk.length === 0) continue;
+
+            const bulkResult = await bulkUpsert(
+              "items",
+              chunk,
+              ["workspaceId", "sectionId", "slug"],
+              {
+                ordered: false,
+                stage: baseStage,
+                metadata: {
+                  section: node.section.slug,
+                  contentType: file.contentType.slug,
+                  chunk: Math.floor(i / batchSize),
+                  size: chunk.length,
+                },
+              }
+            );
+
+            results.itemsCreated += bulkResult?.upsertedCount ?? 0;
+            if (typeof bulkResult?.modifiedCount === "number") {
+              results.itemsUpdated += bulkResult.modifiedCount;
             }
           }
         }

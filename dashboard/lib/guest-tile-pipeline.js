@@ -5,7 +5,7 @@
  * Similar ao onboarding pipeline, mas para guest sessions
  */
 
-import { db } from "./db";
+import { db, DEFAULT_MONGODB_BATCH_SIZE } from "./db";
 import { getGuestTemplate, processPromptVariables } from "./guest-templates";
 import { generateAllTilesOptimized } from "./ai-tile-generator-optimized";
 import { optimizeTiles } from "./prompt-optimizer";
@@ -105,7 +105,18 @@ export async function generateTilesForCompany(
 
     // ⭐ NOVO: Batch writes para evitar bloqueio entre tiles
     const tileBatch = [];
-    const BATCH_SIZE = 2;
+    const configuredBatchSize = Number.parseInt(
+      process.env.GUEST_TILE_BATCH_SIZE ?? "",
+      10
+    );
+    const fallbackBatchSize = Math.max(
+      1,
+      Math.min(DEFAULT_MONGODB_BATCH_SIZE, 10)
+    );
+    const BATCH_SIZE =
+      Number.isFinite(configuredBatchSize) && configuredBatchSize > 0
+        ? configuredBatchSize
+        : fallbackBatchSize;
 
     // Função para salvar batch usando bulkWrite
     const saveBatchToDb = async (tiles) => {
@@ -124,7 +135,17 @@ export async function generateTilesForCompany(
           },
         }));
 
-        await db.bulkWrite("guest_workspaces", operations, { ordered: false });
+        await db.bulkWrite(
+          "guest_workspaces",
+          operations,
+          { ordered: false },
+          {
+            stage: "guest-tile-pipeline",
+            guestId,
+            companyName,
+            tiles: tiles.length,
+          }
+        );
 
         const dbSaveEnd = Date.now();
         const dbSaveDuration = dbSaveEnd - dbSaveStart;
@@ -188,7 +209,7 @@ export async function generateTilesForCompany(
     // Gerar todos os tiles com estratégia híbrida
     const results = await generateAllTilesOptimized(optimizedTiles, context, {
       pipelineLogger,
-      batchSize: 2,
+      batchSize: Math.min(BATCH_SIZE, optimizedTiles.length || BATCH_SIZE),
       onTileCompleted: saveTileCallback,
     });
 
