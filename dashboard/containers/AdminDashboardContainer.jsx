@@ -380,11 +380,23 @@ export function AdminDashboardContainer() {
   }, [revalidateWorkspace, stopPolling]);
 
   const handleSSEPermanentError = useCallback(() => {
-    startPolling();
+    try {
+      if (typeof startPolling === "function") {
+        startPolling();
+      }
+    } catch (error) {
+      console.error("[AdminContainer] Error starting polling:", error);
+    }
   }, [startPolling]);
 
   const handleSSEReconnect = useCallback(() => {
-    stopPolling("reconnected");
+    try {
+      if (typeof stopPolling === "function") {
+        stopPolling("reconnected");
+      }
+    } catch (error) {
+      console.error("[AdminContainer] Error stopping polling:", error);
+    }
   }, [stopPolling]);
 
   const sseListeners = useMemo(() => {
@@ -448,6 +460,31 @@ export function AdminDashboardContainer() {
     if (data.name) return data.name;
     return "Trial Workspace";
   }, [data]);
+
+  // Validação de sessão (após todos os hooks serem chamados)
+  if (!jobIdFromUrl || !guestIdFromUrl) {
+    return (
+      <AppLayout
+        sidebar={<Sidebar />}
+        header={<Header breadcrumb="Invalid Session" />}
+      >
+        <div className="text-center py-20">
+          <h2 className="text-xl font-semibold text-red-600 mb-4">
+            Session Required
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            Please access this page with a valid job_id and guest_id.
+          </p>
+          <Link
+            href="/"
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+          >
+            Back to Home
+          </Link>
+        </div>
+      </AppLayout>
+    );
+  }
 
   if (isLoading && !data) {
     return (

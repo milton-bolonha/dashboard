@@ -6,20 +6,29 @@ export function useSSEManager(streamUrl, listeners = {}, options = {}) {
   const eventSourceRef = useRef(null);
   const retryRef = useRef({ attempts: 0, timeoutId: null });
   const stoppedRef = useRef(false);
-  const listenersRef = useRef(listeners);
-  const optionsRef = useRef(options);
+  const listenersRef = useRef(listeners || {});
+  const optionsRef = useRef(options || {});
 
   // Sincronizar refs antes de qualquer uso
   useEffect(() => {
-    listenersRef.current = listeners;
+    if (listeners && typeof listeners === "object") {
+      listenersRef.current = listeners;
+    }
   }, [listeners]);
 
   useEffect(() => {
-    optionsRef.current = options;
+    if (options && typeof options === "object") {
+      optionsRef.current = options;
+    }
   }, [options]);
 
   useEffect(() => {
-    if (!streamUrl) {
+    // Validar streamUrl antes de tentar conectar
+    if (
+      !streamUrl ||
+      typeof streamUrl !== "string" ||
+      streamUrl.trim() === ""
+    ) {
       return;
     }
 
@@ -43,7 +52,20 @@ export function useSSEManager(streamUrl, listeners = {}, options = {}) {
     const connect = () => {
       if (stoppedRef.current) return;
 
-      const eventSource = new EventSource(streamUrl);
+      let eventSource;
+      try {
+        eventSource = new EventSource(streamUrl);
+      } catch (error) {
+        console.error("[useSSEManager] Failed to create EventSource:", error);
+        // Tentar novamente após delay
+        const delay = Math.min(
+          Math.pow(2, retryRef.current.attempts + 1) * 500,
+          5000
+        );
+        retryRef.current.timeoutId = setTimeout(connect, delay);
+        return;
+      }
+
       eventSourceRef.current = eventSource;
 
       eventSource.onopen = () => {
