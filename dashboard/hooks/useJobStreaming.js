@@ -6,6 +6,7 @@ import { useSSEManager } from "@/hooks/useSSEManager";
 const DEFAULT_PROGRESS = { current: 0, total: 0, remaining: 0 };
 const POLLING_INTERVAL_MS = 4000;
 const MAX_POLLING_ATTEMPTS = 40;
+const POLLING_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutos máximo de polling
 
 /**
  * Hook para gerenciar streaming de jobs via SSE + fallback polling
@@ -21,7 +22,12 @@ export function useJobStreaming({
 }) {
   const [tileProgress, setTileProgress] = useState(DEFAULT_PROGRESS);
 
-  const pollingRef = useRef({ active: false, attempts: 0, timeoutId: null });
+  const pollingRef = useRef({
+    active: false,
+    attempts: 0,
+    timeoutId: null,
+    startTime: null, // ⭐ NOVO: Tempo de início do polling
+  });
   const isGeneratingRef = useRef(false);
 
   // Definir stopPolling ANTES de qualquer useEffect que o use
@@ -47,6 +53,7 @@ export function useJobStreaming({
     console.log("[useJobStreaming] 🔄 SSE fallback: starting polling loop...");
     pollingRef.current.active = true;
     pollingRef.current.attempts = 0;
+    pollingRef.current.startTime = Date.now(); // ⭐ NOVO: Registrar tempo de início
 
     const tick = async () => {
       if (!pollingRef.current.active) return;
@@ -60,12 +67,27 @@ export function useJobStreaming({
 
       if (!pollingRef.current.active) return;
 
+      // ⭐ NOVO: Verificar timeout de segurança
+      const elapsed = Date.now() - (pollingRef.current.startTime || Date.now());
+      if (elapsed > POLLING_TIMEOUT_MS) {
+        console.warn(
+          `[useJobStreaming] ⚠️ Polling timeout atingido após ${Math.round(
+            elapsed / 1000
+          )}s. Parando polling.`
+        );
+        stopPolling("timeout");
+        return;
+      }
+
       if (!isGeneratingRef.current) {
         stopPolling("tiles-ready");
         return;
       }
 
       if (pollingRef.current.attempts >= MAX_POLLING_ATTEMPTS) {
+        console.warn(
+          `[useJobStreaming] ⚠️ Máximo de tentativas de polling atingido (${MAX_POLLING_ATTEMPTS}). Parando polling.`
+        );
         stopPolling("max-attempts");
         return;
       }

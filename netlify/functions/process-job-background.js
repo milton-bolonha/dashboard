@@ -28,14 +28,29 @@ console.log("[Background Function] ✅ Imports concluídos");
  * Handler da Background Function
  * Netlify automaticamente invoca esta função de forma assíncrona
  * quando recebe um POST com header X-NF-Background: true
+ *
+ * IMPORTANTE: Background functions devem usar export default conforme documentação Netlify
  */
-export async function handler(event) {
+export default async function handler(event, context) {
+  // ⭐ CRÍTICO: Não esperar por conexões abertas (MongoDB, etc.)
+  // Isso garante que a função não trave esperando por conexões
+  if (
+    context &&
+    typeof context.callbackWaitsForEmptyEventLoop !== "undefined"
+  ) {
+    context.callbackWaitsForEmptyEventLoop = false;
+    console.log(
+      "[Background Function] ✅ callbackWaitsForEmptyEventLoop = false"
+    );
+  }
+
   // Log imediato para confirmar que a função foi invocada
   console.log(`[Background Function] 🔔 Handler invocado!`, {
     method: event.httpMethod,
     path: event.path,
     hasBody: !!event.body,
     bodyLength: event.body?.length || 0,
+    hasContext: !!context,
   });
 
   // Verificar se os módulos foram importados corretamente
@@ -141,21 +156,34 @@ async function processJobInBackground(jobId) {
         metadata: { jobId },
       }
     );
+    console.log(`[Background Function] ✅ MongoDB pre-warm concluído`);
 
+    console.log(`[Background Function] 📥 Buscando job ${jobId}...`);
     job = await getJob(jobId);
     if (!job) {
       throw new Error(`Job ${jobId} não encontrado no banco de dados.`);
     }
+    console.log(`[Background Function] ✅ Job encontrado:`, {
+      jobId: job.jobId,
+      guestId: job.guestId,
+      templateId: job.templateId,
+      status: job.status,
+    });
 
     // No Fluxo 2.0, o workspace já deve existir
+    console.log(
+      `[Background Function] 📥 Buscando workspace para guest ${job.guestId}...`
+    );
     const guestWorkspace = await db.findOne("guest_workspaces", {
       guest_id: job.guestId,
     });
     if (!guestWorkspace) {
       throw new Error(`Workspace para guest ${job.guestId} não encontrado.`);
     }
+    console.log(`[Background Function] ✅ Workspace encontrado`);
 
     // Determina a entidade primária (ex: companies, books, projects)
+    console.log(`[Background Function] 🔍 Determinando entityKey...`);
     let entityKey = "companies";
     const primaryEntity = guestWorkspace?.themeSnapshot?.entities?.find(
       (entity) => entity.isPrimary
@@ -175,7 +203,11 @@ async function processJobInBackground(jobId) {
     // O contexto foi salvo no job como dataSource
     const items = job.dataSource?.data ? [job.dataSource.data] : [];
 
+    console.log(
+      `[Background Function] 📝 Atualizando status do job para QUEUED...`
+    );
     await updateJob(jobId, { status: "QUEUED", initialItems: items });
+    console.log(`[Background Function] ✅ Status atualizado para QUEUED`);
 
     console.log(
       `[Background Function] 📋 Preparando queueJob para job ${jobId}`,
@@ -196,6 +228,8 @@ async function processJobInBackground(jobId) {
 
     // Invocar queueJob que processa todos os tiles
     // Nota: token não é necessário porque emitJobEvent no backend não precisa dele
+    // ⭐ CRÍTICO: Remover delay desnecessário - background function já garante execução assíncrona
+    console.log(`[Background Function] 🚀 Chamando queueJob (sem delay)...`);
     await queueJob({
       guestId: job.guestId,
       jobId,
@@ -214,7 +248,7 @@ async function processJobInBackground(jobId) {
     });
 
     console.log(
-      `[Background Function] ✅ Job ${jobId} processado com sucesso.`
+      `[Background Function] ✅ Job ${jobId} processado com sucesso. queueJob concluído.`
     );
   } catch (error) {
     console.error(

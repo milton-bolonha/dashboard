@@ -316,6 +316,47 @@ const getWorkspaceHandler = async (req) => {
               return mergedEntity;
             });
 
+            // ⭐ NOVO: Detecção de jobs presos (generating há muito tempo sem tiles)
+            // Fazer após o map para poder usar await
+            if (jobId) {
+              for (let i = 0; i < mergedEntities.length; i++) {
+                const mergedEntity = mergedEntities[i];
+                if (mergedEntity.tiles_status === "generating" || mergedEntity.tiles_status === "pending") {
+                  try {
+                    const job = await getJob(jobId);
+                    if (job) {
+                      const jobCreatedAt = job.createdAt ? new Date(job.createdAt) : null;
+                      const jobUpdatedAt = job.updatedAt ? new Date(job.updatedAt) : null;
+                      const now = new Date();
+                      
+                      // Verificar se job está preso (criado há mais de 5 minutos e sem tiles)
+                      const JOB_STUCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutos
+                      const timeSinceCreation = jobCreatedAt ? now - jobCreatedAt : 0;
+                      const timeSinceUpdate = jobUpdatedAt ? now - jobUpdatedAt : 0;
+                      const hasNoTiles = !mergedEntity.tiles || mergedEntity.tiles.length === 0;
+                      const isStuck = 
+                        (timeSinceCreation > JOB_STUCK_TIMEOUT_MS || timeSinceUpdate > JOB_STUCK_TIMEOUT_MS) &&
+                        hasNoTiles &&
+                        (job.status === "QUEUED" || job.status === "RUNNING");
+
+                      if (isStuck) {
+                        vWarn(
+                          `⚠️ Job ${jobId} parece estar preso (criado há ${Math.round(timeSinceCreation / 1000)}s, atualizado há ${Math.round(timeSinceUpdate / 1000)}s, sem tiles). Mudando status para 'failed'.`
+                        );
+                        mergedEntity.tiles_status = "failed";
+                        
+                        // Opcional: Atualizar job no banco (comentado para não causar side effects)
+                        // await updateJob(jobId, { status: "FAILED", error: "Job stuck: no tiles generated after timeout" });
+                      }
+                    }
+                  } catch (jobError) {
+                    vWarn(`⚠️ Erro ao verificar job ${jobId} para detecção de jobs presos:`, jobError);
+                    // Não falhar a requisição se houver erro ao verificar job
+                  }
+                }
+              }
+            }
+
             response[entityKey] = mergedEntities;
             vLog(
               `✅ Entidade ${entityKey} mesclada no response com ${mergedEntities.length} items`

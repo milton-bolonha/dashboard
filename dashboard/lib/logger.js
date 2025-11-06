@@ -82,3 +82,99 @@ export const logger = {
     console.error(`[${context}] 🚨 CRITICAL: ${message}`, data);
   },
 };
+
+// ⭐ Funções de conveniência para compatibilidade com código existente
+// Permitem uso direto: logDebug("message") ou logDebug("message", data)
+// Contexto padrão é inferido do stack trace ou usa "APP" como fallback
+
+/**
+ * Função de log de debug
+ * @param {string} message - Mensagem a ser logada
+ * @param {any} [data] - Dados adicionais (opcional)
+ */
+export function logDebug(message, data) {
+  const context = inferContext() || "APP";
+  if (LOG_LEVEL_NUM >= LOG_LEVELS.DEBUG) {
+    // Para funções de conveniência, não aplicamos throttle (são logs pontuais)
+    if (data !== undefined) {
+      console.debug(`[${context}] 🔍 ${message}`, data);
+    } else {
+      console.debug(`[${context}] 🔍 ${message}`);
+    }
+  }
+}
+
+/**
+ * Função de log de erro
+ * @param {string} message - Mensagem a ser logada
+ * @param {any} [data] - Dados adicionais (opcional)
+ */
+export function logError(message, data) {
+  const context = inferContext() || "APP";
+  if (LOG_LEVEL_NUM >= LOG_LEVELS.ERROR) {
+    if (data !== undefined) {
+      console.error(`[${context}] ❌ ${message}`, data);
+    } else {
+      console.error(`[${context}] ❌ ${message}`);
+    }
+  }
+}
+
+/**
+ * Função de log de warning
+ * @param {string} message - Mensagem a ser logada
+ * @param {any} [data] - Dados adicionais (opcional)
+ */
+export function logWarn(message, data) {
+  const context = inferContext() || "APP";
+  if (LOG_LEVEL_NUM >= LOG_LEVELS.WARN) {
+    if (data !== undefined) {
+      console.warn(`[${context}] ⚠️ ${message}`, data);
+    } else {
+      console.warn(`[${context}] ⚠️ ${message}`);
+    }
+  }
+}
+
+/**
+ * Infere o contexto do log baseado no stack trace
+ * Tenta identificar o arquivo que chamou a função de log
+ * @returns {string|null} Nome do contexto ou null
+ */
+function inferContext() {
+  try {
+    const stack = new Error().stack;
+    if (!stack) return null;
+
+    const lines = stack.split("\n");
+    // Pular as primeiras linhas (Error, inferContext, função de log)
+    // Procurar pela primeira linha que não seja do logger
+    for (let i = 3; i < Math.min(lines.length, 10); i++) {
+      const line = lines[i];
+      if (!line) continue;
+
+      // Extrair nome do arquivo do stack trace
+      // Formato: "    at functionName (file:///path/to/file.js:line:col)"
+      const match = line.match(/([^/\\]+)\.(js|jsx|ts|tsx)/);
+      if (match) {
+        const fileName = match[1];
+        // Mapear nomes de arquivo para contextos conhecidos
+        if (fileName.includes("auth")) return "AUTH";
+        if (fileName.includes("route")) {
+          // Tentar extrair o caminho da rota
+          const routeMatch = line.match(/app\/api\/([^/]+)/);
+          if (routeMatch) {
+            return routeMatch[1].toUpperCase().replace(/-/g, "_");
+          }
+          return "API";
+        }
+        if (fileName.includes("access")) return "ACCESS";
+        if (fileName.includes("content")) return "CONTENT";
+        return fileName.toUpperCase().replace(/-/g, "_");
+      }
+    }
+  } catch (e) {
+    // Se houver erro ao inferir contexto, retornar null
+  }
+  return null;
+}

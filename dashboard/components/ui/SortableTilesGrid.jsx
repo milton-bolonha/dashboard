@@ -19,6 +19,9 @@ import { DraggableTile } from "./DraggableTile";
 import { AddPromptTile } from "./AddPromptTile";
 import { LoadingTile } from "./LoadingTile";
 
+// ⭐ NOVO: Timeout de segurança para prevenir placeholders infinitos
+const GENERATION_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutos
+
 export function SortableTilesGrid({
   tiles = [],
   onTileClick,
@@ -34,6 +37,10 @@ export function SortableTilesGrid({
   const orderMapRef = useRef(new Map()); // Mapa de ordem original
   const tilesRef = useRef(new Map()); // Cache de tiles por ID
   const lastTilesRef = useRef([]); // ⭐ NOVO: Referência para último estado válido dos tiles
+
+  // ⭐ NOVO: Timeout de segurança para prevenir placeholders infinitos
+  const generationStartTimeRef = useRef(null);
+  const timeoutIdRef = useRef(null);
 
   // ⭐ NOVO: Helper para verificar se um tile tem conteúdo
   const hasTileContent = (tile) =>
@@ -61,6 +68,48 @@ export function SortableTilesGrid({
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  // ⭐ NOVO: Timeout de segurança para forçar parada de geração após timeout
+  useEffect(() => {
+    if (isGeneratingTiles) {
+      // Iniciar timer quando geração começa
+      if (!generationStartTimeRef.current) {
+        generationStartTimeRef.current = Date.now();
+        console.log(
+          `[SortableTilesGrid] ⏱️ Iniciando timeout de segurança (${GENERATION_TIMEOUT_MS}ms)`
+        );
+      }
+
+      // Limpar timeout anterior se existir
+      if (timeoutIdRef.current) {
+        clearTimeout(timeoutIdRef.current);
+      }
+
+      // Criar novo timeout
+      timeoutIdRef.current = setTimeout(() => {
+        const elapsed =
+          Date.now() - (generationStartTimeRef.current || Date.now());
+        console.warn(
+          `[SortableTilesGrid] ⚠️ Timeout de segurança atingido após ${elapsed}ms. Forçando parada de geração.`
+        );
+        generationStartTimeRef.current = null;
+        // Não podemos mudar isGeneratingTiles diretamente, mas podemos prevenir criação de placeholders
+      }, GENERATION_TIMEOUT_MS);
+    } else {
+      // Limpar timer quando geração para
+      if (timeoutIdRef.current) {
+        clearTimeout(timeoutIdRef.current);
+        timeoutIdRef.current = null;
+      }
+      generationStartTimeRef.current = null;
+    }
+
+    return () => {
+      if (timeoutIdRef.current) {
+        clearTimeout(timeoutIdRef.current);
+      }
+    };
+  }, [isGeneratingTiles]);
 
   // Inicializar e atualizar tiles com ordem preservada
   useEffect(() => {
@@ -105,27 +154,64 @@ export function SortableTilesGrid({
       };
     });
 
-    // ⭐ MELHORIA: Criar ou atualizar placeholders
+    // ⭐ MELHORIA: Criar ou atualizar placeholders com guard clauses
     let finalTiles = [...processedTiles];
-    if (isGeneratingTiles && !isGeneratingCustomTile && tilesToGenerate > 0) {
-      for (let orderIndex = 0; orderIndex < tilesToGenerate; orderIndex++) {
-        const existingTile = finalTiles.find(
-          (t) => t.orderIndex === orderIndex
+
+    // ⭐ GUARD CLAUSE 1: Se já temos tiles suficientes, não criar mais placeholders
+    const tilesWithContent = finalTiles.filter(hasTileContent).length;
+    if (tilesWithContent >= tilesToGenerate && tilesToGenerate > 0) {
+      console.log(
+        `[SortableTilesGrid] ✅ Já temos ${tilesWithContent} tiles com conteúdo (meta: ${tilesToGenerate}). Não criando mais placeholders.`
+      );
+    } else if (
+      isGeneratingTiles &&
+      !isGeneratingCustomTile &&
+      tilesToGenerate > 0
+    ) {
+      // ⭐ GUARD CLAUSE 2: Verificar timeout de segurança
+      const elapsed = generationStartTimeRef.current
+        ? Date.now() - generationStartTimeRef.current
+        : 0;
+      const hasTimedOut = elapsed > GENERATION_TIMEOUT_MS;
+
+      if (hasTimedOut) {
+        console.warn(
+          `[SortableTilesGrid] ⚠️ Timeout de segurança atingido (${elapsed}ms). Não criando mais placeholders.`
+        );
+      } else {
+        // ⭐ GUARD CLAUSE 3: Limitar número de placeholders ao necessário
+        const existingPlaceholders = finalTiles.filter(
+          (t) => !hasTileContent(t) && t.isPlaceholder
+        ).length;
+        const neededPlaceholders = Math.max(
+          0,
+          tilesToGenerate - finalTiles.length
         );
 
-        if (!existingTile) {
-          // Criar novo placeholder
-          finalTiles.push(createPlaceholder(orderIndex));
-        } else if (!hasTileContent(existingTile)) {
-          // Atualizar placeholder existente
-          const placeholderIndex = finalTiles.findIndex(
-            (t) => t.orderIndex === orderIndex
-          );
-          finalTiles[placeholderIndex] = {
-            ...existingTile,
-            ...createPlaceholder(orderIndex),
-            id: existingTile.id, // Manter ID original
-          };
+        if (neededPlaceholders > 0 && existingPlaceholders < tilesToGenerate) {
+          for (let orderIndex = 0; orderIndex < tilesToGenerate; orderIndex++) {
+            const existingTile = finalTiles.find(
+              (t) => t.orderIndex === orderIndex
+            );
+
+            if (!existingTile) {
+              // Criar novo placeholder apenas se necessário
+              finalTiles.push(createPlaceholder(orderIndex));
+            } else if (
+              !hasTileContent(existingTile) &&
+              !existingTile.isPlaceholder
+            ) {
+              // Atualizar tile existente sem conteúdo para placeholder
+              const placeholderIndex = finalTiles.findIndex(
+                (t) => t.orderIndex === orderIndex
+              );
+              finalTiles[placeholderIndex] = {
+                ...existingTile,
+                ...createPlaceholder(orderIndex),
+                id: existingTile.id, // Manter ID original
+              };
+            }
+          }
         }
       }
     }

@@ -1,10 +1,16 @@
 import { useEffect, useRef } from "react";
 
-const MAX_RETRIES = 3;
+const MAX_RETRIES = 2; // ⭐ REDUZIDO: De 3 para 2 para ativar polling mais rápido
+const RETRY_DELAY_BASE_MS = 500; // Base para backoff exponencial
+const PERMANENT_ERROR_THRESHOLD_MS = 10000; // 10s sem conexão = erro permanente
 
 export function useSSEManager(streamUrl, listeners = {}, options = {}) {
   const eventSourceRef = useRef(null);
-  const retryRef = useRef({ attempts: 0, timeoutId: null });
+  const retryRef = useRef({
+    attempts: 0,
+    timeoutId: null,
+    firstErrorTime: null, // ⭐ NOVO: Tempo do primeiro erro
+  });
   const stoppedRef = useRef(false);
   const listenersRef = useRef(listeners || {});
   const optionsRef = useRef(options || {});
@@ -71,6 +77,7 @@ export function useSSEManager(streamUrl, listeners = {}, options = {}) {
       eventSource.onopen = () => {
         console.log("[useSSEManager] SSE connection opened.");
         retryRef.current.attempts = 0;
+        retryRef.current.firstErrorTime = null; // ⭐ NOVO: Resetar tempo do primeiro erro
         if (retryRef.current.timeoutId) {
           clearTimeout(retryRef.current.timeoutId);
           retryRef.current.timeoutId = null;
@@ -83,10 +90,38 @@ export function useSSEManager(streamUrl, listeners = {}, options = {}) {
 
       eventSource.onerror = (error) => {
         const readyState = eventSource.readyState;
+
+        // ⭐ NOVO: Registrar tempo do primeiro erro
+        if (!retryRef.current.firstErrorTime) {
+          retryRef.current.firstErrorTime = Date.now();
+        }
+
+        const timeSinceFirstError =
+          Date.now() - (retryRef.current.firstErrorTime || Date.now());
+        const isPermanentError =
+          timeSinceFirstError > PERMANENT_ERROR_THRESHOLD_MS;
+
         console.error(
-          `[useSSEManager] SSE error (readyState: ${readyState}):`,
+          `[useSSEManager] SSE error (readyState: ${readyState}, timeSinceFirstError: ${Math.round(
+            timeSinceFirstError / 1000
+          )}s):`,
           error
         );
+
+        // ⭐ NOVO: Se erro persiste há muito tempo, considerar permanente imediatamente
+        if (isPermanentError) {
+          console.warn(
+            `[useSSEManager] ⚠️ Erro permanente detectado após ${Math.round(
+              timeSinceFirstError / 1000
+            )}s. Ativando fallback imediatamente.`
+          );
+          const currentOptions = optionsRef.current;
+          if (typeof currentOptions?.onPermanentError === "function") {
+            currentOptions.onPermanentError(error);
+          }
+          cleanup();
+          return;
+        }
 
         // ⭐ CORREÇÃO: EventSource.CONNECTING = 0, OPEN = 1, CLOSED = 2
         // Se está CLOSED, pode ser que o servidor fechou a conexão
@@ -112,8 +147,11 @@ export function useSSEManager(streamUrl, listeners = {}, options = {}) {
             return;
           }
 
-          // Tentar reconectar após delay
-          const delay = Math.min(Math.pow(2, attempts) * 500, 5000);
+          // Tentar reconectar após delay (backoff exponencial)
+          const delay = Math.min(
+            Math.pow(2, attempts) * RETRY_DELAY_BASE_MS,
+            5000
+          );
           const jitter = Math.floor(Math.random() * 200);
           const waitFor = delay + jitter;
           console.debug(
@@ -143,7 +181,10 @@ export function useSSEManager(streamUrl, listeners = {}, options = {}) {
           return;
         }
 
-        const delay = Math.min(Math.pow(2, attempts) * 500, 5000);
+        const delay = Math.min(
+          Math.pow(2, attempts) * RETRY_DELAY_BASE_MS,
+          5000
+        );
         const jitter = Math.floor(Math.random() * 200);
         const waitFor = delay + jitter;
         console.debug(

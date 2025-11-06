@@ -139,9 +139,10 @@ export async function queueJob({
     });
   };
 
-  // ⭐ CRÍTICO: Pequeno delay antes de emitir primeiro status
-  // Isso garante que o SSE tenha tempo de conectar antes dos eventos começarem
-  await new Promise((resolve) => setTimeout(resolve, 500)); // 500ms
+  // ⭐ CRÍTICO: Delay reduzido (100ms) apenas para garantir que logs apareçam
+  // Background functions já garantem execução assíncrona, então delay longo não é necessário
+  // Delay muito longo reduz o tempo útil do SSE (que tem timeout de 10s)
+  await new Promise((resolve) => setTimeout(resolve, 100)); // 100ms (reduzido de 500ms)
 
   emitStatus("QUEUED", { current: 0, total, remaining: total });
 

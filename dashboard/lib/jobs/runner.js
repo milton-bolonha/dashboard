@@ -16,10 +16,11 @@ export function runJobInBackground(jobId) {
       console.log(`[Runner] 🚀 Iniciando job ${jobId} em background...`);
       console.log(`[Runner] ⏱️ Timestamp: ${new Date().toISOString()}`);
 
-      // ⭐ CRÍTICO: Pequeno delay para garantir que SSE conecte primeiro
-      // Isso evita que eventos sejam emitidos antes do SSE estar pronto
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // 1 segundo
-      console.log(`[Runner] ✅ Delay concluído, SSE deve estar conectado`);
+      // ⭐ CRÍTICO: Delay reduzido (200ms) apenas para garantir que logs apareçam
+      // Background functions já garantem execução assíncrona, então delay longo não é necessário
+      // Delay muito longo reduz o tempo útil do SSE (que tem timeout de 10s)
+      await new Promise((resolve) => setTimeout(resolve, 200)); // 200ms (reduzido de 1000ms)
+      console.log(`[Runner] ✅ Delay concluído (reduzido para 200ms)`);
 
       job = await getJob(jobId);
       if (!job) {
