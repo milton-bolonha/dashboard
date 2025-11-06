@@ -155,6 +155,29 @@ export function useJobStreaming({
     return url;
   }, [guestId, jobId, token]);
 
+  useEffect(() => {
+    if (!streamUrl) return;
+
+    const controller = new AbortController();
+
+    (async () => {
+      try {
+        const response = await fetch(streamUrl, {
+          method: "HEAD",
+          signal: controller.signal,
+        });
+        console.log(
+          `[useJobStreaming] 🧪 HEAD SSE status=${response.status} ok=${response.ok}`
+        );
+      } catch (error) {
+        if (error?.name === "AbortError") return;
+        console.error("[useJobStreaming] ❌ HEAD SSE falhou:", error);
+      }
+    })();
+
+    return () => controller.abort();
+  }, [streamUrl]);
+
   const persistTileAndRefresh = useCallback(
     async (payload) => {
       if (!guestId || !jobId) return;

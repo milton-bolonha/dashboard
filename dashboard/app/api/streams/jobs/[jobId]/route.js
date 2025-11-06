@@ -7,18 +7,36 @@ import crypto from "crypto";
 
 export const runtime = "nodejs";
 
-export async function GET(request, { params }) {
-  const { jobId } = await params;
+async function resolveParams(segmentData) {
+  if (!segmentData) return {};
+
+  // Next.js 15 pode expor `params` como Promise. Suportamos ambos os casos.
+  if (typeof segmentData.then === "function") {
+    // O próprio segmento é uma Promise
+    const awaitedSegment = await segmentData;
+    return resolveParams(awaitedSegment);
+  }
+
+  const rawParams = segmentData.params ?? segmentData;
+
+  if (typeof rawParams?.then === "function") {
+    return resolveParams(await rawParams);
+  }
+
+  return rawParams || {};
+}
+
+async function authorizeRequest(request, segmentData, methodLabel = "GET") {
+  const params = await resolveParams(segmentData);
+  const { jobId } = params || {};
   const { searchParams } = new URL(request.url);
   const guestId = searchParams.get("guest_id");
   const token = searchParams.get("token");
-  let job;
 
   try {
-    // 1. Validação de Segurança
     if (!jobId || !guestId || !token) {
       console.warn(
-        `[SSE Route] ❌ Parâmetros ausentes: jobId=${jobId} guestId=${guestId} token=` +
+        `[SSE Route][${methodLabel}] ❌ Parâmetros ausentes: jobId=${jobId} guestId=${guestId} token=` +
           (token ? "<present>" : "<missing>")
       );
       return NextResponse.json(
@@ -27,22 +45,23 @@ export async function GET(request, { params }) {
       );
     }
 
-    job = await withMongoConnection(async () => await getJob(jobId), {
+    const job = await withMongoConnection(async () => await getJob(jobId), {
       label: "sse:get-job",
       stage: "sse",
       retries: 2,
       metadata: { jobId, guestId },
     });
+
     if (!job) {
       console.warn(
-        `[SSE Route] ❌ Job ${jobId} não encontrado (guestId=${guestId}).`
+        `[SSE Route][${methodLabel}] ❌ Job ${jobId} não encontrado (guestId=${guestId}).`
       );
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
 
     if (job.guestId !== guestId) {
       console.warn(
-        `[SSE Route] ❌ GuestId mismatch para job ${jobId}. esperado=${job.guestId} recebido=${guestId}`
+        `[SSE Route][${methodLabel}] ❌ GuestId mismatch para job ${jobId}. esperado=${job.guestId} recebido=${guestId}`
       );
       return NextResponse.json({ error: "Guest ID mismatch" }, { status: 403 });
     }
@@ -50,17 +69,18 @@ export async function GET(request, { params }) {
     const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
     if (job.accessTokenHash !== tokenHash) {
       console.warn(
-        `[SSE Route] ❌ Token inválido para job ${jobId} / guest ${guestId}.`
+        `[SSE Route][${methodLabel}] ❌ Token inválido para job ${jobId} / guest ${guestId}.`
       );
       return NextResponse.json(
         { error: "Invalid access token" },
         { status: 403 }
       );
     }
-    console.log(`[SSE Route] ✅ Acesso autorizado para job ${jobId}`);
+
+    return { job, guestId, token, jobId };
   } catch (authError) {
     console.error(
-      `[SSE Route] ❌ Erro de autenticação para job ${jobId}:`,
+      `[SSE Route][${methodLabel}] ❌ Erro de autenticação para job ${jobId}:`,
       authError
     );
     const statusCode = authError?.code === "MONGODB_CIRCUIT_OPEN" ? 503 : 500;
@@ -71,6 +91,29 @@ export async function GET(request, { params }) {
     };
     return NextResponse.json(body, { status: statusCode });
   }
+}
+
+export async function HEAD(request, segmentData) {
+  const authResult = await authorizeRequest(request, segmentData, "HEAD");
+  if (authResult instanceof Response) {
+    return authResult;
+  }
+
+  const { jobId } = authResult;
+  console.log(
+    `[SSE Route][HEAD] ✅ Autorização bem-sucedida para job ${jobId}`
+  );
+  return new Response(null, { status: 200 });
+}
+
+export async function GET(request, segmentData) {
+  const authResult = await authorizeRequest(request, segmentData, "GET");
+  if (authResult instanceof Response) {
+    return authResult;
+  }
+
+  const { job, guestId, jobId } = authResult;
+  console.log(`[SSE Route] ✅ Acesso autorizado para job ${jobId}`);
 
   const key = `guest:${guestId}:job:${jobId}`;
   console.log(`[SSE Route] 🔌 Nova conexão para a chave: ${key}`);
