@@ -76,9 +76,19 @@ export async function GET(request, { params }) {
         try {
           // ⭐ CORREÇÃO CRÍTICA: Enviar eventos nomeados
           // O frontend usa addEventListener("job:status", ...) e precisa do nome do evento.
-          sendEvent(event.type, event.payload);
+          if (!event || !event.type) {
+            console.warn("[SSE Route] ⚠️ Evento inválido recebido:", event);
+            return;
+          }
+          sendEvent(event.type, event.payload || {});
         } catch (e) {
-          console.error("[SSE Route] ❌ Erro ao enfileirar evento:", e);
+          console.error(
+            "[SSE Route] ❌ Erro ao enfileirar evento:",
+            e,
+            "Event:",
+            event
+          );
+          // Não re-throw para evitar quebrar o stream
         }
       };
 

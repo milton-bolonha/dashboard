@@ -245,16 +245,41 @@ const getWorkspaceHandler = async (req) => {
                   } tiles.`
                 );
 
-                const jobTiles = (wsEntity.tiles || []).filter(
-                  (t) => t.jobId === jobId
-                );
+                // ⭐ CORREÇÃO: Filtrar por jobId OU por ID que contém o jobId
+                const jobTiles = (wsEntity.tiles || []).filter((t) => {
+                  // Verificar campo jobId direto
+                  if (t.jobId === jobId) return true;
+                  // Verificar se o ID do tile contém o jobId (formato: tile_job_mhn7bhat_0)
+                  if (t.id && typeof t.id === "string") {
+                    return (
+                      t.id.includes(`_${jobId}_`) ||
+                      t.id.startsWith(`tile_${jobId}_`)
+                    );
+                  }
+                  return false;
+                });
 
                 if (jobTiles.length > 0) {
-                  vLog(`✅ Encontrados ${jobTiles.length} tiles para o job.`);
+                  vLog(
+                    `✅ Encontrados ${jobTiles.length} tiles para o job ${jobId}.`
+                  );
+                  vLog(
+                    `🔍 Primeiros 3 tiles:`,
+                    jobTiles
+                      .slice(0, 3)
+                      .map((t) => ({
+                        id: t.id,
+                        jobId: t.jobId,
+                        title: t.title,
+                      }))
+                  );
                   wsEntity.tiles = jobTiles;
                 } else {
                   vLog(
-                    `⚠️ Nenhum tile correspondente ao job ${jobId} encontrado. Retornando array de tiles vazio para esta entidade.`
+                    `⚠️ Nenhum tile correspondente ao job ${jobId} encontrado. Tiles disponíveis:`,
+                    (wsEntity.tiles || [])
+                      .slice(0, 3)
+                      .map((t) => ({ id: t.id, jobId: t.jobId }))
                   );
                   wsEntity.tiles = []; // Retorna vazio, mas apenas para a resposta da API, não altera o DB
                 }

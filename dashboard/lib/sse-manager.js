@@ -17,30 +17,37 @@ class SSEManager {
       console.log(`[SSE Manager] ➕ Nova conexão: ${key}`);
     }
 
-    // Reenviar eventos do buffer se houver algum
+    // ⭐ CORREÇÃO: Aguardar um pequeno delay antes de reenviar buffer
+    // Isso garante que a conexão SSE esteja totalmente estabelecida
     const bufferedEvents = this.buffer.get(key) || [];
     if (bufferedEvents.length > 0) {
       console.log(
         `[SSE Manager] 🔄 Reenviando ${bufferedEvents.length} eventos do buffer para: ${key}`
       );
-      bufferedEvents.forEach((event, index) => {
-        try {
-          console.log(
-            `[SSE Manager] 📤 Reenviando evento ${index + 1}/${
-              bufferedEvents.length
-            }: ${event.type}`
-          );
-          // ⭐ CORREÇÃO: Chamar o handler (onEvent) em vez de controller.enqueue
-          handler(event);
-        } catch (err) {
-          console.error(
-            `[SSE Manager] ❌ Erro ao reenviar evento ${index + 1} do buffer:`,
-            err
-          );
-        }
-      });
-      this.buffer.set(key, []); // Limpar buffer após envio
-      console.log(`[SSE Manager] ✅ Buffer limpo para: ${key}`);
+
+      // Usar setTimeout para garantir que a conexão esteja pronta
+      setTimeout(() => {
+        bufferedEvents.forEach((event, index) => {
+          try {
+            console.log(
+              `[SSE Manager] 📤 Reenviando evento ${index + 1}/${
+                bufferedEvents.length
+              }: ${event.type}`
+            );
+            // ⭐ CORREÇÃO: Chamar o handler (onEvent) em vez de controller.enqueue
+            handler(event);
+          } catch (err) {
+            console.error(
+              `[SSE Manager] ❌ Erro ao reenviar evento ${
+                index + 1
+              } do buffer:`,
+              err
+            );
+          }
+        });
+        this.buffer.set(key, []); // Limpar buffer após envio
+        console.log(`[SSE Manager] ✅ Buffer limpo para: ${key}`);
+      }, 100); // 100ms de delay para garantir que a conexão esteja pronta
     } else {
       console.log(`[SSE Manager] ℹ️ Nenhum evento no buffer para: ${key}`);
     }

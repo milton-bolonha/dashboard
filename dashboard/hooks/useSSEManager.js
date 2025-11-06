@@ -82,18 +82,50 @@ export function useSSEManager(streamUrl, listeners = {}, options = {}) {
       };
 
       eventSource.onerror = (error) => {
-        console.error("[useSSEManager] SSE error:", error);
+        const readyState = eventSource.readyState;
+        console.error(
+          `[useSSEManager] SSE error (readyState: ${readyState}):`,
+          error
+        );
 
-        if (eventSource.readyState === EventSource.CLOSED) {
-          console.debug("[useSSEManager] SSE closed by server.");
-          const currentOptions = optionsRef.current;
-          if (typeof currentOptions?.onPermanentError === "function") {
-            currentOptions.onPermanentError(error);
+        // ⭐ CORREÇÃO: EventSource.CONNECTING = 0, OPEN = 1, CLOSED = 2
+        // Se está CLOSED, pode ser que o servidor fechou a conexão
+        // Mas também pode ser um erro temporário de rede
+        if (readyState === EventSource.CLOSED) {
+          console.debug(
+            "[useSSEManager] SSE closed by server or network error."
+          );
+
+          // Tentar reconectar apenas se não excedeu o limite de tentativas
+          const attempts = retryRef.current.attempts + 1;
+          retryRef.current.attempts = attempts;
+
+          if (attempts > MAX_RETRIES) {
+            console.warn(
+              "[useSSEManager] Max retry attempts reached. Triggering fallback."
+            );
+            const currentOptions = optionsRef.current;
+            if (typeof currentOptions?.onPermanentError === "function") {
+              currentOptions.onPermanentError(error);
+            }
+            cleanup();
+            return;
           }
-          cleanup();
+
+          // Tentar reconectar após delay
+          const delay = Math.min(Math.pow(2, attempts) * 500, 5000);
+          const jitter = Math.floor(Math.random() * 200);
+          const waitFor = delay + jitter;
+          console.debug(
+            `[useSSEManager] Retrying SSE connection in ${waitFor}ms (attempt ${attempts}/${MAX_RETRIES})`
+          );
+
+          retryRef.current.timeoutId = setTimeout(connect, waitFor);
           return;
         }
 
+        // Se não está CLOSED, pode ser um erro temporário
+        // Fechar e tentar reconectar
         eventSource.close();
 
         const attempts = retryRef.current.attempts + 1;
