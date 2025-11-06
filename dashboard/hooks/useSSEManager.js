@@ -108,11 +108,18 @@ export function useSSEManager(streamUrl, listeners = {}, options = {}) {
           error
         );
 
-        // ⭐ CRÍTICO: Se SSE está CLOSED, ativar polling IMEDIATAMENTE
-        // Não esperar - SSE já falhou (timeout do Netlify após 60s)
-        if (readyState === EventSource.CLOSED) {
+        // ⭐ CRÍTICO: Se SSE está CLOSED (2) OU erro persiste há muito tempo, ativar polling IMEDIATAMENTE
+        // readyState: 0 = CONNECTING, 1 = OPEN, 2 = CLOSED
+        // Se está CLOSED ou erro persiste > 3s, ativar polling
+        if (readyState === EventSource.CLOSED || isPermanentError) {
+          const reason =
+            readyState === EventSource.CLOSED
+              ? `SSE closed by server (readyState: ${readyState})`
+              : `Erro permanente após ${Math.round(
+                  timeSinceFirstError / 1000
+                )}s`;
           console.warn(
-            `[useSSEManager] ⚠️ SSE closed by server (readyState: ${readyState}). Ativando fallback imediatamente.`
+            `[useSSEManager] ⚠️ ${reason}. Ativando fallback imediatamente.`
           );
           const currentOptions = optionsRef.current;
           if (typeof currentOptions?.onPermanentError === "function") {
@@ -122,22 +129,39 @@ export function useSSEManager(streamUrl, listeners = {}, options = {}) {
           return;
         }
 
-        // ⭐ NOVO: Se erro persiste há muito tempo, considerar permanente
-        if (isPermanentError) {
-          console.warn(
-            `[useSSEManager] ⚠️ Erro permanente após ${Math.round(
-              timeSinceFirstError / 1000
-            )}s. Ativando fallback imediatamente.`
-          );
-          const currentOptions = optionsRef.current;
-          if (typeof currentOptions?.onPermanentError === "function") {
-            currentOptions.onPermanentError(error);
+        // ⭐ NOVO: Se readyState é 0 (CONNECTING) e já tentou várias vezes, ativar polling
+        // Isso acontece quando SSE não consegue conectar
+        if (readyState === EventSource.CONNECTING) {
+          const attempts = retryRef.current.attempts + 1;
+          retryRef.current.attempts = attempts;
+
+          if (attempts > MAX_RETRIES) {
+            console.warn(
+              `[useSSEManager] ⚠️ SSE não conseguiu conectar após ${attempts} tentativas (readyState: ${readyState}). Ativando fallback.`
+            );
+            const currentOptions = optionsRef.current;
+            if (typeof currentOptions?.onPermanentError === "function") {
+              currentOptions.onPermanentError(error);
+            }
+            cleanup();
+            return;
           }
-          cleanup();
+
+          // Tentar reconectar após delay curto
+          const delay = Math.min(
+            Math.pow(2, attempts) * RETRY_DELAY_BASE_MS,
+            1000 // Reduzido para 1s máximo quando CONNECTING
+          );
+          const jitter = Math.floor(Math.random() * 200);
+          const waitFor = delay + jitter;
+          console.debug(
+            `[useSSEManager] Retrying SSE connection in ${waitFor}ms (attempt ${attempts}/${MAX_RETRIES}, readyState: ${readyState})`
+          );
+          retryRef.current.timeoutId = setTimeout(connect, waitFor);
           return;
         }
 
-        // Se não está CLOSED, pode ser um erro temporário
+        // Se não está CLOSED nem CONNECTING, pode ser um erro temporário
         // Fechar e tentar reconectar
         eventSource.close();
 
