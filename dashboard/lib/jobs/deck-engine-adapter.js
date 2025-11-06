@@ -8,6 +8,7 @@ import { getDeckEngineRunner } from "@/lib/jobs/deck-engine-bridge";
 import "@/lib/jobs/deck-engine-runner-openai"; // registra runner default (side-effect)
 import { db } from "@/lib/db";
 import { invalidateWorkspaceCache } from "@/lib/workspace-cache";
+import { getGuestTemplate } from "@/lib/guest-templates";
 
 export async function queueJob({
   guestId,
@@ -29,7 +30,23 @@ export async function queueJob({
     companyName,
   });
 
-  const total = Array.isArray(items) ? items.length : 0;
+  // ⭐ CORREÇÃO CRÍTICA: Calcular total baseado no template, não em items.length
+  // O template tem 8 tiles, mas items.length é 1 (apenas dados do form)
+  let actualTemplateId = templateId;
+  if (
+    templateId === "tpl_classic_default" ||
+    templateId === "tpl_dynamic_default"
+  ) {
+    actualTemplateId = "template_1"; // Usar template_1 que tem 8 tiles
+  }
+  const template = getGuestTemplate(actualTemplateId);
+  const templateTilesCount = template?.tiles?.length || 8; // Fallback para 8 se não encontrar
+  const itemsCount = Array.isArray(items) ? items.length : 0;
+  const total = Math.max(itemsCount, templateTilesCount); // Usar o maior valor (geralmente templateTilesCount)
+
+  console.log(
+    `[DeckEngine] 📊 Total calculado: ${total} (items: ${itemsCount}, template tiles: ${templateTilesCount})`
+  );
   let successCount = 0;
   let errorCount = 0;
 
@@ -355,7 +372,27 @@ export async function queueJob({
           level: "error",
           message: payload?.error?.message || "runner error",
         });
-        emitJobEvent({ guestId, jobId, type: "job:error", payload, token });
+
+        // ⭐ CORREÇÃO: Incluir status e progress no payload do erro
+        const errorPayload = {
+          ...payload,
+          jobId,
+          status: "RUNNING_WITH_ERRORS",
+          progress: {
+            current: successCount + errorCount,
+            total,
+            remaining: Math.max(total - (successCount + errorCount), 0),
+          },
+          scope,
+        };
+
+        emitJobEvent({
+          guestId,
+          jobId,
+          type: "job:error",
+          payload: errorPayload,
+          token,
+        });
         // Atualiza o status para refletir que erros ocorreram
         emitStatus("RUNNING_WITH_ERRORS");
       },
