@@ -57,23 +57,47 @@ export function useJobStreaming({
   }, [isGenerating, stopPolling]);
 
   const startPolling = useCallback(() => {
-    if (pollingRef.current.active) return;
+    if (pollingRef.current.active) {
+      console.log(
+        "[useJobStreaming] ⚠️ Polling já está ativo. Ignorando startPolling."
+      );
+      return;
+    }
     console.log("[useJobStreaming] 🔄 SSE fallback: starting polling loop...");
+    console.log("[useJobStreaming] 📊 Parâmetros:", {
+      jobId,
+      guestId,
+      isGenerating,
+    });
     pollingRef.current.active = true;
     pollingRef.current.attempts = 0;
     pollingRef.current.startTime = Date.now(); // ⭐ NOVO: Registrar tempo de início
 
     const tick = async () => {
-      if (!pollingRef.current.active) return;
+      if (!pollingRef.current.active) {
+        console.log("[useJobStreaming] 🛑 Polling parado. Abortando tick.");
+        return;
+      }
       pollingRef.current.attempts += 1;
+      console.log(
+        `[useJobStreaming] 🔄 Polling tick #${pollingRef.current.attempts}...`
+      );
 
       try {
         await revalidateWorkspace();
+        console.log(
+          `[useJobStreaming] ✅ Polling tick #${pollingRef.current.attempts} concluído.`
+        );
       } catch (error) {
         console.error("[useJobStreaming] ⚠️ Polling error:", error);
       }
 
-      if (!pollingRef.current.active) return;
+      if (!pollingRef.current.active) {
+        console.log(
+          "[useJobStreaming] 🛑 Polling parado após tick. Abortando."
+        );
+        return;
+      }
 
       // ⭐ NOVO: Verificar timeout de segurança
       const elapsed = Date.now() - (pollingRef.current.startTime || Date.now());
@@ -137,12 +161,23 @@ export function useJobStreaming({
   );
 
   const handleSSEPermanentError = useCallback(() => {
+    console.log(
+      "[useJobStreaming] 🚨 SSE permanent error detectado. Ativando polling..."
+    );
     try {
       if (typeof startPolling === "function") {
+        console.log(
+          "[useJobStreaming] ✅ startPolling é uma função. Chamando..."
+        );
         startPolling();
+      } else {
+        console.error(
+          "[useJobStreaming] ❌ startPolling não é uma função:",
+          typeof startPolling
+        );
       }
     } catch (error) {
-      console.error("[useJobStreaming] Error starting polling:", error);
+      console.error("[useJobStreaming] ❌ Error starting polling:", error);
     }
   }, [startPolling]);
 

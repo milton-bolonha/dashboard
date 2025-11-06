@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
 
-const MAX_RETRIES = 2; // ⭐ REDUZIDO: De 3 para 2 para ativar polling mais rápido
+const MAX_RETRIES = 1; // ⭐ REDUZIDO: De 2 para 1 para ativar polling IMEDIATAMENTE
 const RETRY_DELAY_BASE_MS = 500; // Base para backoff exponencial
-const PERMANENT_ERROR_THRESHOLD_MS = 10000; // 10s sem conexão = erro permanente
+const PERMANENT_ERROR_THRESHOLD_MS = 3000; // ⭐ REDUZIDO: 3s sem conexão = erro permanente (era 10s)
 
 export function useSSEManager(streamUrl, listeners = {}, options = {}) {
   const eventSourceRef = useRef(null);
@@ -108,10 +108,24 @@ export function useSSEManager(streamUrl, listeners = {}, options = {}) {
           error
         );
 
-        // ⭐ NOVO: Se erro persiste há muito tempo, considerar permanente imediatamente
+        // ⭐ CRÍTICO: Se SSE está CLOSED, ativar polling IMEDIATAMENTE
+        // Não esperar - SSE já falhou (timeout do Netlify após 60s)
+        if (readyState === EventSource.CLOSED) {
+          console.warn(
+            `[useSSEManager] ⚠️ SSE closed by server (readyState: ${readyState}). Ativando fallback imediatamente.`
+          );
+          const currentOptions = optionsRef.current;
+          if (typeof currentOptions?.onPermanentError === "function") {
+            currentOptions.onPermanentError(error);
+          }
+          cleanup();
+          return;
+        }
+
+        // ⭐ NOVO: Se erro persiste há muito tempo, considerar permanente
         if (isPermanentError) {
           console.warn(
-            `[useSSEManager] ⚠️ Erro permanente detectado após ${Math.round(
+            `[useSSEManager] ⚠️ Erro permanente após ${Math.round(
               timeSinceFirstError / 1000
             )}s. Ativando fallback imediatamente.`
           );
@@ -123,45 +137,6 @@ export function useSSEManager(streamUrl, listeners = {}, options = {}) {
           return;
         }
 
-        // ⭐ CORREÇÃO: EventSource.CONNECTING = 0, OPEN = 1, CLOSED = 2
-        // Se está CLOSED, pode ser que o servidor fechou a conexão
-        // Mas também pode ser um erro temporário de rede
-        if (readyState === EventSource.CLOSED) {
-          console.debug(
-            "[useSSEManager] SSE closed by server or network error."
-          );
-
-          // Tentar reconectar apenas se não excedeu o limite de tentativas
-          const attempts = retryRef.current.attempts + 1;
-          retryRef.current.attempts = attempts;
-
-          if (attempts > MAX_RETRIES) {
-            console.warn(
-              "[useSSEManager] Max retry attempts reached. Triggering fallback."
-            );
-            const currentOptions = optionsRef.current;
-            if (typeof currentOptions?.onPermanentError === "function") {
-              currentOptions.onPermanentError(error);
-            }
-            cleanup();
-            return;
-          }
-
-          // Tentar reconectar após delay (backoff exponencial)
-          const delay = Math.min(
-            Math.pow(2, attempts) * RETRY_DELAY_BASE_MS,
-            5000
-          );
-          const jitter = Math.floor(Math.random() * 200);
-          const waitFor = delay + jitter;
-          console.debug(
-            `[useSSEManager] Retrying SSE connection in ${waitFor}ms (attempt ${attempts}/${MAX_RETRIES})`
-          );
-
-          retryRef.current.timeoutId = setTimeout(connect, waitFor);
-          return;
-        }
-
         // Se não está CLOSED, pode ser um erro temporário
         // Fechar e tentar reconectar
         eventSource.close();
@@ -169,6 +144,7 @@ export function useSSEManager(streamUrl, listeners = {}, options = {}) {
         const attempts = retryRef.current.attempts + 1;
         retryRef.current.attempts = attempts;
 
+        // ⭐ CRÍTICO: Reduzir MAX_RETRIES para ativar polling mais rápido
         if (attempts > MAX_RETRIES) {
           console.warn(
             "[useSSEManager] Max retry attempts reached. Triggering fallback."
@@ -181,9 +157,10 @@ export function useSSEManager(streamUrl, listeners = {}, options = {}) {
           return;
         }
 
+        // ⭐ REDUZIDO: Delay máximo reduzido para ativar polling mais rápido
         const delay = Math.min(
           Math.pow(2, attempts) * RETRY_DELAY_BASE_MS,
-          5000
+          2000 // Reduzido de 5000 para 2000ms
         );
         const jitter = Math.floor(Math.random() * 200);
         const waitFor = delay + jitter;
