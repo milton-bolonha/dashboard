@@ -175,6 +175,8 @@ export async function POST(req) {
       runJobInBackground(jobId);
 
       // Tentar também chamar a background function (para ver se funciona)
+      // ⭐ CRÍTICO: Background functions no Netlify são detectadas automaticamente pelo sufixo "-background"
+      // Não é necessário enviar header X-NF-Background manualmente
       fetch(backgroundFunctionUrl, {
         method: "POST",
         headers: {

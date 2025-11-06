@@ -29,9 +29,10 @@ console.log("[Background Function] ✅ Imports concluídos");
  * Netlify automaticamente invoca esta função de forma assíncrona
  * quando recebe um POST com header X-NF-Background: true
  *
- * IMPORTANTE: Background functions devem usar export default conforme documentação Netlify
+ * IMPORTANTE: Background functions no Netlify recebem Request (Web API) e devem retornar Response ou undefined
+ * @see https://docs.netlify.com/build/functions/background-functions/
  */
-export default async function handler(event, context) {
+export default async function handler(request, context) {
   // ⭐ CRÍTICO: Não esperar por conexões abertas (MongoDB, etc.)
   // Isso garante que a função não trave esperando por conexões
   if (
@@ -46,10 +47,9 @@ export default async function handler(event, context) {
 
   // Log imediato para confirmar que a função foi invocada
   console.log(`[Background Function] 🔔 Handler invocado!`, {
-    method: event.httpMethod,
-    path: event.path,
-    hasBody: !!event.body,
-    bodyLength: event.body?.length || 0,
+    method: request.method,
+    url: request.url,
+    hasBody: !!request.body,
     hasContext: !!context,
   });
 
@@ -73,40 +73,64 @@ export default async function handler(event, context) {
       queueJob: !!queueJob,
       emitJobEvent: !!emitJobEvent,
     });
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
+    return new Response(
+      JSON.stringify({
         error: "Failed to import required modules",
       }),
-    };
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   }
 
-  // Background functions recebem um evento com body serializado
+  // ⭐ CORREÇÃO: Request.body é um ReadableStream, não uma string
+  // Precisamos ler o body usando request.json() ou request.text()
+  // IMPORTANTE: request.json() só pode ser chamado uma vez - o body é consumido
   let body;
   try {
-    body = JSON.parse(event.body || "{}");
-    console.log(`[Background Function] 📦 Body parseado:`, {
-      jobId: body.jobId,
-    });
+    // Ler o body como texto primeiro para poder tentar parsear depois
+    const text = await request.text();
+    console.log(
+      `[Background Function] 📦 Body recebido (${text.length} chars):`,
+      text.substring(0, 200)
+    );
+
+    if (!text || text.trim() === "") {
+      body = {};
+    } else {
+      // Tentar parsear como JSON
+      body = JSON.parse(text);
+      console.log(`[Background Function] 📦 Body parseado como JSON:`, {
+        jobId: body.jobId,
+      });
+    }
   } catch (error) {
     console.error("[Background Function] ❌ Erro ao parsear body:", error);
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: "Invalid JSON body" }),
-    };
+    console.error("[Background Function] ❌ Erro detalhado:", {
+      message: error.message,
+      stack: error.stack,
+    });
+    return new Response(
+      JSON.stringify({ error: "Invalid JSON body", details: error.message }),
+      {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   }
 
-  const { jobId } = body;
+  const { jobId } = body || {};
 
   if (!jobId) {
     console.error(
       "[Background Function] ❌ jobId não fornecido no body:",
       body
     );
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: "jobId is required" }),
-    };
+    return new Response(JSON.stringify({ error: "jobId is required" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   console.log(
@@ -123,15 +147,19 @@ export default async function handler(event, context) {
     console.error(`[Background Function] ❌ Stack trace:`, error.stack);
   });
 
-  // Retornar 202 Accepted imediatamente
+  // ⭐ CORREÇÃO: Retornar Response (Web API) em vez de objeto { statusCode, body }
+  // Background functions devem retornar Response ou undefined
   console.log(`[Background Function] ✅ Retornando 202 para job ${jobId}`);
-  return {
-    statusCode: 202,
-    body: JSON.stringify({
+  return new Response(
+    JSON.stringify({
       message: "Job processing started",
       jobId,
     }),
-  };
+    {
+      status: 202,
+      headers: { "Content-Type": "application/json" },
+    }
+  );
 }
 
 /**
