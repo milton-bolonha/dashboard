@@ -139,13 +139,21 @@ export default async function handler(request, context) {
 
   // Executar em background (não bloquear a resposta)
   // IMPORTANTE: Não usar await aqui - a função deve retornar 202 imediatamente
-  processJobInBackground(jobId).catch((error) => {
-    console.error(
-      `[Background Function] ❌ Erro fatal ao processar job ${jobId}:`,
-      error
-    );
-    console.error(`[Background Function] ❌ Stack trace:`, error.stack);
+  // ⭐ CRÍTICO: Garantir que o processamento continue mesmo após retornar 202
+  // Usar setImmediate para garantir que o processamento não seja interrompido
+  setImmediate(() => {
+    processJobInBackground(jobId).catch((error) => {
+      console.error(
+        `[Background Function] ❌ Erro fatal ao processar job ${jobId}:`,
+        error
+      );
+      console.error(`[Background Function] ❌ Stack trace:`, error.stack);
+    });
   });
+
+  console.log(
+    `[Background Function] ⚡ Processamento agendado para execução imediata após retorno 202`
+  );
 
   // ⭐ CORREÇÃO: Retornar Response (Web API) em vez de objeto { statusCode, body }
   // Background functions devem retornar Response ou undefined
@@ -184,8 +192,13 @@ async function processJobInBackground(jobId) {
         metadata: { jobId },
       }
     );
-    console.log(`[Background Function] ✅ MongoDB pre-warm concluído`);
+    console.log(
+      `[Background Function] ✅ MongoDB pre-warm concluído - continuando processamento...`
+    );
 
+    // ⭐ CRÍTICO: Garantir que o código continue após o pre-warm
+    // Adicionar pequeno delay para garantir que logs apareçam
+    await new Promise((resolve) => setTimeout(resolve, 100));
     console.log(`[Background Function] 📥 Buscando job ${jobId}...`);
     job = await getJob(jobId);
     if (!job) {

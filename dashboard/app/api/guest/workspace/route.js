@@ -16,6 +16,7 @@ import { buildPromptContext } from "@/lib/theme-context-mapper";
 import Joi from "joi";
 import { getJob } from "@/lib/db/prompt-jobs";
 import crypto from "crypto";
+import { getWorkspaceCache, setWorkspaceCache } from "@/lib/workspace-cache";
 
 const workspaceCreateSchema = Joi.object({
   template_id: Joi.string().optional(), // Backward compatibility
@@ -265,13 +266,11 @@ const getWorkspaceHandler = async (req) => {
                   );
                   vLog(
                     `🔍 Primeiros 3 tiles:`,
-                    jobTiles
-                      .slice(0, 3)
-                      .map((t) => ({
-                        id: t.id,
-                        jobId: t.jobId,
-                        title: t.title,
-                      }))
+                    jobTiles.slice(0, 3).map((t) => ({
+                      id: t.id,
+                      jobId: t.jobId,
+                      title: t.title,
+                    }))
                   );
                   wsEntity.tiles = jobTiles;
                 } else {
@@ -321,36 +320,56 @@ const getWorkspaceHandler = async (req) => {
             if (jobId) {
               for (let i = 0; i < mergedEntities.length; i++) {
                 const mergedEntity = mergedEntities[i];
-                if (mergedEntity.tiles_status === "generating" || mergedEntity.tiles_status === "pending") {
+                if (
+                  mergedEntity.tiles_status === "generating" ||
+                  mergedEntity.tiles_status === "pending"
+                ) {
                   try {
                     const job = await getJob(jobId);
                     if (job) {
-                      const jobCreatedAt = job.createdAt ? new Date(job.createdAt) : null;
-                      const jobUpdatedAt = job.updatedAt ? new Date(job.updatedAt) : null;
+                      const jobCreatedAt = job.createdAt
+                        ? new Date(job.createdAt)
+                        : null;
+                      const jobUpdatedAt = job.updatedAt
+                        ? new Date(job.updatedAt)
+                        : null;
                       const now = new Date();
-                      
+
                       // Verificar se job está preso (criado há mais de 5 minutos e sem tiles)
                       const JOB_STUCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutos
-                      const timeSinceCreation = jobCreatedAt ? now - jobCreatedAt : 0;
-                      const timeSinceUpdate = jobUpdatedAt ? now - jobUpdatedAt : 0;
-                      const hasNoTiles = !mergedEntity.tiles || mergedEntity.tiles.length === 0;
-                      const isStuck = 
-                        (timeSinceCreation > JOB_STUCK_TIMEOUT_MS || timeSinceUpdate > JOB_STUCK_TIMEOUT_MS) &&
+                      const timeSinceCreation = jobCreatedAt
+                        ? now - jobCreatedAt
+                        : 0;
+                      const timeSinceUpdate = jobUpdatedAt
+                        ? now - jobUpdatedAt
+                        : 0;
+                      const hasNoTiles =
+                        !mergedEntity.tiles || mergedEntity.tiles.length === 0;
+                      const isStuck =
+                        (timeSinceCreation > JOB_STUCK_TIMEOUT_MS ||
+                          timeSinceUpdate > JOB_STUCK_TIMEOUT_MS) &&
                         hasNoTiles &&
                         (job.status === "QUEUED" || job.status === "RUNNING");
 
                       if (isStuck) {
                         vWarn(
-                          `⚠️ Job ${jobId} parece estar preso (criado há ${Math.round(timeSinceCreation / 1000)}s, atualizado há ${Math.round(timeSinceUpdate / 1000)}s, sem tiles). Mudando status para 'failed'.`
+                          `⚠️ Job ${jobId} parece estar preso (criado há ${Math.round(
+                            timeSinceCreation / 1000
+                          )}s, atualizado há ${Math.round(
+                            timeSinceUpdate / 1000
+                          )}s, sem tiles). Mudando status para 'failed'.`
                         );
                         mergedEntity.tiles_status = "failed";
-                        
+
                         // Opcional: Atualizar job no banco (comentado para não causar side effects)
                         // await updateJob(jobId, { status: "FAILED", error: "Job stuck: no tiles generated after timeout" });
                       }
                     }
                   } catch (jobError) {
-                    vWarn(`⚠️ Erro ao verificar job ${jobId} para detecção de jobs presos:`, jobError);
+                    vWarn(
+                      `⚠️ Erro ao verificar job ${jobId} para detecção de jobs presos:`,
+                      jobError
+                    );
                     // Não falhar a requisição se houver erro ao verificar job
                   }
                 }
@@ -373,11 +392,76 @@ const getWorkspaceHandler = async (req) => {
 
     vLog("📤 Response final keys:", Object.keys(response));
 
-    return NextResponse.json({
-      success: true,
-      workspace: response,
-      message: "Workspace retrieved successfully",
-    });
+    // ⭐ FASE 1: Cache + ETag
+    const cached = getWorkspaceCache(guestId, jobId);
+
+    // Calcular ETag do response
+    const responseString = JSON.stringify(response);
+    const etag = crypto.createHash("md5").update(responseString).digest("hex");
+
+    // Verificar If-None-Match do cliente
+    const ifNoneMatch = req.headers.get("If-None-Match");
+    if (ifNoneMatch === etag) {
+      vLog(
+        `[Workspace Cache] ✅ 304 Not Modified (ETag: ${etag.substring(
+          0,
+          8
+        )}...)`
+      );
+      return new NextResponse(null, {
+        status: 304,
+        headers: {
+          ETag: etag,
+          "Cache-Control": "private, max-age=1",
+        },
+      });
+    }
+
+    // Verificar cache válido
+    if (cached) {
+      vLog(
+        `[Workspace Cache] ✅ Cache hit (${
+          Date.now() - cached.timestamp
+        }ms old)`
+      );
+      return NextResponse.json(
+        {
+          success: true,
+          workspace: cached.data,
+          message: "Workspace retrieved successfully",
+        },
+        {
+          headers: {
+            ETag: cached.etag,
+            "Cache-Control": "private, max-age=1",
+          },
+        }
+      );
+    }
+
+    // Cache miss ou expirado - buscar do MongoDB
+    vLog(
+      `[Workspace Cache] ❌ Cache miss ou expirado para ${guestId}:${
+        jobId || "default"
+      }`
+    );
+
+    // Cachear resultado
+    setWorkspaceCache(guestId, jobId, response, etag);
+
+    return NextResponse.json(
+      {
+        success: true,
+        workspace: response,
+        message: "Workspace retrieved successfully",
+      },
+      {
+        headers: {
+          ETag: etag,
+          "Cache-Control": "private, max-age=1",
+        },
+      }
+    );
   } catch (error) {
     throw error;
   }

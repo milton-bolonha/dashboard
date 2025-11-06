@@ -8,6 +8,14 @@ const POLLING_INTERVAL_MS = 3000; // ⭐ REDUZIDO: De 4s para 3s para melhor res
 const MAX_POLLING_ATTEMPTS = 40;
 const POLLING_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutos máximo de polling
 
+// ⭐ FASE 2: Polling adaptativo - intervalo aumenta com tentativas
+const getAdaptiveInterval = (attempts) => {
+  if (attempts < 20) return 3000; // Primeiros 20: 3s
+  if (attempts < 40) return 5000; // Próximos 20: 5s
+  if (attempts < 60) return 10000; // Próximos 20: 10s
+  return 15000; // Depois: 15s
+};
+
 /**
  * Hook para gerenciar streaming de jobs via SSE + fallback polling
  * Encapsula toda a lógica de SSE, polling e estado de progresso
@@ -92,7 +100,9 @@ export function useJobStreaming({
         return;
       }
 
-      pollingRef.current.timeoutId = setTimeout(tick, POLLING_INTERVAL_MS);
+      // ⭐ FASE 2: Usar intervalo adaptativo
+      const adaptiveInterval = getAdaptiveInterval(pollingRef.current.attempts);
+      pollingRef.current.timeoutId = setTimeout(tick, adaptiveInterval);
     };
 
     tick();
@@ -152,8 +162,12 @@ export function useJobStreaming({
       "job:status": (payload) => {
         if (payload?.progress) {
           setTileProgress(payload.progress);
+          // ⭐ FASE 3: Se houver tiles falhos, o progress já inclui tilesFailed
         }
-        if (payload?.status === "COMPLETED") {
+        if (
+          payload?.status === "COMPLETED" ||
+          payload?.status === "COMPLETED_WITH_FAILURES"
+        ) {
           revalidateWorkspace();
         }
       },

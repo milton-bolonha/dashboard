@@ -167,6 +167,9 @@ async function runJob({
     researchTarget: context.researchTarget,
   });
 
+  // ⭐ FASE 3: Array para coletar tiles falhos para retry pós-processamento
+  const failedTiles = [];
+
   // ⭐ NOVO: Mapear orderIndex para tile do template
   // ⭐ BUG FIX: Usar expandedItems em vez de items
   for (let i = 0; i < total; i++) {
@@ -339,6 +342,22 @@ async function runJob({
           continue;
         }
 
+        // ⭐ FASE 3: Coletar tile falho para retry pós-processamento
+        // NÃO usar fallback imediatamente, marcar como "pending retry"
+        failedTiles.push({
+          orderIndex,
+          tile,
+          prompt,
+          context,
+          failureReason: attemptFailed
+            ? lastError?.message || "stream_error"
+            : looksLikeRefusal
+            ? "model_refusal"
+            : "empty_response",
+          attemptsUsed,
+        });
+
+        // Usar fallback temporariamente, mas será substituído se retry funcionar
         finalResult = fallbackMessage;
         finalChunks = [{ chunk: fallbackMessage, ix: 0 }];
         usedFallback = true;
@@ -346,6 +365,16 @@ async function runJob({
       }
 
       if (!finalResult) {
+        // ⭐ FASE 3: Também coletar se finalResult estiver vazio
+        failedTiles.push({
+          orderIndex,
+          tile,
+          prompt,
+          context,
+          failureReason: "empty_result",
+          attemptsUsed,
+        });
+
         finalResult = fallbackMessage;
         finalChunks = [{ chunk: fallbackMessage, ix: 0 }];
         usedFallback = true;
@@ -408,6 +437,171 @@ async function runJob({
     progress: { current: total, total, remaining: 0 },
     scope,
   });
+
+  // ⭐ FASE 3: Retry assíncrono pós-processamento para tiles falhos
+  if (failedTiles.length > 0) {
+    console.log(
+      `[Runner] 🔄 Iniciando retry assíncrono para ${failedTiles.length} tiles falhos...`
+    );
+
+    // Emitir evento de retry iniciado
+    onStatus?.({
+      jobId,
+      status: "RETRYING",
+      progress: {
+        current: total - failedTiles.length,
+        total,
+        remaining: failedTiles.length,
+      },
+      scope,
+    });
+
+    // Processar retries individualmente, assíncrono
+    (async () => {
+      const RETRY_MAX_ATTEMPTS = 2; // 2 tentativas adicionais
+      let retrySuccessCount = 0;
+      let retryFailedCount = 0;
+
+      for (const failedTile of failedTiles) {
+        const { orderIndex, tile, prompt, context: tileContext } = failedTile;
+
+        console.log(
+          `[Runner] 🔁 Retry tile ${orderIndex + 1}/${total}: "${tile.title}"`
+        );
+
+        let retrySuccess = false;
+        let retryAttempt = 0;
+
+        while (retryAttempt < RETRY_MAX_ATTEMPTS && !retrySuccess) {
+          retryAttempt += 1;
+
+          try {
+            let accumulatedResult = "";
+            const collectedChunks = [];
+
+            for await (const chunk of generateStreamedCompletion({
+              model,
+              prompt,
+            })) {
+              const chunkContent =
+                typeof chunk === "string"
+                  ? chunk
+                  : chunk.chunk || chunk.content || String(chunk);
+              collectedChunks.push({
+                chunk: chunkContent,
+                ix: collectedChunks.length,
+              });
+              accumulatedResult += chunkContent;
+            }
+
+            const trimmedResult = accumulatedResult.trim();
+            const looksLikeRefusal = trimmedResult
+              ? TILE_REFUSAL_PATTERNS.some((regex) => regex.test(trimmedResult))
+              : true;
+
+            if (trimmedResult && !looksLikeRefusal) {
+              // Retry bem-sucedido!
+              retrySuccess = true;
+              retrySuccessCount++;
+
+              console.log(
+                `[Runner] ✅ Retry bem-sucedido para tile ${
+                  orderIndex + 1
+                } (tentativa ${retryAttempt}/${RETRY_MAX_ATTEMPTS})`
+              );
+
+              // Emitir chunks
+              let chunkIndex = 0;
+              for (const chunkData of collectedChunks) {
+                onChunk?.({
+                  jobId,
+                  itemId: `${jobId}_${orderIndex}`,
+                  orderIndex,
+                  chunk: chunkData.chunk,
+                  ix: chunkIndex,
+                  scope,
+                });
+                chunkIndex += 1;
+              }
+
+              // Emitir resultado
+              await onResult?.({
+                jobId,
+                itemId: `${jobId}_${orderIndex}`,
+                orderIndex,
+                title: tile?.title || `Insight ${orderIndex + 1}`,
+                result: accumulatedResult,
+                metrics: {
+                  model,
+                  attempts: TILE_MAX_ATTEMPTS + retryAttempt,
+                  fallback: false,
+                  retried: true,
+                },
+              });
+
+              await appendLog({
+                jobId,
+                level: "info",
+                message: `Runner: retry successful for tile "${tile.title}" (attempt ${retryAttempt}/${RETRY_MAX_ATTEMPTS})`,
+              });
+            } else {
+              console.log(
+                `[Runner] ⚠️ Retry ${retryAttempt}/${RETRY_MAX_ATTEMPTS} para tile ${
+                  orderIndex + 1
+                } ainda inválido`
+              );
+            }
+          } catch (error) {
+            console.error(
+              `[Runner] ❌ Erro no retry ${retryAttempt}/${RETRY_MAX_ATTEMPTS} para tile ${
+                orderIndex + 1
+              }:`,
+              error
+            );
+          }
+
+          // Backoff entre tentativas de retry
+          if (!retrySuccess && retryAttempt < RETRY_MAX_ATTEMPTS) {
+            const backoff = Math.min(Math.pow(2, retryAttempt) * 500, 2000);
+            await sleep(backoff);
+          }
+        }
+
+        if (!retrySuccess) {
+          retryFailedCount++;
+          console.log(
+            `[Runner] ❌ Retry falhou para tile ${
+              orderIndex + 1
+            } após ${RETRY_MAX_ATTEMPTS} tentativas. Tile será descartado.`
+          );
+
+          await appendLog({
+            jobId,
+            level: "warn",
+            message: `Runner: retry failed for tile "${tile.title}" after ${RETRY_MAX_ATTEMPTS} attempts. Tile will be discarded.`,
+          });
+        }
+      }
+
+      // Emitir status final do retry
+      const finalTotal = total - retryFailedCount;
+      onStatus?.({
+        jobId,
+        status: retryFailedCount > 0 ? "COMPLETED_WITH_FAILURES" : "COMPLETED",
+        progress: {
+          current: total - retryFailedCount,
+          total: finalTotal,
+          remaining: 0,
+          tilesFailed: retryFailedCount,
+        },
+        scope,
+      });
+
+      console.log(
+        `[Runner] ✅ Retry pós-processamento concluído: ${retrySuccessCount} sucessos, ${retryFailedCount} falhas`
+      );
+    })();
+  }
 }
 
 const runner = { runJob };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import {
   DndContext,
   closestCenter,
@@ -31,6 +31,7 @@ export function SortableTilesGrid({
   isGeneratingTiles = false,
   tilesToGenerate = 6,
   onReorder,
+  tileProgress = null, // ⭐ FASE 3: Receber progress para ajustar tilesToGenerate
 }) {
   // Estado local para tiles com ordem preservada
   const [orderedTiles, setOrderedTiles] = useState([]);
@@ -45,6 +46,18 @@ export function SortableTilesGrid({
   // ⭐ NOVO: Helper para verificar se um tile tem conteúdo
   const hasTileContent = (tile) =>
     !!(tile.content || tile.answer || tile.excerpt);
+
+  // ⭐ FASE 3: Ajustar tilesToGenerate se houver tiles falhos
+  const adjustedTilesToGenerate = useMemo(() => {
+    if (tileProgress?.tilesFailed) {
+      const adjusted = tilesToGenerate - tileProgress.tilesFailed;
+      console.log(
+        `[SortableTilesGrid] 🔄 Ajustando tilesToGenerate: ${tilesToGenerate} → ${adjusted} (${tileProgress.tilesFailed} tiles falhos)`
+      );
+      return Math.max(0, adjusted);
+    }
+    return tilesToGenerate;
+  }, [tilesToGenerate, tileProgress?.tilesFailed]);
 
   // ⭐ NOVO: Helper para criar placeholder
   const createPlaceholder = (orderIndex) => ({
@@ -159,14 +172,17 @@ export function SortableTilesGrid({
 
     // ⭐ GUARD CLAUSE 1: Se já temos tiles suficientes, não criar mais placeholders
     const tilesWithContent = finalTiles.filter(hasTileContent).length;
-    if (tilesWithContent >= tilesToGenerate && tilesToGenerate > 0) {
+    if (
+      tilesWithContent >= adjustedTilesToGenerate &&
+      adjustedTilesToGenerate > 0
+    ) {
       console.log(
-        `[SortableTilesGrid] ✅ Já temos ${tilesWithContent} tiles com conteúdo (meta: ${tilesToGenerate}). Não criando mais placeholders.`
+        `[SortableTilesGrid] ✅ Já temos ${tilesWithContent} tiles com conteúdo (meta: ${adjustedTilesToGenerate}). Não criando mais placeholders.`
       );
     } else if (
       isGeneratingTiles &&
       !isGeneratingCustomTile &&
-      tilesToGenerate > 0
+      adjustedTilesToGenerate > 0
     ) {
       // ⭐ GUARD CLAUSE 2: Verificar timeout de segurança
       const elapsed = generationStartTimeRef.current
@@ -185,11 +201,18 @@ export function SortableTilesGrid({
         ).length;
         const neededPlaceholders = Math.max(
           0,
-          tilesToGenerate - finalTiles.length
+          adjustedTilesToGenerate - finalTiles.length
         );
 
-        if (neededPlaceholders > 0 && existingPlaceholders < tilesToGenerate) {
-          for (let orderIndex = 0; orderIndex < tilesToGenerate; orderIndex++) {
+        if (
+          neededPlaceholders > 0 &&
+          existingPlaceholders < adjustedTilesToGenerate
+        ) {
+          for (
+            let orderIndex = 0;
+            orderIndex < adjustedTilesToGenerate;
+            orderIndex++
+          ) {
             const existingTile = finalTiles.find(
               (t) => t.orderIndex === orderIndex
             );
@@ -250,7 +273,7 @@ export function SortableTilesGrid({
     tiles,
     isGeneratingTiles,
     isGeneratingCustomTile,
-    tilesToGenerate,
+    adjustedTilesToGenerate,
     orderedTiles,
   ]);
 
@@ -326,6 +349,16 @@ export function SortableTilesGrid({
 
         {/* LoadingTile para tile customizado */}
         {isGeneratingCustomTile && <LoadingTile index={0} />}
+
+        {/* ⭐ FASE 3: Aviso discreto sobre tiles falhos */}
+        {tileProgress?.tilesFailed > 0 && (
+          <div className="col-span-full mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-sm text-yellow-800">
+              ⚠️ Alguns tiles não puderam ser gerados devido a instabilidade da
+              OpenAI. Você pode regenerá-los individualmente.
+            </p>
+          </div>
+        )}
 
         {/* Add Prompt Tile */}
         <AddPromptTile onClick={onAddPrompt} />

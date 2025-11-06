@@ -7,6 +7,7 @@ import { appendLog } from "@/lib/db/prompt-logs";
 import { getDeckEngineRunner } from "@/lib/jobs/deck-engine-bridge";
 import "@/lib/jobs/deck-engine-runner-openai"; // registra runner default (side-effect)
 import { db } from "@/lib/db";
+import { invalidateWorkspaceCache } from "@/lib/workspace-cache";
 
 export async function queueJob({
   guestId,
@@ -131,6 +132,16 @@ export async function queueJob({
       console.log(
         `[DeckEngine] ✅ Tile ${tileDoc.id} salvo com sucesso (modified=${modified})`
       );
+
+      // ⭐ FASE 4: Invalidar cache após salvar tile
+      if (modified > 0) {
+        try {
+          invalidateWorkspaceCache(guestId, jobId);
+        } catch (cacheError) {
+          console.warn(`[DeckEngine] ⚠️ Erro ao invalidar cache:`, cacheError);
+        }
+      }
+
       return true;
     } catch (error) {
       console.error(
@@ -201,6 +212,83 @@ export async function queueJob({
           token,
         }),
       onResult: async (payload) => {
+        const usedFallback = payload.metrics?.fallback;
+        const isRetried = payload.metrics?.retried === true;
+
+        // ⭐ FASE 3: Se for retry bem-sucedido, processar normalmente
+        if (isRetried && !usedFallback) {
+          successCount++;
+          await appendResult({
+            jobId,
+            itemId: payload.itemId,
+            orderIndex: payload.orderIndex,
+            status: "COMPLETED",
+            result: payload.result,
+            error: null,
+            metrics: payload.metrics,
+          });
+
+          const tileDoc = {
+            id: `tile_${jobId}_${payload.orderIndex}`,
+            title: payload.title || `Insight ${payload.orderIndex + 1}`,
+            content: payload.result || "",
+            answer: payload.result || "",
+            excerpt:
+              payload.result?.slice(0, 200) ||
+              payload.excerpt ||
+              payload.answer?.slice(0, 200) ||
+              "",
+            orderIndex: payload.orderIndex,
+            metrics: payload.metrics,
+            createdAt: new Date().toISOString(),
+            jobId,
+          };
+
+          console.log(
+            `[DeckEngine] 💾 Persistindo tile ${tileDoc.id} após retry bem-sucedido...`
+          );
+          const persisted = await persistTileDirectly(tileDoc);
+
+          const eventPayload = {
+            ...payload,
+            title: tileDoc.title,
+            persisted,
+            entityKey: resolvedEntityKey,
+          };
+
+          if (persisted) {
+            eventPayload.tile = tileDoc;
+          }
+
+          emitJobEvent({
+            guestId,
+            jobId,
+            type: "job:result-completed",
+            payload: eventPayload,
+            token,
+          });
+
+          emitStatus("RUNNING");
+          return;
+        }
+
+        // ⭐ FASE 3: Se usar fallback E não for retry, NÃO persistir imediatamente
+        // Aguardar fase de retry antes de decidir
+        if (usedFallback && !isRetried) {
+          // Não incrementar successCount ainda
+          // Não persistir tile ainda
+          // Apenas logar para rastreamento
+          await appendLog({
+            jobId,
+            level: "warn",
+            message: `Tile ${payload.orderIndex} entrou em fallback. Aguardando retry pós-processamento.`,
+          });
+
+          // Não emitir evento de erro ainda - aguardar retry
+          return;
+        }
+
+        // Tile bem-sucedido (não fallback, não retry)
         successCount++;
         await appendResult({
           jobId,
@@ -211,53 +299,6 @@ export async function queueJob({
           error: null,
           metrics: payload.metrics,
         });
-
-        const usedFallback = payload.metrics?.fallback;
-        const failureReason =
-          payload.metrics?.lastError ||
-          (usedFallback ? "model_refusal" : undefined);
-
-        await appendResult({
-          jobId,
-          itemId: payload.itemId,
-          orderIndex: payload.orderIndex,
-          status: usedFallback ? "FAILED" : "COMPLETED",
-          result: usedFallback ? null : payload.result,
-          error: usedFallback ? failureReason : null,
-          metrics: payload.metrics,
-        });
-
-        if (usedFallback) {
-          errorCount++;
-          await appendLog({
-            jobId,
-            level: "warn",
-            message: `Tile ${payload.orderIndex} entrou em fallback (${failureReason}).`,
-          });
-
-          emitJobEvent({
-            guestId,
-            jobId,
-            type: "job:error",
-            payload: {
-              jobId,
-              itemId: payload.itemId,
-              orderIndex: payload.orderIndex,
-              error: {
-                message:
-                  failureReason ||
-                  "AI fallback triggered: no usable completion returned.",
-              },
-              scope,
-            },
-            token,
-          });
-
-          emitStatus("RUNNING_WITH_ERRORS");
-          return;
-        }
-
-        successCount++;
 
         const tileDoc = {
           id: `tile_${jobId}_${payload.orderIndex}`,
@@ -319,27 +360,35 @@ export async function queueJob({
         emitStatus("RUNNING_WITH_ERRORS");
       },
       onCompleted: async (payload) => {
+        // ⭐ FASE 3: Aguardar um pouco para retry pós-processamento começar
+        // O retry é assíncrono, então não bloqueamos aqui
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
         const finalStatus =
           errorCount > 0 ? "COMPLETED_WITH_ERRORS" : "COMPLETED";
+        const tilesFailed = payload.progress?.tilesFailed || 0;
+        const adjustedTotal = total - tilesFailed;
+
         console.log(
-          `[DeckEngine] ✅ Job ${jobId} finalizado com status: ${finalStatus} (Sucessos: ${successCount}, Erros: ${errorCount})`
+          `[DeckEngine] ✅ Job ${jobId} finalizado com status: ${finalStatus} (Sucessos: ${successCount}, Erros: ${errorCount}, Tiles falhos: ${tilesFailed})`
         );
 
         await appendLog({
           jobId,
           level: "info",
-          message: `Job ${jobId} completed with status ${finalStatus}`,
+          message: `Job ${jobId} completed with status ${finalStatus} (tiles failed: ${tilesFailed})`,
         });
 
-        // Garante que o payload final em 'onCompleted' reflita o estado real
+        // ⭐ FASE 3: Garante que o payload final reflita tiles falhos
         const finalPayload = {
           ...payload,
           jobId,
           status: finalStatus,
           progress: {
-            current: successCount, // Apenas os sucessos contam como 'current' no final
-            total,
+            current: successCount,
+            total: adjustedTotal > 0 ? adjustedTotal : total,
             remaining: 0,
+            tilesFailed,
           },
           scope,
         };

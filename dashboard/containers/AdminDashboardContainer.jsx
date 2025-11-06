@@ -363,6 +363,7 @@ export function AdminDashboardContainer() {
               isGeneratingCustomTile={isGeneratingCustomTile}
               tilesToGenerate={tilesToGenerate}
               onReorder={handleReorderTiles}
+              tileProgress={tileProgress}
             />
           </div>
         ) : (

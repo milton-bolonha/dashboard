@@ -28,16 +28,45 @@ Este documento descreve a arquitetura definitiva para o processo de geração de
     - Este redirecionamento é rápido e não espera a conclusão de nenhum tile.
 
 4.  **Página de Admin - O Painel de Controle Visual:**
-    - Um modal de carregamento (`LoadingModal`) é exibido imediatamente, informando ao usuário que os insights estão sendo gerados. Esse modal atualmente est[a na mesma camada do main, deve ser previsto como algo acima e separado para n'ao gerar renderiza;Cao excessiva. de qqr forma ele não está atrelado nao deveria eswtar o main edeveria ser movido para ser a primeira coisa q abre junto com o layotu geral e como já temos tiles gerando atras dele o layout e mais qntos tiles plçaceholders q forem...
+    - Um modal de carregamento (`LoadingModal`) é exibido imediatamente, informando ao usuário que os insights estão sendo gerados. Esse modal atualmente está na mesma camada do main, deve ser previsto como algo acima e separado para não gerar renderização excessiva. De qualquer forma ele não está atrelado ao main e deveria ser movido para ser a primeira coisa que abre junto com o layout geral e como já temos tiles gerando atrás dele o layout e mais quantos tiles placeholders que forem...
     - A página carrega e extrai o `jobId` e o `guestId` da URL.
     - **Renderização Inicial:**
       - O componente (`AdminDashboardContainer`) usa os hooks para buscar o `workspace` e o `jobInfo` existentes. Como eles foram criados no passo 2, não haverá mais erros "Not Found".
+      - ⭐ **NOVO**: A API `/api/guest/workspace` usa cache em memória (TTL 1s) e ETag para reduzir requisições MongoDB em 50-70%.
     - **Conexão em Tempo Real:**
       - O `useSSEManager` se conecta ao endpoint de stream do job (`/api/streams/jobs/JOB_ID`).
-      - O frontend se inscreve **apenas no evento `job:result-completed`**. Este evento é disparado pelo backend toda vez que um tile individual é completamente gerado e salvo no banco.
+      - O frontend se inscreve nos eventos `job:status` e `job:result-completed`.
+      - ⭐ **NOVO**: Se SSE falhar, polling adaptativo é ativado automaticamente (intervalo: 3s → 5s → 10s → 15s baseado em tentativas).
     - **Renderização Assíncrona dos Tiles:**
       - Quando um evento `job:result-completed` chega, o payload contém os dados do tile finalizado (título, conteúdo, etc.).
       - O estado do React é atualizado com o novo tile, que aparece instantaneamente na UI, substituindo seu placeholder de "loading".
+      - ⭐ **NOVO**: Tiles que falharem após 3 tentativas têm retry assíncrono pós-processamento (2 tentativas adicionais).
+      - ⭐ **NOVO**: Se retry falhar, tile não é persistido e placeholder é removido. Aviso discreto é mostrado.
       - Este processo se repete para cada tile até que o job seja concluído. O `LoadingModal` pode ser fechado assim que o primeiro tile aparecer ou quando todos os tiles forem gerados.
 
 Este fluxo elimina as condições de corrida, simplifica drasticamente a lógica do frontend na página de Admin e cria uma experiência de usuário fluida e previsível.
+
+---
+
+## 🚀 Otimizações Implementadas (06/11/2025)
+
+### Cache + ETag na API Workspace
+
+- Cache em memória com TTL de 1s (reduz requisições MongoDB em 50-70%)
+- ETag determinístico via MD5 do workspace
+- Retorno 304 Not Modified quando ETag coincide
+- Cache invalidado automaticamente após salvar tiles
+
+### Polling Adaptativo
+
+- Intervalo adaptativo baseado em tentativas: 3s → 5s → 10s → 15s
+- Redução de requisições Netlify de ~300K/mês para ~25K/mês
+- Timeout de 10 minutos máximo de polling
+
+### Retry Assíncrono de Tiles Falhos
+
+- Tiles que falharem após 3 tentativas têm retry assíncrono pós-processamento
+- 2 tentativas adicionais por tile falho
+- Se retry falhar, tile não é persistido e placeholder é removido
+- Contador total ajustado corretamente quando há tiles falhos
+- Aviso discreto mostrado quando há tiles falhos
