@@ -41,8 +41,11 @@ export function useGuestWorkspace({ guestId, jobId, token }) {
     isLoading,
     mutate: revalidateWorkspace,
   } = useSWR(swrKey, fetcher, {
-    refreshInterval: jobId ? 2000 : 0,
+    // ⭐ CORREÇÃO: Desabilitar polling automático do SWR quando há jobId
+    // O polling será gerenciado pelo useJobStreaming para evitar queries duplicadas
+    refreshInterval: 0, // Desabilitado - useJobStreaming gerencia o polling
     revalidateOnFocus: true,
+    dedupingInterval: 1000, // Cache de 1s para evitar queries simultâneas
   });
 
   const companies = useMemo(() => {

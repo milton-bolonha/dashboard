@@ -4,7 +4,7 @@ import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { useSSEManager } from "@/hooks/useSSEManager";
 
 const DEFAULT_PROGRESS = { current: 0, total: 0, remaining: 0 };
-const POLLING_INTERVAL_MS = 4000;
+const POLLING_INTERVAL_MS = 3000; // ⭐ REDUZIDO: De 4s para 3s para melhor responsividade
 const MAX_POLLING_ATTEMPTS = 40;
 const POLLING_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutos máximo de polling
 

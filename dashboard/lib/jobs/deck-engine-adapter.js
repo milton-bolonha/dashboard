@@ -61,7 +61,14 @@ export async function queueJob({
 
     try {
       console.log(
-        `[DeckEngine] 💾 Tentando salvar tile ${tileDoc.id} para company "${resolvedCompanyName}"`
+        `[DeckEngine] 💾 Tentando salvar tile ${tileDoc.id} para company "${resolvedCompanyName}"`,
+        {
+          guestId,
+          entityKey: resolvedEntityKey,
+          companyQueryField,
+          tilesField,
+          tileTitle: tileDoc.title,
+        }
       );
 
       // Remove versões antigas do mesmo tile
@@ -94,10 +101,20 @@ export async function queueJob({
       );
 
       const modified = result?.modifiedCount || 0;
+      const matched = result?.matchedCount || 0;
+
+      console.log(`[DeckEngine] 📊 Resultado do save:`, {
+        tileId: tileDoc.id,
+        companyName: resolvedCompanyName,
+        matched,
+        modified,
+        success: modified > 0,
+      });
 
       if (modified === 0) {
         console.warn(
-          `[DeckEngine] ⚠️ Tile ${tileDoc.id} não pôde ser salvo diretamente (company=${resolvedCompanyName}). Verificando se a company existe...`
+          `[DeckEngine] ⚠️ Tile ${tileDoc.id} não pôde ser salvo diretamente (company=${resolvedCompanyName}). Verificando se a company existe...`,
+          { matched, modified, result }
         );
         // Verificar se a company existe
         const workspace = await db.findOne("guest_workspaces", {

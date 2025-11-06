@@ -258,13 +258,12 @@ async function processJobInBackground(jobId) {
     // Nota: token não é necessário porque emitJobEvent no backend não precisa dele
     // ⭐ CRÍTICO: Remover delay desnecessário - background function já garante execução assíncrona
     console.log(`[Background Function] 🚀 Chamando queueJob (sem delay)...`);
-    await queueJob({
+    console.log(`[Background Function] 📋 Parâmetros do queueJob:`, {
       guestId: job.guestId,
       jobId,
       templateId: job.templateId,
       model: job.model,
-      items: items,
-      scope: "home", // No Fluxo 2.0, a origem é sempre a home
+      itemsCount: items.length,
       entityKey,
       companyName:
         companyNameFromWorkspace ||
@@ -272,12 +271,41 @@ async function processJobInBackground(jobId) {
         job.dataSource?.data?.target ||
         job.dataSource?.data?.researchTarget ||
         null,
-      token: null, // Não necessário no backend, mas passamos null explicitamente
     });
 
-    console.log(
-      `[Background Function] ✅ Job ${jobId} processado com sucesso. queueJob concluído.`
-    );
+    try {
+      const queueJobResult = await queueJob({
+        guestId: job.guestId,
+        jobId,
+        templateId: job.templateId,
+        model: job.model,
+        items: items,
+        scope: "home", // No Fluxo 2.0, a origem é sempre a home
+        entityKey,
+        companyName:
+          companyNameFromWorkspace ||
+          job.dataSource?.data?.company?.name ||
+          job.dataSource?.data?.target ||
+          job.dataSource?.data?.researchTarget ||
+          null,
+        token: null, // Não necessário no backend, mas passamos null explicitamente
+      });
+
+      console.log(
+        `[Background Function] ✅ Job ${jobId} processado com sucesso. queueJob concluído.`,
+        { result: queueJobResult }
+      );
+    } catch (queueJobError) {
+      console.error(
+        `[Background Function] ❌ Erro ao executar queueJob para job ${jobId}:`,
+        queueJobError
+      );
+      console.error(
+        `[Background Function] ❌ Stack trace do queueJob:`,
+        queueJobError.stack
+      );
+      throw queueJobError; // Re-throw para ser capturado pelo catch externo
+    }
   } catch (error) {
     console.error(
       `[Background Function] ❌ Erro fatal ao executar job ${jobId}:`,
