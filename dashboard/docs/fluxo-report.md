@@ -581,6 +581,15 @@ if (isPermanentError) {
 - Cálculo de ETag determinístico via MD5
 - Verificação de cache antes de buscar do MongoDB
 - Invalidação automática após salvar tiles
+- ⭐ **NOVO**: `export const dynamic = "force-dynamic"` para desabilitar cache do Next.js
+- ⭐ **NOVO**: `export const runtime = "nodejs"` para garantir runtime Node.js
+
+#### Arquivo: `dashboard/lib/fetcher.js`
+
+**Modificações**:
+
+- ⭐ **NOVO**: `cache: "no-store"` no fetch para desabilitar cache do Next.js
+- Garante que nosso cache em memória gerencia o cache, não o Next.js
 
 ---
 
@@ -693,6 +702,12 @@ const getAdaptiveInterval = (attempts) => {
 - ✅ **Benefício mantido**: O cache ainda ajuda dentro da mesma execução, reduzindo requisições MongoDB
 
 **Conclusão**: Limitação conhecida, mas não afeta negativamente o sistema. O cache ainda é útil para reduzir requisições dentro da mesma execução.
+
+**Mitigação Implementada**:
+
+- ⭐ **NOVO**: Adicionado `export const dynamic = "force-dynamic"` na Route Handler para garantir que não há cache do Next.js
+- ⭐ **NOVO**: Adicionado `cache: "no-store"` no `fetcher` para garantir que fetch() não cacheia
+- Isso garante que nosso cache em memória é o único cache ativo, evitando conflitos
 
 ---
 
@@ -809,9 +824,47 @@ const getAdaptiveInterval = (attempts) => {
 - [x] Ajustado SortableTilesGrid para remover placeholders de tiles falhos e mostrar aviso discreto
 - [x] Analisados pontos de atenção (serverless lifecycle, ETag determinístico, async retry, batch + retry)
 - [x] Confirmado que implementação está segura e não afeta negativamente o sistema
+- [x] Adicionado `export const dynamic = "force-dynamic"` na Route Handler para desabilitar cache do Next.js
+- [x] Adicionado `cache: "no-store"` no fetcher para garantir que fetch() não cacheia
 
 ---
 
 **Documento criado em**: 06/11/2025  
 **Última atualização**: 06/11/2025  
 **Status**: ✅ Completo (Incluindo nova implementação de otimização)
+
+---
+
+## 📋 Verificação de Cobertura dos Problemas Documentados
+
+**Data**: 06/11/2025
+
+Foi criado um documento separado (`verificacao-cobertura-solucao.md`) que verifica se a solução atual contempla todos os problemas documentados em `relatorio-cards.md` e `bug-mongo-netlify.md`.
+
+### Resumo da Verificação
+
+- ✅ **7/11 problemas resolvidos completamente**
+- ⚠️ **2/11 problemas parcialmente resolvidos** (precisam de testes adicionais)
+- ⚠️ **2/11 problemas fora do escopo** (não são parte da solução atual)
+
+### Problemas Resolvidos
+
+1. ✅ Filtro por job_id
+2. ✅ Persistência backend-first
+3. ✅ Placeholders infinitos
+4. ✅ Jobs presos
+5. ✅ Tiles desaparecendo
+6. ✅ SSE fechando prematuramente
+7. ✅ Background function não executando
+
+### Problemas Parcialmente Resolvidos
+
+1. ⚠️ Race conditions SSE/Workspace (cache ajuda, mas precisa de testes)
+2. ⚠️ MongoDB timeout (pre-warm implementado, precisa monitorar)
+
+### Problemas Fora do Escopo
+
+1. ⚠️ Modal duplicado (não é parte da solução atual)
+2. ⚠️ Operações MongoDB não otimizadas (não é parte da solução atual)
+
+**Ver detalhes completos em**: `dashboard/docs/verificacao-cobertura-solucao.md`

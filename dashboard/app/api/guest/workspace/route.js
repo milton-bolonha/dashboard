@@ -18,6 +18,11 @@ import { getJob } from "@/lib/db/prompt-jobs";
 import crypto from "crypto";
 import { getWorkspaceCache, setWorkspaceCache } from "@/lib/workspace-cache";
 
+// ⭐ IMPORTANTE: Desabilitar cache do Next.js para garantir que nosso cache em memória funcione corretamente
+// No Next.js 15, Route Handlers GET não são cached por default, mas é recomendado ser explícito
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 const workspaceCreateSchema = Joi.object({
   template_id: Joi.string().optional(), // Backward compatibility
   themeId: Joi.string().optional(), // Novo campo para temas
