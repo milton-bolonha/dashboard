@@ -300,9 +300,10 @@ async function runJob({
         }
 
         const trimmedResult = accumulatedResult.trim();
-        const looksLikeRefusal = trimmedResult
+        const refusalMatch = trimmedResult
           ? TILE_REFUSAL_PATTERNS.some((regex) => regex.test(trimmedResult))
-          : true;
+          : false;
+        const looksLikeRefusal = refusalMatch && trimmedResult.length < 200; // respostas longas são aceitas mesmo com disclaimers
 
         const invalidResponse =
           attemptFailed || !trimmedResult || looksLikeRefusal;
@@ -318,7 +319,16 @@ async function runJob({
           ? lastError?.message || "stream_error"
           : looksLikeRefusal
           ? "model_refusal"
-          : "empty_response";
+          : "empty_result";
+
+        console.warn(
+          `[Runner] ⚠️ Resposta considerada inválida (${failureReason}) para tile "${tile.title}"`,
+          {
+            attempt,
+            trimmedPreview: trimmedResult.slice(0, 200),
+            looksLikeRefusal,
+          }
+        );
 
         await appendLog({
           jobId,

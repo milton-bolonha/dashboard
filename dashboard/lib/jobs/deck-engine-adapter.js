@@ -51,7 +51,7 @@ export async function queueJob({
   let errorCount = 0;
 
   const resolvedEntityKey = entityKey || "companies";
-  const resolvedCompanyName =
+  let resolvedCompanyName =
     companyName ||
     (Array.isArray(items) && items[0]?.company && items[0].company?.name
       ? items[0].company.name
@@ -65,11 +65,94 @@ export async function queueJob({
     `[DeckEngine] 📋 Resolvido: entityKey="${resolvedEntityKey}", companyName="${resolvedCompanyName}"`
   );
 
+  const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  const toArray = (value) => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value;
+    if (typeof value === "object") return Object.values(value);
+    return [];
+  };
+
+  const normalizedCompanyName =
+    typeof resolvedCompanyName === "string"
+      ? resolvedCompanyName.trim().toLowerCase()
+      : null;
+
+  let resolvedCompanyId = null;
+  let resolvedCompanySlug = null;
+
+  try {
+    const targetWorkspace = guestId
+      ? await db.findOne("guest_workspaces", { guest_id: guestId })
+      : null;
+
+    if (targetWorkspace) {
+      const workspaceEntities = toArray(
+        targetWorkspace.workspace_data?.[resolvedEntityKey]
+      );
+      const dynamicEntities = toArray(
+        targetWorkspace.dynamicData?.[resolvedEntityKey]
+      );
+
+      const candidates = [...workspaceEntities, ...dynamicEntities].filter(
+        (entity) => entity && typeof entity === "object"
+      );
+
+      const matchedEntity =
+        candidates.find((entity) => {
+          if (!normalizedCompanyName) return false;
+          if (typeof entity.name !== "string") return false;
+          return entity.name.trim().toLowerCase() === normalizedCompanyName;
+        }) || candidates[0];
+
+      if (matchedEntity) {
+        resolvedCompanyId =
+          matchedEntity.id ||
+          matchedEntity.entityId ||
+          (typeof matchedEntity._id === "object"
+            ? matchedEntity._id?.toString?.()
+            : matchedEntity._id) ||
+          null;
+        resolvedCompanySlug =
+          matchedEntity.slug ||
+          matchedEntity.handle ||
+          matchedEntity.key ||
+          null;
+
+        if (
+          !resolvedCompanyName &&
+          typeof matchedEntity.name === "string" &&
+          matchedEntity.name.trim().length > 0
+        ) {
+          resolvedCompanyName = matchedEntity.name;
+        }
+      }
+    }
+  } catch (resolveError) {
+    console.warn(
+      `[DeckEngine] ⚠️ Falha ao resolver entidade alvo por ID:`,
+      resolveError
+    );
+  }
+
+  console.log(`[DeckEngine] 🧭 Entidade alvo resolvida`, {
+    entityKey: resolvedEntityKey,
+    name: resolvedCompanyName,
+    id: resolvedCompanyId,
+    slug: resolvedCompanySlug,
+  });
+
   const persistTileDirectly = async (tileDoc) => {
-    if (!guestId || !resolvedCompanyName) {
+    if (!guestId || (!resolvedCompanyName && !resolvedCompanyId)) {
       console.warn(
-        `[DeckEngine] ⚠️ persistTileDirectly: faltando guestId ou companyName`,
-        { guestId, resolvedCompanyName, entityKey: resolvedEntityKey }
+        `[DeckEngine] ⚠️ persistTileDirectly: faltando identificadores da entidade`,
+        {
+          guestId,
+          resolvedCompanyName,
+          resolvedCompanyId,
+          entityKey: resolvedEntityKey,
+        }
       );
       return false;
     }
@@ -77,41 +160,92 @@ export async function queueJob({
     const companyQueryField = `workspace_data.${resolvedEntityKey}.name`;
     const tilesField = `workspace_data.${resolvedEntityKey}.$.tiles`;
 
+    const tileToPersist = {
+      ...tileDoc,
+      entityId:
+        tileDoc.entityId ?? resolvedCompanyId ?? tileDoc.companyId ?? null,
+      entityKey: tileDoc.entityKey ?? resolvedEntityKey,
+      entityName:
+        tileDoc.entityName ??
+        tileDoc.companyName ??
+        resolvedCompanyName ??
+        null,
+    };
+
+    const entityMatchers = [];
+    if (resolvedCompanyId) {
+      entityMatchers.push({ id: resolvedCompanyId });
+      entityMatchers.push({ entityId: resolvedCompanyId });
+    }
+    if (resolvedCompanySlug) {
+      entityMatchers.push({ slug: resolvedCompanySlug });
+      entityMatchers.push({ handle: resolvedCompanySlug });
+      entityMatchers.push({ key: resolvedCompanySlug });
+    }
+    if (resolvedCompanyName) {
+      entityMatchers.push({ name: resolvedCompanyName });
+      entityMatchers.push({
+        name: new RegExp(`^${escapeRegExp(resolvedCompanyName.trim())}$`, "i"),
+      });
+    }
+
+    const baseFilter = { guest_id: guestId };
+    if (entityMatchers.length > 0) {
+      const elemMatch =
+        entityMatchers.length === 1
+          ? entityMatchers[0]
+          : { $or: entityMatchers };
+      baseFilter[`workspace_data.${resolvedEntityKey}`] = {
+        $elemMatch: elemMatch,
+      };
+    } else if (resolvedCompanyName) {
+      baseFilter[companyQueryField] = resolvedCompanyName;
+    }
+
+    const matchersForLog = entityMatchers.map((matcher) =>
+      Object.fromEntries(
+        Object.entries(matcher).map(([key, value]) => [
+          key,
+          value instanceof RegExp ? value.toString() : value,
+        ])
+      )
+    );
+
     try {
       console.log(
-        `[DeckEngine] 💾 Tentando salvar tile ${tileDoc.id} para company "${resolvedCompanyName}"`,
+        `[DeckEngine] 💾 Tentando salvar tile ${tileToPersist.id} para entidade "${resolvedCompanyName}"`,
         {
           guestId,
           entityKey: resolvedEntityKey,
           companyQueryField,
           tilesField,
-          tileTitle: tileDoc.title,
+          tileTitle: tileToPersist.title,
+          resolvedCompanyId,
+          resolvedCompanySlug,
+          filterHasElemMatch: Boolean(
+            baseFilter[`workspace_data.${resolvedEntityKey}`]
+          ),
+          matchers: matchersForLog,
         }
       );
 
       // Remove versões antigas do mesmo tile
       await db.updateOne(
         "guest_workspaces",
-        {
-          guest_id: guestId,
-          [companyQueryField]: resolvedCompanyName,
-        },
+        { ...baseFilter },
         {
           $pull: {
-            [tilesField]: { id: tileDoc.id },
+            [tilesField]: { id: tileToPersist.id },
           },
         }
       );
 
       const result = await db.updateOne(
         "guest_workspaces",
-        {
-          guest_id: guestId,
-          [companyQueryField]: resolvedCompanyName,
-        },
+        { ...baseFilter },
         {
           $push: {
-            [tilesField]: tileDoc,
+            [tilesField]: tileToPersist,
           },
           $inc: { "usage.total_tiles_generated": 1 },
           $set: { updatedAt: new Date() },
@@ -122,7 +256,7 @@ export async function queueJob({
       const matched = result?.matchedCount || 0;
 
       console.log(`[DeckEngine] 📊 Resultado do save:`, {
-        tileId: tileDoc.id,
+        tileId: tileToPersist.id,
         companyName: resolvedCompanyName,
         matched,
         modified,
@@ -131,7 +265,7 @@ export async function queueJob({
 
       if (modified === 0) {
         console.warn(
-          `[DeckEngine] ⚠️ Tile ${tileDoc.id} não pôde ser salvo diretamente (company=${resolvedCompanyName}). Verificando se a company existe...`,
+          `[DeckEngine] ⚠️ Tile ${tileToPersist.id} não pôde ser salvo diretamente (company=${resolvedCompanyName}). Verificando se a company existe...`,
           { matched, modified, result }
         );
         // Verificar se a company existe
@@ -147,7 +281,7 @@ export async function queueJob({
       }
 
       console.log(
-        `[DeckEngine] ✅ Tile ${tileDoc.id} salvo com sucesso (modified=${modified})`
+        `[DeckEngine] ✅ Tile ${tileToPersist.id} salvo com sucesso (modified=${modified})`
       );
 
       // ⭐ FASE 4: Invalidar cache após salvar tile
@@ -162,7 +296,7 @@ export async function queueJob({
       return true;
     } catch (error) {
       console.error(
-        `[DeckEngine] ❌ Erro ao salvar tile ${tileDoc.id} diretamente no backend:`,
+        `[DeckEngine] ❌ Erro ao salvar tile ${tileToPersist.id} diretamente no backend:`,
         error
       );
       return false;
@@ -232,6 +366,16 @@ export async function queueJob({
         const usedFallback = payload.metrics?.fallback;
         const isRetried = payload.metrics?.retried === true;
 
+        console.log(
+          `[DeckEngine] 🧪 onResult recebido (orderIndex=${payload.orderIndex})`,
+          {
+            title: payload.title,
+            usedFallback,
+            isRetried,
+            metrics: payload.metrics,
+          }
+        );
+
         // ⭐ FASE 3: Se for retry bem-sucedido, processar normalmente
         if (isRetried && !usedFallback) {
           successCount++;
@@ -259,12 +403,25 @@ export async function queueJob({
             metrics: payload.metrics,
             createdAt: new Date().toISOString(),
             jobId,
+            entityId: resolvedCompanyId ?? null,
+            entityKey: resolvedEntityKey,
+            entityName: resolvedCompanyName ?? null,
           };
 
           console.log(
             `[DeckEngine] 💾 Persistindo tile ${tileDoc.id} após retry bem-sucedido...`
           );
           const persisted = await persistTileDirectly(tileDoc);
+
+          if (!persisted) {
+            console.warn(
+              `[DeckEngine] ⚠️ Persistência falhou para tile ${tileDoc.id}.`,
+              {
+                orderIndex: payload.orderIndex,
+                companyName: resolvedCompanyName,
+              }
+            );
+          }
 
           const eventPayload = {
             ...payload,
@@ -331,6 +488,9 @@ export async function queueJob({
           metrics: payload.metrics,
           createdAt: new Date().toISOString(),
           jobId,
+          entityId: resolvedCompanyId ?? null,
+          entityKey: resolvedEntityKey,
+          entityName: resolvedCompanyName ?? null,
         };
 
         console.log(
@@ -340,6 +500,16 @@ export async function queueJob({
         console.log(
           `[DeckEngine] 📊 Tile ${tileDoc.id} persistido: ${persisted}`
         );
+
+        if (!persisted) {
+          console.warn(
+            `[DeckEngine] ⚠️ Persistência falhou para tile ${tileDoc.id}.`,
+            {
+              orderIndex: payload.orderIndex,
+              companyName: resolvedCompanyName,
+            }
+          );
+        }
 
         const eventPayload = {
           ...payload,
@@ -367,6 +537,10 @@ export async function queueJob({
       },
       onError: async (payload) => {
         errorCount++;
+        console.error(
+          `[DeckEngine] ❌ onError recebido (orderIndex=${payload?.orderIndex})`,
+          payload?.error || payload
+        );
         await appendLog({
           jobId,
           level: "error",
