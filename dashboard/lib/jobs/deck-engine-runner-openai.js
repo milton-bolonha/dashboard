@@ -289,6 +289,15 @@ async function runJob({
           });
         }
 
+        const trimmedResult = accumulatedResult.trim();
+        const refusalMatch = trimmedResult
+          ? TILE_REFUSAL_PATTERNS.some((regex) => regex.test(trimmedResult))
+          : false;
+        const looksLikeRefusal = refusalMatch && trimmedResult.length < 200; // respostas longas são aceitas mesmo com disclaimers
+
+        const invalidResponse =
+          attemptFailed || !trimmedResult || looksLikeRefusal;
+
         const streamDuration = Date.now() - streamStartTime;
         // Log apenas no final bem-sucedido (não a cada tentativa)
         if (!invalidResponse || attempt === TILE_MAX_ATTEMPTS) {
@@ -298,15 +307,6 @@ async function runJob({
             }/${total}: ${streamDuration}ms, ${accumulatedResult.length} chars`
           );
         }
-
-        const trimmedResult = accumulatedResult.trim();
-        const refusalMatch = trimmedResult
-          ? TILE_REFUSAL_PATTERNS.some((regex) => regex.test(trimmedResult))
-          : false;
-        const looksLikeRefusal = refusalMatch && trimmedResult.length < 200; // respostas longas são aceitas mesmo com disclaimers
-
-        const invalidResponse =
-          attemptFailed || !trimmedResult || looksLikeRefusal;
 
         if (!invalidResponse) {
           finalResult = accumulatedResult;
