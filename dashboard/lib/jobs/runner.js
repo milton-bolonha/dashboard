@@ -14,7 +14,12 @@ export function runJobInBackground(jobId) {
     let job = null;
     try {
       console.log(`[Runner] 🚀 Iniciando job ${jobId} em background...`);
-      console.log(`[Runner] 📍 Stack trace:`, new Error().stack);
+      console.log(`[Runner] ⏱️ Timestamp: ${new Date().toISOString()}`);
+
+      // ⭐ CRÍTICO: Pequeno delay para garantir que SSE conecte primeiro
+      // Isso evita que eventos sejam emitidos antes do SSE estar pronto
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // 1 segundo
+      console.log(`[Runner] ✅ Delay concluído, SSE deve estar conectado`);
 
       job = await getJob(jobId);
       if (!job) {

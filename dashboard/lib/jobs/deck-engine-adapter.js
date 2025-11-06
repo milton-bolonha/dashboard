@@ -139,6 +139,10 @@ export async function queueJob({
     });
   };
 
+  // ⭐ CRÍTICO: Pequeno delay antes de emitir primeiro status
+  // Isso garante que o SSE tenha tempo de conectar antes dos eventos começarem
+  await new Promise((resolve) => setTimeout(resolve, 500)); // 500ms
+
   emitStatus("QUEUED", { current: 0, total, remaining: total });
 
   await appendLog({
