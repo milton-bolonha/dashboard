@@ -139,8 +139,20 @@ export function useJobStreaming({
   }, [stopPolling]);
 
   const streamUrl = useMemo(() => {
-    if (!jobId || !guestId || !token) return null;
-    return `/api/streams/jobs/${jobId}?guest_id=${guestId}&token=${token}`;
+    if (!jobId || !guestId || !token) {
+      console.warn(
+        "[useJobStreaming] ❌ SSE indisponível: parâmetros faltando",
+        {
+          jobId,
+          guestId,
+          tokenPresente: Boolean(token),
+        }
+      );
+      return null;
+    }
+    const url = `/api/streams/jobs/${jobId}?guest_id=${guestId}&token=${token}`;
+    console.log("[useJobStreaming] 🔗 SSE streamUrl gerada:", url);
+    return url;
   }, [guestId, jobId, token]);
 
   const persistTileAndRefresh = useCallback(

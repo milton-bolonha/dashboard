@@ -60,6 +60,7 @@ export function useSSEManager(streamUrl, listeners = {}, options = {}) {
 
       let eventSource;
       try {
+        console.log("[useSSEManager] 🔌 Criando EventSource...", streamUrl);
         eventSource = new EventSource(streamUrl);
       } catch (error) {
         console.error("[useSSEManager] Failed to create EventSource:", error);

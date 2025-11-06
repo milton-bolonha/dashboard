@@ -17,6 +17,10 @@ export async function GET(request, { params }) {
   try {
     // 1. Validação de Segurança
     if (!jobId || !guestId || !token) {
+      console.warn(
+        `[SSE Route] ❌ Parâmetros ausentes: jobId=${jobId} guestId=${guestId} token=` +
+          (token ? "<present>" : "<missing>")
+      );
       return NextResponse.json(
         { error: "jobId, guest_id, and token are required" },
         { status: 401 }
@@ -30,15 +34,24 @@ export async function GET(request, { params }) {
       metadata: { jobId, guestId },
     });
     if (!job) {
+      console.warn(
+        `[SSE Route] ❌ Job ${jobId} não encontrado (guestId=${guestId}).`
+      );
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
 
     if (job.guestId !== guestId) {
+      console.warn(
+        `[SSE Route] ❌ GuestId mismatch para job ${jobId}. esperado=${job.guestId} recebido=${guestId}`
+      );
       return NextResponse.json({ error: "Guest ID mismatch" }, { status: 403 });
     }
 
     const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
     if (job.accessTokenHash !== tokenHash) {
+      console.warn(
+        `[SSE Route] ❌ Token inválido para job ${jobId} / guest ${guestId}.`
+      );
       return NextResponse.json(
         { error: "Invalid access token" },
         { status: 403 }
