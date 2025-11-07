@@ -10,7 +10,7 @@ package = "@netlify/plugin-nextjs"
 
 [functions]
 node_bundler = "esbuild"
-directory = "netlify/functions"
+directory = "nextjs-openai-insights/netlify/functions"
 
 # Background Functions são detectadas automaticamente pelo sufixo "-background"
 # A função process-job-background.js será automaticamente configurada como background
