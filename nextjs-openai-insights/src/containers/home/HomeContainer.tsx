@@ -32,7 +32,7 @@ export function HomeContainer() {
     setIsSubmitting(true);
     try {
       const functionBase = getFunctionsBaseUrl().replace(/\/$/, "");
-      const targetUrl = `${functionBase || ""}/.netlify/functions/ai-generate`;
+      const targetUrl = `${functionBase || ""}/api/generate`;
       const response = await fetch(targetUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
