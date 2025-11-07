@@ -15,10 +15,14 @@ export const metadata = {
  */
 export default function TrialLayout({ children }) {
   return (
-    <ClerkProvider>
+    <ClerkProvider
+      publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+      secretKey={process.env.CLERK_SECRET_KEY}
+    >
       <html lang="pt" className="h-full" suppressHydrationWarning>
         <body className="h-full">{children}</body>
       </html>
     </ClerkProvider>
   );
 }
+
