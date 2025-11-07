@@ -1,7 +1,9 @@
 "use strict";
 
 import { sseManager } from "../sse-manager";
-import { generateStreamedCompletion } from "@/lib/ai/provider";
+import { generateCompletion } from "@/lib/ai/provider";
+import { getDeckModelConfig } from "@/config/deck-engine";
+const deckModelConfig = getDeckModelConfig();
 
 export class DeckEngineAIPipeline {
   constructor() {
@@ -99,8 +101,8 @@ export class DeckEngineAIPipeline {
       timestamp: Date.now(),
       metadata: {
         totalTiles: tiles.length,
-        successfulTiles: processedTiles.filter(t => !t.error).length,
-        failedTiles: processedTiles.filter(t => t.error).length,
+        successfulTiles: processedTiles.filter((t) => !t.error).length,
+        failedTiles: processedTiles.filter((t) => t.error).length,
       },
     });
 
@@ -121,39 +123,25 @@ export class DeckEngineAIPipeline {
 
       // Inicializar acumulador de conteúdo e índice de chunks
       let accumulatedContent = "";
-      let chunkIndex = 0;
-
       // Gerar conteúdo via streaming
-      for await (const chunk of generateStreamedCompletion({
-        model: context.model || "gpt-3.5-turbo",
+      const completionResult = await generateCompletion({
+        model: context.model || deckModelConfig.model,
         prompt: processedPrompt,
-      })) {
-        // Processar chunk
-        const chunkContent = typeof chunk === "string" ? chunk : chunk.content;
-        accumulatedContent += chunkContent;
+        reasoningEffort: deckModelConfig.reasoningEffort,
+        verbosity: deckModelConfig.verbosity,
+      });
 
-        // Emitir evento de chunk com ordem preservada
-        this.sseManager.emit("tiles", "tile:chunk", {
-          tileId: tile.id,
-          orderIndex: context.orderIndex,
-          chunk: chunkContent,
-          chunkIndex: chunkIndex++,
-          metadata: {
-            timestamp: Date.now(),
-            chunkSize: chunkContent.length,
-            totalSize: accumulatedContent.length,
-          },
-        });
-      }
+      const accumulatedContent = completionResult?.content ?? "";
 
       // Calcular duração e métricas
       const duration = Date.now() - startTime;
-      const usage = {
-        prompt_tokens: Math.ceil(processedPrompt.length / 4), // estimativa
-        completion_tokens: Math.ceil(accumulatedContent.length / 4), // estimativa
-        total_tokens: 0, // será calculado abaixo
+      const usage = completionResult?.usage ?? {
+        prompt_tokens: Math.ceil(processedPrompt.length / 4),
+        completion_tokens: Math.ceil(accumulatedContent.length / 4),
       };
-      usage.total_tokens = usage.prompt_tokens + usage.completion_tokens;
+      usage.total_tokens =
+        usage.total_tokens ??
+        (usage.prompt_tokens ?? 0) + (usage.completion_tokens ?? 0);
 
       // Retornar tile processado
       return {
@@ -162,13 +150,13 @@ export class DeckEngineAIPipeline {
         prompt: processedPrompt,
         originalPrompt: tile.prompt,
         status: "completed",
-        model: context.model || "gpt-3.5-turbo",
+        model: context.model || deckModelConfig.model,
         usage,
         duration,
         metadata: {
           processedAt: Date.now(),
-          chunkCount: chunkIndex,
-          averageChunkSize: accumulatedContent.length / chunkIndex,
+          chunkCount: 1,
+          averageChunkSize: accumulatedContent.length,
         },
       };
     } catch (error) {

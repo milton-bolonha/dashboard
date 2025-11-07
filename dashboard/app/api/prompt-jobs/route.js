@@ -5,16 +5,18 @@ import { createDynamicWorkspace } from "@/lib/dynamic-workspace";
 import {
   getDeckGenerationConfig,
   resolveGenerationMode,
+  getDeckModelConfig,
 } from "@/config/deck-engine";
 import { v4 as uuidv4 } from "uuid";
 import Joi from "joi";
 import crypto from "crypto";
 
 const { allowedModes: deckGenerationModes } = getDeckGenerationConfig();
+const { model: deckDefaultModel } = getDeckModelConfig();
 
 const requestBodySchema = Joi.object({
   templateId: Joi.string().required(),
-  model: Joi.string().optional().default("o4-mini"),
+  model: Joi.string().optional().default(deckDefaultModel),
   context: Joi.object({
     themeId: Joi.string().optional(),
     target: Joi.string().required().min(1),
@@ -52,9 +54,10 @@ export async function POST(req) {
       context,
       generationMode: bodyGenerationMode,
     } = value;
+    const selectedModel = model || deckDefaultModel;
     console.log("[Create Job Route v2.0] ✅ Payload validado:", {
       templateId,
-      model,
+      model: selectedModel,
       context,
     });
 
@@ -149,7 +152,7 @@ export async function POST(req) {
     await createJob({
       jobId,
       templateId,
-      model,
+      model: selectedModel,
       dataSource: { type: "context", data: jobContext }, // ⭐ USA O CONTEXTO ENRIQUECIDO
       status: "QUEUED",
       totals,

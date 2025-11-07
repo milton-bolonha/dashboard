@@ -1,4 +1,4 @@
-import { generateStreamedCompletion } from "@/lib/ai/provider";
+import { generateCompletion } from "@/lib/ai/provider";
 import { appendLog } from "@/lib/db/prompt-logs";
 import { setDeckEngineRunner } from "@/lib/jobs/deck-engine-bridge";
 import {
@@ -9,6 +9,7 @@ import {
   getDeckGenerationConfig,
   resolveGenerationMode,
   getDeckWarmupConfig,
+  getDeckModelConfig,
 } from "@/config/deck-engine";
 
 const TILE_MAX_ATTEMPTS = 3;
@@ -90,6 +91,12 @@ async function runJob({
     `[Runner] 📋 Template: ${template.name} (${template.tiles.length} tiles)`
   );
 
+  const modelConfig = getDeckModelConfig();
+  const defaultModel = modelConfig.model;
+  const reasoningEffort = modelConfig.reasoningEffort;
+  const verbosity = modelConfig.verbosity;
+  const activeModel = model || defaultModel;
+
   // ⭐ BUG FIX: Usar template.tiles.length como total (8 tiles), não items.length
   // ⭐ Se items.length for menor, criar items vazios para os tiles restantes
   const itemsCount = Array.isArray(items) ? items.length : 0;
@@ -101,31 +108,27 @@ async function runJob({
   const concurrency =
     normalizedGenerationMode === "batch" ? Math.max(1, batchConcurrency) : 1;
   const shouldProcessInParallel = concurrency > 1;
-  const shouldEmitChunks = normalizedGenerationMode === "batch";
 
   console.log(
     `[Runner] ⚙️ Generation mode: ${normalizedGenerationMode} (concurrency=${concurrency})`
   );
+  console.log(`[Runner] 🧠 Modelo ativo: ${activeModel}`);
 
   const warmupConfig = getDeckWarmupConfig();
   if (warmupConfig.enabled) {
-    const warmupModel = warmupConfig.model || model;
+    const warmupModel = warmupConfig.model || activeModel;
     try {
       const warmupStart = Date.now();
-      let warmupChunks = 0;
-      for await (const chunk of generateStreamedCompletion({
+      await generateCompletion({
         model: warmupModel,
         prompt: warmupConfig.prompt,
         max_tokens: warmupConfig.maxTokens,
-      })) {
-        warmupChunks += 1;
-        // Receber o primeiro chunk já aquece a conexão
-        break;
-      }
+        reasoningEffort,
+        verbosity,
+        maxAttempts: 1,
+      });
       console.log(
-        `[Runner] 🔥 Warmup concluído em ${
-          Date.now() - warmupStart
-        }ms (chunks=${warmupChunks})`
+        `[Runner] 🔥 Warmup concluído em ${Date.now() - warmupStart}ms`
       );
     } catch (warmupError) {
       console.warn(
@@ -252,9 +255,7 @@ async function runJob({
     const item = expandedItems[orderIndex] || {};
     const itemId = `${jobId}_${orderIndex}`;
     const tileStartTime = Date.now();
-    let ttftMs = null;
     let completionMs = null;
-    let chunkCount = 0;
     let responseChars = 0;
 
     try {
@@ -305,10 +306,10 @@ async function runJob({
 
       let attempt = 0;
       let finalResult = "";
-      let finalChunks = [];
       let usedFallback = false;
       let attemptsUsed = 0;
       let lastError = null;
+      let usageInfo = null;
 
       while (attempt < TILE_MAX_ATTEMPTS) {
         attempt += 1;
@@ -324,41 +325,22 @@ async function runJob({
         });
 
         let accumulatedResult = "";
-        const collectedChunks = shouldEmitChunks ? [] : null;
-        let ix = 0;
         const streamStartTime = Date.now();
         let attemptFailed = false;
-        let attemptFirstChunkMs = null;
 
         try {
-          for await (const chunk of generateStreamedCompletion({
-            model,
+          const completionResult = await generateCompletion({
+            model: activeModel,
             prompt,
             max_tokens: maxTokensForTile,
-          })) {
-            const chunkContent =
-              typeof chunk === "string"
-                ? chunk
-                : chunk.chunk || chunk.content || String(chunk);
+            reasoningEffort,
+            verbosity,
+          });
 
-            if (shouldEmitChunks) {
-              collectedChunks.push({ chunk: chunkContent, ix });
-            }
-            accumulatedResult += chunkContent;
-            ix += 1;
-            chunkCount = Math.max(chunkCount, ix);
-            if (attemptFirstChunkMs === null) {
-              attemptFirstChunkMs = Date.now() - streamStartTime;
-            }
-
-            if (ix % 100 === 0) {
-              console.log(
-                `[Runner] 📊 Tile ${orderIndex + 1}/${total}: ${ix} chunks, ${
-                  accumulatedResult.length
-                } chars`
-              );
-            }
-          }
+          accumulatedResult = completionResult?.content ?? "";
+          completionMs =
+            completionResult?.totalDurationMs ?? Date.now() - streamStartTime;
+          usageInfo = completionResult?.usage ?? usageInfo;
         } catch (error) {
           attemptFailed = true;
           lastError = error;
@@ -384,30 +366,10 @@ async function runJob({
         const invalidResponse =
           attemptFailed || !trimmedResult || looksLikeRefusal;
 
-        const streamDuration = Date.now() - streamStartTime;
-        if (!invalidResponse || attempt === TILE_MAX_ATTEMPTS) {
-          console.log(
-            `[Runner] ⏱️ Tile ${
-              orderIndex + 1
-            }/${total}: ${streamDuration}ms, ${accumulatedResult.length} chars`
-          );
-        }
-
         if (!invalidResponse) {
           finalResult = accumulatedResult;
-          finalChunks = shouldEmitChunks ? collectedChunks ?? [] : [];
           usedFallback = false;
           responseChars = accumulatedResult.length;
-          chunkCount = Math.max(chunkCount, ix);
-          if (ttftMs === null && attemptFirstChunkMs !== null) {
-            ttftMs = attemptFirstChunkMs;
-          }
-          if (ttftMs === null) {
-            ttftMs = streamDuration;
-          }
-          if (completionMs === null) {
-            completionMs = streamDuration;
-          }
           break;
         }
 
@@ -448,13 +410,7 @@ async function runJob({
         }
 
         if (completionMs === null) {
-          completionMs = streamDuration;
-        }
-        if (ttftMs === null && attemptFirstChunkMs !== null) {
-          ttftMs = attemptFirstChunkMs;
-        }
-        if (ttftMs === null) {
-          ttftMs = streamDuration;
+          completionMs = Date.now() - streamStartTime;
         }
 
         failedTiles.push({
@@ -469,12 +425,10 @@ async function runJob({
             : "empty_response",
           attemptsUsed,
           fallbackMessage,
+          usage: usageInfo,
         });
 
         finalResult = fallbackMessage;
-        finalChunks = shouldEmitChunks
-          ? [{ chunk: fallbackMessage, ix: 0 }]
-          : [];
         usedFallback = true;
         responseChars = finalResult.length;
         break;
@@ -489,44 +443,29 @@ async function runJob({
           failureReason: "empty_result",
           attemptsUsed,
           fallbackMessage,
+          usage: usageInfo,
         });
 
         finalResult = fallbackMessage;
-        finalChunks = shouldEmitChunks
-          ? [{ chunk: fallbackMessage, ix: 0 }]
-          : [];
         usedFallback = true;
         responseChars = finalResult.length;
       }
 
-      let finalChunkIndex = 0;
-      if (shouldEmitChunks && finalChunks.length > 0) {
-        for (const chunkData of finalChunks) {
-          onChunk?.({
-            jobId,
-            itemId,
-            orderIndex,
-            chunk: chunkData.chunk,
-            ix: finalChunkIndex,
-            scope,
-            generationMode: normalizedGenerationMode,
-          });
-          finalChunkIndex += 1;
-        }
-      }
-
       const totalDurationMs = Date.now() - tileStartTime;
       const metricsSummary = {
-        model,
+        model: activeModel,
         attempts: attemptsUsed,
         fallback: usedFallback,
         lastError: usedFallback && lastError ? lastError.message : undefined,
-        ttftMs,
-        completionMs,
+        ttftMs: null,
+        completionMs: completionMs ?? totalDurationMs,
         totalDurationMs,
         responseChars,
         estimatedTokens: estimateTokensFromText(finalResult),
-        chunkCount,
+        chunkCount: 0,
+        promptTokens: usageInfo?.prompt_tokens ?? null,
+        completionTokens: usageInfo?.completion_tokens ?? null,
+        totalTokens: usageInfo?.total_tokens ?? null,
       };
 
       await appendLog({
@@ -537,11 +476,12 @@ async function runJob({
           orderIndex,
           attempts: attemptsUsed,
           fallback: usedFallback,
-          ttftMs,
-          completionMs,
+          completionMs: completionMs ?? totalDurationMs,
           totalDurationMs,
           responseChars,
-          chunkCount,
+          promptTokens: usageInfo?.prompt_tokens ?? null,
+          completionTokens: usageInfo?.completion_tokens ?? null,
+          totalTokens: usageInfo?.total_tokens ?? null,
         },
       });
 
@@ -664,23 +604,14 @@ async function runJob({
 
           try {
             let accumulatedResult = "";
-            const collectedChunks = [];
-
-            for await (const chunk of generateStreamedCompletion({
-              model,
+            const completionResult = await generateCompletion({
+              model: activeModel,
               prompt,
               max_tokens: maxTokensForTile,
-            })) {
-              const chunkContent =
-                typeof chunk === "string"
-                  ? chunk
-                  : chunk.chunk || chunk.content || String(chunk);
-              collectedChunks.push({
-                chunk: chunkContent,
-                ix: collectedChunks.length,
-              });
-              accumulatedResult += chunkContent;
-            }
+              reasoningEffort,
+              verbosity,
+            });
+            accumulatedResult = completionResult?.content ?? "";
 
             const trimmedResult = accumulatedResult.trim();
             const looksLikeRefusal = trimmedResult
@@ -698,21 +629,6 @@ async function runJob({
                 } (tentativa ${retryAttempt}/${RETRY_MAX_ATTEMPTS})`
               );
 
-              // Emitir chunks
-              let chunkIndex = 0;
-              for (const chunkData of collectedChunks) {
-                onChunk?.({
-                  jobId,
-                  itemId: `${jobId}_${orderIndex}`,
-                  orderIndex,
-                  chunk: chunkData.chunk,
-                  ix: chunkIndex,
-                  scope,
-                  generationMode: normalizedGenerationMode,
-                });
-                chunkIndex += 1;
-              }
-
               // Emitir resultado
               await onResult?.({
                 jobId,
@@ -722,7 +638,7 @@ async function runJob({
                 result: accumulatedResult,
                 generationMode: normalizedGenerationMode,
                 metrics: {
-                  model,
+                  model: activeModel,
                   attempts: attemptsUsed + retryAttempt,
                   fallback: false,
                   retried: true,
@@ -784,7 +700,7 @@ async function runJob({
             result: fallbackResult,
             generationMode: normalizedGenerationMode,
             metrics: {
-              model,
+              model: activeModel,
               attempts: attemptsUsed + RETRY_MAX_ATTEMPTS,
               fallback: true,
               retried: true,

@@ -284,7 +284,7 @@ export default function IAFormsContainer({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           templateId: initialTemplateId, // ⭐ DEVE SER PASSADO
-          model: "o4-mini",
+          model: "gpt-5-mini",
           context: context,
         }),
       });

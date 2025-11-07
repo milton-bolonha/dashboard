@@ -1,6 +1,9 @@
 "use client";
 // Server-first: este contêiner trocará por Server Component quando as Server Actions forem integradas.
 import { useMemo, useState, useCallback } from "react";
+import { getDeckModelConfig } from "@/config/deck-engine";
+
+const { model: deckDefaultModel } = getDeckModelConfig();
 
 export default function IAFormsContainer({
   mode = "landing",
@@ -200,7 +203,7 @@ export default function IAFormsContainer({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             templateId: initialTemplateId,
-            model: "o4-mini",
+            model: deckDefaultModel,
             context: context,
           }),
         });

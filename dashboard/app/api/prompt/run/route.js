@@ -5,16 +5,19 @@ import { getCurrentAuth } from "@/lib/auth";
 import {
   getDeckGenerationConfig,
   resolveGenerationMode,
+  getDeckModelConfig,
 } from "@/config/deck-engine";
 
 export const runtime = "nodejs";
+
+const { model: deckDefaultModel } = getDeckModelConfig();
 
 export async function POST(request) {
   const body = await request.json().catch(() => ({}));
   const {
     templateId,
     variables = {},
-    model = "o4-mini",
+    model = deckDefaultModel,
     guestId,
     token,
     generationMode: bodyGenerationMode,
@@ -38,10 +41,12 @@ export async function POST(request) {
     resolveGenerationMode(bodyGenerationMode) || defaultMode;
 
   const jobId = `job_${Date.now().toString(36)}`;
+  const selectedModel = model || deckDefaultModel;
+
   await createJob({
     jobId,
     templateId,
-    model,
+    model: selectedModel,
     status: "QUEUED",
     totals: { items: 1, completed: 0, failed: 0 },
     generationMode,
@@ -50,7 +55,7 @@ export async function POST(request) {
     guestId,
     jobId,
     templateId,
-    model,
+    model: selectedModel,
     items: [variables],
     scope: "home",
     token,

@@ -6,17 +6,19 @@ const openai = new OpenAI({
 });
 
 /**
- * Gera completion streamed do OpenAI
- * ⭐ IMPLEMENTAÇÃO REAL - não é mais placeholder!
+ * Gera uma completion única (sem streaming) usando OpenAI
  */
-export async function* generateStreamedCompletion({
-  model = "gpt-4o-mini",
+export async function generateCompletion({
+  model = "gpt-5-mini",
   prompt,
   maxAttempts = 3,
   temperature = 0.7,
   max_tokens = 600,
+  reasoningEffort,
+  verbosity,
 }) {
   let attempt = 0;
+  let lastError = null;
 
   console.log(
     "[OpenAI Provider] 🚀 ========== INICIANDO CHAMADA OPENAI =========="
@@ -26,32 +28,26 @@ export async function* generateStreamedCompletion({
     "[OpenAI Provider] 📝 Prompt (primeiros 200 chars):",
     prompt?.substring(0, 200) + "..."
   );
-  // ⭐ CORREÇÃO: Detectar modelo para usar parâmetro correto
-  const isO4Mini = model.includes("o4-mini") || model.includes("gpt-4o-mini");
   console.log("[OpenAI Provider] ⚙️ Config:", {
     temperature,
     max_tokens,
-    isO4Mini,
-    paramToUse: isO4Mini ? "max_completion_tokens" : "max_tokens",
+    reasoningEffort,
+    verbosity,
   });
-
-  const startTime = Date.now();
-  let firstTokenTime = null;
-  let tokenCount = 0;
 
   while (attempt < maxAttempts) {
     try {
-      // Log apenas se for primeira tentativa
       if (attempt === 0) {
         console.log(
           `[OpenAI Provider] 🔄 Tentativa ${attempt + 1}/${maxAttempts}`
         );
       }
 
-      // ⭐ CORREÇÃO: Modelos o4-mini requerem max_completion_tokens em vez de max_tokens
-      // ⭐ CORREÇÃO: Modelos o4-mini não suportam temperature customizado, apenas default (1)
+      const lowerModel = model?.toLowerCase?.() || "";
       const isO4Mini =
-        model.includes("o4-mini") || model.includes("gpt-4o-mini");
+        lowerModel.includes("o4-mini") || lowerModel.includes("gpt-4o-mini");
+      const isGpt5Family = lowerModel.startsWith("gpt-5");
+
       const completionParams = {
         model,
         messages: [
@@ -60,65 +56,54 @@ export async function* generateStreamedCompletion({
             content:
               "You are a helpful AI assistant that provides detailed, accurate, and concise information.",
           },
-          {
-            role: "user",
-            content: prompt,
-          },
+          { role: "user", content: prompt },
         ],
-        stream: true, // ⭐ STREAMING HABILITADO
       };
 
-      // ⭐ Usar parâmetros corretos baseado no modelo
       if (isO4Mini) {
+        completionParams.max_completion_tokens = max_tokens;
+      } else if (isGpt5Family) {
         completionParams.max_completion_tokens = max_tokens;
       } else {
         completionParams.max_tokens = max_tokens;
         completionParams.temperature = temperature;
       }
 
-      const completion = await openai.chat.completions.create(completionParams);
-
-      // Log removido (redundante)
-
-      // ⭐ ITERAR SOBRE OS CHUNKS EM STREAMING
-      for await (const chunk of completion) {
-        const content = chunk.choices[0]?.delta?.content || "";
-
-        if (content) {
-          // Primeiro token recebido
-          if (!firstTokenTime) {
-            firstTokenTime = Date.now();
-            const ttft = firstTokenTime - startTime;
-            // Log apenas TTFT se for > 1s (indicador de problema)
-            if (ttft > 1000) {
-              console.log(`[OpenAI Provider] ⚡ TTFT: ${ttft}ms (lento)`);
-            }
-          }
-
-          tokenCount++;
-
-          // Yield do chunk para o caller
-          yield content;
-
-          // Log apenas a cada 50 tokens (reduzir spam)
-          if (tokenCount % 50 === 0) {
-            console.log(`[OpenAI Provider] 📊 Tokens: ${tokenCount}`);
-          }
-        }
+      const supportsReasoningParams = !isGpt5Family;
+      if (!supportsReasoningParams && (reasoningEffort || verbosity)) {
+        console.warn(
+          "[OpenAI Provider] ⚠️ Ignorando parâmetros reasoning/verbosity para modelos GPT-5 via Chat Completions."
+        );
+      }
+      if (supportsReasoningParams && reasoningEffort) {
+        completionParams.reasoning = { effort: reasoningEffort };
       }
 
-      const endTime = Date.now();
-      const totalTime = endTime - startTime;
-      const ttft = firstTokenTime ? firstTokenTime - startTime : 0;
+      if (supportsReasoningParams && verbosity) {
+        completionParams.verbosity = verbosity;
+      }
 
-      // Log resumido apenas (métricas completas só em debug)
+      const startTime = Date.now();
+      const completion = await openai.chat.completions.create(completionParams);
+      const totalTime = Date.now() - startTime;
+
+      const messageContent = completion.choices?.[0]?.message?.content ?? "";
+      const usage = completion.usage ?? null;
+
       console.log(
-        `[OpenAI Provider] ✅ Completo: ${tokenCount} tokens em ${totalTime}ms`
+        `[OpenAI Provider] ✅ Completo: ${
+          usage?.total_tokens ?? "?"
+        } tokens em ${totalTime}ms`
       );
 
-      return; // Sucesso!
+      return {
+        content: messageContent,
+        usage,
+        totalDurationMs: totalTime,
+      };
     } catch (error) {
       attempt += 1;
+      lastError = error;
       console.error(`[OpenAI Provider] ❌ Erro na tentativa ${attempt}:`, {
         message: error.message,
         status: error.status,
@@ -130,15 +115,15 @@ export async function* generateStreamedCompletion({
         throw error;
       }
 
-      // ⭐ BACKOFF EXPONENCIAL
-      const base = Math.pow(2, attempt) * 250; // 250ms, 500ms, 1000ms...
+      const base = Math.pow(2, attempt) * 250;
       const jitter = Math.floor(Math.random() * 200);
       const delay = base + jitter;
-      // Log apenas se for primeira retentativa
       if (attempt === 1) {
         console.log(`[OpenAI Provider] ⏳ Retry em ${delay}ms`);
       }
-      await new Promise((r) => setTimeout(r, delay));
+      await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
+
+  throw lastError ?? new Error("OpenAI completion failed");
 }

@@ -20,6 +20,10 @@ const WARMUP_MAX_TOKENS = Math.max(
 );
 const WARMUP_MODEL = process.env.DECK_ENGINE_WARMUP_MODEL || null;
 
+const DECK_ENGINE_MODEL = "gpt-5-mini";
+const DECK_ENGINE_REASONING_EFFORT = "low";
+const DECK_ENGINE_VERBOSITY = "concise";
+
 function normalizeMode(mode) {
   if (!mode || typeof mode !== "string") {
     return null;
@@ -58,5 +62,13 @@ export function getDeckWarmupConfig() {
     prompt: WARMUP_PROMPT,
     maxTokens: WARMUP_MAX_TOKENS,
     model: WARMUP_MODEL,
+  };
+}
+
+export function getDeckModelConfig() {
+  return {
+    model: DECK_ENGINE_MODEL,
+    reasoningEffort: DECK_ENGINE_REASONING_EFFORT,
+    verbosity: DECK_ENGINE_VERBOSITY,
   };
 }

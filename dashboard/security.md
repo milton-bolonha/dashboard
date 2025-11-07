@@ -826,7 +826,7 @@ import Joi from "joi";
 
 const schema = Joi.object({
   templateId: Joi.string().required(),
-  model: Joi.string().optional().default("o4-mini"),
+  model: Joi.string().optional().default("gpt-5-mini"),
   context: Joi.object({
     themeId: Joi.string().optional(),
     target: Joi.string().required().min(1),

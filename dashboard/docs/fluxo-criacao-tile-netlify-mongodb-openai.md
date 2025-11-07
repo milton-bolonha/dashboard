@@ -93,7 +93,7 @@ Frontend (Browser)
 │  │ 1. Busca template.tiles[orderIndex]                      │  │
 │  │ 2. processPromptVariables() → prompt final                │  │
 │  │ 3. Loop de tentativas (max 3x)                            │  │
-│  │    ├─> generateStreamedCompletion() → OpenAI             │  │
+│  │    ├─> generateCompletion() → OpenAI                     │  │
 │  │    ├─> Coleta chunks em streaming                        │  │
 │  │    ├─> Valida resposta (refusal patterns)               │  │
 │  │    └─> Se inválido → retry com backoff                  │  │
@@ -102,7 +102,7 @@ Frontend (Browser)
 │  └───────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
     │
-    │ generateStreamedCompletion({ model, prompt })
+    │ generateCompletion({ model, prompt })
     ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │  OpenAI Provider: lib/ai/provider.js                           │
@@ -290,7 +290,7 @@ const createRes = await fetch("/api/prompt-jobs", {
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
     templateId: initialTemplateId,
-    model: "o4-mini",
+    model: "gpt-5-mini",
     context: context,
   }),
 });
@@ -301,7 +301,7 @@ const createRes = await fetch("/api/prompt-jobs", {
 ```json
 {
   "templateId": "tpl_classic_default",
-  "model": "o4-mini",
+  "model": "gpt-5-mini",
   "context": {
     "themeId": "sales-assistant",
     "target": "Netlify",
@@ -753,7 +753,7 @@ const createRes = await fetch("/api/prompt-jobs", {
 7. **Chamar OpenAI Provider** (T0 + ~2900ms para tile 0)
 
    ```javascript
-   for await (const chunk of generateStreamedCompletion({
+   const result = await generateCompletion({
      model,
      prompt,
    })) {
@@ -808,7 +808,7 @@ const createRes = await fetch("/api/prompt-jobs", {
 
    ```javascript
    const completion = await openai.chat.completions.create({
-     model: "o4-mini",
+     model: "gpt-5-mini",
      messages: [
        { role: "system", content: "You are a helpful AI assistant..." },
        { role: "user", content: prompt },
@@ -929,7 +929,7 @@ const createRes = await fetch("/api/prompt-jobs", {
        answer: "Netlify is a web development platform...",
        excerpt: "Netlify is a web development platform...",
        orderIndex: 0,
-       metrics: { model: "o4-mini", attempts: 1, fallback: false },
+       metrics: { model: "gpt-5-mini", attempts: 1, fallback: false },
        createdAt: "2025-11-06T09:05:25.155Z",
        jobId: "job_xxx",
      }
@@ -1173,7 +1173,7 @@ const createRes = await fetch("/api/prompt-jobs", {
        result: "Netlify is a web development platform...",
        persisted: true,
        tile: { id: "tile_job_xxx_0", ... },
-       metrics: { model: "o4-mini", attempts: 1 },
+       metrics: { model: "gpt-5-mini", attempts: 1 },
      }
      ```
 
@@ -1280,7 +1280,7 @@ T0 + 2400ms   │ Adapter: Emite job:status QUEUED
               │
 T0 + 2550ms   │ Adapter: runner.runJob() iniciado
               │
-T0 + 2900ms   │ Runner OpenAI: generateStreamedCompletion() chamado
+T0 + 2900ms   │ Runner OpenAI: generateCompletion() chamado
               │
 T0 + 3900ms   │ OpenAI Provider: Primeiro chunk recebido (TTFT ~1s)
               │
@@ -1339,7 +1339,7 @@ Total: ~72 segundos para todos os 8 tiles
 ```javascript
 {
   templateId: "tpl_classic_default",
-  model: "o4-mini",
+  model: "gpt-5-mini",
   context: {
     themeId: "sales-assistant",
     target: "Netlify",
@@ -1384,7 +1384,7 @@ Total: ~72 segundos para todos os 8 tiles
 {
   jobId: "job_xxx",
   templateId: "tpl_classic_default",
-  model: "o4-mini",
+  model: "gpt-5-mini",
   status: "QUEUED",
   totals: { items: 8 },
   guestId: "guest_xxx",
@@ -1408,7 +1408,7 @@ Total: ~72 segundos para todos os 8 tiles
   guestId: "guest_xxx",
   jobId: "job_xxx",
   templateId: "tpl_classic_default",
-  model: "o4-mini",
+  model: "gpt-5-mini",
   items: [{
     target: "Netlify",
     targetWebsite: "https://netlify.com",
@@ -1461,7 +1461,7 @@ Total: ~72 segundos para todos os 8 tiles
   excerpt: "Netlify is a web development platform...",
   orderIndex: 0,
   metrics: {
-    model: "o4-mini",
+    model: "gpt-5-mini",
     attempts: 1,
     fallback: false,
     lastError: undefined
@@ -1491,7 +1491,7 @@ Total: ~72 segundos para todos os 8 tiles
       // ... tile completo
     },
     metrics: {
-      model: "o4-mini",
+      model: "gpt-5-mini",
       attempts: 1,
       fallback: false
     }
@@ -1660,7 +1660,7 @@ Total: ~72 segundos para todos os 8 tiles
 
 **Comunica**:
 
-- ✅ Runner → OpenAI Provider (`generateStreamedCompletion()`)
+- ✅ Runner → OpenAI Provider (`generateCompletion()`)
 - ✅ Runner → Adapter (callbacks: `onChunk`, `onResult`, `onError`)
 
 ### 5. OpenAI Provider
@@ -1757,7 +1757,7 @@ Input (onResult payload):
   orderIndex: 0,
   title: "What They Do",
   result: "Netlify is a web development platform...",
-  metrics: { model: "o4-mini", attempts: 1 }
+  metrics: { model: "gpt-5-mini", attempts: 1 }
 }
 
 ↓ Constrói tileDoc
@@ -1770,7 +1770,7 @@ Output (tileDoc):
   answer: "Netlify is a web development platform...",
   excerpt: "Netlify is a web development platform...",
   orderIndex: 0,
-  metrics: { model: "o4-mini", attempts: 1, fallback: false },
+  metrics: { model: "gpt-5-mini", attempts: 1, fallback: false },
   createdAt: "2025-11-06T09:05:25.155Z",
   jobId: "job_xxx"
 }
@@ -1995,7 +1995,7 @@ sseManager.add(key, handler);
    while (attempt < TILE_MAX_ATTEMPTS) {
      try {
        // Gerar completion
-       for await (const chunk of generateStreamedCompletion({
+       const completion = await generateCompletion({
          model,
          prompt,
        })) {
@@ -2045,7 +2045,7 @@ sseManager.add(key, handler);
 
 **Métricas Coletadas**:
 
-- `model`: Modelo usado (ex: "o4-mini")
+- `model`: Modelo usado (ex: "gpt-5-mini")
 - `attempts`: Número de tentativas (1-3)
 - `fallback`: Se usou fallback (boolean)
 - `lastError`: Último erro ocorrido (se houver)
@@ -2097,7 +2097,7 @@ sseManager.add(key, handler);
    Chama: runner.runJob({ onStatus, onChunk, onResult, ... })
 
 7. Runner OpenAI → OpenAI Provider
-   Chama: generateStreamedCompletion({ model, prompt })
+   Chama: generateCompletion({ model, prompt })
 
 8. OpenAI Provider → OpenAI API
    Requisição: HTTPS streaming
@@ -2194,7 +2194,7 @@ sseManager.add(key, handler);
 
 ```
 🔄 Tentativa 1/3 para tile 0
-📡 Chamando OpenAI API (model: o4-mini)
+📡 Chamando OpenAI API (model: gpt-5-mini)
 ✅ Resposta recebida (tentativa 1)
 ```
 

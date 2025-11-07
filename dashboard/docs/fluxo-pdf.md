@@ -73,14 +73,14 @@ SSE Manager
 
 **File:** `app/page.js`
 
-* Determines which form variant to render (`classic` or `dynamic`)
-* Loads `IAFormsContainer` with theme, template, and 8 placeholder items
-* Page is **public** (no authentication middleware required)
+- Determines which form variant to render (`classic` or `dynamic`)
+- Loads `IAFormsContainer` with theme, template, and 8 placeholder items
+- Page is **public** (no authentication middleware required)
 
 **Security considerations:**
 
-* Inputs are isolated in a client-only context; no sensitive tokens in URL.
-* Only whitelisted template IDs are allowed (`tpl_classic_default`, `tpl_dynamic_default`).
+- Inputs are isolated in a client-only context; no sensitive tokens in URL.
+- Only whitelisted template IDs are allowed (`tpl_classic_default`, `tpl_dynamic_default`).
 
 ---
 
@@ -101,7 +101,7 @@ SSE Manager
    ```json
    {
      "templateId": "tpl_classic_default",
-     "model": "o4-mini",
+     "model": "gpt-5-mini",
      "context": {
        "themeId": "sales-assistant",
        "target": "Netlify",
@@ -115,9 +115,9 @@ SSE Manager
 
 ### Security Layers
 
-* Input validation before POST
-* Non-blocking redirect (no session cookies stored)
-* Tokens generated per job for access isolation
+- Input validation before POST
+- Non-blocking redirect (no session cookies stored)
+- Tokens generated per job for access isolation
 
 ---
 
@@ -150,10 +150,10 @@ This API route creates the backend job and workspace documents.
 
 ### Security Guarantees
 
-* Each job gets a **unique SHA-256 hashed token** stored server-side.
-* The token is never reused.
-* MongoDB writes are transactional per function execution.
-* No secret keys are returned to the frontend beyond job scope.
+- Each job gets a **unique SHA-256 hashed token** stored server-side.
+- The token is never reused.
+- MongoDB writes are transactional per function execution.
+- No secret keys are returned to the frontend beyond job scope.
 
 ---
 
@@ -170,8 +170,8 @@ Once triggered, this job:
 
 **Failure handling:**
 
-* If job/workspace missing → updates job status to `FAILED`.
-* Each error path logs cause and timestamp for diagnostics.
+- If job/workspace missing → updates job status to `FAILED`.
+- Each error path logs cause and timestamp for diagnostics.
 
 ---
 
@@ -183,16 +183,18 @@ The adapter orchestrates OpenAI calls and MongoDB persistence.
 
 ### Responsibilities:
 
-* Defines `persistTileDirectly()` for safe MongoDB updates:
+- Defines `persistTileDirectly()` for safe MongoDB updates:
 
-  * Removes outdated tiles
-  * Inserts new tiles atomically
-  * Increments usage counters
-* Emits job status via SSE:
+  - Removes outdated tiles
+  - Inserts new tiles atomically
+  - Increments usage counters
 
-  * `QUEUED` → `RUNNING` → `COMPLETED`
-* Calls `deck-engine-runner-openai` for each tile (0..7)
-* Streams intermediate results in chunks
+- Emits job status via SSE:
+
+  - `QUEUED` → `RUNNING` → `COMPLETED`
+
+- Calls `deck-engine-runner-openai` for each tile (0..7)
+- Streams intermediate results in chunks
 
 **Security focus:**
 All data writes use `$pull` + `$push` to prevent document overwrites.
@@ -208,15 +210,15 @@ For each tile:
 
 1. Retrieves the corresponding prompt from the template.
 2. Processes dynamic variables (company name, website, etc.).
-3. Calls OpenAI via `generateStreamedCompletion()` with `stream: true`.
+3. Calls OpenAI via `generateCompletion()` (resposta única).
 4. Aggregates chunks incrementally.
 5. Validates content for refusals or empty results.
 6. Calls back `onResult()` → triggers tile persistence.
 
 **Timing:**
 
-* Time-to-first-token: ~1–2s
-* Full tile generation: ~5–10s
+- Time-to-first-token: ~1–2s
+- Full tile generation: ~5–10s
 
 ---
 
@@ -239,9 +241,9 @@ await db.updateOne(
 
 **Security notes:**
 
-* Each write operation targets a single `guest_id` scope.
-* Atomic operations prevent concurrency races.
-* MongoDB index on `guest_id` + `workspace_data.companies.name` ensures isolation.
+- Each write operation targets a single `guest_id` scope.
+- Atomic operations prevent concurrency races.
+- MongoDB index on `guest_id` + `workspace_data.companies.name` ensures isolation.
 
 ---
 
@@ -256,15 +258,15 @@ The SSE manager handles real-time synchronization:
 3. Replays buffered events on reconnection
 4. Sends events:
 
-   * `job:status`
-   * `job:result-chunk`
-   * `job:result-completed`
+   - `job:status`
+   - `job:result-chunk`
+   - `job:result-completed`
 
 On the frontend:
 
-* `useJobStreaming()` subscribes via `EventSource`
-* Each event triggers a UI update and workspace revalidation
-* The dashboard reflects tiles as soon as they persist
+- `useJobStreaming()` subscribes via `EventSource`
+- Each event triggers a UI update and workspace revalidation
+- The dashboard reflects tiles as soon as they persist
 
 ---
 
@@ -272,34 +274,34 @@ On the frontend:
 
 ### Authentication & Authorization
 
-* Job isolation via `guestId` + token
-* Tokens hashed (SHA-256) before database persistence
-* No user authentication needed for public workflows
+- Job isolation via `guestId` + token
+- Tokens hashed (SHA-256) before database persistence
+- No user authentication needed for public workflows
 
 ### Database Security
 
-* All MongoDB writes are parameterized
-* Collections: `prompt_jobs`, `guest_workspaces`, `prompt_results`
-* No direct client access to MongoDB; all via API routes
+- All MongoDB writes are parameterized
+- Collections: `prompt_jobs`, `guest_workspaces`, `prompt_results`
+- No direct client access to MongoDB; all via API routes
 
 ### Netlify Deployment Security
 
-* Environment variables are encrypted at rest
-* Serverless functions run in isolated containers
-* CORS policy restricted to the app’s domain
-* Logs are sanitized (no secrets in output)
+- Environment variables are encrypted at rest
+- Serverless functions run in isolated containers
+- CORS policy restricted to the app’s domain
+- Logs are sanitized (no secrets in output)
 
 ### OpenAI Integration
 
-* API keys stored only in environment
-* Rate-limited calls prevent abuse
-* Request-level validation ensures proper context
+- API keys stored only in environment
+- Rate-limited calls prevent abuse
+- Request-level validation ensures proper context
 
 ### SSE Communication
 
-* Events are streamed via HTTPS (TLS 1.3)
-* Heartbeat keep-alive every 20 seconds
-* Buffered replays avoid race conditions
+- Events are streamed via HTTPS (TLS 1.3)
+- Heartbeat keep-alive every 20 seconds
+- Buffered replays avoid race conditions
 
 ---
 
@@ -335,8 +337,8 @@ On the frontend:
 
 The **Next.js + Netlify architecture** ensures a secure, isolated, and resilient workflow from user input to real-time rendering:
 
-* Each operation is **idempotent**, **scoped**, and **stream-safe**.
-* **Tokens, guest IDs, and job IDs** guarantee per-session isolation.
-* The **SSE buffering system** ensures consistency even under disconnections.
-* The **MongoDB persistence layer** ensures atomic, conflict-free tile storage.
-* **No long-lived secrets** or **credentials** are exposed to the client.
+- Each operation is **idempotent**, **scoped**, and **stream-safe**.
+- **Tokens, guest IDs, and job IDs** guarantee per-session isolation.
+- The **SSE buffering system** ensures consistency even under disconnections.
+- The **MongoDB persistence layer** ensures atomic, conflict-free tile storage.
+- **No long-lived secrets** or **credentials** are exposed to the client.

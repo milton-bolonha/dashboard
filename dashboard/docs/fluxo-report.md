@@ -643,7 +643,7 @@ const getAdaptiveInterval = (attempts) => {
 
 3. **Lógica de retry**:
 
-   - Usa mesmo `generateStreamedCompletion` mas com 2 tentativas
+   - Usa `generateCompletion` com até 2 tentativas adicionais
    - Se sucesso: persistir tile e emitir evento `job:result-completed`
    - Se falhar: não persistir, remover placeholder, atualizar contador
 
