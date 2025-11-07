@@ -7,7 +7,7 @@ import { useToast } from "@/lib/state/toast-context";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { LandingFooter } from "@/components/landing/LandingFooter";
 import { ClassicHeroForm } from "@/components/landing/ClassicHeroForm";
-import { getFunctionsBaseUrl } from "@/lib/env";
+import { getGenerateServiceUrl } from "@/lib/env";
 
 import "@/components/landing/landing.css";
 
@@ -31,8 +31,7 @@ export function HomeContainer() {
 
     setIsSubmitting(true);
     try {
-      const functionBase = getFunctionsBaseUrl().replace(/\/$/, "");
-      const targetUrl = `${functionBase || ""}/api/generate`;
+      const targetUrl = getGenerateServiceUrl();
       const response = await fetch(targetUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

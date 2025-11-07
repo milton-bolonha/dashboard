@@ -3,7 +3,7 @@ import { randomUUID } from "crypto";
 import { z } from "zod";
 
 import { clampTiles, writeWorkspace } from "@/lib/cookies-store";
-import { getFunctionsBaseUrl } from "@/lib/env";
+import { getNetlifyFunctionUrl } from "@/lib/env";
 import type { Tile, WorkspaceSnapshot } from "@/lib/types";
 
 const requestSchema = z.object({
@@ -26,10 +26,8 @@ export async function POST(request: Request) {
   const { companyName, companyWebsite, solution } = parseResult.data;
 
   try {
-    const baseUrl = getFunctionsBaseUrl();
-    console.log(`${baseUrl}/.netlify/functions/ai-generate`);
-
-    const response = await fetch(`${baseUrl}/.netlify/functions/ai-generate`, {
+    const functionUrl = getNetlifyFunctionUrl("ai-generate");
+    const response = await fetch(functionUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ companyName, companyWebsite, solution }),
