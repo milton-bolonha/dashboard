@@ -80,13 +80,16 @@ export function getGenerateServiceUrl(): string {
     return `${netlifyBase}/.netlify/functions/ai-generate`;
   }
 
-  return "/.netlify/functions/ai-generate";
+  return "/api/generate";
 }
 
 export function getNetlifyFunctionUrl(functionName: string): string {
   const base = resolveNetlifyBaseUrl();
   if (base.length === 0) {
-    return `/.netlify/functions/${functionName}`;
+    if (isNetlifyEnvironment()) {
+      return `/.netlify/functions/${functionName}`;
+    }
+    return `${DEFAULT_NETLIFY_BASE_URL}/.netlify/functions/${functionName}`;
   }
   return `${base}/.netlify/functions/${functionName}`;
 }
