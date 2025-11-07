@@ -93,12 +93,11 @@ Frontend (Browser)
 │  │ 1. Busca template.tiles[orderIndex]                      │  │
 │  │ 2. processPromptVariables() → prompt final                │  │
 │  │ 3. Loop de tentativas (max 3x)                            │  │
-│  │    ├─> generateCompletion() → OpenAI                     │  │
-│  │    ├─> Coleta chunks em streaming                        │  │
+│  │    ├─> generateCompletion() → OpenAI (Responses API)    │  │
+│  │    ├─> Recebe single response (sem streaming)           │  │
 │  │    ├─> Valida resposta (refusal patterns)               │  │
 │  │    └─> Se inválido → retry com backoff                  │  │
-│  │ 4. onChunk() → adapter (para cada chunk)                 │  │
-│  │ 5. onResult() → adapter (quando completo)                │  │
+│  │ 4. onResult() → adapter (quando completo)                │  │
 │  └───────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
     │
@@ -107,10 +106,11 @@ Frontend (Browser)
 ┌─────────────────────────────────────────────────────────────────┐
 │  OpenAI Provider: lib/ai/provider.js                           │
 │  ┌───────────────────────────────────────────────────────────┐  │
-│  │ 1. openai.chat.completions.create({ stream: true })       │  │
-│  │ 2. Itera chunks do stream (for await)                     │  │
-│  │ 3. yield content (generator)                              │  │
-│  │ 4. Retorna quando stream completa                         │  │
+│  │ 1. Se modelo começa com gpt-5 → openai.responses.create │  │
+│  │    (input, reasoning, text, max_output_tokens)           │  │
+│  │ 2. Caso contrário → openai.chat.completions.create      │  │
+│  │ 3. Normaliza output_text / message.content para string  │  │
+│  │ 4. Retorna objeto { content, usage, totalDurationMs }    │  │
 │  └───────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
     │

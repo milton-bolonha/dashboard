@@ -58,6 +58,18 @@ const TILE_TOKEN_LIMITS = {
   cold_call_scripts: 240,
 };
 
+// 🎯 HACK: evitar que tiles longos (a partir do 4º) "estourem" tokens apenas em reasoning
+// Mantemos um bônus moderado para dar fôlego extra em respostas complexas.
+const LATE_TILE_BONUS_START_INDEX = 3; // zero-based → a partir do 4º tile
+const LATE_TILE_BONUS_TOKENS = Math.max(
+  0,
+  parseInt(process.env.DECK_ENGINE_LATE_TILE_BONUS_TOKENS || "200", 10)
+);
+const RESPONSES_MAX_TOKENS_HARD_LIMIT = Math.max(
+  400,
+  parseInt(process.env.DECK_ENGINE_RESPONSES_MAX_TOKENS || "4000", 10)
+);
+
 // Runner default baseado no provider de IA com streaming
 // Assinatura esperada pelo adapter: runJob({ jobId, templateId, model, items, scope, onStatus, onChunk, onResult, onError, onCompleted })
 async function runJob({
@@ -261,8 +273,26 @@ async function runJob({
     try {
       const tile = template.tiles[orderIndex];
       const tileId = tile?.id;
-      const maxTokensForTile =
+      let maxTokensForTile =
         TILE_TOKEN_LIMITS[tileId] ?? DEFAULT_COMPLETION_MAX_TOKENS;
+      const originalMaxTokens = maxTokensForTile;
+      let tokenBoostApplied = false;
+
+      if (orderIndex >= LATE_TILE_BONUS_START_INDEX && LATE_TILE_BONUS_TOKENS) {
+        const boosted = Math.min(
+          maxTokensForTile + LATE_TILE_BONUS_TOKENS,
+          RESPONSES_MAX_TOKENS_HARD_LIMIT
+        );
+        if (boosted !== maxTokensForTile) {
+          console.log(
+            `[Runner] 🧪 Token hack: max_tokens ${maxTokensForTile} → ${boosted} (tile ${
+              orderIndex + 1
+            }/${total})`
+          );
+          maxTokensForTile = boosted;
+          tokenBoostApplied = true;
+        }
+      }
 
       if (!tile) {
         console.warn(
@@ -466,6 +496,9 @@ async function runJob({
         promptTokens: usageInfo?.prompt_tokens ?? null,
         completionTokens: usageInfo?.completion_tokens ?? null,
         totalTokens: usageInfo?.total_tokens ?? null,
+        maxTokensRequested: maxTokensForTile,
+        originalMaxTokens,
+        tokenBoostApplied,
       };
 
       await appendLog({
@@ -482,6 +515,9 @@ async function runJob({
           promptTokens: usageInfo?.prompt_tokens ?? null,
           completionTokens: usageInfo?.completion_tokens ?? null,
           totalTokens: usageInfo?.total_tokens ?? null,
+          maxTokensRequested: maxTokensForTile,
+          originalMaxTokens,
+          tokenBoostApplied,
         },
       });
 

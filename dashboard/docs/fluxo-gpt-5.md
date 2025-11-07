@@ -9,15 +9,16 @@
 ### Configuração
 
 - `getDeckModelConfig()` retorna `{ model, reasoningEffort, verbosity }`.
-- Valores atuais: `model: gpt-5-mini`, `reasoningEffort: low`, `verbosity: concise` (ignorados pelo provider quando a chamada usa Chat Completions, já que o endpoint ainda não aceita `reasoning`/`verbosity`).
+- Valores atuais: `model: gpt-5-mini`, `reasoningEffort: low`, `verbosity: concise`.
+- O provider converte aliases (`concise` → `low`, etc.) para os valores aceitos pela Responses API (`low`, `medium`, `high`).
 - Para alterar, basta editar as constantes no próprio arquivo (sem dotenv necessário).
 
 ### Execução
 
 - `app/api/prompt-jobs/route.js` e `app/api/prompt/run/route.js` usam o modelo padrão ao criar jobs.
 - `IAFormsContainer` envia o mesmo modelo ao disparar jobs pela Home.
-- `deck-engine-runner-openai` faz warmup opcional, chama o provider com os parâmetros de reasoning/verbosity e registra métricas (`ttftMs`, `completionMs`, `persistMs`).
-- `generateCompletion` anexa `reasoning` e `verbosity` nos parâmetros da API do OpenAI.
+- `deck-engine-runner-openai` faz warmup opcional, chama o provider usando a **Responses API** (modo single prompt, sem streaming) com os parâmetros de reasoning/verbosity (já normalizados) e registra métricas (`ttftMs`, `completionMs`, `persistMs`).
+- `generateCompletion` utiliza `openai.responses.create` para modelos GPT-5, garantindo que `reasoning` e `verbosity` sejam respeitados e que o texto venha em `output_text`.
 
 ### Fallback e Retentativas
 
