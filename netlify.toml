@@ -1,6 +1,6 @@
 [build]
-command = "cd dashboard && npm install && npm run build"
-publish = "dashboard/.next"
+command = "cd nextjs-openai-insights && npm install && npm run build"
+publish = "nextjs-openai-insights/.next"
 
 [build.environment]
 NODE_VERSION = "22.16.0"
