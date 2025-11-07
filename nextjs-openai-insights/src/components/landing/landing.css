@@ -1,0 +1,20 @@
+.home-page {
+  min-height: 100vh;
+  background-color: #fcfcf9;
+  position: relative;
+}
+
+.home-page main {
+  padding-top: 5rem;
+}
+
+.iaforms-classic {
+  position: relative;
+}
+
+@media (min-width: 640px) {
+  .iaforms-classic section {
+    padding-top: 6rem;
+    padding-bottom: 6rem;
+  }
+}

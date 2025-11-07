@@ -4,21 +4,28 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useToast } from "@/lib/state/toast-context";
-import { HomeHero } from "@/containers/home/components/HomeHero";
-import { HomeForm } from "@/containers/home/components/HomeForm";
+import { LandingHeader } from "@/components/landing/LandingHeader";
+import { LandingFooter } from "@/components/landing/LandingFooter";
+import { ClassicHeroForm } from "@/components/landing/ClassicHeroForm";
 
-interface GeneratePayload {
-  companyName: string;
-  companyWebsite: string;
-  solution: string;
-}
+import "@/components/landing/landing.css";
 
 export function HomeContainer() {
   const router = useRouter();
   const { push } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async (payload: GeneratePayload) => {
+  const handleSubmit = async ({
+    company,
+    companyWebsite,
+    solution,
+  }: {
+    company: string;
+    companyWebsite: string;
+    solution: string;
+    researchTarget: string;
+    researchWebsite: string;
+  }) => {
     if (isSubmitting) return;
 
     setIsSubmitting(true);
@@ -26,7 +33,11 @@ export function HomeContainer() {
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          companyName: company,
+          companyWebsite,
+          solution,
+        }),
       });
 
       if (!response.ok) {
@@ -56,15 +67,38 @@ export function HomeContainer() {
     }
   };
 
+  const handleResetWorkspace = async () => {
+    try {
+      const response = await fetch("/api/workspace", { method: "DELETE" });
+      if (!response.ok) {
+        throw new Error("Não foi possível limpar o workspace");
+      }
+      push({
+        title: "Workspace limpo",
+        description: "Envie outro formulário para gerar novos insights.",
+        variant: "success",
+      });
+    } catch (error) {
+      push({
+        title: "Erro ao limpar",
+        description:
+          error instanceof Error ? error.message : "Tente novamente em instantes.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
-    <div className="relative min-h-screen overflow-hidden bg-slate-950">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.18),_transparent_55%),radial-gradient(circle_at_bottom,_rgba(236,72,153,0.12),_transparent_60%)]" />
-      <div className="relative z-10 flex min-h-screen flex-col">
-        <HomeHero />
-        <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-12 px-6 pb-24">
-          <HomeForm onSubmit={handleSubmit} isSubmitting={isSubmitting} />
-        </main>
-      </div>
+    <div className="home-page">
+      <LandingHeader />
+      <main className="flex-1">
+        <ClassicHeroForm
+          onSubmit={handleSubmit}
+          isSubmitting={isSubmitting}
+          onReset={handleResetWorkspace}
+        />
+      </main>
+      <LandingFooter />
     </div>
   );
 }
