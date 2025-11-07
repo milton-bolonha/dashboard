@@ -19,6 +19,8 @@ O sistema estava criando placeholders infinitos porque:
 **Soluções Implementadas**:
 
 - ✅ Corrigida Background Function (formato correto + callbackWaitsForEmptyEventLoop)
+- ✅ Novo seletor de modo de geração (`individual` padrão, `batch` opcional via `DECK_ENGINE_GENERATION_MODE` com
+  `DECK_ENGINE_BATCH_CONCURRENCY` controlando paralelismo) mantendo compatibilidade com SSE/persistência.
 - ✅ Removidos delays desnecessários (1000ms → 200ms, 500ms → 100ms)
 - ✅ Adicionado timeout de segurança no SortableTilesGrid (5 minutos)
 - ✅ Implementada detecção de jobs presos no Workspace API

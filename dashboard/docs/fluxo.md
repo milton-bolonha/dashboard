@@ -115,6 +115,11 @@
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+> **Atualização (nov/2025)**: O modo de geração padrão é `individual` (um prompt por tile). É possível habilitar o modo `batch`
+> definindo `DECK_ENGINE_GENERATION_MODE=batch`, o que ativa processamento paralelo controlado
+> (`DECK_ENGINE_BATCH_CONCURRENCY`, padrão 3). Ambos os modos compartilham o mesmo fluxo de
+> persistência/SSE descrito abaixo.
+
 ---
 
 ## 📄 Etapa 1: Home Page

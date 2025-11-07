@@ -25,6 +25,11 @@
 
 ## 🎯 Visão Geral da Orquestração
 
+> **Atualização (nov/2025)**: A geração padrão continua sendo `individual` (um prompt por tile).
+> O modo `batch` pode ser ativado via `DECK_ENGINE_GENERATION_MODE=batch` com concorrência
+> configurável (`DECK_ENGINE_BATCH_CONCURRENCY`, default 3), acelerando a etapa “Runner OpenAI”
+> descrita abaixo sem alterar a persistência ou os eventos SSE.
+
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                    ORQUESTRAÇÃO DE SERVIÇOS                         │

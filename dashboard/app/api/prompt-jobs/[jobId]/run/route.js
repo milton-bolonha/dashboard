@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getJob, updateJob } from "@/lib/db/prompt-jobs";
 import { queueJob } from "@/lib/jobs/deck-engine-adapter";
 import { getCurrentAuth } from "@/lib/auth";
+import { resolveGenerationMode } from "@/config/deck-engine";
 
 export const runtime = "nodejs";
 
@@ -46,7 +47,13 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
-    const { guestId, scope = "admin", items = [], token } = body;
+    const {
+      guestId,
+      scope = "admin",
+      items = [],
+      token,
+      generationMode: bodyGenerationMode,
+    } = body;
 
     // ⭐ Buscar job
     const job = await getJob(jobId);
@@ -63,6 +70,15 @@ export async function POST(request, { params }) {
       initialItemsLength: Array.isArray(job.initialItems)
         ? job.initialItems.length
         : 0,
+    });
+
+    const normalizedGenerationMode = resolveGenerationMode(
+      bodyGenerationMode ?? job.generationMode
+    );
+    console.log("[Run Route] ⚙️ generationMode resolvido:", {
+      fromBody: bodyGenerationMode,
+      fromJob: job.generationMode,
+      resolved: normalizedGenerationMode,
     });
 
     // ⭐ BUG FIX: Se items está vazio mas job tem initialItems, usar initialItems
@@ -159,6 +175,7 @@ export async function POST(request, { params }) {
       const updateData = {
         status: "QUEUED",
         initialItems: safeItems, // Salvar items iniciais para referência
+        generationMode: normalizedGenerationMode,
       };
 
       console.log("[Run Route] 💾 Salvando initialItems:", {
@@ -204,6 +221,7 @@ export async function POST(request, { params }) {
         items: safeItems,
         scope,
         token,
+        generationMode: normalizedGenerationMode,
       });
       console.log("[Run Route] ✅ queueJob concluído com sucesso");
     } catch (queueError) {

@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { getJob, updateJob } from "@/lib/db/prompt-jobs";
 import { queueJob } from "@/lib/jobs/deck-engine-adapter";
 import { emitJobEvent } from "@/lib/jobs/events";
+import { resolveGenerationMode } from "@/config/deck-engine";
 
 /**
  * Inicia a execução de um job em background.
@@ -27,12 +28,15 @@ export function runJobInBackground(jobId) {
         throw new Error(`Job ${jobId} não encontrado no banco de dados.`);
       }
 
+      const generationMode = resolveGenerationMode(job.generationMode);
+
       console.log(`[Runner] ✅ Job encontrado:`, {
         jobId: job.jobId,
         guestId: job.guestId,
         templateId: job.templateId,
         status: job.status,
         hasDataSource: !!job.dataSource,
+        generationMode,
       });
 
       // No Fluxo 2.0, o workspace já deve existir
@@ -63,7 +67,11 @@ export function runJobInBackground(jobId) {
       // O contexto foi salvo no job como dataSource
       const items = job.dataSource?.data ? [job.dataSource.data] : [];
 
-      await updateJob(jobId, { status: "QUEUED", initialItems: items });
+      await updateJob(jobId, {
+        status: "QUEUED",
+        initialItems: items,
+        generationMode,
+      });
 
       console.log(`[Runner] 📋 Preparando queueJob:`, {
         guestId: job.guestId,
@@ -72,6 +80,7 @@ export function runJobInBackground(jobId) {
         model: job.model,
         itemsCount: items.length,
         entityKey,
+        generationMode,
         companyName:
           companyNameFromWorkspace ||
           job.dataSource?.data?.company?.name ||
@@ -88,6 +97,7 @@ export function runJobInBackground(jobId) {
         items: items,
         scope: "home", // No Fluxo 2.0, a origem é sempre a home
         entityKey,
+        generationMode,
         companyName:
           companyNameFromWorkspace ||
           job.dataSource?.data?.company?.name ||

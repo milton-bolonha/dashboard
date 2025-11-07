@@ -2,9 +2,15 @@ import { NextResponse } from "next/server";
 import { db, withMongoConnection } from "@/lib/db";
 import { createJob } from "@/lib/db/prompt-jobs";
 import { createDynamicWorkspace } from "@/lib/dynamic-workspace";
+import {
+  getDeckGenerationConfig,
+  resolveGenerationMode,
+} from "@/config/deck-engine";
 import { v4 as uuidv4 } from "uuid";
 import Joi from "joi";
 import crypto from "crypto";
+
+const { allowedModes: deckGenerationModes } = getDeckGenerationConfig();
 
 const requestBodySchema = Joi.object({
   templateId: Joi.string().required(),
@@ -16,7 +22,10 @@ const requestBodySchema = Joi.object({
     solution: Joi.string().optional().allow(""),
   })
     .required()
-    .unknown(true), // unknown(true) permite outros campos no context
+    .unknown(true), // unknown(true) permite campos extras no context
+  generationMode: Joi.string()
+    .valid(...deckGenerationModes)
+    .optional(),
 });
 
 export const runtime = "nodejs";
@@ -37,7 +46,12 @@ export async function POST(req) {
         { status: 400 }
       );
     }
-    const { templateId, model, context } = value;
+    const {
+      templateId,
+      model,
+      context,
+      generationMode: bodyGenerationMode,
+    } = value;
     console.log("[Create Job Route v2.0] ✅ Payload validado:", {
       templateId,
       model,
@@ -130,6 +144,8 @@ export async function POST(req) {
     // 5. Criar o Job no Banco de Dados
     const totals = { items: themeSnapshot.tileTemplates?.length || 8 };
 
+    const generationMode = resolveGenerationMode(bodyGenerationMode);
+
     await createJob({
       jobId,
       templateId,
@@ -139,6 +155,7 @@ export async function POST(req) {
       totals,
       guestId,
       accessTokenHash, // Salvar o hash no job
+      generationMode,
     });
     console.log(`[Create Job Route v2.0] ✅ Job criado: ${jobId}`);
 

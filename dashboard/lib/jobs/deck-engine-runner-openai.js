@@ -5,6 +5,10 @@ import {
   getGuestTemplate,
   processPromptVariables,
 } from "@/lib/guest-templates";
+import {
+  getDeckGenerationConfig,
+  resolveGenerationMode,
+} from "@/config/deck-engine";
 
 const TILE_MAX_ATTEMPTS = 3;
 const TILE_REFUSAL_PATTERNS = [
@@ -27,6 +31,7 @@ async function runJob({
   model,
   items,
   scope,
+  generationMode,
   onStatus,
   onChunk,
   onResult,
@@ -57,6 +62,17 @@ async function runJob({
   const templateTilesCount = template.tiles.length;
   const total = Math.max(itemsCount, templateTilesCount);
 
+  const { batchConcurrency } = getDeckGenerationConfig();
+  const normalizedGenerationMode = resolveGenerationMode(generationMode);
+  const concurrency =
+    normalizedGenerationMode === "batch" ? Math.max(1, batchConcurrency) : 1;
+  const shouldProcessInParallel = concurrency > 1;
+  const shouldEmitChunks = normalizedGenerationMode === "batch";
+
+  console.log(
+    `[Runner] ⚙️ Generation mode: ${normalizedGenerationMode} (concurrency=${concurrency})`
+  );
+
   // ⭐ BUG FIX: Garantir que temos items para todos os tiles do template
   const expandedItems = Array.from({ length: total }, (_, i) => {
     if (i < itemsCount && items[i]) {
@@ -76,6 +92,7 @@ async function runJob({
     status: "RUNNING",
     progress: { current, total, remaining: total },
     scope,
+    generationMode: normalizedGenerationMode,
   });
 
   // ⭐ NOVO: Construir contexto dos items (primeiro item tem os dados do form)
@@ -170,22 +187,18 @@ async function runJob({
   // ⭐ FASE 3: Array para coletar tiles falhos para retry pós-processamento
   const failedTiles = [];
 
-  // ⭐ NOVO: Mapear orderIndex para tile do template
-  // ⭐ BUG FIX: Usar expandedItems em vez de items
-  for (let i = 0; i < total; i++) {
-    const item = expandedItems[i] || {};
-    const orderIndex = i; // ⭐ SEMPRE usar i como orderIndex (0, 1, 2, ..., 7)
+  const processTile = async (orderIndex) => {
+    const item = expandedItems[orderIndex] || {};
     const itemId = `${jobId}_${orderIndex}`;
 
     try {
-      // ⭐ CORREÇÃO: Usar tile do template baseado no orderIndex
       const tile = template.tiles[orderIndex];
 
       if (!tile) {
         console.warn(
           `[Runner] ⚠️ Tile não encontrado para orderIndex=${orderIndex}, pulando...`
         );
-        continue;
+        return;
       }
 
       await appendLog({
@@ -199,9 +212,7 @@ async function runJob({
       let prompt;
 
       if (tile && tile.prompt) {
-        // Processar variáveis do prompt com contexto do item
         prompt = processPromptVariables(tile.prompt, context);
-        // Log apenas resumo do prompt (não o conteúdo completo)
         console.log(
           `[Runner] 📋 Prompt: "${tile.title}" (${prompt.length} chars)`
         );
@@ -214,7 +225,6 @@ async function runJob({
         prompt = JSON.stringify(item);
       }
 
-      // Log resumido apenas no início de cada tile
       console.log(
         `[Runner] 🚀 Tile ${orderIndex + 1}/${total}: "${
           tile?.title || "Unknown"
@@ -245,7 +255,7 @@ async function runJob({
         });
 
         let accumulatedResult = "";
-        const collectedChunks = [];
+        const collectedChunks = shouldEmitChunks ? [] : null;
         let ix = 0;
         const streamStartTime = Date.now();
         let attemptFailed = false;
@@ -260,11 +270,12 @@ async function runJob({
                 ? chunk
                 : chunk.chunk || chunk.content || String(chunk);
 
-            collectedChunks.push({ chunk: chunkContent, ix });
+            if (shouldEmitChunks) {
+              collectedChunks.push({ chunk: chunkContent, ix });
+            }
             accumulatedResult += chunkContent;
             ix += 1;
 
-            // Log apenas a cada 100 chunks (reduzir spam)
             if (ix % 100 === 0) {
               console.log(
                 `[Runner] 📊 Tile ${orderIndex + 1}/${total}: ${ix} chunks, ${
@@ -293,13 +304,12 @@ async function runJob({
         const refusalMatch = trimmedResult
           ? TILE_REFUSAL_PATTERNS.some((regex) => regex.test(trimmedResult))
           : false;
-        const looksLikeRefusal = refusalMatch && trimmedResult.length < 200; // respostas longas são aceitas mesmo com disclaimers
+        const looksLikeRefusal = refusalMatch && trimmedResult.length < 200;
 
         const invalidResponse =
           attemptFailed || !trimmedResult || looksLikeRefusal;
 
         const streamDuration = Date.now() - streamStartTime;
-        // Log apenas no final bem-sucedido (não a cada tentativa)
         if (!invalidResponse || attempt === TILE_MAX_ATTEMPTS) {
           console.log(
             `[Runner] ⏱️ Tile ${
@@ -310,7 +320,7 @@ async function runJob({
 
         if (!invalidResponse) {
           finalResult = accumulatedResult;
-          finalChunks = collectedChunks;
+          finalChunks = shouldEmitChunks ? collectedChunks ?? [] : [];
           usedFallback = false;
           break;
         }
@@ -340,7 +350,6 @@ async function runJob({
           const backoff =
             Math.min(Math.pow(2, attempt) * 500, 4000) +
             Math.floor(Math.random() * 200);
-          // Log apenas se for a primeira tentativa ou se houver mudança significativa
           if (attempt === 1) {
             console.log(
               `[Runner] 🔁 Retry tile ${
@@ -352,8 +361,6 @@ async function runJob({
           continue;
         }
 
-        // ⭐ FASE 3: Coletar tile falho para retry pós-processamento
-        // NÃO usar fallback imediatamente, marcar como "pending retry"
         failedTiles.push({
           orderIndex,
           tile,
@@ -367,15 +374,15 @@ async function runJob({
           attemptsUsed,
         });
 
-        // Usar fallback temporariamente, mas será substituído se retry funcionar
         finalResult = fallbackMessage;
-        finalChunks = [{ chunk: fallbackMessage, ix: 0 }];
+        finalChunks = shouldEmitChunks
+          ? [{ chunk: fallbackMessage, ix: 0 }]
+          : [];
         usedFallback = true;
         break;
       }
 
       if (!finalResult) {
-        // ⭐ FASE 3: Também coletar se finalResult estiver vazio
         failedTiles.push({
           orderIndex,
           tile,
@@ -386,21 +393,26 @@ async function runJob({
         });
 
         finalResult = fallbackMessage;
-        finalChunks = [{ chunk: fallbackMessage, ix: 0 }];
+        finalChunks = shouldEmitChunks
+          ? [{ chunk: fallbackMessage, ix: 0 }]
+          : [];
         usedFallback = true;
       }
 
       let finalChunkIndex = 0;
-      for (const chunkData of finalChunks) {
-        onChunk?.({
-          jobId,
-          itemId,
-          orderIndex,
-          chunk: chunkData.chunk,
-          ix: finalChunkIndex,
-          scope,
-        });
-        finalChunkIndex += 1;
+      if (shouldEmitChunks && finalChunks.length > 0) {
+        for (const chunkData of finalChunks) {
+          onChunk?.({
+            jobId,
+            itemId,
+            orderIndex,
+            chunk: chunkData.chunk,
+            ix: finalChunkIndex,
+            scope,
+            generationMode: normalizedGenerationMode,
+          });
+          finalChunkIndex += 1;
+        }
       }
 
       await onResult?.({
@@ -409,6 +421,7 @@ async function runJob({
         orderIndex,
         title: tile?.title || `Insight ${orderIndex + 1}`,
         result: finalResult,
+        generationMode: normalizedGenerationMode,
         metrics: {
           model,
           attempts: attemptsUsed,
@@ -423,6 +436,7 @@ async function runJob({
         status: "RUNNING",
         progress: { current, total, remaining: Math.max(total - current, 0) },
         scope,
+        generationMode: normalizedGenerationMode,
       });
     } catch (error) {
       await appendLog({
@@ -437,7 +451,33 @@ async function runJob({
         itemId,
         orderIndex,
         error: { message: error?.message || "unknown" },
+        generationMode: normalizedGenerationMode,
       });
+    }
+  };
+
+  if (shouldProcessInParallel) {
+    const activeTasks = new Set();
+    const pendingTasks = [];
+
+    for (let i = 0; i < total; i++) {
+      const task = processTile(i).finally(() => {
+        activeTasks.delete(task);
+      });
+      activeTasks.add(task);
+      pendingTasks.push(task);
+
+      if (activeTasks.size >= concurrency) {
+        await Promise.race(activeTasks);
+      }
+    }
+
+    if (pendingTasks.length > 0) {
+      await Promise.all(pendingTasks);
+    }
+  } else {
+    for (let i = 0; i < total; i++) {
+      await processTile(i);
     }
   }
 
@@ -446,6 +486,7 @@ async function runJob({
     status: "COMPLETED",
     progress: { current: total, total, remaining: 0 },
     scope,
+    generationMode: normalizedGenerationMode,
   });
 
   // ⭐ FASE 3: Retry assíncrono pós-processamento para tiles falhos
@@ -464,6 +505,7 @@ async function runJob({
         remaining: failedTiles.length,
       },
       scope,
+      generationMode: normalizedGenerationMode,
     });
 
     // Processar retries individualmente, assíncrono
@@ -530,6 +572,7 @@ async function runJob({
                   chunk: chunkData.chunk,
                   ix: chunkIndex,
                   scope,
+                  generationMode: normalizedGenerationMode,
                 });
                 chunkIndex += 1;
               }
@@ -541,6 +584,7 @@ async function runJob({
                 orderIndex,
                 title: tile?.title || `Insight ${orderIndex + 1}`,
                 result: accumulatedResult,
+                generationMode: normalizedGenerationMode,
                 metrics: {
                   model,
                   attempts: TILE_MAX_ATTEMPTS + retryAttempt,
@@ -605,6 +649,7 @@ async function runJob({
           tilesFailed: retryFailedCount,
         },
         scope,
+        generationMode: normalizedGenerationMode,
       });
 
       console.log(

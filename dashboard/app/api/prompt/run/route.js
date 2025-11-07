@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { createJob } from "@/lib/db/prompt-jobs";
 import { queueJob } from "@/lib/jobs/deck-engine-adapter";
 import { getCurrentAuth } from "@/lib/auth";
+import {
+  getDeckGenerationConfig,
+  resolveGenerationMode,
+} from "@/config/deck-engine";
 
 export const runtime = "nodejs";
 
@@ -13,6 +17,7 @@ export async function POST(request) {
     model = "o4-mini",
     guestId,
     token,
+    generationMode: bodyGenerationMode,
   } = body;
   if (!templateId)
     return NextResponse.json({ error: "templateId required" }, { status: 400 });
@@ -28,6 +33,10 @@ export async function POST(request) {
     }
   }
 
+  const { defaultMode } = getDeckGenerationConfig();
+  const generationMode =
+    resolveGenerationMode(bodyGenerationMode) || defaultMode;
+
   const jobId = `job_${Date.now().toString(36)}`;
   await createJob({
     jobId,
@@ -35,6 +44,7 @@ export async function POST(request) {
     model,
     status: "QUEUED",
     totals: { items: 1, completed: 0, failed: 0 },
+    generationMode,
   });
   await queueJob({
     guestId,
@@ -44,6 +54,7 @@ export async function POST(request) {
     items: [variables],
     scope: "home",
     token,
+    generationMode,
   });
   return NextResponse.json({ jobId }, { status: 201 });
 }

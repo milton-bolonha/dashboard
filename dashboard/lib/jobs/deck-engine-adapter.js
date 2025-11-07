@@ -9,6 +9,7 @@ import "@/lib/jobs/deck-engine-runner-openai"; // registra runner default (side-
 import { db } from "@/lib/db";
 import { invalidateWorkspaceCache } from "@/lib/workspace-cache";
 import { getGuestTemplate } from "@/lib/guest-templates";
+import { resolveGenerationMode } from "@/config/deck-engine";
 
 export async function queueJob({
   guestId,
@@ -20,7 +21,10 @@ export async function queueJob({
   token,
   entityKey = "companies",
   companyName = null,
+  generationMode = undefined,
 }) {
+  const normalizedGenerationMode = resolveGenerationMode(generationMode);
+
   console.log(`[DeckEngine] 🚀 queueJob iniciado para job ${jobId}`, {
     guestId,
     templateId,
@@ -28,6 +32,7 @@ export async function queueJob({
     itemsCount: Array.isArray(items) ? items.length : 0,
     entityKey,
     companyName,
+    generationMode: normalizedGenerationMode,
   });
 
   // ⭐ CORREÇÃO CRÍTICA: Calcular total baseado no template, não em items.length
@@ -313,7 +318,13 @@ export async function queueJob({
       guestId,
       jobId,
       type: "job:status",
-      payload: { jobId, status, progress, scope },
+      payload: {
+        jobId,
+        status,
+        progress,
+        scope,
+        generationMode: normalizedGenerationMode,
+      },
       token,
     });
   };
@@ -352,6 +363,7 @@ export async function queueJob({
       model,
       items,
       scope,
+      generationMode: normalizedGenerationMode,
       onStatus: (payload) =>
         emitJobEvent({ guestId, jobId, type: "job:status", payload, token }),
       onChunk: (payload) =>
@@ -428,6 +440,7 @@ export async function queueJob({
             title: tileDoc.title,
             persisted,
             entityKey: resolvedEntityKey,
+            generationMode: normalizedGenerationMode,
           };
 
           if (persisted) {
@@ -491,6 +504,7 @@ export async function queueJob({
           entityId: resolvedCompanyId ?? null,
           entityKey: resolvedEntityKey,
           entityName: resolvedCompanyName ?? null,
+          generationMode: normalizedGenerationMode,
         };
 
         console.log(
@@ -516,6 +530,7 @@ export async function queueJob({
           title: tileDoc.title,
           persisted,
           entityKey: resolvedEntityKey,
+          generationMode: normalizedGenerationMode,
         };
 
         if (persisted) {
@@ -558,6 +573,7 @@ export async function queueJob({
             remaining: Math.max(total - (successCount + errorCount), 0),
           },
           scope,
+          generationMode: normalizedGenerationMode,
         };
 
         emitJobEvent({
@@ -602,6 +618,7 @@ export async function queueJob({
             tilesFailed,
           },
           scope,
+          generationMode: normalizedGenerationMode,
         };
         emitJobEvent({
           guestId,
