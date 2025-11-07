@@ -11,6 +11,10 @@
   "dependencies": {
     "@netlify/blobs": "^10.3.3",
     "@netlify/functions": "^5.1.0",
+    "@fontsource-variable/geologica": "^5.2.6",
+    "@fontsource-variable/inter": "^5.2.8",
+    "@fontsource-variable/podkova": "^5.2.8",
+    "@fontsource/poppins": "^5.2.6",
     "next": "16.0.1",
     "openai": "^6.8.1",
     "react": "19.2.0",

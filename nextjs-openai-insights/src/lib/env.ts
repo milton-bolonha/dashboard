@@ -4,6 +4,11 @@ export function getFunctionsBaseUrl(): string {
     return explicit.replace(/\/$/, "");
   }
 
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (appUrl && appUrl.trim().length > 0) {
+    return appUrl.replace(/\/$/, "");
+  }
+
   // In Netlify production, the relative path works.
   if (process.env.NETLIFY === "true") {
     return "";
