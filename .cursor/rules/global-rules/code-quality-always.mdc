@@ -1,7 +1,6 @@
 ---
 description: ""
-globs: ""
-alwaysApply: true
+alwaysApply: false
 ---
 
 # Code Quality Standards

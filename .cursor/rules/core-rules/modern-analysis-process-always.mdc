@@ -1,7 +1,6 @@
 ---
 description: "Systematic development analysis process for all coding tasks"
-globs: ["**/*.tsx", "**/*.ts", "**/*.jsx", "**/*.js"]
-alwaysApply: true
+alwaysApply: false
 ---
 
 # Modern Development Analysis Process
@@ -9,6 +8,7 @@ alwaysApply: true
 ## Core Methodology: Always Follow These Steps
 
 ### 1. Request Analysis
+
 - **Task Classification**: Identify code creation, debugging, architecture, or refactoring
 - **Technology Stack**: Note languages, frameworks, and libraries involved
 - **Requirements Gathering**: List explicit and implicit requirements
@@ -16,6 +16,7 @@ alwaysApply: true
 - **Constraint Assessment**: Consider project context, performance, security
 
 ### 2. Solution Planning
+
 - **Step Decomposition**: Break into logical, manageable components
 - **Modularity Design**: Plan for reusability and maintainability
 - **Dependency Mapping**: Identify files, packages, services needed
@@ -23,6 +24,7 @@ alwaysApply: true
 - **Validation Strategy**: Plan testing approach and success criteria
 
 ### 3. Implementation Strategy
+
 - **Pattern Selection**: Choose appropriate design patterns
 - **Performance Consideration**: Identify optimization opportunities
 - **Error Handling Design**: Plan for edge cases and graceful degradation
@@ -32,6 +34,7 @@ alwaysApply: true
 ## Modern Code Quality Standards
 
 ### General Principles
+
 - **Write concise, readable code** with clear intent and purpose
 - **Use functional and declarative patterns** over imperative approaches
 - **Follow DRY principle** (Don't Repeat Yourself) consistently
@@ -39,12 +42,14 @@ alwaysApply: true
 - **Structure logically**: exports → subcomponents → helpers → types
 
 ### Naming Conventions
+
 - **Descriptive variable names** with auxiliary verbs (`isLoading`, `hasError`)
 - **Event handlers** prefixed with "handle" (`handleClick`, `handleSubmit`)
 - **Directory structure** in lowercase with dashes (`components/auth-wizard`)
 - **Component exports** use named exports for better tree-shaking
 
 ### TypeScript Best Practices
+
 - **Use TypeScript for all code** without `any` types
 - **Prefer interfaces over types** for object shape definitions
 - **Avoid enums**; use const assertion objects instead
@@ -52,6 +57,7 @@ alwaysApply: true
 - **Use `satisfies` operator** for better type validation
 
 ### Modern React Patterns (When Applicable)
+
 - **Favor functional components** with hooks over class components
 - **Use Server Components** by default in Next.js App Router
 - **Client Components** only for interactivity and user input
@@ -64,6 +70,7 @@ alwaysApply: true
 Request: "Create a user authentication form with validation"
 
 Applying Analysis Process:
+
 1. **Request**: React form component with real-time validation
 2. **Planning**: Form state management, validation rules, error states, API integration
 3. **Strategy**: Modern React 19 patterns, accessibility, security practices
@@ -84,6 +91,7 @@ Skipping analysis and jumping straight to implementation:
 ## Quality Checklist
 
 Before completing any task, verify:
+
 - [ ] Analysis process followed completely
 - [ ] TypeScript types properly defined
 - [ ] Error handling implemented

@@ -1,5 +1,10 @@
 const DEFAULT_NETLIFY_BASE_URL = "https://aisalesnow.netlify.app";
 
+type HostKind = "netlify" | "vercel" | "custom";
+
+const NETLIFY_HOST_PATTERN = /\.netlify\.app$/i;
+const VERCEL_HOST_PATTERN = /\.vercel\.app$/i;
+
 function isNetlifyEnvironment(): boolean {
   return (
     process.env.NETLIFY === "true" ||
@@ -16,28 +21,28 @@ function isVercelEnvironment(): boolean {
   );
 }
 
-function resolveNetlifyBaseUrl(): string {
-  const explicit = process.env.NEXT_PUBLIC_FUNCTIONS_BASE_URL;
-  if (explicit && explicit.trim().length > 0) {
-    return explicit.replace(/\/$/, "");
-  }
-
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-  if (appUrl && appUrl.trim().length > 0) {
-    return appUrl.replace(/\/$/, "");
-  }
-
-  if (isNetlifyEnvironment()) {
-    return "";
-  }
-
-  return DEFAULT_NETLIFY_BASE_URL;
+function cleanUrl(url: string): string {
+  return url.replace(/\/$/, "");
 }
 
-function resolveVercelBaseUrl(): string {
+function detectHostKind(url: string | undefined): HostKind {
+  if (!url) return "custom";
+  try {
+    const hostname = new URL(url.startsWith("http") ? url : `https://${url}`)
+      .hostname;
+    if (NETLIFY_HOST_PATTERN.test(hostname)) return "netlify";
+    if (VERCEL_HOST_PATTERN.test(hostname)) return "vercel";
+    return "custom";
+  } catch {
+    return "custom";
+  }
+}
+
+function resolveConfiguredBaseUrl(): string | undefined {
   const candidates = [
+    process.env.NEXT_PUBLIC_GENERATE_BASE_URL,
     process.env.NEXT_PUBLIC_VERCEL_FUNCTIONS_BASE_URL,
-    process.env.NEXT_PUBLIC_VERCEL_BASE_URL,
+    process.env.NEXT_PUBLIC_FUNCTIONS_BASE_URL,
     process.env.NEXT_PUBLIC_APP_URL,
     process.env.NEXT_PUBLIC_VERCEL_URL
       ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
@@ -47,15 +52,11 @@ function resolveVercelBaseUrl(): string {
 
   for (const candidate of candidates) {
     if (candidate && candidate.trim().length > 0) {
-      return candidate.replace(/\/$/, "");
+      return cleanUrl(candidate.trim());
     }
   }
 
-  return "";
-}
-
-export function getFunctionsBaseUrl(): string {
-  return resolveNetlifyBaseUrl();
+  return undefined;
 }
 
 export function getGenerateServiceUrl(): string {
@@ -64,33 +65,46 @@ export function getGenerateServiceUrl(): string {
     return explicitEndpoint.trim();
   }
 
-  const netlifyBase = resolveNetlifyBaseUrl();
-  if (netlifyBase && netlifyBase.includes(".netlify")) {
-    return `${netlifyBase}/.netlify/functions/ai-generate`;
+  const configuredBase = resolveConfiguredBaseUrl();
+  if (configuredBase) {
+    const hostKind = detectHostKind(configuredBase);
+    if (hostKind === "netlify") {
+      return `${configuredBase}/.netlify/functions/ai-generate`;
+    }
+    return `${configuredBase}/api/generate`;
   }
 
   if (isVercelEnvironment()) {
-    const vercelBase = resolveVercelBaseUrl();
-    if (vercelBase.length > 0) {
-      return `${vercelBase}/api/generate`;
-    }
     return "/api/generate";
   }
-  if (netlifyBase.length > 0) {
-    return `${netlifyBase}/.netlify/functions/ai-generate`;
+
+  if (isNetlifyEnvironment()) {
+    return "/.netlify/functions/ai-generate";
   }
 
-  return "/api/generate";
+  return `${DEFAULT_NETLIFY_BASE_URL}/.netlify/functions/ai-generate`;
 }
 
 export function getNetlifyFunctionUrl(functionName: string): string {
-  const base = resolveNetlifyBaseUrl();
-  if (base.length === 0) {
-    if (isNetlifyEnvironment()) {
-      return `/.netlify/functions/${functionName}`;
+  const configuredBase = resolveConfiguredBaseUrl();
+  if (configuredBase) {
+    const hostKind = detectHostKind(configuredBase);
+    if (hostKind === "netlify") {
+      return `${configuredBase}/.netlify/functions/${functionName}`;
     }
-    return `${DEFAULT_NETLIFY_BASE_URL}/.netlify/functions/${functionName}`;
+    if (hostKind === "vercel") {
+      return `${configuredBase}/api/${functionName}`;
+    }
+    return `${configuredBase}/api/${functionName}`;
   }
-  return `${base}/.netlify/functions/${functionName}`;
-}
 
+  if (isNetlifyEnvironment()) {
+    return `/.netlify/functions/${functionName}`;
+  }
+
+  if (isVercelEnvironment()) {
+    return `/api/${functionName}`;
+  }
+
+  return `${DEFAULT_NETLIFY_BASE_URL}/.netlify/functions/${functionName}`;
+}

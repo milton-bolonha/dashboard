@@ -67,12 +67,16 @@ nextjs-openai-insights/
 | `OPENAI_MAX_OUTPUT_TOKENS` | `600` | Limite de tokens por tile. |
 | `OPENAI_TEMPERATURE` | `0.7` | Temperatura padrão das respostas. |
 | `FUNCTION_RATE_LIMIT` | `30` | Limite de requests por IP em 60s. |
-| `NEXT_PUBLIC_FUNCTIONS_BASE_URL` | (vazio) | Override para dev sem `netlify dev`. |
+| `NEXT_PUBLIC_GENERATE_ENDPOINT` | — | Endpoint completo (tem prioridade máxima). |
+| `NEXT_PUBLIC_GENERATE_BASE_URL` | — | Host base atual (Netlify, Vercel ou custom). |
+| `NEXT_PUBLIC_VERCEL_FUNCTIONS_BASE_URL` | — | Domínio do deploy na Vercel (ex.: `https://dashmasterpro.vercel.app`). |
+| `NEXT_PUBLIC_FUNCTIONS_BASE_URL` | — | Domínio do deploy na Netlify (ex.: `https://aisalesnow.netlify.app`). |
+| `NEXT_PUBLIC_APP_URL` | — | Fallback genérico para o host do app. |
 
 ## 🧠 Fluxo principal
 
-1. **HomeContainer** envia payload para `/api/generate`.
-2. **Route `/api/generate`** valida, chama `/.netlify/functions/ai-generate` e salva cookie.
+1. **HomeContainer** envia payload para o endpoint resolvido em tempo de build (`/api/generate` na Vercel ou `/.netlify/functions/ai-generate` na Netlify).
+2. **Route `/api/generate`** valida a requisição e, quando estamos na Netlify, delega para a função serverless `ai-generate`; em outros hosts pode responder diretamente.
 3. **AdminContainer** usa SWR em `/api/workspace` para carregar snapshot.
 4. **Notas/Contatos/Tiles** usam rotas REST (`/api/workspace/*`) com helper `updateWorkspace()`.
 

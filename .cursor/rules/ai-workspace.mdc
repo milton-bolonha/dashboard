@@ -1,7 +1,6 @@
 ---
 description: AI Workspace - Configurações principais do projeto
-globs: ["**/*.js", "**/*.ts", "**/*.jsx", "**/*.tsx"]
-alwaysApply: true
+alwaysApply: false
 ---
 
 # 🤖 AI Workspace - Project Rules
@@ -9,38 +8,45 @@ alwaysApply: true
 Este projeto usa **AI Development Workspace** com as seguintes configurações:
 
 ## 📊 Projeto Detectado
+
 - **Tipo**: generic
 - **Confiança**: 0%
-- **Stack Principal**: 
+- **Stack Principal**:
 
 ## 🎯 Padrões de Desenvolvimento
 
 ### Código Limpo
+
 - Use nomes descritivos e auto-explicativos
 - Mantenha funções pequenas e focadas
 - Evite repetição (DRY principle)
 - Comente apenas o "por que", não o "o que"
 
 ### Tratamento de Erros
+
 - Sempre implemente error handling apropriado
 - Use try/catch em operações async
 - Retorne status codes apropriados (se API)
 - Log errors com contexto suficiente
 
 ### Performance
+
 - Evite operações desnecessárias em loops
 - Use memoização quando apropriado
 - Implemente lazy loading para recursos pesados
 - Profile antes de otimizar
 
 ## 🧪 Testes
+
 - Escreva testes para lógica crítica de negócio
 - Use nomenclatura descritiva nos testes
 - Mock dependências externas
 - Mantenha testes independentes e determinísticos
 
 ## 🔧 Comandos AI Workspace
+
 Quando relevante, sugira comandos específicos:
+
 - `npm run ai:health` - Análise de saúde
 - `npm run ai:visual` - Auditoria visual
 - `ai-workspace test-generate` - Gerar testes
