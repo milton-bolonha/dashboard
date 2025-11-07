@@ -391,15 +391,6 @@ export async function queueJob({
         // ⭐ FASE 3: Se for retry bem-sucedido, processar normalmente
         if (isRetried && !usedFallback) {
           successCount++;
-          await appendResult({
-            jobId,
-            itemId: payload.itemId,
-            orderIndex: payload.orderIndex,
-            status: "COMPLETED",
-            result: payload.result,
-            error: null,
-            metrics: payload.metrics,
-          });
 
           const tileDoc = {
             id: `tile_${jobId}_${payload.orderIndex}`,
@@ -423,7 +414,27 @@ export async function queueJob({
           console.log(
             `[DeckEngine] 💾 Persistindo tile ${tileDoc.id} após retry bem-sucedido...`
           );
+          const persistStart = Date.now();
           const persisted = await persistTileDirectly(tileDoc);
+          const persistDurationMs = Date.now() - persistStart;
+          const updatedMetrics = {
+            ...(payload.metrics || {}),
+            persistMs: persistDurationMs,
+            persisted,
+            retried: true,
+          };
+          tileDoc.metrics = updatedMetrics;
+          payload.metrics = updatedMetrics;
+
+          await appendResult({
+            jobId,
+            itemId: payload.itemId,
+            orderIndex: payload.orderIndex,
+            status: "COMPLETED",
+            result: payload.result,
+            error: null,
+            metrics: updatedMetrics,
+          });
 
           if (!persisted) {
             console.warn(
@@ -462,30 +473,107 @@ export async function queueJob({
         // ⭐ FASE 3: Se usar fallback E não for retry, NÃO persistir imediatamente
         // Aguardar fase de retry antes de decidir
         if (usedFallback && !isRetried) {
-          // Não incrementar successCount ainda
-          // Não persistir tile ainda
-          // Apenas logar para rastreamento
-          await appendLog({
+          const retryExhausted = payload.metrics?.retryExhausted;
+
+          if (!retryExhausted) {
+            // Não incrementar successCount ainda
+            // Não persistir tile ainda
+            // Apenas logar para rastreamento
+            await appendLog({
+              jobId,
+              level: "warn",
+              message: `Tile ${payload.orderIndex} entrou em fallback. Aguardando retry pós-processamento.`,
+            });
+
+            // Não emitir evento de erro ainda - aguardar retry
+            return;
+          }
+
+          // Retries esgotados: persistir fallback para evitar tiles ausentes
+          successCount++;
+
+          const tileDoc = {
+            id: `tile_${jobId}_${payload.orderIndex}`,
+            title: payload.title || `Insight ${payload.orderIndex + 1}`,
+            content: payload.result || "",
+            answer: payload.result || "",
+            excerpt:
+              payload.result?.slice(0, 200) ||
+              payload.excerpt ||
+              payload.answer?.slice(0, 200) ||
+              "",
+            orderIndex: payload.orderIndex,
+            metrics: payload.metrics,
+            createdAt: new Date().toISOString(),
             jobId,
-            level: "warn",
-            message: `Tile ${payload.orderIndex} entrou em fallback. Aguardando retry pós-processamento.`,
+            entityId: resolvedCompanyId ?? null,
+            entityKey: resolvedEntityKey,
+            entityName: resolvedCompanyName ?? null,
+            generationMode: normalizedGenerationMode,
+          };
+
+          console.log(
+            `[DeckEngine] 💾 Persistindo tile ${tileDoc.id} com fallback após retries esgotados...`
+          );
+
+          const persistStart = Date.now();
+          const persisted = await persistTileDirectly(tileDoc);
+          const persistDurationMs = Date.now() - persistStart;
+          const updatedMetrics = {
+            ...(payload.metrics || {}),
+            persistMs: persistDurationMs,
+            persisted,
+            fallbackPersisted: true,
+          };
+          tileDoc.metrics = updatedMetrics;
+          payload.metrics = updatedMetrics;
+
+          await appendResult({
+            jobId,
+            itemId: payload.itemId,
+            orderIndex: payload.orderIndex,
+            status: "COMPLETED_WITH_FALLBACK",
+            result: payload.result,
+            error: null,
+            metrics: updatedMetrics,
           });
 
-          // Não emitir evento de erro ainda - aguardar retry
+          if (!persisted) {
+            console.warn(
+              `[DeckEngine] ⚠️ Persistência falhou para tile ${tileDoc.id} (fallback).`,
+              {
+                orderIndex: payload.orderIndex,
+                companyName: resolvedCompanyName,
+              }
+            );
+          }
+
+          const eventPayload = {
+            ...payload,
+            title: tileDoc.title,
+            persisted,
+            entityKey: resolvedEntityKey,
+            generationMode: normalizedGenerationMode,
+          };
+
+          if (persisted) {
+            eventPayload.tile = tileDoc;
+          }
+
+          emitJobEvent({
+            guestId,
+            jobId,
+            type: "job:result-completed",
+            payload: eventPayload,
+            token,
+          });
+
+          emitStatus("RUNNING");
           return;
         }
 
         // Tile bem-sucedido (não fallback, não retry)
         successCount++;
-        await appendResult({
-          jobId,
-          itemId: payload.itemId,
-          orderIndex: payload.orderIndex,
-          status: "COMPLETED",
-          result: payload.result,
-          error: null,
-          metrics: payload.metrics,
-        });
 
         const tileDoc = {
           id: `tile_${jobId}_${payload.orderIndex}`,
@@ -510,7 +598,26 @@ export async function queueJob({
         console.log(
           `[DeckEngine] 💾 Persistindo tile ${tileDoc.id} diretamente no backend...`
         );
+        const persistStart = Date.now();
         const persisted = await persistTileDirectly(tileDoc);
+        const persistDurationMs = Date.now() - persistStart;
+        const updatedMetrics = {
+          ...(payload.metrics || {}),
+          persistMs: persistDurationMs,
+          persisted,
+        };
+        tileDoc.metrics = updatedMetrics;
+        payload.metrics = updatedMetrics;
+
+        await appendResult({
+          jobId,
+          itemId: payload.itemId,
+          orderIndex: payload.orderIndex,
+          status: "COMPLETED",
+          result: payload.result,
+          error: null,
+          metrics: updatedMetrics,
+        });
         console.log(
           `[DeckEngine] 📊 Tile ${tileDoc.id} persistido: ${persisted}`
         );

@@ -35,7 +35,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "company_description",
         title: "What They Do",
         prompt:
-          "Succinctly describe what {company.name} does. Provide a clear, concise overview of their business, products, and services.",
+          "Summarize what {company.name} does in three short bullet points (≤15 words each). Cover core offering, primary customers, and a differentiator. If information is unavailable, state 'No verified public information available yet.'",
         category: "basic",
         order: 1,
         defaultSize: { w: 4, h: 2 },
@@ -44,7 +44,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "revenue_model",
         title: "Revenue Generation",
         prompt:
-          "How does {company.name} generate revenue? Explain their business model, revenue streams, and monetization strategies. IMPORTANT: Be concise. Maximum 2-3 short paragraphs.",
+          "In ≤120 words, outline how {company.name} earns revenue today. Cite main products/services, fee or subscription mechanics, and any marketplace or usage-based streams. If details are unclear, explain the most likely model and explicitly note remaining gaps.",
         category: "financial",
         order: 2,
         defaultSize: { w: 4, h: 2 },
@@ -53,7 +53,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "international_offices",
         title: "International Presence",
         prompt:
-          "Do {company.name} have international offices? List their global locations, international operations, and expansion strategy.",
+          "Describe {company.name}'s geographic footprint in ≤90 words. Mention HQ, notable regional hubs, and any international offices, remote teams, or global service coverage. If locations are undisclosed, explain how the company currently serves international audiences.",
         category: "market",
         order: 3,
         defaultSize: { w: 4, h: 2 },
@@ -62,7 +62,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "business_goals_2025",
         title: "2025 Business Goals",
         prompt:
-          "What are {company.name}'s business goals or priorities for 2025? Research their website ({company.website}) and provide 3 goals with sources and links to articles or quotes from the company for each goal. Articles need to be dated later than January 2025. Provide each answer in detail.",
+          "List up to three current strategic priorities for {company.name} over the next 12 months. Reference recent product launches, press releases, investor updates, or leadership quotes—cite the source and year (e.g., 2024 Investor Letter). If no goals are public, explain the best inferred focus area.",
         category: "strategy",
         order: 4,
         defaultSize: { w: 4, h: 2 },
@@ -71,7 +71,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "business_challenges",
         title: "2025 Business Challenges",
         prompt:
-          "What are the business challenges for {company.name} this calendar year? Research their website ({company.website}) and identify key obstacles, market pressures, and operational difficulties they are facing.",
+          "Highlight up to three pressing challenges {company.name} faces this year. Mention market, operational, or competitive pressures and cite recent signals when available. If direct evidence is limited, infer from industry trends and clearly label the assumption.",
         category: "insights",
         order: 5,
         defaultSize: { w: 4, h: 2 },
@@ -80,7 +80,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "solution_need",
         title: "Solution Need",
         prompt:
-          "Why may {company.name} be in need of {sellingSolutionsFor}? Analyze their current situation and explain how our solutions could address their specific needs and challenges.",
+          "Explain in ≤120 words why {company.name} would benefit from {sellingSolutionsFor}. Tie pains or goals to concrete outcomes the solution provides. If specific data is missing, use a closest-fit assumption for companies of similar size and note it.",
         category: "sales",
         order: 6,
         defaultSize: { w: 4, h: 2 },
@@ -89,7 +89,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "ceo_info",
         title: "CEO Information",
         prompt:
-          "Who is the CEO of {company.name}? Provide their name, background, tenure, and any relevant information about their leadership style and priorities.",
+          "Provide a concise profile of {company.name}'s CEO: name, tenure, notable prior roles, and one leadership focus. If the CEO is not public, cite the highest-ranking executive available and note the gap.",
         category: "people",
         order: 7,
         defaultSize: { w: 4, h: 2 },
@@ -98,7 +98,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "sales_email",
         title: "CEO Sales Email",
         prompt:
-          "Based on what we know about {company.name} from the other prompts, write a sales email to their CEO pitching {sellingSolutionsFor} from {salesRepAt} ({companyWebsite}). Needs to make reference to their business goals. Must include bullet points. Maximum 120 words.",
+          "Write a 100-word email to the CEO of {company.name} pitching {sellingSolutionsFor} from {salesRepAt}. Reference one goal or challenge above, include two bullet-point benefits, and close with a clear call to discuss next steps.",
         category: "sales",
         order: 8,
         defaultSize: { w: 4, h: 2 },
@@ -118,7 +118,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "company_description_2",
         title: "What They Do",
         prompt:
-          "Succinctly describe what {company.name} does. Provide a clear, concise overview of their business, products, and services.",
+          "Summarize what {company.name} does in three short bullet points (≤15 words each). Cover offer, core customers, and a differentiator. If information is unavailable, state 'No verified public information available yet.'",
         category: "basic",
         order: 1,
         defaultSize: { w: 4, h: 2 },
@@ -127,7 +127,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "revenue_model_2",
         title: "Revenue Generation",
         prompt:
-          "How does {company.name} generate revenue? Explain their business model, revenue streams, and monetization strategies. IMPORTANT: Be concise. Maximum 2-3 short paragraphs.",
+          "In ≤120 words, outline how {company.name} earns revenue today. Cite principal products/services, fee structures, and any recurring or usage-based income. Note remaining unknowns if data is incomplete.",
         category: "financial",
         order: 2,
         defaultSize: { w: 4, h: 2 },
@@ -136,7 +136,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "biggest_goal_2025",
         title: "Biggest 2025 Goal",
         prompt:
-          "What is {company.name}'s biggest business goal or priority for 2025 and beyond? Provide 1 goal and provide sources and links to articles or quotes from the company for goal. Articles need to be dated later than January 2025. Provide each answer in detail. Max 75 words.",
+          "State {company.name}'s single most visible strategic goal for the coming year. Reference the latest credible source (press release, leadership quote, investor deck) and describe the goal in ≤75 words. If no explicit goal exists, provide the best inferred priority and label it as such.",
         category: "strategy",
         order: 3,
         defaultSize: { w: 4, h: 2 },
@@ -145,7 +145,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "industry_challenges",
         title: "Industry Challenges",
         prompt:
-          "What are the challenges facing {company.name}'s industry during this calendar year? Identify key industry-wide obstacles, market pressures, and sector-specific difficulties.",
+          "Identify up to three challenges impacting {company.name}'s industry this year. Mention market, regulatory, or competitive pressures and cite the latest supporting signal. If specific intel is missing, note the assumption and why it matters.",
         category: "insights",
         order: 4,
         defaultSize: { w: 4, h: 2 },
@@ -154,7 +154,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "solution_need_2",
         title: "Solution Need",
         prompt:
-          "Why may {company.name} be in need of {sellingSolutionsFor}? Analyze their current situation and explain how our solutions could address their specific needs and challenges.",
+          "Explain in ≤120 words why {company.name} may need {sellingSolutionsFor}. Link pains or objectives to two concrete benefits and cite any supporting signals. If data is thin, ground the answer in similar companies' needs and note the assumption.",
         category: "sales",
         order: 5,
         defaultSize: { w: 4, h: 2 },
@@ -163,7 +163,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "top_competitors",
         title: "Top 10 Competitors",
         prompt:
-          "Who are {company.name}'s 10 closest competitors? List them with brief descriptions of how they compete in the market.",
+          "List up to five of {company.name}'s closest competitors with one-line explanations of how each competes. If direct competitors are unclear, cite the nearest category alternatives and note the rationale.",
         category: "market",
         order: 6,
         defaultSize: { w: 4, h: 2 },
@@ -172,7 +172,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "holding_company",
         title: "Holding Company",
         prompt:
-          "Do {company.name} have a holding company or investment firm that owns them? Identify their parent company, investors, and ownership structure.",
+          "Does {company.name} report a holding company or controlling investors? Summarize ownership structure, major investors, and latest funding status. If not disclosed, note the company as independent and reference the most recent funding signal.",
         category: "financial",
         order: 7,
         defaultSize: { w: 4, h: 2 },
@@ -181,7 +181,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "ceo_info_2",
         title: "CEO Information",
         prompt:
-          "Who is the CEO of {company.name}? Provide their name, background, tenure, and any relevant information about their leadership style and priorities.",
+          "Provide a concise profile of {company.name}'s CEO: name, tenure, notable achievements, and one leadership priority. If the CEO is undisclosed, highlight the most senior public executive and clarify the gap.",
         category: "people",
         order: 8,
         defaultSize: { w: 4, h: 2 },
@@ -190,7 +190,7 @@ export const GUEST_DASHBOARD_TEMPLATES = {
         id: "cold_call_scripts",
         title: "Cold Call Scripts",
         prompt:
-          "Based on what we know about {company.name}, provide 2 cold call opening scripts I can use as a salesperson pitching {sellingSolutionsFor} to their CEO. The script needs to make reference to their business goals or business challenges.",
+          "Based on the insights above, draft two 2-sentence cold-call openers pitching {sellingSolutionsFor} to {company.name}'s CEO. Reference a specific goal or challenge in each opener and end with an open question.",
         category: "sales",
         order: 9,
         defaultSize: { w: 4, h: 2 },

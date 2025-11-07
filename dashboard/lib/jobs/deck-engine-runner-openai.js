@@ -8,6 +8,7 @@ import {
 import {
   getDeckGenerationConfig,
   resolveGenerationMode,
+  getDeckWarmupConfig,
 } from "@/config/deck-engine";
 
 const TILE_MAX_ATTEMPTS = 3;
@@ -22,6 +23,39 @@ const TILE_REFUSAL_PATTERNS = [
 ];
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const estimateTokensFromText = (text) => {
+  if (!text) return 0;
+  const cleaned = text.replace(/\s+/g, " ").trim();
+  if (!cleaned) return 0;
+  return Math.max(1, Math.round(cleaned.length / 4));
+};
+
+const DEFAULT_COMPLETION_MAX_TOKENS = Math.max(
+  200,
+  parseInt(process.env.DECK_ENGINE_MAX_TOKENS || "600", 10)
+);
+
+const TILE_TOKEN_LIMITS = {
+  company_description: 320,
+  revenue_model: 320,
+  international_offices: 320,
+  business_goals_2025: 380,
+  business_challenges: 360,
+  solution_need: 340,
+  ceo_info: 260,
+  sales_email: 220,
+  // Template 2 overrides
+  company_description_2: 320,
+  revenue_model_2: 320,
+  biggest_goal_2025: 320,
+  industry_challenges: 340,
+  solution_need_2: 340,
+  top_competitors: 360,
+  holding_company: 320,
+  ceo_info_2: 260,
+  cold_call_scripts: 240,
+};
 
 // Runner default baseado no provider de IA com streaming
 // Assinatura esperada pelo adapter: runJob({ jobId, templateId, model, items, scope, onStatus, onChunk, onResult, onError, onCompleted })
@@ -72,6 +106,33 @@ async function runJob({
   console.log(
     `[Runner] ⚙️ Generation mode: ${normalizedGenerationMode} (concurrency=${concurrency})`
   );
+
+  const warmupConfig = getDeckWarmupConfig();
+  if (warmupConfig.enabled) {
+    const warmupModel = warmupConfig.model || model;
+    try {
+      const warmupStart = Date.now();
+      let warmupChunks = 0;
+      for await (const chunk of generateStreamedCompletion({
+        model: warmupModel,
+        prompt: warmupConfig.prompt,
+        max_tokens: warmupConfig.maxTokens,
+      })) {
+        warmupChunks += 1;
+        // Receber o primeiro chunk já aquece a conexão
+        break;
+      }
+      console.log(
+        `[Runner] 🔥 Warmup concluído em ${
+          Date.now() - warmupStart
+        }ms (chunks=${warmupChunks})`
+      );
+    } catch (warmupError) {
+      console.warn(
+        `[Runner] ⚠️ Warmup falhou: ${warmupError?.message || warmupError}`
+      );
+    }
+  }
 
   // ⭐ BUG FIX: Garantir que temos items para todos os tiles do template
   const expandedItems = Array.from({ length: total }, (_, i) => {
@@ -190,9 +251,17 @@ async function runJob({
   const processTile = async (orderIndex) => {
     const item = expandedItems[orderIndex] || {};
     const itemId = `${jobId}_${orderIndex}`;
+    const tileStartTime = Date.now();
+    let ttftMs = null;
+    let completionMs = null;
+    let chunkCount = 0;
+    let responseChars = 0;
 
     try {
       const tile = template.tiles[orderIndex];
+      const tileId = tile?.id;
+      const maxTokensForTile =
+        TILE_TOKEN_LIMITS[tileId] ?? DEFAULT_COMPLETION_MAX_TOKENS;
 
       if (!tile) {
         console.warn(
@@ -259,11 +328,13 @@ async function runJob({
         let ix = 0;
         const streamStartTime = Date.now();
         let attemptFailed = false;
+        let attemptFirstChunkMs = null;
 
         try {
           for await (const chunk of generateStreamedCompletion({
             model,
             prompt,
+            max_tokens: maxTokensForTile,
           })) {
             const chunkContent =
               typeof chunk === "string"
@@ -275,6 +346,10 @@ async function runJob({
             }
             accumulatedResult += chunkContent;
             ix += 1;
+            chunkCount = Math.max(chunkCount, ix);
+            if (attemptFirstChunkMs === null) {
+              attemptFirstChunkMs = Date.now() - streamStartTime;
+            }
 
             if (ix % 100 === 0) {
               console.log(
@@ -322,6 +397,17 @@ async function runJob({
           finalResult = accumulatedResult;
           finalChunks = shouldEmitChunks ? collectedChunks ?? [] : [];
           usedFallback = false;
+          responseChars = accumulatedResult.length;
+          chunkCount = Math.max(chunkCount, ix);
+          if (ttftMs === null && attemptFirstChunkMs !== null) {
+            ttftMs = attemptFirstChunkMs;
+          }
+          if (ttftMs === null) {
+            ttftMs = streamDuration;
+          }
+          if (completionMs === null) {
+            completionMs = streamDuration;
+          }
           break;
         }
 
@@ -361,6 +447,16 @@ async function runJob({
           continue;
         }
 
+        if (completionMs === null) {
+          completionMs = streamDuration;
+        }
+        if (ttftMs === null && attemptFirstChunkMs !== null) {
+          ttftMs = attemptFirstChunkMs;
+        }
+        if (ttftMs === null) {
+          ttftMs = streamDuration;
+        }
+
         failedTiles.push({
           orderIndex,
           tile,
@@ -372,6 +468,7 @@ async function runJob({
             ? "model_refusal"
             : "empty_response",
           attemptsUsed,
+          fallbackMessage,
         });
 
         finalResult = fallbackMessage;
@@ -379,6 +476,7 @@ async function runJob({
           ? [{ chunk: fallbackMessage, ix: 0 }]
           : [];
         usedFallback = true;
+        responseChars = finalResult.length;
         break;
       }
 
@@ -390,6 +488,7 @@ async function runJob({
           context,
           failureReason: "empty_result",
           attemptsUsed,
+          fallbackMessage,
         });
 
         finalResult = fallbackMessage;
@@ -397,6 +496,7 @@ async function runJob({
           ? [{ chunk: fallbackMessage, ix: 0 }]
           : [];
         usedFallback = true;
+        responseChars = finalResult.length;
       }
 
       let finalChunkIndex = 0;
@@ -415,6 +515,36 @@ async function runJob({
         }
       }
 
+      const totalDurationMs = Date.now() - tileStartTime;
+      const metricsSummary = {
+        model,
+        attempts: attemptsUsed,
+        fallback: usedFallback,
+        lastError: usedFallback && lastError ? lastError.message : undefined,
+        ttftMs,
+        completionMs,
+        totalDurationMs,
+        responseChars,
+        estimatedTokens: estimateTokensFromText(finalResult),
+        chunkCount,
+      };
+
+      await appendLog({
+        jobId,
+        level: "debug",
+        message: `Runner metrics for tile ${orderIndex + 1}/${total}`,
+        metadata: {
+          orderIndex,
+          attempts: attemptsUsed,
+          fallback: usedFallback,
+          ttftMs,
+          completionMs,
+          totalDurationMs,
+          responseChars,
+          chunkCount,
+        },
+      });
+
       await onResult?.({
         jobId,
         itemId,
@@ -422,12 +552,7 @@ async function runJob({
         title: tile?.title || `Insight ${orderIndex + 1}`,
         result: finalResult,
         generationMode: normalizedGenerationMode,
-        metrics: {
-          model,
-          attempts: attemptsUsed,
-          fallback: usedFallback,
-          lastError: usedFallback && lastError ? lastError.message : undefined,
-        },
+        metrics: metricsSummary,
       });
 
       current += 1;
@@ -513,9 +638,16 @@ async function runJob({
       const RETRY_MAX_ATTEMPTS = 2; // 2 tentativas adicionais
       let retrySuccessCount = 0;
       let retryFailedCount = 0;
+      let fallbackCompletedCount = 0;
 
       for (const failedTile of failedTiles) {
-        const { orderIndex, tile, prompt, context: tileContext } = failedTile;
+        const {
+          orderIndex,
+          tile,
+          prompt,
+          attemptsUsed,
+          fallbackMessage: storedFallbackMessage,
+        } = failedTile;
 
         console.log(
           `[Runner] 🔁 Retry tile ${orderIndex + 1}/${total}: "${tile.title}"`
@@ -523,6 +655,9 @@ async function runJob({
 
         let retrySuccess = false;
         let retryAttempt = 0;
+        const tileId = tile?.id;
+        const maxTokensForTile =
+          TILE_TOKEN_LIMITS[tileId] ?? DEFAULT_COMPLETION_MAX_TOKENS;
 
         while (retryAttempt < RETRY_MAX_ATTEMPTS && !retrySuccess) {
           retryAttempt += 1;
@@ -534,6 +669,7 @@ async function runJob({
             for await (const chunk of generateStreamedCompletion({
               model,
               prompt,
+              max_tokens: maxTokensForTile,
             })) {
               const chunkContent =
                 typeof chunk === "string"
@@ -587,7 +723,7 @@ async function runJob({
                 generationMode: normalizedGenerationMode,
                 metrics: {
                   model,
-                  attempts: TILE_MAX_ATTEMPTS + retryAttempt,
+                  attempts: attemptsUsed + retryAttempt,
                   fallback: false,
                   retried: true,
                 },
@@ -622,38 +758,67 @@ async function runJob({
         }
 
         if (!retrySuccess) {
-          retryFailedCount++;
+          const fallbackResult =
+            storedFallbackMessage ||
+            "⚠️ No AI output was generated for this insight. Please regenerate or adjust the prompt.";
+
+          fallbackCompletedCount++;
+
           console.log(
-            `[Runner] ❌ Retry falhou para tile ${
+            `[Runner] ⚠️ Persistindo fallback para tile ${
               orderIndex + 1
-            } após ${RETRY_MAX_ATTEMPTS} tentativas. Tile será descartado.`
+            } após retries esgotarem.`
           );
 
           await appendLog({
             jobId,
             level: "warn",
-            message: `Runner: retry failed for tile "${tile.title}" after ${RETRY_MAX_ATTEMPTS} attempts. Tile will be discarded.`,
+            message: `Runner: retries exhausted for tile "${tile.title}". Persisting fallback message.`,
+          });
+
+          await onResult?.({
+            jobId,
+            itemId: `${jobId}_${orderIndex}`,
+            orderIndex,
+            title: tile?.title || `Insight ${orderIndex + 1}`,
+            result: fallbackResult,
+            generationMode: normalizedGenerationMode,
+            metrics: {
+              model,
+              attempts: attemptsUsed + RETRY_MAX_ATTEMPTS,
+              fallback: true,
+              retried: true,
+              retryExhausted: true,
+            },
           });
         }
       }
+
+      const finalStatus =
+        retryFailedCount > 0
+          ? "COMPLETED_WITH_FAILURES"
+          : fallbackCompletedCount > 0
+          ? "COMPLETED_WITH_WARNINGS"
+          : "COMPLETED";
 
       // Emitir status final do retry
       const finalTotal = total - retryFailedCount;
       onStatus?.({
         jobId,
-        status: retryFailedCount > 0 ? "COMPLETED_WITH_FAILURES" : "COMPLETED",
+        status: finalStatus,
         progress: {
           current: total - retryFailedCount,
           total: finalTotal,
           remaining: 0,
           tilesFailed: retryFailedCount,
+          tilesWithFallback: fallbackCompletedCount,
         },
         scope,
         generationMode: normalizedGenerationMode,
       });
 
       console.log(
-        `[Runner] ✅ Retry pós-processamento concluído: ${retrySuccessCount} sucessos, ${retryFailedCount} falhas`
+        `[Runner] ✅ Retry pós-processamento concluído: ${retrySuccessCount} sucessos, ${retryFailedCount} falhas, ${fallbackCompletedCount} com fallback`
       );
     })();
   }

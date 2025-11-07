@@ -8,6 +8,17 @@ const DEFAULT_BATCH_CONCURRENCY = Math.max(
   1,
   parseInt(process.env.DECK_ENGINE_BATCH_CONCURRENCY || "3", 10)
 );
+const WARMUP_ENABLED = /^true$/i.test(
+  process.env.DECK_ENGINE_ENABLE_WARMUP || "false"
+);
+const WARMUP_PROMPT =
+  process.env.DECK_ENGINE_WARMUP_PROMPT ||
+  "Generate one short sentence about sales productivity.";
+const WARMUP_MAX_TOKENS = Math.max(
+  5,
+  parseInt(process.env.DECK_ENGINE_WARMUP_MAX_TOKENS || "30", 10)
+);
+const WARMUP_MODEL = process.env.DECK_ENGINE_WARMUP_MODEL || null;
 
 function normalizeMode(mode) {
   if (!mode || typeof mode !== "string") {
@@ -39,4 +50,13 @@ export function resolveGenerationMode(candidate) {
     return defaultMode;
   }
   return normalized;
+}
+
+export function getDeckWarmupConfig() {
+  return {
+    enabled: WARMUP_ENABLED,
+    prompt: WARMUP_PROMPT,
+    maxTokens: WARMUP_MAX_TOKENS,
+    model: WARMUP_MODEL,
+  };
 }

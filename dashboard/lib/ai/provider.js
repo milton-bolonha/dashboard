@@ -14,7 +14,7 @@ export async function* generateStreamedCompletion({
   prompt,
   maxAttempts = 3,
   temperature = 0.7,
-  max_tokens = 1000,
+  max_tokens = 600,
 }) {
   let attempt = 0;
 
