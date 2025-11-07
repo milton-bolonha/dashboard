@@ -19,7 +19,7 @@ export async function POST(request: Request) {
   if (!parseResult.success) {
     return NextResponse.json(
       { error: "Dados inválidos", details: parseResult.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -27,6 +27,8 @@ export async function POST(request: Request) {
 
   try {
     const baseUrl = getFunctionsBaseUrl();
+    console.log(`${baseUrl}/.netlify/functions/ai-generate`);
+
     const response = await fetch(`${baseUrl}/.netlify/functions/ai-generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -37,7 +39,7 @@ export async function POST(request: Request) {
       const info = await response.json().catch(() => ({}));
       return NextResponse.json(
         { error: info.error ?? "Falha ao gerar insights" },
-        { status: response.status },
+        { status: response.status }
       );
     }
 
@@ -68,13 +70,15 @@ export async function POST(request: Request) {
 
     await writeWorkspace(workspace);
 
-    return NextResponse.json({ success: true, tilesGenerated: normalizedTiles.length });
+    return NextResponse.json({
+      success: true,
+      tilesGenerated: normalizedTiles.length,
+    });
   } catch (error) {
     console.error("[api/generate]", error);
     return NextResponse.json(
       { error: "Erro inesperado ao gerar insights" },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
-

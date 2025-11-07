@@ -7,6 +7,7 @@ import { useToast } from "@/lib/state/toast-context";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { LandingFooter } from "@/components/landing/LandingFooter";
 import { ClassicHeroForm } from "@/components/landing/ClassicHeroForm";
+import { getAppBaseUrl } from "@/lib/env";
 
 import "@/components/landing/landing.css";
 
@@ -30,7 +31,12 @@ export function HomeContainer() {
 
     setIsSubmitting(true);
     try {
-      const response = await fetch("/api/generate", {
+      const apiBaseUrl = getAppBaseUrl();
+      const normalizedBase = apiBaseUrl.replace(/\/$/, "");
+      const targetUrl = normalizedBase
+        ? `${normalizedBase}/api/generate`
+        : "/api/generate";
+      const response = await fetch(targetUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -82,7 +88,9 @@ export function HomeContainer() {
       push({
         title: "Erro ao limpar",
         description:
-          error instanceof Error ? error.message : "Tente novamente em instantes.",
+          error instanceof Error
+            ? error.message
+            : "Tente novamente em instantes.",
         variant: "destructive",
       });
     }
@@ -102,4 +110,3 @@ export function HomeContainer() {
     </div>
   );
 }
-
