@@ -4,7 +4,7 @@ import { ThemeProvider } from "@/components/providers/ThemeProvider";
 
 export const metadata = {
   title: "Dashboard Engine MVP",
-  description: "Plataforma SaaS para criar dashboards, CRMs, ERPs e CMSs",
+  description: "SaaS Platform para criar dashboards, CRMs, ERPs e CMSs",
 };
 
 export default function RootLayout({ children }) {
