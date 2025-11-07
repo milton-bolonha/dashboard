@@ -21,6 +21,19 @@ function isVercelEnvironment(): boolean {
   );
 }
 
+function debugLog(label: string, value: unknown): void {
+  if (
+    process.env.DEBUG_GENERATE_URLS === "true" ||
+    process.env.NODE_ENV !== "production"
+  ) {
+    try {
+      console.log(`[env:url] ${label}:`, value);
+    } catch {
+      // ignore logging errors
+    }
+  }
+}
+
 function cleanUrl(url: string): string {
   return url.replace(/\/$/, "");
 }
@@ -62,12 +75,14 @@ function resolveConfiguredBaseUrl(): string | undefined {
 export function getGenerateServiceUrl(): string {
   const explicitEndpoint = process.env.NEXT_PUBLIC_GENERATE_ENDPOINT;
   if (explicitEndpoint && explicitEndpoint.trim().length > 0) {
+    debugLog("NEXT_PUBLIC_GENERATE_ENDPOINT", explicitEndpoint);
     return explicitEndpoint.trim();
   }
 
   const configuredBase = resolveConfiguredBaseUrl();
   if (configuredBase) {
     const hostKind = detectHostKind(configuredBase);
+    debugLog("Configured base URL", { configuredBase, hostKind });
     if (hostKind === "netlify") {
       return `${configuredBase}/.netlify/functions/ai-generate`;
     }
@@ -75,13 +90,16 @@ export function getGenerateServiceUrl(): string {
   }
 
   if (isVercelEnvironment()) {
+    debugLog("Environment detected", "vercel");
     return "/api/generate";
   }
 
   if (isNetlifyEnvironment()) {
+    debugLog("Environment detected", "netlify");
     return "/.netlify/functions/ai-generate";
   }
 
+  debugLog("Environment detected", "fallback-netlify-default");
   return `${DEFAULT_NETLIFY_BASE_URL}/.netlify/functions/ai-generate`;
 }
 
@@ -89,6 +107,11 @@ export function getNetlifyFunctionUrl(functionName: string): string {
   const configuredBase = resolveConfiguredBaseUrl();
   if (configuredBase) {
     const hostKind = detectHostKind(configuredBase);
+    debugLog("Netlify function resolution", {
+      configuredBase,
+      hostKind,
+      functionName,
+    });
     if (hostKind === "netlify") {
       return `${configuredBase}/.netlify/functions/${functionName}`;
     }
@@ -99,12 +122,15 @@ export function getNetlifyFunctionUrl(functionName: string): string {
   }
 
   if (isNetlifyEnvironment()) {
+    debugLog("Netlify function environment", "netlify");
     return `/.netlify/functions/${functionName}`;
   }
 
   if (isVercelEnvironment()) {
+    debugLog("Netlify function environment", "vercel");
     return `/api/${functionName}`;
   }
 
+  debugLog("Netlify function environment", "fallback-netlify-default");
   return `${DEFAULT_NETLIFY_BASE_URL}/.netlify/functions/${functionName}`;
 }
