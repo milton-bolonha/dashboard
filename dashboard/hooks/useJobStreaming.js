@@ -30,6 +30,17 @@ export function useJobStreaming({
 }) {
   const [tileProgress, setTileProgress] = useState(DEFAULT_PROGRESS);
 
+  const enableSSE = useMemo(() => {
+    if (typeof process === "undefined" || !process?.env) {
+      return false;
+    }
+    const flag = process.env.NEXT_PUBLIC_ENABLE_SSE;
+    if (flag === undefined) {
+      return false;
+    }
+    return /^true$/i.test(flag);
+  }, []);
+
   const pollingRef = useRef({
     active: false,
     attempts: 0,
@@ -139,6 +150,7 @@ export function useJobStreaming({
   }, [stopPolling]);
 
   const streamUrl = useMemo(() => {
+    if (!enableSSE) return null;
     if (!jobId || !guestId || !token) {
       console.warn(
         "[useJobStreaming] ❌ SSE indisponível: parâmetros faltando",
@@ -153,7 +165,7 @@ export function useJobStreaming({
     const url = `/api/streams/jobs/${jobId}?guest_id=${guestId}&token=${token}`;
     console.log("[useJobStreaming] 🔗 SSE streamUrl gerada:", url);
     return url;
-  }, [guestId, jobId, token]);
+  }, [enableSSE, guestId, jobId, token]);
 
   useEffect(() => {
     if (!streamUrl) return;
@@ -227,7 +239,7 @@ export function useJobStreaming({
   }, [stopPolling]);
 
   const sseListeners = useMemo(() => {
-    if (!jobId) return {};
+    if (!enableSSE || !jobId) return {};
     return {
       "job:status": (payload) => {
         if (payload?.progress) {
@@ -236,7 +248,8 @@ export function useJobStreaming({
         }
         if (
           payload?.status === "COMPLETED" ||
-          payload?.status === "COMPLETED_WITH_FAILURES"
+          payload?.status === "COMPLETED_WITH_FAILURES" ||
+          payload?.status === "COMPLETED_WITH_WARNINGS"
         ) {
           revalidateWorkspace();
         }
@@ -248,7 +261,13 @@ export function useJobStreaming({
         }
       },
     };
-  }, [jobId, persistTileAndRefresh, revalidateWorkspace, onTilePersisted]);
+  }, [
+    enableSSE,
+    jobId,
+    persistTileAndRefresh,
+    revalidateWorkspace,
+    onTilePersisted,
+  ]);
 
   const sseOptions = useMemo(
     () => ({
@@ -257,6 +276,12 @@ export function useJobStreaming({
     }),
     [handleSSEPermanentError, handleSSEReconnect]
   );
+
+  useEffect(() => {
+    if (!enableSSE && !pollingRef.current.active) {
+      startPolling();
+    }
+  }, [enableSSE, startPolling]);
 
   useSSEManager(streamUrl, sseListeners, sseOptions);
 
