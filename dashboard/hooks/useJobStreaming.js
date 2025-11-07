@@ -278,12 +278,16 @@ export function useJobStreaming({
   );
 
   useEffect(() => {
-    if (!enableSSE && !pollingRef.current.active) {
+    if ((!enableSSE || !streamUrl) && !pollingRef.current.active) {
       startPolling();
     }
-  }, [enableSSE, startPolling]);
+  }, [enableSSE, streamUrl, startPolling]);
 
-  useSSEManager(streamUrl, sseListeners, sseOptions);
+  useSSEManager(
+    enableSSE && streamUrl ? streamUrl : null,
+    sseListeners,
+    sseOptions
+  );
 
   return {
     tileProgress,

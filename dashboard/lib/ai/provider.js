@@ -5,6 +5,11 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+const OPENAI_REQUEST_TIMEOUT_MS = Math.max(
+  0,
+  parseInt(process.env.OPENAI_REQUEST_TIMEOUT_MS || "10000", 10)
+);
+
 /**
  * Gera uma completion única (sem streaming) usando OpenAI
  */
@@ -96,7 +101,29 @@ export async function generateCompletion({
           }
         }
 
-        const response = await openai.responses.create(responseParams);
+        const controller = new AbortController();
+        let timeoutId = null;
+        if (OPENAI_REQUEST_TIMEOUT_MS > 0) {
+          timeoutId = setTimeout(() => {
+            console.warn(
+              `[OpenAI Provider] ⏱️ Abortando chamada Responses após ${OPENAI_REQUEST_TIMEOUT_MS}ms`
+            );
+            controller.abort();
+          }, OPENAI_REQUEST_TIMEOUT_MS);
+        }
+
+        let response;
+        try {
+          response = await openai.responses.create(responseParams, {
+            signal: controller.signal,
+          });
+        } catch (error) {
+          if (timeoutId) clearTimeout(timeoutId);
+          throw error;
+        }
+
+        if (timeoutId) clearTimeout(timeoutId);
+
         const totalTime = Date.now() - startTime;
 
         const outputTextArray = Array.isArray(response.output_text)
@@ -220,7 +247,29 @@ export async function generateCompletion({
         }
       }
 
-      const completion = await openai.chat.completions.create(completionParams);
+      const controller = new AbortController();
+      let timeoutId = null;
+      if (OPENAI_REQUEST_TIMEOUT_MS > 0) {
+        timeoutId = setTimeout(() => {
+          console.warn(
+            `[OpenAI Provider] ⏱️ Abortando chamada Chat após ${OPENAI_REQUEST_TIMEOUT_MS}ms`
+          );
+          controller.abort();
+        }, OPENAI_REQUEST_TIMEOUT_MS);
+      }
+
+      let completion;
+      try {
+        completion = await openai.chat.completions.create(completionParams, {
+          signal: controller.signal,
+        });
+      } catch (error) {
+        if (timeoutId) clearTimeout(timeoutId);
+        throw error;
+      }
+
+      if (timeoutId) clearTimeout(timeoutId);
+
       const totalTime = Date.now() - startTime;
 
       const choice = completion.choices?.[0] ?? {};
