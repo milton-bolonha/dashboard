@@ -7,7 +7,8 @@
     "ai",
     "dashboard",
     "gatsby-landing",
-    "next-landing"
+    "next-landing",
+    "nextjs-openai-insights"
   ],
   "scripts": {
     "ai:setup": "ai-workspace setup",

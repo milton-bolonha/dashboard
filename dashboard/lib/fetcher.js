@@ -8,9 +8,25 @@ export async function fetcher(url, options) {
   });
 
   if (!response.ok) {
+    if (response.status === 404 && url.includes("/api/cookie/workspace")) {
+      return {
+        success: true,
+        companies: [],
+        contacts: [],
+        notes: [],
+        workspace: {
+          name: "Trial Workspace",
+          companies: [],
+          contacts: [],
+        },
+        generatedAt: new Date().toISOString(),
+      };
+    }
+
     const error = new Error("Failed to fetch data");
+    const clone = response.clone();
     try {
-      error.info = await response.json();
+      error.info = await clone.json();
     } catch {
       error.info = await response.text();
     }

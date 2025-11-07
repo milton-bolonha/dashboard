@@ -2,6 +2,7 @@
 // Server-first: este contêiner trocará por Server Component quando as Server Actions forem integradas.
 import { useMemo, useState, useCallback } from "react";
 import { getDeckModelConfig } from "@/config/deck-engine";
+import { cookieModeEnabled } from "@/lib/config/features";
 
 const { model: deckDefaultModel } = getDeckModelConfig();
 
@@ -197,6 +198,30 @@ export default function IAFormsContainer({
 
         console.log("[IAFormsContainer v2.0] 📋 Contexto construído:", context);
 
+        if (cookieModeEnabled) {
+          const response = await fetch("/api/prompt-lite", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              templateId: initialTemplateId,
+              model: deckDefaultModel,
+              context,
+            }),
+          });
+
+          if (!response.ok) {
+            console.error(
+              "[IAFormsContainer] ❌ prompt-lite falhou:",
+              await response.text().catch(() => "")
+            );
+            setRunning(false);
+            return;
+          }
+
+          window.location.href = "/admin";
+          return;
+        }
+
         // ⭐ PASSO ÚNICO: Criar job, workspace e iniciar em background
         const createRes = await fetch("/api/prompt-jobs", {
           method: "POST",
@@ -204,7 +229,7 @@ export default function IAFormsContainer({
           body: JSON.stringify({
             templateId: initialTemplateId,
             model: deckDefaultModel,
-            context: context,
+            context,
           }),
         });
 
@@ -218,7 +243,6 @@ export default function IAFormsContainer({
           return;
         }
 
-        // A resposta agora contém jobId, guestId e token
         const {
           jobId: newJobId,
           guestId: newGuestId,
@@ -232,7 +256,6 @@ export default function IAFormsContainer({
         setJobId(newJobId);
         setGuestId(newGuestId);
 
-        // ⭐ REDIRECIONAMENTO IMEDIATO
         const qp = new URLSearchParams();
         qp.set("job_id", newJobId);
         qp.set("guest_id", newGuestId);
@@ -249,7 +272,15 @@ export default function IAFormsContainer({
         setRunning(false);
       }
     },
-    [initialTemplateId, themeId, setJobId, setGuestId, setRunning, token]
+    [
+      initialTemplateId,
+      themeId,
+      deckDefaultModel,
+      setJobId,
+      setGuestId,
+      setRunning,
+      cookieModeEnabled,
+    ]
   );
 
   // ⭐ NOVO: Função para executar o run com valores diretos

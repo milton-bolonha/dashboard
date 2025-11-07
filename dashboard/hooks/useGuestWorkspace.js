@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useEffect, useState } from "react";
+import { useMemo } from "react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
+import { cookieModeEnabled } from "@/lib/config/features";
 
 /**
  * Hook para gerenciar o workspace do guest
@@ -10,6 +11,10 @@ import { fetcher } from "@/lib/fetcher";
  */
 export function useGuestWorkspace({ guestId, jobId, token }) {
   const swrKey = useMemo(() => {
+    if (cookieModeEnabled) {
+      return "/api/cookie/workspace";
+    }
+
     const buildKey = (params) => {
       const searchParams = new URLSearchParams(params);
       return `/api/guest/workspace?${searchParams.toString()}`;
@@ -33,7 +38,7 @@ export function useGuestWorkspace({ guestId, jobId, token }) {
       });
     }
     return null;
-  }, [guestId, jobId, token]);
+  }, [guestId, jobId, token, cookieModeEnabled]);
 
   const {
     data,

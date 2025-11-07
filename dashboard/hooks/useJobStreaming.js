@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { useSSEManager } from "@/hooks/useSSEManager";
+import { cookieModeEnabled } from "@/lib/config/features";
 
 const DEFAULT_PROGRESS = { current: 0, total: 0, remaining: 0 };
 const POLLING_INTERVAL_MS = 3000; // ⭐ REDUZIDO: De 4s para 3s para melhor responsividade
@@ -28,6 +29,12 @@ export function useJobStreaming({
   revalidateWorkspace,
   isGenerating,
 }) {
+  if (cookieModeEnabled) {
+    return {
+      tileProgress: DEFAULT_PROGRESS,
+    };
+  }
+
   const [tileProgress, setTileProgress] = useState(DEFAULT_PROGRESS);
 
   const enableSSE = useMemo(() => {

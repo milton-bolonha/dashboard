@@ -3,6 +3,8 @@
 import { useState, useMemo } from "react";
 import { X } from "lucide-react";
 
+import { cookieModeEnabled } from "@/lib/config/features";
+
 export function AddContactModal({
   isOpen,
   onClose,
@@ -21,7 +23,9 @@ export function AddContactModal({
   const [error, setError] = useState("");
 
   const hasSessionData = useMemo(
-    () => !!companyId && !!jobId && !!guestId && typeof token === "string",
+    () =>
+      cookieModeEnabled ||
+      (!!companyId && !!jobId && !!guestId && typeof token === "string"),
     [companyId, jobId, guestId, token]
   );
 
@@ -46,7 +50,7 @@ export function AddContactModal({
       return;
     }
 
-    if (!hasSessionData) {
+    if (!cookieModeEnabled && !hasSessionData) {
       setError("Missing session information");
       return;
     }
@@ -55,20 +59,31 @@ export function AddContactModal({
     setError("");
 
     try {
-      const response = await fetch("/api/guest/add-contact", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jobId,
-          guestId,
-          token,
-          companyId,
-          entityKey,
-          contactName: contactName.trim(),
-          jobTitle: jobTitle.trim(),
-          linkedinUrl: linkedinUrl.trim(),
-        }),
-      });
+      const payload = cookieModeEnabled
+        ? {
+            name: contactName.trim(),
+            jobTitle: jobTitle.trim(),
+            linkedinUrl: linkedinUrl.trim(),
+          }
+        : {
+            jobId,
+            guestId,
+            token,
+            companyId,
+            entityKey,
+            contactName: contactName.trim(),
+            jobTitle: jobTitle.trim(),
+            linkedinUrl: linkedinUrl.trim(),
+          };
+
+      const response = await fetch(
+        cookieModeEnabled ? "/api/cookie/contacts" : "/api/guest/add-contact",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
 
       const data = await response.json();
 
@@ -109,7 +124,7 @@ export function AddContactModal({
           </button>
         </div>
 
-        {!hasSessionData ? (
+        {!cookieModeEnabled && !hasSessionData ? (
           <div className="p-4 bg-yellow-50 border border-yellow-200 rounded">
             <p className="text-sm text-yellow-700">
               Missing session information to add contacts. Please reload the

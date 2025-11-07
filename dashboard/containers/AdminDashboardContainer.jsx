@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 
 import { useGuestWorkspace } from "@/hooks/useGuestWorkspace";
 import { useJobStreaming } from "@/hooks/useJobStreaming";
+import { cookieModeEnabled } from "@/lib/config/features";
 import * as guestTilesService from "@/lib/services/guest-tiles";
 import * as guestTemplatesService from "@/lib/services/guest-templates";
 
@@ -230,14 +231,15 @@ export function AdminDashboardContainer() {
   }, []);
 
   const showLoadingModal = useMemo(() => {
+    if (cookieModeEnabled) return false;
     if (!jobIdFromUrl) return false;
     if (!isGenerating) return false;
     if (userDismissedLoading) return false;
     return true;
-  }, [isGenerating, jobIdFromUrl, userDismissedLoading]);
+  }, [cookieModeEnabled, isGenerating, jobIdFromUrl, userDismissedLoading]);
 
   // Validação de sessão (após todos os hooks serem chamados)
-  if (!jobIdFromUrl || !guestIdFromUrl) {
+  if (!cookieModeEnabled && (!jobIdFromUrl || !guestIdFromUrl)) {
     return (
       <AppLayout
         sidebar={<Sidebar />}
@@ -331,14 +333,14 @@ export function AdminDashboardContainer() {
         }
         header={
           <Header
-            breadcrumb={
-              selectedCompany
-                ? `${workspaceName} > ${
-                    selectedCompany.name || "Selected company"
-                  }`
-                : workspaceName || "Trial Workspace"
-            }
-            onRefresh={revalidateWorkspace}
+            title={selectedCompany ? selectedCompany.name : "Trial Workspace"}
+            workspaceName={workspaceName}
+            isLoading={isLoading && !data}
+            onCustomizeBackground={() => setShowBackgroundCustomizer(true)}
+            onSaveTemplate={() => setIsSaveTemplateOpen(true)}
+            onCloneDashboard={() => setIsAddCompanyOpen(true)}
+            onCreateBlank={() => setIsAddCompanyOpen(true)}
+            disableGuestApis={cookieModeEnabled}
           />
         }
       >
@@ -374,7 +376,9 @@ export function AdminDashboardContainer() {
           </div>
         )}
 
-        {selectedCompany && !selectedCompany.id?.startsWith("temp_") && (
+        {!cookieModeEnabled &&
+          selectedCompany &&
+          !selectedCompany.id?.startsWith("temp_") && (
           <>
             <div className="mb-8">
               <NotesEditor
@@ -403,68 +407,77 @@ export function AdminDashboardContainer() {
         onClose={handleCloseModal}
         tile={selectedTile}
       />
-      <AddCompanyModalWithTemplate
-        isOpen={isAddCompanyOpen}
-        onClose={() => setIsAddCompanyOpen(false)}
-        onAdd={revalidateWorkspace}
-      />
-      <AddContactModal
-        isOpen={isAddContactOpen}
-        onClose={() => setIsAddContactOpen(false)}
-        onAdd={() => {
-          setIsAddContactOpen(false);
-          revalidateWorkspace();
-        }}
-        companyId={selectedCompany?.id}
-        companyName={selectedCompany?.name}
-        jobId={jobIdFromUrl}
-        guestId={guestIdFromUrl}
-        token={tokenFromUrl}
-        entityKey="companies"
-      />
-      <AddPromptModal
-        isOpen={isAddPromptOpen}
-        onClose={() => setIsAddPromptOpen(false)}
-        companyName={selectedCompany?.name}
-        hasSessionData={Boolean(
-          selectedCompany && jobIdFromUrl && guestIdFromUrl && tokenFromUrl
-        )}
-        onAdd={async ({ prompt }) => {
-          if (!selectedCompany?.id) {
-            throw new Error("Select a company first");
-          }
-          setIsGeneratingCustomTile(true);
-          try {
-            await guestTilesService.generateCustomTile({
-              guestId: guestIdFromUrl,
-              jobId: jobIdFromUrl,
-              token: tokenFromUrl,
-              companyId: selectedCompany.id,
-              entityKey: "companies",
-              prompt,
-            });
-            setIsAddPromptOpen(false);
-            revalidateWorkspace();
-          } finally {
-            setIsGeneratingCustomTile(false);
-          }
-        }}
-      />
-      <SaveTemplateModal
-        isOpen={isSaveTemplateOpen}
-        onClose={() => setIsSaveTemplateOpen(false)}
-        hasSessionData={Boolean(jobIdFromUrl && guestIdFromUrl && tokenFromUrl)}
-        onSave={async (templateData) => {
-          await guestTemplatesService.saveTemplate({
-            guestId: guestIdFromUrl,
-            jobId: jobIdFromUrl,
-            token: tokenFromUrl,
-            template: templateData,
-          });
-          setIsSaveTemplateOpen(false);
-          revalidateWorkspace();
-        }}
-      />
+      {!cookieModeEnabled && (
+        <>
+          <AddCompanyModalWithTemplate
+            isOpen={isAddCompanyOpen}
+            onClose={() => setIsAddCompanyOpen(false)}
+            onAdd={revalidateWorkspace}
+          />
+          <AddContactModal
+            isOpen={isAddContactOpen}
+            onClose={() => setIsAddContactOpen(false)}
+            onAdd={() => {
+              setIsAddContactOpen(false);
+              revalidateWorkspace();
+            }}
+            companyId={selectedCompany?.id}
+            companyName={selectedCompany?.name}
+            jobId={jobIdFromUrl}
+            guestId={guestIdFromUrl}
+            token={tokenFromUrl}
+            entityKey="companies"
+          />
+          <AddPromptModal
+            isOpen={isAddPromptOpen}
+            onClose={() => setIsAddPromptOpen(false)}
+            companyName={selectedCompany?.name}
+            hasSessionData={Boolean(
+              selectedCompany &&
+              jobIdFromUrl &&
+              guestIdFromUrl &&
+              tokenFromUrl
+            )}
+            onAdd={async ({ prompt }) => {
+              if (!selectedCompany?.id) {
+                throw new Error("Select a company first");
+              }
+              setIsGeneratingCustomTile(true);
+              try {
+                await guestTilesService.generateCustomTile({
+                  guestId: guestIdFromUrl,
+                  jobId: jobIdFromUrl,
+                  token: tokenFromUrl,
+                  companyId: selectedCompany.id,
+                  entityKey: "companies",
+                  prompt,
+                });
+                setIsAddPromptOpen(false);
+                revalidateWorkspace();
+              } finally {
+                setIsGeneratingCustomTile(false);
+              }
+            }}
+          />
+          <SaveTemplateModal
+            isOpen={isSaveTemplateOpen}
+            onClose={() => setIsSaveTemplateOpen(false)}
+            hasSessionData={Boolean(
+              jobIdFromUrl && guestIdFromUrl && tokenFromUrl
+            )}
+            onSave={async (templateData) => {
+              await guestTemplatesService.saveTemplate({
+                guestId: guestIdFromUrl,
+                jobId: jobIdFromUrl,
+                token: tokenFromUrl,
+                template: templateData,
+              });
+              setIsSaveTemplateOpen(false);
+              revalidateWorkspace();
+            }}
+          />
+        </>
+      )}
       <ContactModal
         isOpen={isContactModalOpen}
         onClose={() => setIsContactModalOpen(false)}

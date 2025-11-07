@@ -121,8 +121,6 @@ export class DeckEngineAIPipeline {
       // Processar variáveis no prompt
       const processedPrompt = await this.processVariables(tile.prompt, context);
 
-      // Inicializar acumulador de conteúdo e índice de chunks
-      let accumulatedContent = "";
       // Gerar conteúdo via streaming
       const completionResult = await generateCompletion({
         model: context.model || deckModelConfig.model,

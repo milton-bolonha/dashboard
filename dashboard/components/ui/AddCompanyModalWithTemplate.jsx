@@ -4,6 +4,8 @@ import React, { useState } from "react";
 import { X } from "lucide-react";
 import TemplateSelector from "./TemplateSelector";
 
+import { cookieModeEnabled } from "@/lib/config/features";
+
 export function AddCompanyModalWithTemplate({
   isOpen,
   onClose,
@@ -39,8 +41,27 @@ export function AddCompanyModalWithTemplate({
     try {
       let response;
 
-      if (selectedTemplate) {
-        // Usar template selecionado
+      if (cookieModeEnabled) {
+        const context = {
+          target: companyName.trim(),
+          targetWebsite: companyUrl.trim(),
+          researchTarget: companyName.trim(),
+          researchWebsite: companyUrl.trim(),
+          companyWebsite: companyUrl.trim(),
+          solution: userContext?.solution || "",
+          salesRepAt: userContext?.salesRepCompany || "",
+        };
+
+        response = await fetch("/api/prompt-lite", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            templateId: selectedTemplate?.id || "template_1",
+            model: "gpt-5-mini",
+            context,
+          }),
+        });
+      } else if (selectedTemplate) {
         response = await fetch("/api/guest/templates/apply", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -51,7 +72,6 @@ export function AddCompanyModalWithTemplate({
           }),
         });
       } else {
-        // Usar método padrão (sem template)
         response = await fetch("/api/guest/add-company", {
           method: "POST",
           headers: { "Content-Type": "application/json" },

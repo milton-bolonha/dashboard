@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { Plus, Edit2, Trash2 } from "lucide-react";
 
+import { cookieModeEnabled } from "@/lib/config/features";
+
 /**
  * Editor de notas para uma company específica
  * Mantém o design original com cards laranjinhas
@@ -22,8 +24,9 @@ export default function NotesEditor({
   const [newNote, setNewNote] = useState({ title: "", content: "" });
   const [error, setError] = useState("");
 
-  const hasSessionData =
-    !!companyId && !!jobId && !!guestId && typeof token === "string";
+  const hasSessionData = cookieModeEnabled
+    ? true
+    : !!companyId && !!jobId && !!guestId && typeof token === "string";
 
   const buildSearchParams = useCallback(() => {
     const params = new URLSearchParams({
@@ -41,7 +44,7 @@ export default function NotesEditor({
   }, [jobId, guestId, token, companyId, entityKey]);
 
   const loadNotes = useCallback(async () => {
-    if (!hasSessionData) {
+    if (!cookieModeEnabled && !hasSessionData) {
       return;
     }
 
@@ -49,9 +52,9 @@ export default function NotesEditor({
     setError("");
 
     try {
-      const response = await fetch(
-        `/api/guest/notes?${buildSearchParams().toString()}`
-      );
+      const response = cookieModeEnabled
+        ? await fetch("/api/cookie/notes")
+        : await fetch(`/api/guest/notes?${buildSearchParams().toString()}`);
       const data = await response.json();
 
       if (data.success) {
@@ -65,7 +68,7 @@ export default function NotesEditor({
     } finally {
       setIsLoading(false);
     }
-  }, [hasSessionData, buildSearchParams]);
+  }, [hasSessionData, buildSearchParams, cookieModeEnabled]);
 
   useEffect(() => {
     if (hasSessionData) {
@@ -95,18 +98,27 @@ export default function NotesEditor({
       setError("");
 
       try {
-        const response = await fetch("/api/guest/notes", {
+        const endpoint = cookieModeEnabled
+          ? "/api/cookie/notes"
+          : "/api/guest/notes";
+        const payload = cookieModeEnabled
+          ? {
+              title: newNote.title.trim(),
+              content: newNote.content.trim(),
+            }
+          : {
+              jobId,
+              guestId,
+              token,
+              companyId,
+              entityKey,
+              title: newNote.title.trim(),
+              content: newNote.content.trim(),
+            };
+        const response = await fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            jobId,
-            guestId,
-            token,
-            companyId,
-            entityKey,
-            title: newNote.title.trim(),
-            content: newNote.content.trim(),
-          }),
+          body: JSON.stringify(payload),
         });
 
         const data = await response.json();
@@ -132,18 +144,27 @@ export default function NotesEditor({
       setError("");
 
       try {
-        const response = await fetch(`/api/guest/notes/${noteId}`, {
+        const endpoint = cookieModeEnabled
+          ? `/api/cookie/notes/${noteId}`
+          : `/api/guest/notes/${noteId}`;
+        const payload = cookieModeEnabled
+          ? {
+              title: updatedData.title,
+              content: updatedData.content,
+            }
+          : {
+              jobId,
+              guestId,
+              token,
+              companyId,
+              entityKey,
+              title: updatedData.title,
+              content: updatedData.content,
+            };
+        const response = await fetch(endpoint, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            jobId,
-            guestId,
-            token,
-            companyId,
-            entityKey,
-            title: updatedData.title,
-            content: updatedData.content,
-          }),
+          body: JSON.stringify(payload),
         });
 
         const data = await response.json();
@@ -172,17 +193,25 @@ export default function NotesEditor({
       setError("");
 
       try {
-        const response = await fetch(`/api/guest/notes/${noteId}`, {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            jobId,
-            guestId,
-            token,
-            companyId,
-            entityKey,
-          }),
-        });
+        const endpoint = cookieModeEnabled
+          ? `/api/cookie/notes/${noteId}`
+          : `/api/guest/notes/${noteId}`;
+        let response;
+        if (cookieModeEnabled) {
+          response = await fetch(endpoint, { method: "DELETE" });
+        } else {
+          response = await fetch(endpoint, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              jobId,
+              guestId,
+              token,
+              companyId,
+              entityKey,
+            }),
+          });
+        }
 
         const data = await response.json();
 
@@ -250,7 +279,7 @@ export default function NotesEditor({
     );
   }
 
-  if (!hasSessionData) {
+  if (!hasSessionData && !cookieModeEnabled) {
     return (
       <div className="p-6 text-center text-gray-500">
         Missing session information to load notes.

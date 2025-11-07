@@ -6,30 +6,37 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { cookies } from "next/headers";
+import { cookieModeEnabled } from "@/lib/config/features";
+import { clearWorkspaceCookies } from "@/lib/cookie-workspace-store";
 
 export async function DELETE() {
   try {
     console.log("🗑️ RESET Guest Session - Iniciando...");
 
-    const cookieStore = await cookies();
-    const guestId = cookieStore.get("guest_id")?.value;
+    if (cookieModeEnabled) {
+      await clearWorkspaceCookies();
+      console.log("✅ Cookie-based workspace resetado!");
+    } else {
+      const cookieStore = await cookies();
+      const guestId = cookieStore.get("guest_id")?.value;
 
-    if (guestId) {
-      console.log("🗑️ Deletando workspace:", guestId);
+      if (guestId) {
+        console.log("🗑️ Deletando workspace:", guestId);
 
-      // Deletar do MongoDB
-      await db.deleteOne("guest_workspaces", { guest_id: guestId });
+        // Deletar do MongoDB
+        await db.deleteOne("guest_workspaces", { guest_id: guestId });
 
-      // Limpar cookie
-      cookieStore.set("guest_id", "", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-        maxAge: 0,
-        path: "/",
-      });
+        // Limpar cookie
+        cookieStore.set("guest_id", "", {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "strict",
+          maxAge: 0,
+          path: "/",
+        });
 
-      console.log("✅ Guest session resetada!");
+        console.log("✅ Guest session resetada!");
+      }
     }
 
     return NextResponse.json({ success: true, message: "Session reset" });

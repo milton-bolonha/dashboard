@@ -65,3 +65,5 @@ NODE_ENV=development
 # Dashboard specific
 DASH_DEBUG_MODE=false # Set to true to enable detailed debug logging 
 OPENAI_REQUEST_TIMEOUT_MS=45000 # Timeout em ms para chamadas Responses/Chat da OpenAI (default 45s)
+NEXT_PUBLIC_COOKIE_MODE=true # Habilita modo cookie-only (default true)
+BROWSER_TILE_BATCH_SIZE=2 # Largura de lote para geração de tiles no cookie mode
