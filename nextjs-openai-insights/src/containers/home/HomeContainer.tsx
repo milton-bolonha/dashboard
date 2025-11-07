@@ -7,7 +7,7 @@ import { useToast } from "@/lib/state/toast-context";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { LandingFooter } from "@/components/landing/LandingFooter";
 import { ClassicHeroForm } from "@/components/landing/ClassicHeroForm";
-import { getAppBaseUrl } from "@/lib/env";
+import { getFunctionsBaseUrl } from "@/lib/env";
 
 import "@/components/landing/landing.css";
 
@@ -31,11 +31,8 @@ export function HomeContainer() {
 
     setIsSubmitting(true);
     try {
-      const apiBaseUrl = getAppBaseUrl();
-      const normalizedBase = apiBaseUrl.replace(/\/$/, "");
-      const targetUrl = normalizedBase
-        ? `${normalizedBase}/api/generate`
-        : "/api/generate";
+      const functionBase = getFunctionsBaseUrl().replace(/\/$/, "");
+      const targetUrl = `${functionBase || ""}/.netlify/functions/ai-generate`;
       const response = await fetch(targetUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -57,7 +54,7 @@ export function HomeContainer() {
         variant: "success",
       });
 
-      router.push("/admin");
+      await router.push("/admin");
     } catch (error) {
       console.error("[HomeContainer] Failed to generate tiles", error);
       push({
