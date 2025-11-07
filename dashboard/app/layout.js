@@ -21,9 +21,7 @@ export default function RootLayout({ children }) {
             enableSystem
             disableTransitionOnChange
           >
-            <AppThemeProvider>
-              {children}
-            </AppThemeProvider>
+            <AppThemeProvider>{children}</AppThemeProvider>
           </ThemeProvider>
         </body>
       </html>
