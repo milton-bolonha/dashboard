@@ -64,3 +64,4 @@ NODE_ENV=development
 
 # Dashboard specific
 DASH_DEBUG_MODE=false # Set to true to enable detailed debug logging 
+OPENAI_REQUEST_TIMEOUT_MS=45000 # Timeout em ms para chamadas Responses/Chat da OpenAI (default 45s)

@@ -7,7 +7,7 @@ const openai = new OpenAI({
 
 const OPENAI_REQUEST_TIMEOUT_MS = Math.max(
   0,
-  parseInt(process.env.OPENAI_REQUEST_TIMEOUT_MS || "10000", 10)
+  parseInt(process.env.OPENAI_REQUEST_TIMEOUT_MS || "45000", 10)
 );
 
 /**
