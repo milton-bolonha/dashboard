@@ -109,7 +109,7 @@ function cookiesToWorkspace(meta: MetaCookie, data: DataCookie): WorkspaceSnapsh
 }
 
 async function ensureState() {
-  const store = cookies();
+  const store = await cookies();
   const metaRaw = store.get(META_COOKIE)?.value ?? null;
   const dataRaw = store.get(DATA_COOKIE)?.value ?? null;
 
@@ -150,7 +150,7 @@ export async function updateWorkspace(
 }
 
 export async function clearWorkspace(): Promise<void> {
-  const store = cookies();
+  const store = await cookies();
   store.set(META_COOKIE, "", { ...COOKIE_DEFAULT_OPTIONS, maxAge: 0 });
   store.set(DATA_COOKIE, "", { ...COOKIE_DEFAULT_OPTIONS, maxAge: 0 });
 }

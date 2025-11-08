@@ -46,7 +46,11 @@ type InputState = Record<(typeof FIELD_CONFIG)[number]["name"], string>;
 
 type TouchedState = Record<(typeof FIELD_CONFIG)[number]["name"], boolean>;
 
-export function ClassicHeroForm({ isSubmitting, onSubmit, onReset }: ClassicHeroFormProps) {
+export function ClassicHeroForm({
+  isSubmitting,
+  onSubmit,
+  onReset,
+}: ClassicHeroFormProps) {
   const [values, setValues] = useState<InputState>({
     company: "",
     companyWebsite: "",
@@ -61,7 +65,35 @@ export function ClassicHeroForm({ isSubmitting, onSubmit, onReset }: ClassicHero
     researchTarget: false,
     researchWebsite: false,
   });
+  const [focused, setFocused] = useState<TouchedState>({
+    company: false,
+    companyWebsite: false,
+    solution: false,
+    researchTarget: false,
+    researchWebsite: false,
+  });
   const [error, setError] = useState<string | null>(null);
+
+  const isUrlValid = (value: string) => {
+    if (!value.trim()) return false;
+    try {
+      // eslint-disable-next-line no-new
+      new URL(value.startsWith("http") ? value : `https://${value}`);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const isFieldValid = useMemo(() => {
+    return {
+      company: values.company.trim().length > 1,
+      companyWebsite: isUrlValid(values.companyWebsite),
+      solution: values.solution.trim().length > 1,
+      researchTarget: values.researchTarget.trim().length > 1,
+      researchWebsite: isUrlValid(values.researchWebsite),
+    } satisfies Record<(typeof FIELD_CONFIG)[number]["name"], boolean>;
+  }, [values]);
 
   const canEnableField = useMemo(() => {
     return {
@@ -74,12 +106,21 @@ export function ClassicHeroForm({ isSubmitting, onSubmit, onReset }: ClassicHero
   }, [values]);
 
   const allValid = useMemo(() => {
-    return (
-      values.company.trim().length > 1 &&
-      values.companyWebsite.trim().length > 6 &&
-      values.solution.trim().length > 1
-    );
-  }, [values]);
+    return Object.values(isFieldValid).every(Boolean);
+  }, [isFieldValid]);
+
+  const fieldStates = useMemo(() => {
+    return FIELD_CONFIG.reduce((acc, field) => {
+      const name = field.name;
+      const value = values[name];
+      acc[name] = {
+        isValid: isFieldValid[name],
+        hasContent: value.trim().length > 0,
+        focused: focused[name],
+      };
+      return acc;
+    }, {} as Record<(typeof FIELD_CONFIG)[number]["name"], { isValid: boolean; hasContent: boolean; focused: boolean }>);
+  }, [focused, isFieldValid, values]);
 
   const handleChange = (name: keyof InputState, next: string) => {
     setValues((prev) => ({ ...prev, [name]: next }));
@@ -87,32 +128,28 @@ export function ClassicHeroForm({ isSubmitting, onSubmit, onReset }: ClassicHero
 
   const handleBlur = (name: keyof InputState) => {
     setTouched((prev) => ({ ...prev, [name]: true }));
+    setFocused((prev) => ({ ...prev, [name]: false }));
+  };
+
+  const handleFocus = (name: keyof InputState) => {
+    setFocused((prev) => ({ ...prev, [name]: true }));
   };
 
   const hasFieldError = (name: keyof InputState) => {
     if (!touched[name]) return false;
-    if (name === "companyWebsite" || name === "researchWebsite") {
-      const value = values[name].trim();
-      if (!value) return false;
-      try {
-        new URL(value.startsWith("http") ? value : `https://${value}`);
-      } catch {
-        return true;
-      }
-    }
-    return values[name].trim().length === 0;
+    return !isFieldValid[name];
   };
 
   const handleSubmit = async () => {
     setError(null);
     if (!allValid) {
-      setError("Preencha pelo menos a empresa, site e solução antes de continuar.");
+      setError("Fill in all fields before continuing.");
       setTouched({
         company: true,
         companyWebsite: true,
         solution: true,
-        researchTarget: touched.researchTarget,
-        researchWebsite: touched.researchWebsite,
+        researchTarget: true,
+        researchWebsite: true,
       });
       return;
     }
@@ -126,6 +163,92 @@ export function ClassicHeroForm({ isSubmitting, onSubmit, onReset }: ClassicHero
           : "Falha ao gerar insights";
       setError(message);
     }
+  };
+
+  const renderStatusIcon = (
+    name: (typeof FIELD_CONFIG)[number]["name"],
+    isLast: boolean,
+    isEnabled: boolean
+  ) => {
+    const state = fieldStates[name];
+
+    if (!isEnabled) {
+      return (
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200">
+          <div className="h-2 w-2 rounded-full bg-white" />
+        </div>
+      );
+    }
+
+    if (state.isValid && !isLast) {
+      return (
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-500">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-4 w-4 text-white"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth="3"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="m5 13 4 4L19 7"
+            />
+          </svg>
+        </div>
+      );
+    }
+
+    if (state.isValid && isLast && allValid) {
+      return (
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={isSubmitting}
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-green-500 text-white transition hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-60"
+          style={{
+            animation: isSubmitting
+              ? "none"
+              : "bouncePulse 3s ease-in-out infinite",
+          }}
+        >
+          {isSubmitting ? (
+            <span className="h-4 w-4 animate-spin rounded-full border-b-2 border-white" />
+          ) : (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M5 12h14M13 6l6 6-6 6"
+              />
+            </svg>
+          )}
+        </button>
+      );
+    }
+
+    if (state.focused || state.hasContent) {
+      return (
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600">
+          <div className="h-2 w-2 rounded-full bg-white" />
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-300">
+        <div className="h-2 w-2 rounded-full bg-white" />
+      </div>
+    );
   };
 
   return (
@@ -153,7 +276,8 @@ export function ClassicHeroForm({ isSubmitting, onSubmit, onReset }: ClassicHero
             Smarter Research. Faster Outreach. More Selling
           </h1>
           <p className="mx-auto mb-8 max-w-3xl text-xl text-gray-600">
-            WebApp is your personal research assistant that works even when you sleep
+            WebApp is your personal research assistant that works even when you
+            sleep
           </p>
 
           <div className="mb-8 space-y-4">
@@ -162,14 +286,19 @@ export function ClassicHeroForm({ isSubmitting, onSubmit, onReset }: ClassicHero
               return (
                 <div
                   key={field.name}
-                  className={`relative mx-auto max-w-2xl ${!enabled ? "opacity-70" : ""}`}
+                  className={`relative mx-auto max-w-2xl ${
+                    !enabled ? "opacity-70" : ""
+                  }`}
                 >
                   <input
                     name={field.name}
                     type={field.type}
                     value={values[field.name]}
-                    onChange={(event) => handleChange(field.name, event.target.value)}
+                    onChange={(event) =>
+                      handleChange(field.name, event.target.value)
+                    }
                     onBlur={() => handleBlur(field.name)}
+                    onFocus={() => handleFocus(field.name)}
                     disabled={!enabled || isSubmitting}
                     className={`w-full rounded-xl px-6 pt-4 pb-8 pr-16 text-lg shadow-sm outline-none transition
                       ${
@@ -184,17 +313,15 @@ export function ClassicHeroForm({ isSubmitting, onSubmit, onReset }: ClassicHero
                     {field.label}
                   </div>
                   <div className="absolute right-4 top-1/2 -translate-y-1/2 transform">
-                    <div
-                      className={`flex h-8 w-8 items-center justify-center rounded-full transition ${
-                        enabled ? "bg-gray-300" : "bg-gray-200"
-                      }`}
-                    >
-                      <div className="h-2 w-2 rounded-full bg-white" />
-                    </div>
+                    {renderStatusIcon(
+                      field.name,
+                      field.name === "researchWebsite",
+                      enabled
+                    )}
                   </div>
                   {hasFieldError(field.name) && (
                     <p className="mt-2 text-left text-sm text-red-500">
-                      Verifique o valor informado.
+                      Please review this field.
                     </p>
                   )}
                 </div>
@@ -213,24 +340,11 @@ export function ClassicHeroForm({ isSubmitting, onSubmit, onReset }: ClassicHero
           ) : null}
 
           <div className="flex flex-col justify-center gap-4 sm:flex-row">
-            <button
-              type="button"
+            <PrimaryCTA
+              label="Connect CRM"
+              isSubmitting={isSubmitting}
               onClick={handleSubmit}
-              disabled={isSubmitting}
-              className="flex items-center justify-center space-x-2 rounded-xl bg-blue-600 px-8 py-4 text-lg font-semibold text-white shadow-lg transition-all duration-300 hover:-translate-y-1 hover:bg-blue-700 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isSubmitting ? (
-                <>
-                  <span className="h-5 w-5 animate-spin rounded-full border-b-2 border-white" />
-                  <span>Processing...</span>
-                </>
-              ) : (
-                <>
-                  <span>Connect CRM</span>
-                  <ArrowRightIcon />
-                </>
-              )}
-            </button>
+            />
             <button
               type="button"
               onClick={handleSubmit}
@@ -264,14 +378,7 @@ export function ClassicHeroForm({ isSubmitting, onSubmit, onReset }: ClassicHero
         </div>
       </section>
 
-      {isSubmitting ? (
-        <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center bg-white/70">
-          <div className="flex items-center space-x-3 rounded-xl border border-gray-200 bg-white px-6 py-4 text-sm font-medium text-gray-600 shadow-lg">
-            <span className="h-5 w-5 animate-spin rounded-full border-b-2 border-gray-500" />
-            <span>Gerando insights...</span>
-          </div>
-        </div>
-      ) : null}
+      {isSubmitting ? <GenerationModal /> : null}
     </div>
   );
 }
@@ -292,5 +399,92 @@ function ArrowRightIcon() {
       <path d="M5 12h14" />
       <path d="m12 5 7 7-7 7" />
     </svg>
+  );
+}
+
+function PrimaryCTA({
+  label,
+  isSubmitting,
+  onClick,
+}: {
+  label: string;
+  isSubmitting: boolean;
+  onClick: () => void | Promise<void>;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={isSubmitting}
+      className="flex items-center justify-center space-x-2 rounded-xl bg-blue-600 px-8 py-4 text-lg font-semibold text-white shadow-lg transition-all duration-300 hover:-translate-y-1 hover:bg-blue-700 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {isSubmitting ? (
+        <>
+          <span className="h-5 w-5 animate-spin rounded-full border-b-2 border-white" />
+          <span>Preparing workspace...</span>
+        </>
+      ) : (
+        <>
+          <span>{label}</span>
+          <ArrowRightIcon />
+        </>
+      )}
+    </button>
+  );
+}
+
+function GenerationModal() {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0b1020]/85 p-6 backdrop-blur-sm">
+      <div className="relative max-w-md rounded-3xl border border-white/10 bg-white/95 px-10 py-8 text-center shadow-2xl">
+        <span className="absolute -top-6 left-1/2 flex h-12 w-12 -translate-x-1/2 items-center justify-center rounded-2xl border border-blue-200 bg-blue-600 text-2xl text-white shadow-lg">
+          🚀
+        </span>
+
+        <h2 className="mt-2 text-xl font-semibold text-slate-900">
+          Generating tailored insights
+        </h2>
+        <p className="mt-3 text-sm text-slate-600">
+          We are syncing with the API and assembling the first tiles. You will
+          be redirected to the dashboard automatically, no extra clicks
+          required.
+        </p>
+
+        <div className="mt-6 space-y-3 text-left text-sm text-slate-600">
+          <StatusRow status="active" label="Sending company context" />
+          <StatusRow status="pending" label="Generating AI tiles" />
+          <StatusRow status="pending" label="Preparing your dashboard" />
+        </div>
+
+        <div className="mt-8 flex items-center justify-center space-x-3 text-xs uppercase tracking-[0.3em] text-slate-400">
+          <span className="h-2 w-2 animate-ping rounded-full bg-blue-500" />
+          <span>Processing</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatusRow({
+  status,
+  label,
+}: {
+  status: "active" | "pending";
+  label: string;
+}) {
+  if (status === "active") {
+    return (
+      <div className="flex items-center space-x-2 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2 text-blue-700">
+        <span className="h-2 w-2 rounded-full bg-blue-500" />
+        <span>{label}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center space-x-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-slate-500">
+      <span className="h-2 w-2 rounded-full bg-slate-300" />
+      <span>{label}</span>
+    </div>
   );
 }

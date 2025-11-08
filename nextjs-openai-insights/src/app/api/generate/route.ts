@@ -4,12 +4,20 @@ import { z } from "zod";
 import OpenAI from "openai";
 
 import { clampTiles, writeWorkspace } from "@/lib/cookies-store";
+import {
+  getGuestTemplate,
+  processPromptVariables,
+} from "@/lib/guest-templates";
 import type { Tile, WorkspaceSnapshot } from "@/lib/types";
 
 const requestSchema = z.object({
-  companyName: z.string().min(2),
-  companyWebsite: z.string().url(),
+  salesRepCompany: z.string().min(2),
+  salesRepWebsite: z.string().url(),
   solution: z.string().min(2),
+  targetCompany: z.string().min(2),
+  targetWebsite: z.string().url(),
+  templateId: z.string().min(2).optional(),
+  model: z.string().min(2).optional(),
 });
 
 const MODEL = process.env.OPENAI_MODEL || "gpt-5-mini";
@@ -22,53 +30,33 @@ const TEMPERATURE = (() => {
   return Number.isFinite(raw) ? raw : 0.7;
 })();
 
-const TILE_PROMPTS = [
-  {
-    title: "Resumo",
-    template:
-      "Em 3 bullets curtos, explique o que {company} faz, quem atende e o que a diferencia.",
-  },
-  {
-    title: "Modelo de receita",
-    template:
-      "Resuma em 120 palavras como {company} monetiza hoje. Cite streams principais e pontos de atenção.",
-  },
-  {
-    title: "Prioridades",
-    template:
-      "Liste até 3 prioridades estratégicas recentes de {company}, citando fonte e ano entre parênteses.",
-  },
-  {
-    title: "Desafios",
-    template:
-      "Aponte até 3 desafios relevantes para {company} em 2025, justificando com tendências ou dados públicos.",
-  },
-  {
-    title: "Benefícios da solução",
-    template:
-      "Explique em 100 palavras como {solution} ajudaria {company}, conectando com dores mencionadas e resultados concretos.",
-  },
-  {
-    title: "Mapa de decisão",
-    template:
-      "Quem seria o sponsor ideal em {company}? Traga 2 cargos ou áreas chave.",
-  },
-  {
-    title: "Narrativa de outreach",
-    template:
-      "Escreva 3 frases de abertura para um email de prospecção focado em {solution}, personalizadas para {company}.",
-  },
-  {
-    title: "CTA sugerido",
-    template:
-      "Crie uma call-to-action clara convidando {company} para avançar com {solution} em até 45 palavras.",
-  },
-];
+function normalizeContext(raw: {
+  salesRepCompany: string;
+  salesRepWebsite: string;
+  solution: string;
+  targetCompany: string;
+  targetWebsite: string;
+}) {
+  const salesRepCompany = raw.salesRepCompany.trim();
+  const targetCompany = raw.targetCompany.trim();
+  const solution = raw.solution.trim();
 
-function interpolate(template: string, company: string, solution: string) {
-  return template
-    .replace(/{company}/gi, company)
-    .replace(/{solution}/gi, solution);
+  return {
+    salesRepAt: salesRepCompany,
+    salesRepCompany,
+    salesRepCompanyWebsite: raw.salesRepWebsite.trim(),
+    sellingSolutionsFor: solution,
+    target: targetCompany,
+    targetWebsite: raw.targetWebsite.trim(),
+    company: {
+      name: targetCompany,
+      website: raw.targetWebsite.trim(),
+    },
+    companyName: targetCompany,
+    companyWebsite: raw.targetWebsite.trim(),
+    salesRepWebsite: raw.salesRepWebsite.trim(),
+    solution,
+  };
 }
 
 function coerceToText(value: unknown): string {
@@ -126,18 +114,19 @@ async function generateTile(
   client: OpenAI,
   prompt: string,
   title: string,
-  orderIndex: number
+  orderIndex: number,
+  model: string
 ) {
   console.log("[api/generate] 🧠 Chamando OpenAI para tile", {
     orderIndex,
     title,
     promptPreview: prompt.substring(0, 120),
-    model: MODEL,
+    model,
     maxTokens: MAX_TOKENS,
     temperature: TEMPERATURE,
   });
 
-  const normalizedModel = MODEL.trim();
+  const normalizedModel = model.trim();
   const lowerModel = normalizedModel.toLowerCase();
   const shouldSendTemperature =
     !lowerModel.startsWith("gpt-5") && Number.isFinite(TEMPERATURE);
@@ -167,8 +156,16 @@ async function generateTile(
       hasOutputItems: Array.isArray(
         (completion as { output?: unknown })?.output
       ),
+      rawResponse: completion,
     });
-    throw new Error("Resposta vazia");
+    return {
+      id: `tile_fallback_empty_${orderIndex}_${Date.now().toString(36)}`,
+      title,
+      content:
+        "⚠️ This insight could not be generated right now. Try refreshing this tile in a few moments.",
+      orderIndex,
+      createdAt: new Date().toISOString(),
+    } satisfies Tile;
   }
 
   console.log("[api/generate] ✅ Tile gerado", {
@@ -192,21 +189,29 @@ export async function POST(request: Request) {
   const parseResult = requestSchema.safeParse(payload);
   if (!parseResult.success) {
     console.warn(
-      "[api/generate] ⚠️ Dados inválidos",
+      "[api/generate] ⚠️ Invalid payload",
       parseResult.error.flatten()
     );
     return NextResponse.json(
-      { error: "Dados inválidos", details: parseResult.error.flatten() },
+      { error: "Invalid payload", details: parseResult.error.flatten() },
       { status: 400 }
     );
   }
 
-  const { companyName, companyWebsite, solution } = parseResult.data;
+  const {
+    salesRepCompany,
+    salesRepWebsite,
+    solution,
+    targetCompany,
+    targetWebsite,
+    templateId = "template_1",
+    model = MODEL,
+  } = parseResult.data;
 
   if (!process.env.OPENAI_API_KEY) {
-    console.error("[api/generate] ❌ OPENAI_API_KEY não configurada");
+    console.error("[api/generate] ❌ OPENAI_API_KEY is not configured");
     return NextResponse.json(
-      { error: "OPENAI_API_KEY não configurada" },
+      { error: "OPENAI_API_KEY is not configured" },
       { status: 500 }
     );
   }
@@ -215,14 +220,27 @@ export async function POST(request: Request) {
 
   try {
     console.log("[api/generate] 📤 Payload:", {
-      companyName,
-      companyWebsite,
+      salesRepCompany,
+      salesRepWebsite,
       solution,
+      targetCompany,
+      targetWebsite,
+      templateId,
+      model,
     });
 
-    const prompts = TILE_PROMPTS.map((item) => ({
+    const template = getGuestTemplate(templateId);
+    const normalizedContext = normalizeContext({
+      salesRepCompany,
+      salesRepWebsite,
+      solution,
+      targetCompany,
+      targetWebsite,
+    });
+
+    const prompts = template.tiles.map((item) => ({
       ...item,
-      prompt: interpolate(item.template, companyName, solution),
+      prompt: processPromptVariables(item.prompt, normalizedContext),
     }));
 
     const tiles: Tile[] = new Array(prompts.length);
@@ -239,7 +257,8 @@ export async function POST(request: Request) {
               openai,
               item.prompt,
               item.title,
-              orderIndex
+              orderIndex,
+              model
             );
           } catch (error) {
             console.error("[api/generate] ⚠️ Falha ao gerar tile", {
@@ -251,7 +270,7 @@ export async function POST(request: Request) {
               id: `tile_fallback_${orderIndex}_${Date.now().toString(36)}`,
               title: `${item.title} (fallback)`,
               content:
-                "⚠️ Não foi possível gerar este insight agora. Tente novamente.",
+                "⚠️ This insight could not be generated right now. Try refreshing this tile in a few moments.",
               orderIndex,
               createdAt: new Date().toISOString(),
             } satisfies Tile;
@@ -274,7 +293,10 @@ export async function POST(request: Request) {
     const normalizedTiles: Tile[] = tiles.map((tile, index) => ({
       id: tile.id ?? `tile_${index}_${Date.now().toString(36)}`,
       title: tile.title ?? `Insight ${index + 1}`,
-      content: clampTiles(tile.content ?? "Sem conteúdo gerado"),
+      content: clampTiles(
+        tile.content ??
+          "⚠️ This insight could not be generated right now. Try refreshing this tile in a few moments."
+      ),
       orderIndex: tile.orderIndex ?? index,
       createdAt: tile.createdAt ?? now,
     }));
@@ -285,8 +307,8 @@ export async function POST(request: Request) {
       tilesToGenerate: normalizedTiles.length,
       company: {
         id: `company_${randomUUID()}`,
-        name: companyName,
-        website: companyWebsite,
+        name: targetCompany,
+        website: targetWebsite,
         tiles: normalizedTiles,
         notes: [],
         contacts: [],
@@ -305,9 +327,9 @@ export async function POST(request: Request) {
       tilesGenerated: normalizedTiles.length,
     });
   } catch (error) {
-    console.error("[api/generate] ❌ Erro inesperado", error);
+    console.error("[api/generate] ❌ Unexpected error", error);
     return NextResponse.json(
-      { error: "Erro inesperado ao gerar insights" },
+      { error: "Unexpected error while generating insights" },
       { status: 500 }
     );
   }
