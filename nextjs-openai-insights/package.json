@@ -9,8 +9,6 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@netlify/blobs": "^10.3.3",
-    "@netlify/functions": "^5.1.0",
     "@fontsource-variable/geologica": "^5.2.6",
     "@fontsource-variable/inter": "^5.2.8",
     "@fontsource-variable/podkova": "^5.2.8",

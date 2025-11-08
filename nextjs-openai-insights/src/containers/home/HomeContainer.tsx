@@ -7,8 +7,6 @@ import { useToast } from "@/lib/state/toast-context";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { LandingFooter } from "@/components/landing/LandingFooter";
 import { ClassicHeroForm } from "@/components/landing/ClassicHeroForm";
-import { getGenerateServiceUrl } from "@/lib/env";
-
 import "@/components/landing/landing.css";
 
 export function HomeContainer() {
@@ -31,7 +29,7 @@ export function HomeContainer() {
 
     setIsSubmitting(true);
     try {
-      const targetUrl = getGenerateServiceUrl();
+      const targetUrl = "/api/generate";
       console.log("[HomeContainer] 🔗 Target URL:", targetUrl);
       console.log("[HomeContainer] 📤 Payload:", {
         company,

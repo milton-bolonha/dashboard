@@ -8,7 +8,7 @@ export function HomeHero() {
         Gere análises instantâneas para qualquer empresa em segundos.
       </h1>
       <p className="mx-auto max-w-2xl text-pretty text-base leading-relaxed text-slate-300 md:text-lg">
-        Defina a empresa-alvo, cole o site e escolha a proposta de valor. Nós cuidamos das perguntas inteligentes e salvamos tudo em cookies — perfeito para MVPs rápidos no Netlify.
+        Defina a empresa-alvo, cole o site e escolha a proposta de valor. Nós cuidamos das perguntas inteligentes e salvamos tudo em cookies — perfeito para MVPs instantâneos na Vercel.
       </p>
     </header>
   );

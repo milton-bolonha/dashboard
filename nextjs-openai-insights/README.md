@@ -2,7 +2,7 @@
 
 # nextjs-openai-insights
 
-MVP inspirado no `dashboard`, mas 100% cookie-based e pronto para Netlify. Gere tiles de insight com GPT‑5, organize notas/contatos e valide hipóteses sem depender de MongoDB ou Clerk.
+MVP inspirado no `dashboard`, mas 100% cookie-based e otimizado para Vercel. Gere tiles de insight com GPT‑5, organize notas/contatos e valide hipóteses sem depender de MongoDB ou Clerk.
 
 </div>
 
@@ -21,8 +21,6 @@ MVP inspirado no `dashboard`, mas 100% cookie-based e pronto para Netlify. Gere 
 
 ```
 nextjs-openai-insights/
-├─ netlify/functions/ai-generate.ts   # Função com prompts + rate limiting
-├─ netlify.toml                       # Config de build/dev e bundler
 ├─ src/
 │  ├─ app/                            # App Router (home, admin, APIs)
 │  ├─ components/                     # UI compartilhada (header, tiles, etc.)
@@ -33,7 +31,7 @@ nextjs-openai-insights/
 
 ## 🚀 Rodando localmente
 
-> Pré-requisitos: Node 18+, Netlify CLI (`npm install -g netlify-cli`), `OPENAI_API_KEY`.
+> Pré-requisitos: Node 18+, `OPENAI_API_KEY`.
 
 1. Instale dependências na raiz do monorepo
    ```bash
@@ -43,20 +41,15 @@ nextjs-openai-insights/
 2. Crie `.env.local` no app (defina `OPENAI_API_KEY`)
    ```bash
    cd nextjs-openai-insights
-   cp .env.example .env.local # ou crie manualmente
+   cp env.template.txt .env.local # ou crie manualmente
    ```
 
-3. Suba com o Netlify Dev (proxy de funções + Next):
+3. Rode o Next.js em modo desenvolvimento:
    ```bash
-   netlify dev
+   npm run dev
    ```
 
-   - App → http://localhost:8888
-   - Funções → /.netlify/functions/ai-generate
-
-4. Abra a home, preencha o formulário e confira os tiles em `/admin`.
-
-> Se optar por `npm run dev`, defina `NEXT_PUBLIC_FUNCTIONS_BASE_URL=http://localhost:8888` para apontar a função.
+4. Abra `http://localhost:3000`, preencha o formulário e confira os tiles em `/admin`.
 
 ## 🔌 Variáveis de ambiente
 
@@ -66,28 +59,22 @@ nextjs-openai-insights/
 | `OPENAI_MODEL` | `gpt-5-mini` | Modelo usado na geração dos tiles. |
 | `OPENAI_MAX_OUTPUT_TOKENS` | `600` | Limite de tokens por tile. |
 | `OPENAI_TEMPERATURE` | `0.7` | Temperatura padrão das respostas. |
-| `FUNCTION_RATE_LIMIT` | `30` | Limite de requests por IP em 60s. |
-| `NEXT_PUBLIC_GENERATE_ENDPOINT` | — | Endpoint completo (tem prioridade máxima). |
-| `NEXT_PUBLIC_GENERATE_BASE_URL` | — | Host base atual (Netlify, Vercel ou custom). |
-| `NEXT_PUBLIC_VERCEL_FUNCTIONS_BASE_URL` | — | Domínio do deploy na Vercel (ex.: `https://dashmasterpro.vercel.app`). |
-| `NEXT_PUBLIC_FUNCTIONS_BASE_URL` | — | Domínio do deploy na Netlify (ex.: `https://aisalesnow.netlify.app`). |
-| `NEXT_PUBLIC_APP_URL` | — | Fallback genérico para o host do app. |
+| `NEXT_PUBLIC_APP_URL` | — | Opcional: define host público (para links/perfis). |
 
 ## 🧠 Fluxo principal
 
-1. **HomeContainer** envia payload para o endpoint resolvido em tempo de build (`/api/generate` na Vercel ou `/.netlify/functions/ai-generate` na Netlify).
-2. **Route `/api/generate`** valida a requisição e, quando estamos na Netlify, delega para a função serverless `ai-generate`; em outros hosts pode responder diretamente.
+1. **HomeContainer** chama o endpoint interno `/api/generate`.
+2. **Route `/api/generate`** valida a requisição, dispara as chamadas OpenAI em série (com fallback) e grava o snapshot em cookies.
 3. **AdminContainer** usa SWR em `/api/workspace` para carregar snapshot.
 4. **Notas/Contatos/Tiles** usam rotas REST (`/api/workspace/*`) com helper `updateWorkspace()`.
 
-## 🛡️ Rate limiting & cache
+## 🛡️ Cache & consistência
 
-- Rate limiting aplicado diretamente na função Netlify (`rateLimit.windowLimit`).
 - Rotas Next retornam `Cache-Control: no-store` para manter estado consistente.
 
 ## 📌 Roadmap sugerido
 
-- Migrar armazenamento para Netlify Blobs quando exceder 4 KB por cookie.
+- Migrar armazenamento para um backend durável quando exceder 4 KB por cookie.
 - Adicionar reorder/export de tiles e histórico de execuções.
 - Integrar autenticação (Clerk) quando sair do MVP público.
 - Extrair componentes globais para `packages/` compartilhado no monorepo.
