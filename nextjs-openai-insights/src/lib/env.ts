@@ -23,7 +23,7 @@ function isVercelEnvironment(): boolean {
 
 function debugLog(label: string, value: unknown): void {
   if (
-    process.env.DEBUG_GENERATE_URLS === "true" ||
+    process.env.DEBUG_GENERATE_URLS !== "false" ||
     process.env.NODE_ENV !== "production"
   ) {
     try {
