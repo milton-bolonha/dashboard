@@ -119,7 +119,7 @@ export function getNetlifyFunctionUrl(functionName: string): string {
       return `${configuredBase}/.netlify/functions/${functionName}`;
     }
     if (hostKind === "vercel") {
-      return `/api/${functionName}`;
+      return `${configuredBase}/api/${functionName}`;
     }
     return `${configuredBase}/api/${functionName}`;
   }
@@ -130,7 +130,33 @@ export function getNetlifyFunctionUrl(functionName: string): string {
   }
 
   if (isVercelEnvironment()) {
-    debugLog("Netlify function environment", "vercel");
+    const vercelCandidates = [
+      process.env.NEXT_PUBLIC_GENERATE_BASE_URL,
+      process.env.NEXT_PUBLIC_APP_URL,
+      process.env.NEXT_PUBLIC_VERCEL_FUNCTIONS_BASE_URL,
+      process.env.NEXT_PUBLIC_VERCEL_URL
+        ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+        : undefined,
+      process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined,
+    ];
+
+    for (const candidate of vercelCandidates) {
+      if (candidate && candidate.trim().length > 0) {
+        const cleaned = cleanUrl(candidate.trim());
+        debugLog("Netlify function environment", {
+          host: "vercel",
+          functionName,
+          resolved: cleaned,
+        });
+        return `${cleaned}/api/${functionName}`;
+      }
+    }
+
+    debugLog("Netlify function environment", {
+      host: "vercel",
+      notice: "no base URL found, using relative fallback",
+      functionName,
+    });
     return `/api/${functionName}`;
   }
 

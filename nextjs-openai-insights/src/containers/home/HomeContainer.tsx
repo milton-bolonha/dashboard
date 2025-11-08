@@ -32,6 +32,12 @@ export function HomeContainer() {
     setIsSubmitting(true);
     try {
       const targetUrl = getGenerateServiceUrl();
+      console.log("[HomeContainer] 🔗 Target URL:", targetUrl);
+      console.log("[HomeContainer] 📤 Payload:", {
+        company,
+        companyWebsite,
+        solution,
+      });
       const response = await fetch(targetUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -43,6 +49,10 @@ export function HomeContainer() {
       });
 
       if (!response.ok) {
+        console.error("[HomeContainer] ❌ Response not OK:", {
+          status: response.status,
+          statusText: response.statusText,
+        });
         const data = await response.json().catch(() => ({}));
         throw new Error(data.error ?? "Falha ao gerar insights");
       }

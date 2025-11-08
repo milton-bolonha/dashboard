@@ -79,7 +79,20 @@ function interpolate(template: string, company: string, solution: string) {
     .replace(/{solution}/gi, solution);
 }
 
-async function generateTile(prompt: string, title: string, orderIndex: number, context: Context) {
+async function generateTile(
+  prompt: string,
+  title: string,
+  orderIndex: number,
+  context: Context
+) {
+  context.log("🧠 Chamando OpenAI para tile", {
+    orderIndex,
+    title,
+    promptPreview: prompt.substring(0, 120),
+    model: MODEL,
+    maxTokens: MAX_TOKENS,
+    temperature: TEMPERATURE,
+  });
   const completion = await openai.responses.create({
     model: MODEL,
     input: prompt,
@@ -89,7 +102,11 @@ async function generateTile(prompt: string, title: string, orderIndex: number, c
 
   const content = completion.output_text?.trim() || "Sem resposta gerada";
 
-  context.log(`✅ Tile ${orderIndex + 1} gerado (${title})`);
+  context.log("✅ Tile gerado", {
+    orderIndex,
+    title,
+    contentPreview: content.substring(0, 160),
+  });
 
   return {
     id: `tile_${orderIndex}_${Date.now().toString(36)}`,
@@ -102,17 +119,38 @@ async function generateTile(prompt: string, title: string, orderIndex: number, c
 
 export default async function handler(request: Request, context: Context) {
   if (request.method !== "POST") {
+    context.log("⚠️ Método não permitido", request.method);
     return new Response("Method not allowed", { status: 405 });
   }
 
   try {
+    context.log("🛠️ Configuração da função", {
+      model: MODEL,
+      maxTokens: MAX_TOKENS,
+      temperature: TEMPERATURE,
+      rateLimit: config.rateLimit,
+    });
+
     const body = (await request.json()) as GenerateRequestBody;
     const companyName = body.companyName?.trim();
     const companyWebsite = body.companyWebsite?.trim();
     const solution = body.solution?.trim() || "Mentorship Career Program";
 
+    context.log("📥 Corpo da requisição recebido", {
+      companyName,
+      companyWebsite,
+      solution,
+    });
+
     if (!companyName || !companyWebsite) {
-      return Response.json({ error: "companyName e companyWebsite são obrigatórios" }, { status: 400 });
+      context.log("❌ Dados obrigatórios faltando", {
+        companyName,
+        companyWebsite,
+      });
+      return Response.json(
+        { error: "companyName e companyWebsite são obrigatórios" },
+        { status: 400 }
+      );
     }
 
     context.log("🚀 Gerando tiles para", companyName, companyWebsite);
@@ -126,24 +164,46 @@ export default async function handler(request: Request, context: Context) {
 
     for (const [index, item] of prompts.entries()) {
       try {
-        const tile = await generateTile(item.prompt, item.title, index, context);
+        context.log("🧩 Iniciando geração do tile", {
+          orderIndex: index,
+          title: item.title,
+        });
+        const tile = await generateTile(
+          item.prompt,
+          item.title,
+          index,
+          context
+        );
         tiles.push(tile);
       } catch (error) {
-        context.log("⚠️ Falha ao gerar tile", index, error);
+        context.log("⚠️ Falha ao gerar tile", {
+          orderIndex: index,
+          title: item.title,
+          error,
+        });
         tiles.push({
           id: `tile_fallback_${index}_${Date.now().toString(36)}`,
-          title: `${item.title} (fallback)` ,
-          content: "⚠️ Não foi possível gerar este insight agora. Tente novamente.",
+          title: `${item.title} (fallback)`,
+          content:
+            "⚠️ Não foi possível gerar este insight agora. Tente novamente.",
           orderIndex: index,
           createdAt: new Date().toISOString(),
         });
       }
     }
 
+    context.log("✅ Tiles gerados/com fallback", {
+      total: tiles.length,
+      fallbackCount: tiles.filter((tile) => tile.title.endsWith("(fallback)"))
+        .length,
+    });
+
     return Response.json({ tiles });
   } catch (error) {
     context.log("❌ Erro inesperado", error);
-    return Response.json({ error: "Erro interno ao gerar tiles" }, { status: 500 });
+    return Response.json(
+      { error: "Erro interno ao gerar tiles" },
+      { status: 500 }
+    );
   }
 }
-

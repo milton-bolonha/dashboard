@@ -27,6 +27,12 @@ export async function POST(request: Request) {
 
   try {
     const functionUrl = getNetlifyFunctionUrl("ai-generate");
+    console.log("[api/generate] ➡️ Invoking function URL:", functionUrl);
+    console.log("[api/generate] 📤 Payload:", {
+      companyName,
+      companyWebsite,
+      solution,
+    });
     const response = await fetch(functionUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -34,6 +40,12 @@ export async function POST(request: Request) {
     });
 
     if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
+      console.error("[api/generate] ❌ Upstream error", {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText,
+      });
       const info = await response.json().catch(() => ({}));
       return NextResponse.json(
         { error: info.error ?? "Falha ao gerar insights" },
@@ -42,6 +54,7 @@ export async function POST(request: Request) {
     }
 
     const data = (await response.json()) as { tiles: Tile[] };
+    console.log("[api/generate] ✅ Tiles recebidos:", data.tiles?.length ?? 0);
 
     const now = new Date().toISOString();
     const normalizedTiles: Tile[] = (data.tiles || []).map((tile, index) => ({
@@ -67,6 +80,11 @@ export async function POST(request: Request) {
     };
 
     await writeWorkspace(workspace);
+
+    console.log("[api/generate] 💾 Workspace gravado em cookie", {
+      tilesGenerated: normalizedTiles.length,
+      generatedAt: workspace.generatedAt,
+    });
 
     return NextResponse.json({
       success: true,
