@@ -5,12 +5,15 @@ import { useState, useTransition } from "react";
 import type { Contact } from "@/lib/types";
 import { useToast } from "@/lib/state/toast-context";
 
-interface ContactsPanelProps {
+interface ContactsPanelDashProps {
   contacts: Contact[];
   onContactsChanged: () => Promise<void>;
 }
 
-export function ContactsPanel({ contacts, onContactsChanged }: ContactsPanelProps) {
+export function ContactsPanelDash({
+  contacts,
+  onContactsChanged,
+}: ContactsPanelDashProps) {
   const { push } = useToast();
   const [name, setName] = useState("");
   const [jobTitle, setJobTitle] = useState("");
@@ -77,11 +80,11 @@ export function ContactsPanel({ contacts, onContactsChanged }: ContactsPanelProp
   };
 
   return (
-    <section className="flex flex-col gap-5 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div>
-        <h3 className="text-lg font-semibold text-slate-900">Contatos mapeados</h3>
-        <p className="text-sm text-slate-500">
-          Salve perfis críticos para os próximos passos do outreach.
+    <section className="flex flex-col gap-5 rounded-xl border border-[#d9d9de] bg-white px-5 py-6 shadow-sm">
+      <div className="space-y-1">
+        <h3 className="text-lg font-semibold text-[#1f2024]">Contatos mapeados</h3>
+        <p className="text-sm text-[#5a5b60]">
+          Registre decisores, campeões e influenciadores. Links ficam acessíveis rapidamente.
         </p>
       </div>
 
@@ -90,24 +93,24 @@ export function ContactsPanel({ contacts, onContactsChanged }: ContactsPanelProp
           value={name}
           onChange={(event) => setName(event.target.value)}
           placeholder="Nome"
-          className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+          className="rounded-lg border border-[#dcdcde] bg-[#fdfdfd] px-4 py-2 text-sm text-[#202123] outline-none transition focus:border-[#b5b5bc]"
         />
         <input
           value={jobTitle}
           onChange={(event) => setJobTitle(event.target.value)}
           placeholder="Cargo"
-          className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+          className="rounded-lg border border-[#dcdcde] bg-[#fdfdfd] px-4 py-2 text-sm text-[#202123] outline-none transition focus:border-[#b5b5bc]"
         />
         <input
           value={linkedin}
           onChange={(event) => setLinkedin(event.target.value)}
           placeholder="URL do LinkedIn"
-          className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+          className="rounded-lg border border-[#dcdcde] bg-[#fdfdfd] px-4 py-2 text-sm text-[#202123] outline-none transition focus:border-[#b5b5bc]"
         />
         <button
           type="submit"
           disabled={isPending}
-          className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-500"
+          className="inline-flex items-center justify-center rounded-md bg-[#202123] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#34343a] disabled:cursor-not-allowed disabled:bg-[#4d4e53]"
         >
           {isPending ? "Salvando..." : "Adicionar contato"}
         </button>
@@ -115,29 +118,29 @@ export function ContactsPanel({ contacts, onContactsChanged }: ContactsPanelProp
 
       <div className="space-y-3">
         {contacts.length === 0 ? (
-          <p className="text-sm text-slate-500">
-            Nenhum contato salvo ainda. Comece adicionando decisores ou campeões internos.
+          <p className="text-sm text-[#5a5b60]">
+            Nenhum contato salvo ainda. Comece listando decisores e apoiadores.
           </p>
         ) : (
           contacts.map((contact) => (
             <article
               key={contact.id}
-              className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+              className="rounded-lg border border-[#e3e3e8] bg-[#f9f9fb] p-4"
             >
               <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h4 className="text-sm font-semibold text-slate-900">
+                <div className="space-y-1">
+                  <h4 className="text-sm font-semibold text-[#1f2024]">
                     {contact.name}
                   </h4>
                   {contact.jobTitle ? (
-                    <p className="text-sm text-slate-600">{contact.jobTitle}</p>
+                    <p className="text-sm text-[#3a3a41]">{contact.jobTitle}</p>
                   ) : null}
                   {contact.linkedinUrl ? (
                     <a
                       href={contact.linkedinUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-slate-600 transition hover:text-slate-900"
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-[#202123] transition hover:text-black"
                     >
                       LinkedIn ↗
                     </a>
@@ -146,12 +149,12 @@ export function ContactsPanel({ contacts, onContactsChanged }: ContactsPanelProp
                 <button
                   type="button"
                   onClick={() => handleDelete(contact.id)}
-                  className="rounded-lg border border-transparent px-2 py-1 text-xs text-slate-400 transition hover:border-red-200 hover:text-red-500"
+                  className="rounded-md border border-transparent px-2 py-1 text-xs text-[#a15664] transition hover:border-[#f5ccd6] hover:bg-[#fce8ee] hover:text-[#792b3c]"
                 >
                   Remover
                 </button>
               </div>
-              <p className="mt-3 text-[11px] uppercase tracking-[0.25em] text-slate-400">
+              <p className="mt-3 text-[11px] uppercase tracking-[0.25em] text-[#7a7a82]">
                 Adicionado em {new Date(contact.createdAt).toLocaleDateString("pt-BR")}
               </p>
             </article>

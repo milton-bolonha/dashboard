@@ -5,12 +5,12 @@ import { useState, useTransition } from "react";
 import type { Note } from "@/lib/types";
 import { useToast } from "@/lib/state/toast-context";
 
-interface NotesPanelProps {
+interface NotesPanelDashProps {
   notes: Note[];
   onNotesChanged: () => Promise<void>;
 }
 
-export function NotesPanel({ notes, onNotesChanged }: NotesPanelProps) {
+export function NotesPanelDash({ notes, onNotesChanged }: NotesPanelDashProps) {
   const { push } = useToast();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -75,11 +75,11 @@ export function NotesPanel({ notes, onNotesChanged }: NotesPanelProps) {
   };
 
   return (
-    <section className="flex flex-col gap-5 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div>
-        <h3 className="text-lg font-semibold text-slate-900">Notas rápidas</h3>
-        <p className="text-sm text-slate-500">
-          Capture aprendizados e próximos passos enquanto revisa os tiles.
+    <section className="flex flex-col gap-5 rounded-xl border border-[#d9d9de] bg-white px-5 py-6 shadow-sm">
+      <div className="space-y-1">
+        <h3 className="text-lg font-semibold text-[#1f2024]">Notas rápidas</h3>
+        <p className="text-sm text-[#5a5b60]">
+          Capture insights durante a análise. Tudo fica salvo instantaneamente nos cookies.
         </p>
       </div>
 
@@ -87,20 +87,20 @@ export function NotesPanel({ notes, onNotesChanged }: NotesPanelProps) {
         <input
           value={title}
           onChange={(event) => setTitle(event.target.value)}
-          placeholder="Título (ex: Pitch inicial)"
-          className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+          placeholder="Título"
+          className="rounded-lg border border-[#dcdcde] bg-[#fdfdfd] px-4 py-2 text-sm text-[#202123] outline-none transition focus:border-[#b5b5bc]"
         />
         <textarea
           value={content}
           onChange={(event) => setContent(event.target.value)}
           placeholder="Conteúdo da nota"
           rows={4}
-          className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+          className="rounded-lg border border-[#dcdcde] bg-[#fdfdfd] px-4 py-3 text-sm text-[#202123] outline-none transition focus:border-[#b5b5bc]"
         />
         <button
           type="submit"
           disabled={isPending}
-          className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-500"
+          className="inline-flex items-center justify-center rounded-md bg-[#202123] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#34343a] disabled:cursor-not-allowed disabled:bg-[#4d4e53]"
         >
           {isPending ? "Salvando..." : "Adicionar nota"}
         </button>
@@ -108,33 +108,33 @@ export function NotesPanel({ notes, onNotesChanged }: NotesPanelProps) {
 
       <div className="space-y-3">
         {notes.length === 0 ? (
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-[#5a5b60]">
             Nenhuma nota registrada. Comece adicionando os principais highlights.
           </p>
         ) : (
           notes.map((note) => (
             <article
               key={note.id}
-              className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+              className="rounded-lg border border-[#e3e3e8] bg-[#f9f9fb] p-4"
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h4 className="text-sm font-semibold text-slate-900">
+                  <h4 className="text-sm font-semibold text-[#1f2024]">
                     {note.title || "Sem título"}
                   </h4>
-                  <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-slate-600">
+                  <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-[#3a3a41]">
                     {note.content}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => handleDelete(note.id)}
-                  className="rounded-lg border border-transparent px-2 py-1 text-xs text-slate-400 transition hover:border-red-200 hover:text-red-500"
+                  className="rounded-md border border-transparent px-2 py-1 text-xs text-[#a15664] transition hover:border-[#f5ccd6] hover:bg-[#fce8ee] hover:text-[#792b3c]"
                 >
                   Excluir
                 </button>
               </div>
-              <p className="mt-3 text-[11px] uppercase tracking-[0.25em] text-slate-400">
+              <p className="mt-3 text-[11px] uppercase tracking-[0.25em] text-[#7a7a82]">
                 Atualizada em {new Date(note.updatedAt).toLocaleDateString("pt-BR")}
               </p>
             </article>

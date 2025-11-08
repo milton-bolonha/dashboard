@@ -11,7 +11,7 @@ MVP inspirado no `dashboard`, mas 100% cookie-based e otimizado para Vercel. Ger
 ## 🔭 Visão Geral
 
 - **Home**: formulário minimalista reutilizando a mesma linguagem visual do dashboard.
-- **Admin**: header + sidebar + grid de tiles, com painéis para notas e contatos.
+- **Admin**: três temas disponíveis (Ade Style padrão, Classic e Dash Style) com header + sidebar + grid de tiles, além de painéis para notas e contatos.
 - **Armazenamento**: cookies httpOnly (`insightsWorkspace`) com limite de 1h.
 - **IA**: função serverless `ai-generate` chamando `openai.responses.create` (modelo padrão `gpt-5-mini`).
 - **Notas & Contatos**: CRUD simples via rotas `/api/workspace/*`, tudo persistido no cookie.

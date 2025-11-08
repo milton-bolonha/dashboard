@@ -11,9 +11,9 @@ export function TileGrid({ tiles, onDeleteTile }: TileGridProps) {
   return (
     <section className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
-        <h3 className="text-xl font-semibold text-slate-100">Insights gerados</h3>
-        <p className="text-sm text-slate-400">
-          Cada insight vem direto do GPT-5 mini, já ajustado para caber nos cookies do browser.
+        <h3 className="text-xl font-semibold text-slate-900">Insights gerados</h3>
+        <p className="text-sm text-slate-500">
+          Cada insight vem direto do GPT-5 mini, ajustado para caber nos cookies do browser.
         </p>
       </div>
       <div className="grid gap-6 md:grid-cols-2">

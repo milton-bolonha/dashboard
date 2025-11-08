@@ -1,11 +1,12 @@
 import { Suspense } from "react";
 
 import { AdminContainer } from "@/containers/admin/AdminContainer";
+import { AdminThemeProvider } from "@/lib/state/admin-theme-context";
 
 function AdminFallback() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-200">
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/70 px-6 py-4 text-sm text-slate-400">
+    <div className="flex min-h-screen items-center justify-center bg-[#fcfcf9] text-slate-600">
+      <div className="rounded-3xl border border-slate-200 bg-white px-6 py-4 text-sm shadow-sm">
         Carregando workspace...
       </div>
     </div>
@@ -14,9 +15,11 @@ function AdminFallback() {
 
 export default function AdminPage() {
   return (
-    <Suspense fallback={<AdminFallback />}>
-      <AdminContainer />
-    </Suspense>
+    <AdminThemeProvider>
+      <Suspense fallback={<AdminFallback />}>
+        <AdminContainer />
+      </Suspense>
+    </AdminThemeProvider>
   );
 }
 
