@@ -13,8 +13,14 @@ const requestSchema = z.object({
 });
 
 const MODEL = process.env.OPENAI_MODEL || "gpt-5-mini";
-const MAX_TOKENS = Number(process.env.OPENAI_MAX_OUTPUT_TOKENS ?? 600);
-const TEMPERATURE = Number(process.env.OPENAI_TEMPERATURE ?? 0.7);
+const MAX_TOKENS = (() => {
+  const raw = Number(process.env.OPENAI_MAX_OUTPUT_TOKENS);
+  return Number.isFinite(raw) && raw > 0 ? raw : 600;
+})();
+const TEMPERATURE = (() => {
+  const raw = Number(process.env.OPENAI_TEMPERATURE);
+  return Number.isFinite(raw) ? raw : 0.7;
+})();
 
 const TILE_PROMPTS = [
   {
@@ -65,6 +71,47 @@ function interpolate(template: string, company: string, solution: string) {
     .replace(/{solution}/gi, solution);
 }
 
+type ResponsesResponse = Awaited<ReturnType<OpenAI["responses"]["create"]>>;
+
+function coerceToText(value: unknown): string {
+  if (value === null || typeof value === "undefined") return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    return value.map(coerceToText).filter(Boolean).join("");
+  }
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    if ("output_text" in record) return coerceToText(record.output_text);
+    if ("text" in record) return coerceToText(record.text);
+    if ("content" in record) return coerceToText(record.content);
+    if ("value" in record) return coerceToText(record.value);
+    if ("parts" in record) return coerceToText(record.parts);
+    if ("messages" in record) return coerceToText(record.messages);
+  }
+  return "";
+}
+
+function extractResponseContent(response: ResponsesResponse): string {
+  const fromOutput = coerceToText(response.output_text);
+  if (fromOutput.trim()) {
+    return fromOutput.trim();
+  }
+
+  if (Array.isArray(response.output)) {
+    const aggregated = response.output
+      .map((item) => coerceToText(item))
+      .filter(Boolean)
+      .join("\n")
+      .trim();
+    if (aggregated) return aggregated;
+  }
+
+  return "";
+}
+
 async function generateTile(
   client: OpenAI,
   prompt: string,
@@ -80,14 +127,28 @@ async function generateTile(
     temperature: TEMPERATURE,
   });
 
-  const completion = await client.responses.create({
+  const lowerModel = MODEL.toLowerCase();
+  const shouldSendTemperature =
+    !lowerModel.startsWith("gpt-5") && Number.isFinite(TEMPERATURE);
+
+  const responsePayload: Parameters<typeof client.responses.create>[0] = {
     model: MODEL,
     input: prompt,
     max_output_tokens: MAX_TOKENS,
-    temperature: TEMPERATURE,
-  });
+  };
 
-  const content = completion.output_text?.trim() || "Sem resposta gerada";
+  if (shouldSendTemperature) {
+    responsePayload.temperature = TEMPERATURE;
+  } else if (Number.isFinite(TEMPERATURE)) {
+    console.log(
+      `[api/generate] ℹ️ Ignorando temperature para modelo ${MODEL} (Responses API)`
+    );
+  }
+
+  const completion = await client.responses.create(responsePayload);
+
+  const content =
+    extractResponseContent(completion) || "Sem resposta gerada";
 
   console.log("[api/generate] ✅ Tile gerado", {
     orderIndex,
