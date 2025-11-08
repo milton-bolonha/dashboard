@@ -71,8 +71,6 @@ function interpolate(template: string, company: string, solution: string) {
     .replace(/{solution}/gi, solution);
 }
 
-type ResponsesResponse = Awaited<ReturnType<OpenAI["responses"]["create"]>>;
-
 function coerceToText(value: unknown): string {
   if (value === null || typeof value === "undefined") return "";
   if (typeof value === "string") return value;
@@ -94,15 +92,22 @@ function coerceToText(value: unknown): string {
   return "";
 }
 
-function extractResponseContent(response: ResponsesResponse): string {
-  const fromOutput = coerceToText(response.output_text);
+function extractResponseContent(
+  response: Awaited<ReturnType<OpenAI["responses"]["create"]>>
+): string {
+  const safeResponse = response as {
+    output_text?: unknown;
+    output?: unknown;
+  };
+
+  const fromOutput = coerceToText(safeResponse.output_text);
   if (fromOutput.trim()) {
     return fromOutput.trim();
   }
 
-  if (Array.isArray(response.output)) {
-    const aggregated = response.output
-      .map((item) => coerceToText(item))
+  if (Array.isArray(safeResponse.output)) {
+    const aggregated = safeResponse.output
+      .map((item: unknown) => coerceToText(item))
       .filter(Boolean)
       .join("\n")
       .trim();
@@ -127,28 +132,24 @@ async function generateTile(
     temperature: TEMPERATURE,
   });
 
-  const lowerModel = MODEL.toLowerCase();
+  const normalizedModel = MODEL.trim();
+  const lowerModel = normalizedModel.toLowerCase();
   const shouldSendTemperature =
     !lowerModel.startsWith("gpt-5") && Number.isFinite(TEMPERATURE);
 
-  const responsePayload: Parameters<typeof client.responses.create>[0] = {
-    model: MODEL,
-    input: prompt,
-    max_output_tokens: MAX_TOKENS,
-  };
-
-  if (shouldSendTemperature) {
-    responsePayload.temperature = TEMPERATURE;
-  } else if (Number.isFinite(TEMPERATURE)) {
+  if (!shouldSendTemperature && Number.isFinite(TEMPERATURE)) {
     console.log(
-      `[api/generate] ℹ️ Ignorando temperature para modelo ${MODEL} (Responses API)`
+      `[api/generate] ℹ️ Ignorando temperature para modelo ${normalizedModel} (Responses API)`
     );
   }
 
-  const completion = await client.responses.create(responsePayload);
+  const completion = await client.responses.create({
+    model: normalizedModel,
+    input: prompt,
+    max_output_tokens: MAX_TOKENS,
+  });
 
-  const content =
-    extractResponseContent(completion) || "Sem resposta gerada";
+  const content = extractResponseContent(completion) || "Sem resposta gerada";
 
   console.log("[api/generate] ✅ Tile gerado", {
     orderIndex,
