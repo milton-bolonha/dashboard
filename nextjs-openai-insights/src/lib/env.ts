@@ -86,6 +86,9 @@ export function getGenerateServiceUrl(): string {
     if (hostKind === "netlify") {
       return `${configuredBase}/.netlify/functions/ai-generate`;
     }
+    if (hostKind === "vercel") {
+      return "/api/generate";
+    }
     return `${configuredBase}/api/generate`;
   }
 
@@ -116,7 +119,7 @@ export function getNetlifyFunctionUrl(functionName: string): string {
       return `${configuredBase}/.netlify/functions/${functionName}`;
     }
     if (hostKind === "vercel") {
-      return `${configuredBase}/api/${functionName}`;
+      return `/api/${functionName}`;
     }
     return `${configuredBase}/api/${functionName}`;
   }
