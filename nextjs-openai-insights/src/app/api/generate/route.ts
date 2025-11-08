@@ -117,6 +117,11 @@ function extractResponseContent(
   return "";
 }
 
+const TILE_BATCH_SIZE = Math.max(
+  1,
+  parseInt(process.env.BROWSER_TILE_BATCH_SIZE ?? "2", 10)
+);
+
 async function generateTile(
   client: OpenAI,
   prompt: string,
@@ -149,7 +154,22 @@ async function generateTile(
     max_output_tokens: MAX_TOKENS,
   });
 
-  const content = extractResponseContent(completion) || "Sem resposta gerada";
+  const content = extractResponseContent(completion);
+
+  if (!content) {
+    console.warn("[api/generate] ⚠️ Resposta vazia da OpenAI", {
+      model: normalizedModel,
+      orderIndex,
+      title,
+      hasOutputText: Boolean(
+        (completion as { output_text?: unknown })?.output_text
+      ),
+      hasOutputItems: Array.isArray(
+        (completion as { output?: unknown })?.output
+      ),
+    });
+    throw new Error("Resposta vazia");
+  }
 
   console.log("[api/generate] ✅ Tile gerado", {
     orderIndex,
@@ -205,27 +225,43 @@ export async function POST(request: Request) {
       prompt: interpolate(item.template, companyName, solution),
     }));
 
-    const tiles: Tile[] = [];
+    const tiles: Tile[] = new Array(prompts.length);
 
-    for (const [index, item] of prompts.entries()) {
-      try {
-        const tile = await generateTile(openai, item.prompt, item.title, index);
-        tiles.push(tile);
-      } catch (error) {
-        console.error("[api/generate] ⚠️ Falha ao gerar tile", {
-          orderIndex: index,
-          title: item.title,
-          error,
-        });
-        tiles.push({
-          id: `tile_fallback_${index}_${Date.now().toString(36)}`,
-          title: `${item.title} (fallback)`,
-          content:
-            "⚠️ Não foi possível gerar este insight agora. Tente novamente.",
-          orderIndex: index,
-          createdAt: new Date().toISOString(),
-        });
-      }
+    for (let start = 0; start < prompts.length; start += TILE_BATCH_SIZE) {
+      const end = Math.min(start + TILE_BATCH_SIZE, prompts.length);
+      const batch = prompts.slice(start, end);
+
+      const batchResults = await Promise.all(
+        batch.map(async (item, offset) => {
+          const orderIndex = start + offset;
+          try {
+            return await generateTile(
+              openai,
+              item.prompt,
+              item.title,
+              orderIndex
+            );
+          } catch (error) {
+            console.error("[api/generate] ⚠️ Falha ao gerar tile", {
+              orderIndex,
+              title: item.title,
+              error,
+            });
+            return {
+              id: `tile_fallback_${orderIndex}_${Date.now().toString(36)}`,
+              title: `${item.title} (fallback)`,
+              content:
+                "⚠️ Não foi possível gerar este insight agora. Tente novamente.",
+              orderIndex,
+              createdAt: new Date().toISOString(),
+            } satisfies Tile;
+          }
+        })
+      );
+
+      batchResults.forEach((tile, idx) => {
+        tiles[start + idx] = tile;
+      });
     }
 
     console.log("[api/generate] ✅ Tiles gerados/com fallback", {
