@@ -66,18 +66,28 @@ export function AdminContainer() {
             : `Provide a concise insight for "${tile.title}".`;
         const history =
           tile.history && tile.history.length > 0
-            ? tile.history
+            ? tile.history.map((entry, entryIndex) => ({
+                id: entry.id ?? `history_${tile.id}_${entryIndex}`,
+                role:
+                  entry.role === "assistant" ||
+                  entry.role === "system" ||
+                  entry.role === "user"
+                    ? entry.role
+                    : "assistant",
+                content: entry.content ?? "",
+                createdAt: entry.createdAt ?? updatedAt,
+              }))
             : [
                 {
                   id: `legacy_user_${tile.id}`,
-                  role: "user",
+                  role: "user" as const,
                   content: prompt,
                   createdAt,
                 },
                 {
                   id: `legacy_assistant_${tile.id}`,
-                  role: "assistant",
-                  content: tile.content,
+                  role: "assistant" as const,
+                  content: tile.content ?? "",
                   createdAt,
                 },
               ];
@@ -95,6 +105,7 @@ export function AdminContainer() {
           totalTokens: tile.totalTokens ?? null,
           attempts: tile.attempts ?? 1,
           history,
+          content: tile.content ?? "",
         };
       })
       .sort((a, b) => a.orderIndex - b.orderIndex);

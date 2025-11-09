@@ -1,11 +1,13 @@
-import type { Tile } from "@/lib/types";
-
-type TemplateTile = Tile & {
+interface TemplateTile {
+  id: string;
+  templateTileId?: string;
+  title: string;
   prompt: string;
   category: string;
+  orderIndex: number;
   order: number;
   defaultSize: { w: number; h: number };
-};
+}
 
 interface GuestTemplate {
   id: string;
@@ -35,8 +37,6 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         orderIndex: 0,
         order: 1,
         defaultSize: { w: 4, h: 2 },
-        content: "",
-        createdAt: "",
       },
       {
         id: "revenue_model",
@@ -47,8 +47,6 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         orderIndex: 1,
         order: 2,
         defaultSize: { w: 4, h: 2 },
-        content: "",
-        createdAt: "",
       },
       {
         id: "international_offices",
@@ -59,8 +57,6 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         orderIndex: 2,
         order: 3,
         defaultSize: { w: 4, h: 2 },
-        content: "",
-        createdAt: "",
       },
       {
         id: "business_goals_2025",
@@ -71,8 +67,6 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         orderIndex: 3,
         order: 4,
         defaultSize: { w: 4, h: 2 },
-        content: "",
-        createdAt: "",
       },
       {
         id: "business_challenges",
@@ -83,8 +77,6 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         orderIndex: 4,
         order: 5,
         defaultSize: { w: 4, h: 2 },
-        content: "",
-        createdAt: "",
       },
       {
         id: "solution_need",
@@ -95,8 +87,6 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         orderIndex: 5,
         order: 6,
         defaultSize: { w: 4, h: 2 },
-        content: "",
-        createdAt: "",
       },
       {
         id: "ceo_info",
@@ -107,8 +97,6 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         orderIndex: 6,
         order: 7,
         defaultSize: { w: 4, h: 2 },
-        content: "",
-        createdAt: "",
       },
       {
         id: "sales_email",
@@ -119,8 +107,6 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         orderIndex: 7,
         order: 8,
         defaultSize: { w: 4, h: 2 },
-        content: "",
-        createdAt: "",
       },
     ],
   },
@@ -139,8 +125,6 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         orderIndex: 0,
         order: 1,
         defaultSize: { w: 4, h: 2 },
-        content: "",
-        createdAt: "",
       },
       {
         id: "revenue_model_2",
@@ -151,8 +135,6 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         orderIndex: 1,
         order: 2,
         defaultSize: { w: 4, h: 2 },
-        content: "",
-        createdAt: "",
       },
       {
         id: "biggest_goal_2025",
@@ -163,8 +145,6 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         orderIndex: 2,
         order: 3,
         defaultSize: { w: 4, h: 2 },
-        content: "",
-        createdAt: "",
       },
       {
         id: "industry_challenges",
@@ -175,8 +155,6 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         orderIndex: 3,
         order: 4,
         defaultSize: { w: 4, h: 2 },
-        content: "",
-        createdAt: "",
       },
       {
         id: "solution_need_2",
@@ -187,8 +165,6 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         orderIndex: 4,
         order: 5,
         defaultSize: { w: 4, h: 2 },
-        content: "",
-        createdAt: "",
       },
       {
         id: "top_competitors",
@@ -199,8 +175,6 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         orderIndex: 5,
         order: 6,
         defaultSize: { w: 4, h: 2 },
-        content: "",
-        createdAt: "",
       },
       {
         id: "holding_company",
@@ -211,8 +185,6 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         orderIndex: 6,
         order: 7,
         defaultSize: { w: 4, h: 2 },
-        content: "",
-        createdAt: "",
       },
       {
         id: "ceo_info_2",
@@ -223,8 +195,6 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         orderIndex: 7,
         order: 8,
         defaultSize: { w: 4, h: 2 },
-        content: "",
-        createdAt: "",
       },
       {
         id: "cold_call_scripts",
@@ -235,8 +205,6 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         orderIndex: 8,
         order: 9,
         defaultSize: { w: 4, h: 2 },
-        content: "",
-        createdAt: "",
       },
     ],
   },
@@ -267,9 +235,11 @@ function safeStringValue(
   return String(value);
 }
 
+type TemplateContext = Record<string, Record<string, unknown> | string | undefined>;
+
 export function processPromptVariables(
   prompt: string,
-  context: Record<string, any>,
+  context: TemplateContext,
 ): string {
   let processed = prompt;
 
@@ -278,8 +248,12 @@ export function processPromptVariables(
   processed = processed.replace(
     entityFieldWithDefaultRegex,
     (_match, entityName: string, fieldName: string, defaultValue: string) => {
-      if (context[entityName] && context[entityName][fieldName]) {
-        return safeStringValue(context[entityName][fieldName], defaultValue);
+      const entity = context[entityName];
+      if (entity && typeof entity === "object" && fieldName in entity) {
+        const value = (entity as Record<string, unknown>)[fieldName];
+        if (value) {
+          return safeStringValue(value, defaultValue);
+        }
       }
       return defaultValue;
     },
@@ -289,8 +263,12 @@ export function processPromptVariables(
   processed = processed.replace(
     entityFieldRegex,
     (_match, entityName: string, fieldName: string) => {
-      if (context[entityName] && context[entityName][fieldName]) {
-        return safeStringValue(context[entityName][fieldName]);
+      const entity = context[entityName];
+      if (entity && typeof entity === "object" && fieldName in entity) {
+        const value = (entity as Record<string, unknown>)[fieldName];
+        if (value) {
+          return safeStringValue(value);
+        }
       }
       return "";
     },

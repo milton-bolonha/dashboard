@@ -77,7 +77,6 @@ export function ClassicHeroForm({
   const isUrlValid = (value: string) => {
     if (!value.trim()) return false;
     try {
-      // eslint-disable-next-line no-new
       new URL(value.startsWith("http") ? value : `https://${value}`);
       return true;
     } catch {

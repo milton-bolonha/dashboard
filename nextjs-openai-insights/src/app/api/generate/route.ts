@@ -116,12 +116,6 @@ function delay(ms: number) {
 
 type OpenAICompletion = Awaited<ReturnType<OpenAI["responses"]["create"]>>;
 
-interface GenerationAttemptResult {
-  content: string;
-  usage: Record<string, unknown> | null;
-  raw: OpenAICompletion;
-}
-
 async function runGenerationAttempt(
   client: OpenAI,
   prompt: string,
@@ -399,6 +393,8 @@ export async function POST(request: Request) {
     const prompts = template.tiles.map((item) => ({
       ...item,
       prompt: processPromptVariables(item.prompt, normalizedContext),
+      templateTileId: item.templateTileId ?? item.id,
+      category: item.category,
     }));
 
     const tiles: Tile[] = new Array(prompts.length);

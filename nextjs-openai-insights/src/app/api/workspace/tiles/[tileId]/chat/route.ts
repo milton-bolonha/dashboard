@@ -9,6 +9,10 @@ import {
 } from "@/lib/cookies-store";
 import type { Tile, TileMessage } from "@/lib/types";
 import { DEFAULT_MAX_OUTPUT_TOKENS, resolveModel } from "@/lib/ai/settings";
+import {
+  toResponsesInput,
+  type ConversationTurn,
+} from "@/lib/ai/response-input";
 
 const messageSchema = z.object({
   message: z.string().min(2, "Message is too short"),
@@ -37,11 +41,8 @@ function timelineEntry(
 function buildConversationMessages(
   tile: Tile,
   userMessage: string
-): Array<{ role: "system" | "user" | "assistant"; content: string }> {
-  const messages: Array<{
-    role: "system" | "user" | "assistant";
-    content: string;
-  }> = [
+): ConversationTurn[] {
+  const messages: ConversationTurn[] = [
     {
       role: "system",
       content:
@@ -68,12 +69,12 @@ function buildConversationMessages(
 
 async function runChatAttempt(
   client: OpenAI,
-  input: Array<{ role: string; content: string }>,
+  input: ConversationTurn[],
   model: string
 ) {
   return client.responses.create({
     model,
-    input,
+    input: toResponsesInput(input),
     max_output_tokens: DEFAULT_MAX_OUTPUT_TOKENS,
   });
 }
