@@ -62,7 +62,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "business_goals_2025",
         title: "2025 Business Goals",
         prompt:
-          "List up to three current strategic priorities for {company.name} over the next 12 months. Reference recent product launches, press releases, investor updates, or leadership quotes—cite the source and year (e.g., 2024 Investor Letter). If no goals are public, explain the best inferred focus area.",
+          "List 1-3 key priorities for {company.name} in 2025. Use 10-15 words per goal. Cite a recent source if available. If unknown, state 'Goals not publicly available yet.'",
         category: "strategy",
         orderIndex: 3,
         order: 4,
@@ -72,7 +72,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "business_challenges",
         title: "2025 Business Challenges",
         prompt:
-          "Highlight up to three pressing challenges {company.name} faces this year. Mention market, operational, or competitive pressures and cite recent signals when available. If direct evidence is limited, infer from industry trends and clearly label the assumption.",
+          "List 1-3 challenges for {company.name}. Use 10-20 words per challenge. Cite one recent signal. If unclear, state 'Challenges not publicly available yet.'",
         category: "insights",
         orderIndex: 4,
         order: 5,
@@ -82,7 +82,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "solution_need",
         title: "Solution Need",
         prompt:
-          "Explain in ≤120 words why {company.name} would benefit from {sellingSolutionsFor}. Tie pains or goals to concrete outcomes the solution provides. If specific data is missing, use a closest-fit assumption for companies of similar size and note it.",
+          "Why does {company.name} need {sellingSolutionsFor}? Use 50-80 words. Tie to one goal/challenge. If unclear, state 'Need not verified yet.'",
         category: "sales",
         orderIndex: 5,
         order: 6,
@@ -92,7 +92,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "ceo_info",
         title: "CEO Information",
         prompt:
-          "Provide a concise profile of {company.name}'s CEO: name, tenure, notable prior roles, and one leadership focus. If the CEO is not public, cite the highest-ranking executive available and note the gap.",
+          "{company.name} CEO: name, tenure, one key role, one focus. Use 30-50 words. If unknown, state 'CEO info not public yet.'",
         category: "people",
         orderIndex: 6,
         order: 7,
@@ -102,7 +102,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "sales_email",
         title: "CEO Sales Email",
         prompt:
-          "Write a 100-word email to the CEO of {company.name} pitching {sellingSolutionsFor} from {salesRepAt}. Reference one goal or challenge above, include two bullet-point benefits, and close with a clear call to discuss next steps.",
+          "Email to {company.name} CEO: pitch {sellingSolutionsFor} from {salesRepAt}. Mention one goal, two benefits. 60-80 words total. Call to action.",
         category: "sales",
         orderIndex: 7,
         order: 8,
@@ -140,7 +140,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "biggest_goal_2025",
         title: "Biggest 2025 Goal",
         prompt:
-          "State {company.name}'s single most visible strategic goal for the coming year. Reference the latest credible source (press release, leadership quote, investor deck) and describe the goal in ≤75 words. If no explicit goal exists, provide the best inferred priority and label it as such.",
+          "{company.name}'s top goal for 2025. Cite source. 20-40 words. If unknown, state 'Goal not public yet.'",
         category: "strategy",
         orderIndex: 2,
         order: 3,
@@ -150,7 +150,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "industry_challenges",
         title: "Industry Challenges",
         prompt:
-          "Identify up to three challenges impacting {company.name}'s industry this year. Mention market, regulatory, or competitive pressures and cite the latest supporting signal. If specific intel is missing, note the assumption and why it matters.",
+          "3 industry challenges for {company.name}. 10-20 words each. Cite one signal. If unclear, state 'Challenges not specified.'",
         category: "insights",
         orderIndex: 3,
         order: 4,
@@ -160,7 +160,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "solution_need_2",
         title: "Solution Need",
         prompt:
-          "Explain in ≤120 words why {company.name} may need {sellingSolutionsFor}. Link pains or objectives to two concrete benefits and cite any supporting signals. If data is thin, ground the answer in similar companies' needs and note the assumption.",
+          "Why {company.name} needs {sellingSolutionsFor}? 40-60 words. Two benefits. If unclear, state 'Need not verified.'",
         category: "sales",
         orderIndex: 4,
         order: 5,
@@ -170,7 +170,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "top_competitors",
         title: "Top Competitors",
         prompt:
-          "List up to five of {company.name}'s closest competitors with one-line explanations of how each competes. If direct competitors are unclear, cite the nearest category alternatives and note the rationale.",
+          "List 3-5 competitors of {company.name}. One short reason each. If unknown, state 'Competitors not public.'",
         category: "market",
         orderIndex: 5,
         order: 6,
@@ -180,7 +180,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "holding_company",
         title: "Ownership/Funding",
         prompt:
-          "Does {company.name} report a holding company or controlling investors? Summarize ownership structure, major investors, and latest funding status. If not disclosed, note the company as independent and reference the most recent funding signal.",
+          "{company.name} ownership: holding company? Key investors? 30-50 words. If private, state 'Ownership not public.'",
         category: "financial",
         orderIndex: 6,
         order: 7,
@@ -190,7 +190,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "ceo_info_2",
         title: "CEO Information",
         prompt:
-          "Provide a concise profile of {company.name}'s CEO: name, tenure, notable achievements, and one leadership priority. If the CEO is undisclosed, highlight the most senior public executive and clarify the gap.",
+          "{company.name} CEO: name, tenure, one achievement, one priority. 30-50 words. If unknown, state 'CEO info not public.'",
         category: "people",
         orderIndex: 7,
         order: 8,
@@ -200,7 +200,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "cold_call_scripts",
         title: "Cold Call Scripts",
         prompt:
-          "Based on the insights above, draft two 2-sentence cold-call openers pitching {sellingSolutionsFor} to {company.name}'s CEO. Reference a specific goal or challenge in each opener and end with an open question.",
+          "Two cold-call openers for {company.name} CEO about {sellingSolutionsFor}. Each 2 sentences. Reference one insight. End with question.",
         category: "sales",
         orderIndex: 8,
         order: 9,

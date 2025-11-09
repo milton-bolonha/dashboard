@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 interface ClassicHeroFormProps {
   isSubmitting: boolean;
@@ -433,6 +433,22 @@ function PrimaryCTA({
 }
 
 function GenerationModal() {
+  const [tileCount, setTileCount] = useState(0);
+  const totalTiles = 8; // Fixed for now, could be dynamic
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTileCount((prev) => {
+        if (prev < totalTiles - 1) {
+          return prev + 1;
+        }
+        return prev;
+      });
+    }, 2000); // Simulate progress every 2 seconds
+
+    return () => clearInterval(interval);
+  }, [totalTiles]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0b1020]/85 p-6 backdrop-blur-sm">
       <div className="relative max-w-md rounded-3xl border border-white/10 bg-white/95 px-10 py-8 text-center shadow-2xl">
@@ -451,8 +467,14 @@ function GenerationModal() {
 
         <div className="mt-6 space-y-3 text-left text-sm text-slate-600">
           <StatusRow status="active" label="Sending company context" />
-          <StatusRow status="pending" label="Generating AI tiles" />
-          <StatusRow status="pending" label="Preparing your dashboard" />
+          <StatusRow
+            status={tileCount > 0 ? "active" : "pending"}
+            label={`Generating AI tiles (${tileCount}/${totalTiles})`}
+          />
+          <StatusRow
+            status={tileCount >= totalTiles ? "active" : "pending"}
+            label="Preparing your dashboard"
+          />
         </div>
 
         <div className="mt-8 flex items-center justify-center space-x-3 text-xs uppercase tracking-[0.3em] text-slate-400">

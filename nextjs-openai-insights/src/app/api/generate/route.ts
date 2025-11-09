@@ -28,6 +28,28 @@ const requestSchema = z.object({
 const MAX_TOKENS = DEFAULT_MAX_OUTPUT_TOKENS;
 const TEMPERATURE = DEFAULT_TEMPERATURE;
 
+// Reduce tokens for tiles that often hit limits
+function getMaxTokensForTile(templateTileId: string | undefined): number {
+  const problemTiles = [
+    "business_goals_2025",
+    "biggest_goal_2025",
+    "business_challenges",
+    "industry_challenges",
+    "solution_need",
+    "solution_need_2",
+    "ceo_info",
+    "ceo_info_2",
+    "sales_email",
+    "cold_call_scripts",
+  ];
+
+  if (templateTileId && problemTiles.includes(templateTileId)) {
+    return 400; // Reduced from 600 to avoid incomplete responses
+  }
+
+  return MAX_TOKENS;
+}
+
 function normalizeContext(raw: {
   salesRepCompany: string;
   salesRepWebsite: string;
@@ -114,21 +136,20 @@ function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-type OpenAICompletion = Awaited<ReturnType<OpenAI["responses"]["create"]>>;
-
 async function runGenerationAttempt(
   client: OpenAI,
   prompt: string,
   title: string,
   orderIndex: number,
-  model: string
+  model: string,
+  maxTokens?: number
 ) {
   console.log("[api/generate] 🧠 Calling OpenAI for tile", {
     orderIndex,
     title,
     promptPreview: prompt.substring(0, 120),
     model,
-    maxTokens: MAX_TOKENS,
+    maxTokens: maxTokens || MAX_TOKENS,
     temperature: TEMPERATURE,
   });
 
@@ -146,7 +167,7 @@ async function runGenerationAttempt(
   const completion = await client.responses.create({
     model: normalizedModel,
     input: prompt,
-    max_output_tokens: MAX_TOKENS,
+    max_output_tokens: maxTokens || MAX_TOKENS,
   });
 
   const content = extractResponseContent(completion);
@@ -223,6 +244,7 @@ async function generateTileWithRetry({
   templateId,
   templateTileId,
   category,
+  maxTokens,
 }: {
   client: OpenAI;
   prompt: string;
@@ -232,6 +254,7 @@ async function generateTileWithRetry({
   templateId: string;
   templateTileId?: string;
   category?: string;
+  maxTokens?: number;
 }): Promise<Tile> {
   let attempt = 0;
   let lastError: unknown = null;
@@ -244,9 +267,31 @@ async function generateTileWithRetry({
         prompt,
         title,
         orderIndex,
-        model
+        model,
+        maxTokens
       );
-      const content = attemptResult.content?.trim();
+      let content = attemptResult.content?.trim();
+
+      // Accept partial output if response is incomplete but has content
+      if (
+        !content &&
+        attemptResult.raw?.status === "incomplete" &&
+        attemptResult.raw?.output_text
+      ) {
+        content = attemptResult.raw.output_text.trim();
+        if (content) {
+          console.warn(
+            "[api/generate] ⚠️ Partial response accepted for incomplete output",
+            {
+              orderIndex,
+              title,
+              model,
+              attempt,
+              contentPreview: content.substring(0, 100),
+            }
+          );
+        }
+      }
 
       if (!content) {
         console.warn("[api/generate] ⚠️ Empty response from OpenAI", {
@@ -406,6 +451,7 @@ export async function POST(request: Request) {
       const batchResults = await Promise.all(
         batch.map(async (item, offset) => {
           const orderIndex = start + offset;
+          const maxTokens = getMaxTokensForTile(item.id);
           return generateTileWithRetry({
             client: openai,
             prompt: item.prompt,
@@ -415,6 +461,7 @@ export async function POST(request: Request) {
             templateId,
             templateTileId: item.id,
             category: item.category,
+            maxTokens,
           });
         })
       );

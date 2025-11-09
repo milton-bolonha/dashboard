@@ -136,8 +136,19 @@ export async function readWorkspace(): Promise<WorkspaceSnapshot> {
 export async function writeWorkspace(newWorkspace: WorkspaceSnapshot): Promise<void> {
   const { store } = await ensureState();
   const { meta, data } = workspaceToCookies(newWorkspace);
-  store.set(META_COOKIE, JSON.stringify(meta), COOKIE_DEFAULT_OPTIONS);
-  store.set(DATA_COOKIE, JSON.stringify(data), COOKIE_DEFAULT_OPTIONS);
+
+  const metaStr = JSON.stringify(meta);
+  const dataStr = JSON.stringify(data);
+
+  console.log("[cookies-store] 💾 Saving workspace cookies", {
+    metaSize: `${(metaStr.length / 1024).toFixed(2)} KB`,
+    dataSize: `${(dataStr.length / 1024).toFixed(2)} KB`,
+    totalSize: `${((metaStr.length + dataStr.length) / 1024).toFixed(2)} KB`,
+    tileCount: newWorkspace.company?.tiles?.length || 0,
+  });
+
+  store.set(META_COOKIE, metaStr, COOKIE_DEFAULT_OPTIONS);
+  store.set(DATA_COOKIE, dataStr, COOKIE_DEFAULT_OPTIONS);
 }
 
 export async function updateWorkspace(

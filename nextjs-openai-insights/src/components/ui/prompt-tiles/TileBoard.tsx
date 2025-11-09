@@ -89,7 +89,7 @@ function formatTimestamp(value: string) {
       dateStyle: "medium",
       timeStyle: "short",
     }).format(new Date(value));
-  } catch (_error) {
+  } catch {
     return value;
   }
 }
