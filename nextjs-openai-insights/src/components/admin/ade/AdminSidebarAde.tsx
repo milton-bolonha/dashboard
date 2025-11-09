@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Coins, Contact, Menu, Plus, Sparkles, Users2 } from "lucide-react";
 
 interface AdminSidebarAdeProps {
@@ -9,6 +9,8 @@ interface AdminSidebarAdeProps {
   tilesCount: number;
   notesCount: number;
   contactsCount: number;
+  onAddCompany?: () => void;
+  onAddContact?: () => void;
 }
 
 export function AdminSidebarAde({
@@ -17,13 +19,25 @@ export function AdminSidebarAde({
   tilesCount,
   notesCount,
   contactsCount,
+  onAddCompany,
+  onAddContact,
 }: AdminSidebarAdeProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const asideElement = rootRef.current?.closest("aside");
+    if (!asideElement) return;
+    const width = collapsed ? "5rem" : "16rem";
+    asideElement.style.width = width;
+    asideElement.classList.toggle("ade-sidebar-collapsed", collapsed);
+  }, [collapsed]);
 
   return (
     <div
-      className={`flex flex-1 flex-col text-[#6b6b6b] transition-all duration-200 ${
-        collapsed ? "w-20" : ""
+      ref={rootRef}
+      className={`flex h-full flex-col text-[#6b6b6b] transition-all duration-200 ${
+        collapsed ? "items-center" : ""
       }`}
     >
       <div
@@ -70,7 +84,12 @@ export function AdminSidebarAde({
                   <Users2 className="h-4 w-4 text-gray-600" />
                   <span className="text-sm text-gray-700">Companies</span>
                 </div>
-                <button className="rounded p-1 transition hover:bg-gray-200">
+                <button
+                  type="button"
+                  onClick={onAddCompany}
+                  className="rounded p-1 transition hover:bg-gray-200"
+                  aria-label="Add company"
+                >
                   <Plus className="h-4 w-4 text-gray-600" />
                 </button>
               </div>
@@ -87,7 +106,12 @@ export function AdminSidebarAde({
                   <Contact className="h-4 w-4 text-gray-600" />
                   <span className="text-sm text-gray-700">Contacts</span>
                 </div>
-                <button className="rounded p-1 transition hover:bg-gray-200">
+                <button
+                  type="button"
+                  onClick={onAddContact}
+                  className="rounded p-1 transition hover:bg-gray-200"
+                  aria-label="Add contact"
+                >
                   <Plus className="h-4 w-4 text-gray-600" />
                 </button>
               </div>

@@ -11,6 +11,7 @@ import {
 import {
   SortableContext,
   arrayMove,
+  rectSortingStrategy,
   verticalListSortingStrategy,
   useSortable,
 } from "@dnd-kit/sortable";
@@ -99,6 +100,25 @@ function truncateContent(content: string) {
   return `${content.slice(0, MAX_CONTENT_PREVIEW)}…`;
 }
 
+function formatRelativeTime(value: string | undefined) {
+  if (!value) return "just now";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "recently";
+  const diff = Date.now() - date.getTime();
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  if (diff < minute) return "just now";
+  if (diff < hour) return `${Math.floor(diff / minute)}m ago`;
+  if (diff < day) return `${Math.floor(diff / hour)}h ago`;
+  const days = Math.floor(diff / day);
+  if (days < 14) return `${days}d ago`;
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+  }).format(date);
+}
+
 function SortableTileCard({
   tile,
   variant,
@@ -111,6 +131,96 @@ function SortableTileCard({
   isDragging,
 }: SortableTileCardProps) {
   const tokens = variantTokens[variant];
+
+  if (variant === "ade") {
+    const preview = truncateContent(tile.content);
+    const fallbackPreview =
+      preview && preview.trim().length > 0
+        ? preview
+        : "This insight has no readable content yet. Open it to regenerate or request more context.";
+    const updatedAtLabel = formatRelativeTime(tile.updatedAt ?? tile.createdAt);
+
+    return (
+      <article
+        ref={setNodeRef}
+        style={{
+          ...style,
+          cursor: isDragging ? "grabbing" : "grab",
+        }}
+        data-testid="tile-card"
+        className={`group relative flex h-[220px] flex-col overflow-hidden rounded-[18px] border border-[#00000014] bg-[#FAFAFA] shadow-[0px_4px_20px_0px_rgba(17,24,39,0.08)] transition-transform duration-200 hover:-translate-y-1 hover:shadow-[0px_10px_30px_0px_rgba(17,24,39,0.15)] ${isDragging ? "opacity-90" : ""}`}
+      >
+        <div className="flex items-start justify-between border-b border-[#00000011] bg-white/80 px-4 py-3 backdrop-blur">
+          <div className="flex flex-1 items-center gap-2 overflow-hidden">
+            {tile.category ? (
+              <span className="inline-flex items-center rounded-full bg-[#FFE9D6] px-2.5 py-1 text-[0.6rem] font-semibold uppercase tracking-[0.28em] text-[#EB6A1F]">
+                {tile.category}
+              </span>
+            ) : null}
+            <h4 className="truncate text-sm font-semibold text-[#191919]">
+              {tile.title}
+            </h4>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-transparent bg-white text-[#EA6C1F] opacity-0 shadow-sm transition hover:border-[#F9C397] hover:bg-[#FFF5EC] focus:opacity-100 group-hover:opacity-100"
+              {...(listeners ?? {})}
+              {...attributes}
+              aria-label="Drag to reorder"
+            >
+              <GripVertical className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onDeleteTile(tile.id)}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-transparent bg-white text-slate-400 transition hover:border-red-200 hover:bg-red-50 hover:text-red-500"
+              aria-label="Remove tile"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => onOpenTile(tile)}
+          className="flex flex-1 flex-col justify-between px-4 py-3 text-left"
+        >
+          <p
+            className="text-[13px] leading-relaxed text-[#2F2F2F]"
+            style={{
+              display: "-webkit-box",
+              WebkitLineClamp: 6,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
+          >
+            {fallbackPreview}
+          </p>
+
+          <footer className="mt-4 flex flex-wrap items-center gap-2 text-[0.62rem] font-semibold uppercase tracking-[0.28em] text-[#6f6f6f]">
+            <span className="rounded-full bg-[#FFE7D6] px-2 py-1 text-[#E76F25]">
+              Model · {tile.model}
+            </span>
+            {typeof tile.totalTokens === "number" ? (
+              <span className="rounded-full bg-[#F5F5F5] px-2 py-1 text-[#4B4B4B]">
+                Tokens {tile.totalTokens}
+              </span>
+            ) : null}
+            <span className="rounded-full bg-[#F5F5F5] px-2 py-1 text-[#4B4B4B]">
+              Updated {updatedAtLabel}
+            </span>
+            {tile.attempts > 1 ? (
+              <span className="rounded-full bg-[#FFF4EB] px-2 py-1 text-[#C2410C]">
+                Retries {tile.attempts - 1}
+              </span>
+            ) : null}
+          </footer>
+        </button>
+      </article>
+    );
+  }
 
   return (
     <article
@@ -203,6 +313,10 @@ export function TileBoard({
   onOpenTile,
   isReordering: externalReordering = false,
 }: TileBoardProps) {
+  const isAdeVariant = variant === "ade";
+  const sortingStrategy = isAdeVariant
+    ? rectSortingStrategy
+    : verticalListSortingStrategy;
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 8 },
@@ -256,20 +370,30 @@ export function TileBoard({
     [commitReorder]
   );
 
+  const containerClassName = isAdeVariant
+    ? "grid gap-5 sm:grid-cols-2 xl:grid-cols-3"
+    : "space-y-5";
+
   return (
     <section className="flex flex-col gap-6">
       <header className="flex flex-col gap-1">
-        <h3 className="text-xl font-semibold text-slate-900">
-          Prompt to Tile cards
+        <h3
+          className={
+            isAdeVariant ? "text-xl font-semibold text-[#1f1f1f]" : "text-xl font-semibold text-slate-900"
+          }
+        >
+          AI Insight Tiles
         </h3>
-        <p className="text-sm text-slate-500">
-          Drag to reorder tiles. Click a card to inspect the prompt, review the
-          AI response, and continue the conversation.
+        <p
+          className={
+            isAdeVariant ? "text-sm text-[#6f6f6f]" : "text-sm text-slate-500"
+          }
+        >
+          Drag to reorder tiles. Click a card to open the full prompt, analyse the
+          AI reply, and continue iterating.
         </p>
         {(isReordering || externalReordering) && (
-          <p className="text-xs text-orange-600">
-            Saving new order…
-          </p>
+          <p className="text-xs text-orange-600">Saving new order…</p>
         )}
       </header>
 
@@ -280,9 +404,9 @@ export function TileBoard({
       >
         <SortableContext
           items={items.map((item) => item.id)}
-          strategy={verticalListSortingStrategy}
+          strategy={sortingStrategy}
         >
-          <div className="space-y-5">
+          <div className={containerClassName}>
             {items.map((tile) => (
               <SortableTile
                 key={tile.id}

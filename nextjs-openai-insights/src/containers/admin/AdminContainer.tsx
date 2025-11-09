@@ -2,27 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import useSWR from "swr";
+import { useRouter } from "next/navigation";
 
 import { useToast } from "@/lib/state/toast-context";
 import type { Contact, Note, Tile, WorkspaceSnapshot } from "@/lib/types";
-import { AdminShellClassic } from "@/components/admin/AdminShellClassic";
-import { AdminHeaderClassic } from "@/components/admin/AdminHeaderClassic";
-import { AdminSidebarClassic } from "@/components/admin/AdminSidebarClassic";
-import { TileGrid } from "@/containers/admin/components/TileGrid";
-import { NotesPanel } from "@/containers/admin/components/NotesPanel";
-import { ContactsPanel } from "@/containers/admin/components/ContactsPanel";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { FilesPlaceholder } from "@/containers/admin/components/FilesPlaceholder";
-import { useAdminTheme } from "@/lib/state/admin-theme-context";
-import { AdminThemeSwitcher } from "@/components/admin/AdminThemeSwitcher";
-import { AdminShellDash } from "@/components/admin/dash/AdminShellDash";
-import { AdminHeaderDash } from "@/components/admin/dash/AdminHeaderDash";
-import { AdminSidebarDash } from "@/components/admin/dash/AdminSidebarDash";
-import { TileGridDash } from "@/containers/admin/dash/TileGridDash";
-import { NotesPanelDash } from "@/containers/admin/dash/NotesPanelDash";
-import { ContactsPanelDash } from "@/containers/admin/dash/ContactsPanelDash";
-import { EmptyStateDash } from "@/components/ui/EmptyStateDash";
-import { FilesPlaceholderDash } from "@/containers/admin/dash/FilesPlaceholderDash";
 import { AdminShellAde } from "@/components/admin/ade/AdminShellAde";
 import { AdminHeaderAde } from "@/components/admin/ade/AdminHeaderAde";
 import { AdminSidebarAde } from "@/components/admin/ade/AdminSidebarAde";
@@ -32,12 +15,15 @@ import { ContactsPanelAde } from "@/containers/admin/ade/ContactsPanelAde";
 import { EmptyStateAde } from "@/components/ui/EmptyStateAde";
 import { FilesPlaceholderAde } from "@/containers/admin/ade/FilesPlaceholderAde";
 import { TileDetailModal } from "@/components/ui/prompt-tiles/TileDetailModal";
+import { AddContactModal } from "@/components/admin/ade/AddContactModal";
+import { AddCompanyModal } from "@/components/admin/ade/AddCompanyModal";
 import { resolveModel } from "@/lib/ai/settings";
 import {
   deleteWorkspace as deleteCachedWorkspace,
   getLastSessionId,
   loadWorkspace as loadCachedWorkspace,
   saveWorkspace as saveCachedWorkspace,
+  rememberSessionId,
 } from "@/lib/storage/workspace-browser";
 
 type WorkspaceResponse = WorkspaceSnapshot;
@@ -73,14 +59,18 @@ export function AdminContainer() {
     }
   );
   const { push } = useToast();
+  const router = useRouter();
   const [isResetting, startReset] = useTransition();
   const [isRefreshing, startRefresh] = useTransition();
-  const { isDash, isAde } = useAdminTheme();
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
   const [isPersistingOrder, setIsPersistingOrder] = useState(false);
   const [isChatting, setIsChatting] = useState(false);
   const [localWorkspace, setLocalWorkspace] = useState<WorkspaceSnapshot | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [isAddContactModalOpen, setAddContactModalOpen] = useState(false);
+  const [isAddCompanyModalOpen, setAddCompanyModalOpen] = useState(false);
+  const [isSavingContact, setIsSavingContact] = useState(false);
+  const [isGeneratingWorkspace, setIsGeneratingWorkspace] = useState(false);
   const workspaceError = error as WorkspaceFetcherError | undefined;
   const cacheWarningShownRef = useRef(false);
 
@@ -310,6 +300,131 @@ export function AdminContainer() {
     }
   };
 
+  const handleCreateContactFromModal = async (payload: {
+    name: string;
+    jobTitle: string;
+    linkedinUrl: string;
+  }) => {
+    if (isSavingContact) return;
+    const trimmedName = payload.name.trim();
+    if (!trimmedName) {
+      push({
+        title: "Add a name first",
+        description: "The contact must have at least a name.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSavingContact(true);
+    try {
+      const response = await fetch("/api/workspace/contacts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: trimmedName,
+          jobTitle: payload.jobTitle.trim() || undefined,
+          linkedinUrl: payload.linkedinUrl.trim() || undefined,
+        }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(
+          (data.error as string) ?? "We couldn't save this contact right now.",
+        );
+      }
+      push({
+        title: "Contact saved",
+        description: "The target contact is now part of this workspace.",
+        variant: "success",
+      });
+      setAddContactModalOpen(false);
+      await mutate();
+      router.refresh();
+    } catch (err) {
+      push({
+        title: "Contact not saved",
+        description:
+          err instanceof Error ? err.message : "Please try again in a few moments.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingContact(false);
+    }
+  };
+
+  const handleGenerateWorkspaceFromModal = async ({
+    company,
+    companyWebsite,
+    solution,
+    researchTarget,
+    researchWebsite,
+  }: {
+    company: string;
+    companyWebsite: string;
+    solution: string;
+    researchTarget: string;
+    researchWebsite: string;
+  }) => {
+    if (isGeneratingWorkspace) return;
+    setIsGeneratingWorkspace(true);
+
+    const payload = {
+      salesRepCompany: company.trim(),
+      salesRepWebsite: companyWebsite.trim(),
+      solution: solution.trim(),
+      targetCompany: researchTarget.trim(),
+      targetWebsite: researchWebsite.trim(),
+    };
+
+    try {
+      push({
+        title: "Generating insights",
+        description: `Starting AI generation for ${payload.targetCompany}.`,
+      });
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ??
+            "We couldn't start the generation for this company. Try again in a few moments.",
+        );
+      }
+
+      if (data?.sessionId) {
+        rememberSessionId(data.sessionId);
+      }
+      if (data?.workspace) {
+        saveCachedWorkspace(data.workspace.sessionId, data.workspace);
+      }
+
+      push({
+        title: "Workspace updated",
+        description: `We're populating insights for ${payload.targetCompany}.`,
+        variant: "success",
+      });
+      setAddCompanyModalOpen(false);
+      await mutate();
+      router.refresh();
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Please try again shortly.";
+      push({
+        title: "Generation failed",
+        description: message,
+        variant: "destructive",
+      });
+      throw new Error(message);
+    } finally {
+      setIsGeneratingWorkspace(false);
+    }
+  };
+
   const handleOpenTile = (tile: Tile) => {
     setSelectedTileId(tile.id);
   };
@@ -383,12 +498,9 @@ export function AdminContainer() {
 
   const workspaceLabel = "Insights Dashboard";
   const companyName = workspace?.company.name ?? "Workspace";
-  const companyWebsite = workspace?.company.website ?? "";
 
-  const headerSwitcher = <AdminThemeSwitcher />;
-
-  if (isAde) {
-    return (
+  return (
+    <>
       <AdminShellAde
         background={null}
         sidebar={
@@ -398,6 +510,8 @@ export function AdminContainer() {
             tilesCount={tiles.length}
             notesCount={notes.length}
             contactsCount={contacts.length}
+            onAddCompany={() => setAddCompanyModalOpen(true)}
+            onAddContact={() => setAddContactModalOpen(true)}
           />
         }
         header={
@@ -409,7 +523,6 @@ export function AdminContainer() {
             onReset={handleResetWorkspace}
             isRefreshing={isRefreshing}
             isResetting={isResetting}
-            actionSlot={headerSwitcher}
           />
         }
       >
@@ -446,175 +559,26 @@ export function AdminContainer() {
             onContactsChanged={async () => {
               await mutate();
             }}
+            onAddContact={() => setAddContactModalOpen(true)}
           />
           <FilesPlaceholderAde />
         </div>
         {tileDetailModal}
       </AdminShellAde>
-    );
-  }
 
-  if (isDash) {
-    return (
-      <AdminShellDash
-        sidebar={
-          <AdminSidebarDash
-            companyName={companyName}
-            tilesCount={tiles.length}
-            notesCount={notes.length}
-            contactsCount={contacts.length}
-          />
-        }
-        header={
-          <AdminHeaderDash
-            companyName={companyName}
-            companyWebsite={companyWebsite}
-            onRefresh={handleRefresh}
-            onReset={handleResetWorkspace}
-            isRefreshing={isRefreshing}
-            isResetting={isResetting}
-            actionSlot={headerSwitcher}
-          />
-        }
-      >
-        {cacheBanner}
-        {isLoading && !workspace ? (
-          <EmptyStateDash
-            title="Loading insights"
-            description="Rehydrating workspace data from the local cache."
-          />
-        ) : tiles.length === 0 ? (
-          <EmptyStateDash
-            title="Generating insights..."
-            description="AI is creating tailored insights for your research target. This may take 1-2 minutes."
-          />
-        ) : (
-          <TileGridDash
-            tiles={tiles}
-            onDeleteTile={handleDeleteTile}
-            onReorderTiles={handleReorderTiles}
-            onOpenTile={handleOpenTile}
-            isReordering={isPersistingOrder}
-          />
-        )}
-
-        <div className="grid gap-6 lg:grid-cols-2">
-          <NotesPanelDash
-            notes={notes}
-            onNotesChanged={async () => {
-              await mutate();
-            }}
-          />
-          <ContactsPanelDash
-            contacts={contacts}
-            onContactsChanged={async () => {
-              await mutate();
-            }}
-          />
-        </div>
-
-        <FilesPlaceholderDash />
-        {tileDetailModal}
-      </AdminShellDash>
-    );
-  }
-
-  // classic
-  return (
-    <AdminShellClassic
-      sidebar={
-        <AdminSidebarClassic
-          companyName={companyName}
-          tilesCount={tiles.length}
-          notesCount={notes.length}
-          contactsCount={contacts.length}
-        />
-      }
-      header={
-        <AdminHeaderClassic
-          workspaceName={workspaceLabel}
-          companyName={companyName}
-          companyWebsite={companyWebsite}
-          onRefresh={handleRefresh}
-          onReset={handleResetWorkspace}
-          isRefreshing={isRefreshing}
-          isResetting={isResetting}
-          actionSlot={headerSwitcher}
-        />
-      }
-    >
-      <div className="space-y-10">
-        {cacheBanner}
-        <div className="grid gap-4 lg:hidden">
-          <MobileMetric label="Insights" value={tiles.length} hint="Tiles generated" />
-          <MobileMetric label="Notes" value={notes.length} hint="Saved notes" />
-          <MobileMetric
-            label="Contacts"
-            value={contacts.length}
-            hint="Key people catalogued"
-          />
-        </div>
-
-        {isLoading && !workspace ? (
-          <EmptyState
-            title="Loading insights"
-            description="Rehydrating workspace data from the local cache."
-          />
-        ) : tiles.length === 0 ? (
-          <EmptyState
-            title="Generating insights..."
-            description="AI is creating tailored insights for your research target. This may take 1-2 minutes."
-          />
-        ) : (
-          <TileGrid
-            tiles={tiles}
-            onDeleteTile={handleDeleteTile}
-            onReorderTiles={handleReorderTiles}
-            onOpenTile={handleOpenTile}
-            isReordering={isPersistingOrder}
-          />
-        )}
-
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
-          <div className="grid gap-8 md:grid-cols-2">
-            <NotesPanel
-              notes={notes}
-              onNotesChanged={async () => {
-                await mutate();
-              }}
-            />
-            <ContactsPanel
-              contacts={contacts}
-              onContactsChanged={async () => {
-                await mutate();
-              }}
-            />
-          </div>
-          <FilesPlaceholder />
-        </div>
-      </div>
-      {tileDetailModal}
-    </AdminShellClassic>
-  );
-}
-
-interface MobileMetricProps {
-  label: string;
-  value: number;
-  hint: string;
-}
-
-function MobileMetric({ label, value, hint }: MobileMetricProps) {
-  return (
-    <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">
-          {label}
-        </p>
-        <p className="text-sm text-slate-500">{hint}</p>
-      </div>
-      <span className="text-2xl font-semibold text-slate-900">{value}</span>
-    </div>
+      <AddContactModal
+        open={isAddContactModalOpen}
+        onClose={() => setAddContactModalOpen(false)}
+        onSubmit={handleCreateContactFromModal}
+        isSubmitting={isSavingContact}
+      />
+      <AddCompanyModal
+        open={isAddCompanyModalOpen}
+        onClose={() => setAddCompanyModalOpen(false)}
+        onSubmit={handleGenerateWorkspaceFromModal}
+        isSubmitting={isGeneratingWorkspace}
+      />
+    </>
   );
 }
 

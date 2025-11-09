@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
+import { Trash2 } from "lucide-react";
 
 import type { Contact } from "@/lib/types";
 import { useToast } from "@/lib/state/toast-context";
@@ -8,54 +9,16 @@ import { useToast } from "@/lib/state/toast-context";
 interface ContactsPanelAdeProps {
   contacts: Contact[];
   onContactsChanged: () => Promise<void>;
+  onAddContact: () => void;
 }
 
 export function ContactsPanelAde({
   contacts,
   onContactsChanged,
+  onAddContact,
 }: ContactsPanelAdeProps) {
   const { push } = useToast();
-  const [name, setName] = useState("");
-  const [jobTitle, setJobTitle] = useState("");
-  const [linkedin, setLinkedin] = useState("");
   const [isPending, startTransition] = useTransition();
-
-  const handleCreate = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!name.trim()) {
-      push({
-        title: "Informe o nome",
-        description: "Adicione pelo menos o nome do contato.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    startTransition(async () => {
-      try {
-        const response = await fetch("/api/workspace/contacts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, jobTitle, linkedinUrl: linkedin }),
-        });
-        if (!response.ok) {
-          throw new Error("Não foi possível salvar o contato");
-        }
-        setName("");
-        setJobTitle("");
-        setLinkedin("");
-        await onContactsChanged();
-        push({ title: "Contato adicionado", variant: "success" });
-      } catch (error) {
-        push({
-          title: "Erro ao salvar",
-          description:
-            error instanceof Error ? error.message : "Tente novamente.",
-          variant: "destructive",
-        });
-      }
-    });
-  };
 
   const handleDelete = (contactId: string) => {
     startTransition(async () => {
@@ -80,80 +43,74 @@ export function ContactsPanelAde({
   };
 
   return (
-    <section className="space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-900">Contatos</h3>
+    <section className="rounded-3xl border border-[#CDC4FF] bg-[#F6F4FF] p-6 shadow-[0px_10px_30px_rgba(139,126,255,0.15)]">
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-[#4138A3]">Target contacts</h3>
+          <p className="text-sm text-[#6B63C7]">
+            Registre decisores e ponteiros para acelerar cadências multicanal.
+          </p>
+        </div>
         <button
           type="button"
-          disabled
-          className="flex items-center space-x-2 rounded-md border-2 border-dashed border-gray-300 px-3 py-2 text-xs text-gray-500 transition hover:border-gray-400"
+          onClick={onAddContact}
+          className="inline-flex items-center rounded-full bg-[#5246E9] px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white shadow-lg transition hover:bg-[#4337d8]"
         >
-          <span>Adicionar contato (em breve)</span>
+          + Add contact
         </button>
       </div>
 
-      <form onSubmit={handleCreate} className="grid gap-3 md:grid-cols-3">
-        <input
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          placeholder="Nome"
-          className="rounded-lg border border-gray-300 px-4 py-2 text-sm outline-none transition focus:border-gray-500"
-        />
-        <input
-          value={jobTitle}
-          onChange={(event) => setJobTitle(event.target.value)}
-          placeholder="Cargo"
-          className="rounded-lg border border-gray-300 px-4 py-2 text-sm outline-none transition focus:border-gray-500"
-        />
-        <input
-          value={linkedin}
-          onChange={(event) => setLinkedin(event.target.value)}
-          placeholder="LinkedIn"
-          className="rounded-lg border border-gray-300 px-4 py-2 text-sm outline-none transition focus:border-gray-500"
-        />
-        <button
-          type="submit"
-          disabled={isPending}
-          className="inline-flex items-center justify-center rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:bg-gray-600 md:col-span-3"
-        >
-          {isPending ? "Salvando..." : "Adicionar contato"}
-        </button>
-      </form>
-
-      <div className="space-y-3">
+      <div className="mt-6 space-y-3">
         {contacts.length === 0 ? (
-          <p className="text-sm text-gray-500">
-            Nenhum contato salvo ainda. Mapeie decisores e ponteiros para acelerar o outreach.
-          </p>
+          <div className="rounded-2xl border border-dashed border-[#B6AEFF] bg-white/70 px-4 py-6 text-center text-sm text-[#5B53B9]">
+            Nenhum contato salvo. Use o botão “Add contact” para trazer decisores,
+            mobilizadores internos e aliados que possam acelerar a conversa.
+          </div>
         ) : (
           contacts.map((contact) => (
             <article
               key={contact.id}
-              className="flex items-start justify-between rounded-lg border border-gray-200 bg-gray-50 p-4"
+              className="flex items-start justify-between gap-4 rounded-2xl border border-[#C7C1FF] bg-white/90 px-4 py-4 shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
             >
               <div className="space-y-1">
-                <h4 className="text-sm font-semibold text-gray-900">{contact.name}</h4>
+                <h4 className="text-sm font-semibold text-[#443BAE]">{contact.name}</h4>
                 {contact.jobTitle ? (
-                  <p className="text-sm text-gray-600">{contact.jobTitle}</p>
+                  <p className="text-sm text-[#6B63C7]">{contact.jobTitle}</p>
                 ) : null}
                 {contact.linkedinUrl ? (
                   <a
                     href={contact.linkedinUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-xs font-semibold text-gray-600 transition hover:text-gray-900"
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-[#4338D0] transition hover:text-[#2c20b6]"
                   >
-                    LinkedIn ↗
+                    <span>LinkedIn</span>
+                    <span aria-hidden>↗</span>
                   </a>
                 ) : null}
               </div>
-              <button
-                type="button"
-                onClick={() => handleDelete(contact.id)}
-                className="text-xs text-gray-500 transition hover:text-red-500"
-              >
-                Remover
-              </button>
+              <div className="flex flex-col items-end gap-2">
+                <span className="text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-[#9189F8]">
+                  Added{" "}
+                  {new Date(contact.createdAt).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(contact.id)}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-transparent text-[#7A72E7] transition hover:border-red-200 hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed"
+                  disabled={isPending}
+                  aria-label="Remover contato"
+                >
+                  {isPending ? (
+                    <span className="h-4 w-4 animate-spin rounded-full border-b-2 border-current" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
             </article>
           ))
         )}

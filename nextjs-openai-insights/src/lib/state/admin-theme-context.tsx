@@ -6,7 +6,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useState,
   type ReactNode,
 } from "react";
 
@@ -34,39 +33,29 @@ interface AdminThemeProviderProps {
 
 export function AdminThemeProvider({
   children,
-  initialTheme,
 }: AdminThemeProviderProps) {
-  const [theme, setThemeState] = useState<AdminTheme>(() => {
-    if (typeof window !== "undefined") {
-      const storedTheme = window.localStorage.getItem(STORAGE_KEY);
-      if (storedTheme === "chatgpt") {
-        return "dash";
-      }
-      if (storedTheme === "classic" || storedTheme === "dash" || storedTheme === "ade") {
-        return storedTheme;
-      }
-    }
-    return initialTheme || DEFAULT_THEME;
-  });
-
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(STORAGE_KEY, theme);
-  }, [theme]);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(STORAGE_KEY, DEFAULT_THEME);
+    }
+  }, []);
 
   const setTheme = useCallback((nextTheme: AdminTheme) => {
-    setThemeState(nextTheme);
+    void nextTheme;
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(STORAGE_KEY, DEFAULT_THEME);
+    }
   }, []);
 
   const value = useMemo<AdminThemeContextValue>(
     () => ({
-      theme,
+      theme: DEFAULT_THEME,
       setTheme,
-      isClassic: theme === "classic",
-      isDash: theme === "dash",
-      isAde: theme === "ade",
+      isClassic: false,
+      isDash: false,
+      isAde: true,
     }),
-    [setTheme, theme],
+    [setTheme],
   );
 
   return (

@@ -1,5 +1,11 @@
-import { useState } from "react";
-import { X, SendHorizontal } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  ArrowLeft,
+  Bot,
+  Copy,
+  SendHorizontal,
+  User,
+} from "lucide-react";
 
 import type { Tile, TileMessage } from "@/lib/types";
 
@@ -10,17 +16,6 @@ interface TileDetailModalProps {
   isSubmitting: boolean;
 }
 
-function labelForRole(role: TileMessage["role"]) {
-  switch (role) {
-    case "assistant":
-      return "AI analyst";
-    case "system":
-      return "Context";
-    default:
-      return "You";
-  }
-}
-
 export function TileDetailModal({
   tile,
   onClose,
@@ -28,6 +23,49 @@ export function TileDetailModal({
   isSubmitting,
 }: TileDetailModalProps) {
   const [message, setMessage] = useState("");
+  const [isVisible, setIsVisible] = useState(true);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return;
+    const timeout = window.setTimeout(() => setCopied(false), 1500);
+    return () => window.clearTimeout(timeout);
+  }, [copied]);
+
+  const history = useMemo<TileMessage[]>(() => {
+    if (Array.isArray(tile.history) && tile.history.length > 0) {
+      return tile.history;
+    }
+    return [
+      {
+        id: `${tile.id}_prompt`,
+        role: "user",
+        content: tile.prompt,
+        createdAt: tile.createdAt,
+      },
+      {
+        id: `${tile.id}_assistant`,
+        role: "assistant",
+        content: tile.content,
+        createdAt: tile.updatedAt,
+      },
+    ].filter((entry) => entry.content && entry.content.trim().length > 0);
+  }, [tile.content, tile.createdAt, tile.history, tile.id, tile.prompt, tile.updatedAt]);
+
+  const formatTimestamp = (value: string | undefined) => {
+    if (!value) return "N/A";
+    try {
+      return new Intl.DateTimeFormat("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(new Date(value));
+    } catch {
+      return value;
+    }
+  };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -37,115 +75,185 @@ export function TileDetailModal({
     setMessage("");
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur">
-      <div className="relative flex h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-orange-200 bg-white shadow-2xl">
-        <header className="flex items-start justify-between gap-4 border-b border-orange-100 bg-gradient-to-r from-orange-500 to-amber-400 px-8 py-6 text-white">
-          <div className="flex flex-col gap-2">
-            <span className="text-xs uppercase tracking-[0.3em] text-white/70">
-              Prompt template · {tile.templateTileId ?? "custom"}
+  const handleRequestClose = () => {
+    setIsVisible(false);
+    window.setTimeout(onClose, 180);
+  };
+
+  const handleCopyPrompt = async () => {
+    if (!tile.prompt || tile.prompt.trim().length === 0) return;
+    try {
+      await navigator.clipboard.writeText(tile.prompt);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  const renderHistoryEntry = (entry: TileMessage) => {
+    const timestamp = formatTimestamp(entry.createdAt ?? tile.updatedAt);
+    if (entry.role === "assistant") {
+      return (
+        <div key={entry.id} className="flex items-start gap-3">
+          <div className="mt-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#FFE7D6] text-[#E76F25]">
+            <Bot className="h-4 w-4" />
+          </div>
+          <div className="max-w-xl rounded-2xl rounded-bl-md border border-orange-200 bg-white px-4 py-3 shadow-sm">
+            <p className="text-sm leading-relaxed text-[#2f2f2f] whitespace-pre-wrap">
+              {entry.content}
+            </p>
+            <span className="mt-2 block text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-[#b97a42]">
+              {timestamp}
             </span>
-            <h2 className="text-2xl font-semibold leading-tight">{tile.title}</h2>
-            <div className="flex flex-wrap items-center gap-3 text-xs text-white/80">
-              <span className="rounded-full border border-white/30 px-3 py-1 font-medium uppercase tracking-widest">
+          </div>
+        </div>
+      );
+    }
+
+    if (entry.role === "system") {
+      return (
+        <div key={entry.id} className="flex justify-center">
+          <div className="rounded-full bg-[#FFF1E7] px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-[#c96418]">
+            {entry.content}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div key={entry.id} className="flex justify-end">
+        <div className="max-w-xl rounded-2xl rounded-br-md border border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <p className="text-sm leading-relaxed text-[#1f1f1f] whitespace-pre-wrap">
+            {entry.content}
+          </p>
+          <span className="mt-2 flex items-center justify-end gap-1 text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-[#a1a1a1]">
+            <User className="h-3 w-3" />
+            {timestamp}
+          </span>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex justify-end bg-slate-950/60 backdrop-blur-sm"
+      onClick={handleRequestClose}
+    >
+      <aside
+        className={`relative flex h-full w-full max-w-[780px] flex-col overflow-hidden border-l border-orange-200 bg-white shadow-[0_20px_60px_rgba(17,24,39,0.2)] transition-transform duration-200 ${
+          isVisible ? "translate-x-0" : "translate-x-full"
+        }`}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="flex flex-shrink-0 items-start justify-between gap-4 border-b border-orange-100 bg-gradient-to-r from-[#FFE8DA] via-[#FFF4EC] to-[#FFE0CC] px-6 py-5">
+          <div className="space-y-2">
+            <span className="text-[0.65rem] font-semibold uppercase tracking-[0.32em] text-[#EB6A1F]">
+              Insight detail · {tile.templateTileId ?? "custom"}
+            </span>
+            <h2 className="text-2xl font-semibold text-[#1f1f1f] leading-tight">
+              {tile.title}
+            </h2>
+            <div className="flex flex-wrap items-center gap-3 text-xs text-[#6d6d6d]">
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#FFE7D6] px-3 py-1 font-semibold uppercase tracking-[0.3em] text-[#EA6C1F]">
                 {tile.model}
               </span>
-              <span>
-                Created {new Date(tile.createdAt).toLocaleString("en-US")}
-              </span>
-              <span>
-                Updated {new Date(tile.updatedAt).toLocaleString("en-US")}
-              </span>
+              {tile.category ? (
+                <span className="rounded-full bg-[#F5F5F5] px-3 py-1 font-semibold uppercase tracking-[0.3em] text-[#5d5d5d]">
+                  {tile.category}
+                </span>
+              ) : null}
+              <span>Created {formatTimestamp(tile.createdAt)}</span>
+              <span>Updated {formatTimestamp(tile.updatedAt)}</span>
             </div>
           </div>
           <button
             type="button"
-            onClick={onClose}
-            className="rounded-full border border-white/30 bg-white/10 p-2 text-white transition hover:bg-white hover:text-orange-500"
-            aria-label="Close"
+            onClick={handleRequestClose}
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-[#F4C7A6] bg-white text-[#E46B1F] transition hover:bg-[#FFE8D5]"
+            aria-label="Close detail modal"
           >
-            <X className="h-5 w-5" />
+            <ArrowLeft className="h-5 w-5" />
           </button>
         </header>
 
-        <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-8 py-6">
-          <section className="rounded-2xl border border-orange-100 bg-orange-50/60 p-5">
-            <h3 className="text-sm font-semibold text-orange-700">
-              Prompt sent to OpenAI
-            </h3>
-            <pre className="mt-2 whitespace-pre-wrap text-sm text-orange-800">
-              {tile.prompt && tile.prompt.trim().length > 0
-                ? tile.prompt
-                : "Prompt details are not available for this session."}
-            </pre>
-          </section>
-
-          <section className="flex flex-col gap-4">
-            <h3 className="text-base font-semibold text-slate-800">
-              Conversation
-            </h3>
-            <div className="space-y-4">
-              {tile.history.map((entry) => (
-                <article
-                  key={entry.id}
-                  className={`rounded-2xl border px-4 py-3 ${
-                    entry.role === "assistant"
-                      ? "border-orange-200 bg-orange-50"
-                      : entry.role === "user"
-                      ? "border-slate-200 bg-white"
-                      : "border-slate-200 bg-slate-50"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
-                      {labelForRole(entry.role)}
-                    </span>
-                    <span className="text-xs text-slate-400">
-                      {new Date(entry.createdAt).toLocaleString("en-US")}
-                    </span>
-                  </div>
-                  <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
-                    {entry.content}
-                  </p>
-                </article>
-              ))}
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto bg-[#FFF8F3] px-6 py-6">
+            <div className="space-y-5">
+              {history.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-orange-200 bg-white/70 px-4 py-6 text-center text-sm text-[#a86a3a]">
+                  No conversation captured for this tile yet. Generate follow-up prompts to
+                  build a thread.
+                </div>
+              ) : (
+                history.map(renderHistoryEntry)
+              )}
             </div>
-          </section>
-        </div>
 
-        <footer className="border-t border-orange-100 bg-white px-8 py-5">
-          <form
-            onSubmit={handleSubmit}
-            className="flex items-center gap-3"
-          >
-            <div className="flex-1">
+            <section className="mt-8 rounded-2xl border border-orange-200 bg-white/95 p-5 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.32em] text-[#EA6C1F]">
+                    Prompt sent to OpenAI
+                  </h3>
+                  <p className="text-[12px] text-[#80634e]">
+                    This is the exact instruction used to generate the latest response.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCopyPrompt}
+                  className="inline-flex items-center gap-2 rounded-full border border-[#F3C8A9] px-3 py-1 text-xs font-semibold text-[#C55E16] transition hover:bg-[#FFF2E5] disabled:opacity-60"
+                  disabled={!tile.prompt}
+                >
+                  <Copy className="h-3 w-3" />
+                  {copied ? "Copied" : "Copy"}
+                </button>
+              </div>
+              <pre className="mt-3 max-h-64 overflow-y-auto whitespace-pre-wrap rounded-xl bg-[#FFF3E4] px-4 py-3 text-[13px] leading-relaxed text-[#5a3112]">
+                {tile.prompt && tile.prompt.trim().length > 0
+                  ? tile.prompt
+                  : "Prompt details are not available for this session."}
+              </pre>
+            </section>
+          </div>
+
+          <footer className="border-t border-orange-100 bg-white px-6 py-4">
+            <form onSubmit={handleSubmit} className="flex flex-col gap-3">
               <label htmlFor="tile-follow-up" className="sr-only">
                 Ask a follow-up question
               </label>
-              <textarea
-                id="tile-follow-up"
-                value={message}
-                onChange={(event) => setMessage(event.target.value)}
-                placeholder="Ask the AI to go deeper, request missing data, or suggest next steps…"
-                className="h-24 w-full rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-200"
-                disabled={isSubmitting}
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={isSubmitting || message.trim().length === 0}
-              className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-500 text-white shadow-md transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-orange-300"
-              aria-label="Send follow-up"
-            >
-              {isSubmitting ? (
-                <span className="h-4 w-4 animate-spin rounded-full border-b-2 border-white" />
-              ) : (
-                <SendHorizontal className="h-5 w-5" />
-              )}
-            </button>
-          </form>
-        </footer>
-      </div>
+              <div className="rounded-2xl border border-orange-200 bg-[#FFF8F3] shadow-inner">
+                <textarea
+                  id="tile-follow-up"
+                  value={message}
+                  onChange={(event) => setMessage(event.target.value)}
+                  placeholder="Ask the AI to deepen this insight, request missing data, or craft follow-up messaging…"
+                  className="h-28 w-full resize-none rounded-2xl border-none bg-transparent px-4 py-3 text-sm text-[#2d2d2d] outline-none focus:ring-2 focus:ring-orange-300"
+                  disabled={isSubmitting}
+                />
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-xs text-[#9c9c9c]">
+                  Follow-up prompts keep the same context and generate additional insights instantly.
+                </span>
+                <button
+                  type="submit"
+                  disabled={isSubmitting || message.trim().length === 0}
+                  className="flex h-12 w-12 items-center justify-center rounded-full bg-[#FF7A2A] text-white shadow-lg transition hover:bg-[#ff6811] disabled:cursor-not-allowed disabled:bg-[#FFB694]"
+                  aria-label="Send follow-up"
+                >
+                  {isSubmitting ? (
+                    <span className="h-4 w-4 animate-spin rounded-full border-b-2 border-white" />
+                  ) : (
+                    <SendHorizontal className="h-5 w-5" />
+                  )}
+                </button>
+              </div>
+            </form>
+          </footer>
+        </div>
+      </aside>
     </div>
   );
 }

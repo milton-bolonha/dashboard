@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Trash2 } from "lucide-react";
 
 import type { Note } from "@/lib/types";
 import { useToast } from "@/lib/state/toast-context";
@@ -75,72 +76,78 @@ export function NotesPanelAde({ notes, onNotesChanged }: NotesPanelAdeProps) {
   };
 
   return (
-    <section className="space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-900">Notas</h3>
-        <button
-          type="button"
-          disabled
-          className="flex h-16 w-64 items-center justify-center rounded-lg border-2 border-dashed border-gray-300 text-sm text-gray-500 transition hover:border-gray-400"
-        >
-          Nova nota (em breve)
-        </button>
+    <section className="rounded-3xl border border-[#F4C8A7] bg-[#FFF3E7] p-6 shadow-[0px_12px_32px_rgba(244,200,167,0.25)]">
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-[#B35416]">Deal notes</h3>
+          <p className="text-sm text-[#966244]">
+            Capture headlines, objections and next steps while triaging insights.
+          </p>
+        </div>
+        <span className="inline-flex items-center rounded-full bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-[#C96A22]">
+          {notes.length} saved
+        </span>
       </div>
 
-      <form onSubmit={handleCreate} className="grid gap-3 md:grid-cols-2">
-        <input
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          placeholder="Título"
-          className="rounded-lg border border-gray-300 px-4 py-2 text-sm outline-none transition focus:border-gray-500"
-        />
+      <form onSubmit={handleCreate} className="mt-5 space-y-3">
+        <div className="flex flex-col gap-3 md:flex-row">
+          <input
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder="Headline or signal"
+            className="flex-1 border-b border-[#F2B385] bg-transparent px-1 py-2 text-sm font-semibold text-[#D16224] placeholder-[#D16224]/60 transition focus:border-[#F08C4D] focus:outline-none"
+          />
+          <button
+            type="submit"
+            disabled={isPending}
+            className="inline-flex items-center justify-center rounded-full bg-[#FF7A2A] px-5 py-2 text-sm font-semibold text-white shadow-lg transition hover:bg-[#ff6711] disabled:cursor-not-allowed disabled:bg-[#FFB794]"
+          >
+            {isPending ? "Saving…" : "Add note"}
+          </button>
+        </div>
         <textarea
           value={content}
           onChange={(event) => setContent(event.target.value)}
-          placeholder="Conteúdo"
+          placeholder="Add context, key stakeholders or follow-up tasks…"
           rows={3}
-          className="rounded-lg border border-gray-300 px-4 py-2 text-sm outline-none transition focus:border-gray-500 md:col-span-2"
+          className="h-28 w-full resize-none rounded-2xl bg-white/70 px-4 py-3 text-sm text-[#5F3A22] shadow-inner focus:outline-none focus:ring-2 focus:ring-[#FAC197]"
         />
-        <button
-          type="submit"
-          disabled={isPending}
-          className="inline-flex items-center justify-center rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:bg-gray-600"
-        >
-          {isPending ? "Salvando..." : "Adicionar nota"}
-        </button>
       </form>
 
-      <div className="space-y-3">
+      <div className="mt-6 space-y-3">
         {notes.length === 0 ? (
-          <p className="text-sm text-gray-500">
-            Nenhuma nota registrada. Capture os principais pontos enquanto revisa os tiles.
-          </p>
+          <div className="rounded-2xl border border-dashed border-[#F3C7A5] bg-white/60 px-4 py-6 text-center text-sm text-[#A86A3A]">
+            Nenhuma nota registrada ainda. Use esta área para registrar sinais importantes, objeções e próximos passos enquanto analisa os tiles.
+          </div>
         ) : (
           notes.map((note) => (
             <article
               key={note.id}
-              className="rounded-lg border border-gray-200 bg-gray-50 p-4"
+              className="group flex items-start justify-between gap-4 rounded-2xl border border-[#F2C9A8] bg-white/90 px-4 py-4 shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
             >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-900">
-                    {note.title || "Sem título"}
-                  </h4>
-                  <p className="mt-2 whitespace-pre-line text-sm text-gray-600">
-                    {note.content}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(note.id)}
-                  className="text-xs text-gray-500 transition hover:text-red-500"
-                >
-                  Remover
-                </button>
+              <div className="flex-1 space-y-2">
+                <h4 className="text-sm font-semibold text-[#B35416]">
+                  {note.title || "Sem título"}
+                </h4>
+                <p className="whitespace-pre-line text-sm leading-relaxed text-[#5B442F]">
+                  {note.content}
+                </p>
+                <span className="inline-flex items-center rounded-full bg-[#FFF1E5] px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-[#C96A22]">
+                  Updated{" "}
+                  {new Date(note.updatedAt).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </span>
               </div>
-              <p className="mt-3 text-[11px] uppercase tracking-[0.25em] text-gray-500">
-                Atualizada em {new Date(note.updatedAt).toLocaleDateString("pt-BR")}
-              </p>
+              <button
+                type="button"
+                onClick={() => handleDelete(note.id)}
+                className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-full border border-transparent text-[#A16A3E] transition hover:border-red-200 hover:bg-red-50 hover:text-red-500"
+                aria-label="Remover nota"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
             </article>
           ))
         )}

@@ -206,7 +206,7 @@ export function ClassicHeroForm({
           type="button"
           onClick={handleSubmit}
           disabled={isSubmitting}
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-green-500 text-white transition hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-green-500 text-white transition hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-60"
           style={{
             animation: isSubmitting
               ? "none"
@@ -271,10 +271,10 @@ export function ClassicHeroForm({
           }}
         />
         <div className="mx-auto max-w-5xl px-2 text-center sm:px-6 lg:px-4">
-          <h1 className="mt-30 mb-4 text-2xl font-bold tracking-tight text-black sm:text-3xl lg:text-4xl">
+          <h1 className="mt-16 mb-4 text-2xl font-bold tracking-tight text-black sm:text-3xl lg:text-4xl">
             Smarter Research. Faster Outreach. More Selling
           </h1>
-          <p className="mx-auto mb-8 max-w-3xl text-xl text-gray-600">
+          <p className="mx-auto mb-6 max-w-3xl text-xl text-gray-600">
             WebApp is your personal research assistant that works even when you
             sleep
           </p>
