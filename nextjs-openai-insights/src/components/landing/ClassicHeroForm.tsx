@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 interface ClassicHeroFormProps {
   isSubmitting: boolean;
@@ -377,7 +377,7 @@ export function ClassicHeroForm({
         </div>
       </section>
 
-      {isSubmitting ? <GenerationModal /> : null}
+      {/* Generation happens in background now */}
     </div>
   );
 }
@@ -432,80 +432,4 @@ function PrimaryCTA({
   );
 }
 
-function GenerationModal() {
-  const [tileCount, setTileCount] = useState(0);
-  const totalTiles = 8; // Fixed for now, could be dynamic
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTileCount((prev) => {
-        if (prev < totalTiles - 1) {
-          return prev + 1;
-        }
-        return prev;
-      });
-    }, 2000); // Simulate progress every 2 seconds
-
-    return () => clearInterval(interval);
-  }, [totalTiles]);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0b1020]/85 p-6 backdrop-blur-sm">
-      <div className="relative max-w-md rounded-3xl border border-white/10 bg-white/95 px-10 py-8 text-center shadow-2xl">
-        <span className="absolute -top-6 left-1/2 flex h-12 w-12 -translate-x-1/2 items-center justify-center rounded-2xl border border-blue-200 bg-blue-600 text-2xl text-white shadow-lg">
-          🚀
-        </span>
-
-        <h2 className="mt-2 text-xl font-semibold text-slate-900">
-          Generating tailored insights
-        </h2>
-        <p className="mt-3 text-sm text-slate-600">
-          We are syncing with the API and assembling the first tiles. You will
-          be redirected to the dashboard automatically, no extra clicks
-          required.
-        </p>
-
-        <div className="mt-6 space-y-3 text-left text-sm text-slate-600">
-          <StatusRow status="active" label="Sending company context" />
-          <StatusRow
-            status={tileCount > 0 ? "active" : "pending"}
-            label={`Generating AI tiles (${tileCount}/${totalTiles})`}
-          />
-          <StatusRow
-            status={tileCount >= totalTiles ? "active" : "pending"}
-            label="Preparing your dashboard"
-          />
-        </div>
-
-        <div className="mt-8 flex items-center justify-center space-x-3 text-xs uppercase tracking-[0.3em] text-slate-400">
-          <span className="h-2 w-2 animate-ping rounded-full bg-blue-500" />
-          <span>Processing</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function StatusRow({
-  status,
-  label,
-}: {
-  status: "active" | "pending";
-  label: string;
-}) {
-  if (status === "active") {
-    return (
-      <div className="flex items-center space-x-2 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2 text-blue-700">
-        <span className="h-2 w-2 rounded-full bg-blue-500" />
-        <span>{label}</span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex items-center space-x-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-slate-500">
-      <span className="h-2 w-2 rounded-full bg-slate-300" />
-      <span>{label}</span>
-    </div>
-  );
-}
+// Modal removed - generation now happens in background

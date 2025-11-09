@@ -32,7 +32,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "company_description",
         title: "What They Do",
         prompt:
-          "Summarize what {company.name} does in three short bullet points (≤15 words each). Cover core offering, primary customers, and a differentiator. If information is unavailable, state 'No verified public information available yet.'",
+          "Provide exactly three bullet points (≤12 words each) describing {company.name}'s core offering, primary customers, and differentiator. Prefix each line with '-'. If information is unavailable, output '- No verified public information available yet.'",
         category: "basic",
         orderIndex: 0,
         order: 1,
@@ -42,7 +42,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "revenue_model",
         title: "Revenue Generation",
         prompt:
-          "In ≤120 words, outline how {company.name} earns revenue today. Cite main products/services, fee or subscription mechanics, and any marketplace or usage-based streams. If details are unclear, explain the most likely model and explicitly note remaining gaps.",
+          "Provide exactly three bullet points (≤14 words each) summarizing how {company.name} earns revenue. Mention specific products, services, or fee structures when known. If unclear, output '- Revenue model not publicly disclosed yet.'",
         category: "financial",
         orderIndex: 1,
         order: 2,
@@ -52,7 +52,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "international_offices",
         title: "International Presence",
         prompt:
-          "Describe {company.name}'s geographic footprint in ≤90 words. Mention HQ, notable regional hubs, and any international offices, remote teams, or global service coverage. If locations are undisclosed, explain how the company currently serves international audiences.",
+          "Provide up to three bullet points (≤14 words each) covering {company.name}'s HQ, key regions, and notable offices. Prefix each line with '-'. If unknown, output '- Geographic footprint not publicly disclosed yet.'",
         category: "market",
         orderIndex: 2,
         order: 3,
@@ -62,7 +62,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "business_goals_2025",
         title: "2025 Business Goals",
         prompt:
-          "List 1-3 key priorities for {company.name} in 2025. Use 10-15 words per goal. Cite a recent source if available. If unknown, state 'Goals not publicly available yet.'",
+          "Provide up to two bullet points (≤14 words each) describing {company.name}'s 2025 priorities. Include source/year in parentheses when known. If no public goals, output '- Strategic priorities not publicly available yet.'",
         category: "strategy",
         orderIndex: 3,
         order: 4,
@@ -72,7 +72,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "business_challenges",
         title: "2025 Business Challenges",
         prompt:
-          "List 1-3 challenges for {company.name}. Use 10-20 words per challenge. Cite one recent signal. If unclear, state 'Challenges not publicly available yet.'",
+          "Provide up to two bullet points (≤14 words each) highlighting 2025 challenges for {company.name}. Reference a recent signal in parentheses when available. If unclear, output '- Challenges not publicly available yet.'",
         category: "insights",
         orderIndex: 4,
         order: 5,
@@ -82,7 +82,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "solution_need",
         title: "Solution Need",
         prompt:
-          "Why does {company.name} need {sellingSolutionsFor}? Use 50-80 words. Tie to one goal/challenge. If unclear, state 'Need not verified yet.'",
+          "Write two concise sentences (≤30 words each) explaining why {company.name} needs {sellingSolutionsFor}. Reference one goal or challenge. If evidence is missing, end with 'Need not publicly verified yet.'",
         category: "sales",
         orderIndex: 5,
         order: 6,
@@ -92,7 +92,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "ceo_info",
         title: "CEO Information",
         prompt:
-          "{company.name} CEO: name, tenure, one key role, one focus. Use 30-50 words. If unknown, state 'CEO info not public yet.'",
+          "Provide three bullet points (≤14 words each): 1) CEO name + role, 2) tenure, 3) one leadership focus. If CEO not public, mention highest-ranking executive and note 'Role not publicly confirmed.'",
         category: "people",
         orderIndex: 6,
         order: 7,
@@ -102,7 +102,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "sales_email",
         title: "CEO Sales Email",
         prompt:
-          "Email to {company.name} CEO: pitch {sellingSolutionsFor} from {salesRepAt}. Mention one goal, two benefits. 60-80 words total. Call to action.",
+          "Draft a four-line email: line 1 greeting (≤8 words); line 2 value proposition referencing one goal/challenge (≤18 words); line 3 two hyphen bullets with specific benefits (≤10 words each); line 4 clear CTA (≤12 words). If data missing, mention 'Information not publicly available yet.'",
         category: "sales",
         orderIndex: 7,
         order: 8,
@@ -120,7 +120,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "company_description_2",
         title: "What They Do",
         prompt:
-          "Summarize what {company.name} does in three short bullet points (≤15 words each). Cover offer, core customers, and a differentiator. If information is unavailable, state 'No verified public information available yet.'",
+          "Provide exactly three bullet points (≤12 words each) describing {company.name}'s offering, core customers, and differentiator. Prefix with '-'. If information is unavailable, output '- No verified public information available yet.'",
         category: "basic",
         orderIndex: 0,
         order: 1,
@@ -130,7 +130,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "revenue_model_2",
         title: "Revenue Generation",
         prompt:
-          "In ≤120 words, outline how {company.name} earns revenue today. Cite principal products/services, fee structures, and any recurring or usage-based income. Note remaining unknowns if data is incomplete.",
+          "Provide exactly three bullet points (≤14 words each) describing how {company.name} earns revenue. Cite specific products, services, or fee models when possible. If unclear, output '- Revenue model not publicly disclosed yet.'",
         category: "financial",
         orderIndex: 1,
         order: 2,
@@ -140,7 +140,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "biggest_goal_2025",
         title: "Biggest 2025 Goal",
         prompt:
-          "{company.name}'s top goal for 2025. Cite source. 20-40 words. If unknown, state 'Goal not public yet.'",
+          "Provide up to two bullet points (≤14 words each) for {company.name}'s top 2025 goal. Include source/year in parentheses when known. If unknown, output '- Goal not publicly available yet.'",
         category: "strategy",
         orderIndex: 2,
         order: 3,
@@ -150,7 +150,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "industry_challenges",
         title: "Industry Challenges",
         prompt:
-          "3 industry challenges for {company.name}. 10-20 words each. Cite one signal. If unclear, state 'Challenges not specified.'",
+          "Provide up to two bullet points (≤14 words each) outlining industry pressures on {company.name}. Reference a credible signal in parentheses when available. If unclear, output '- Industry challenges not publicly specified yet.'",
         category: "insights",
         orderIndex: 3,
         order: 4,
@@ -160,7 +160,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "solution_need_2",
         title: "Solution Need",
         prompt:
-          "Why {company.name} needs {sellingSolutionsFor}? 40-60 words. Two benefits. If unclear, state 'Need not verified.'",
+          "Write two concise sentences (≤30 words each) explaining why {company.name} may need {sellingSolutionsFor}. Reference one pain or goal. If evidence is thin, end with 'Need not publicly verified yet.'",
         category: "sales",
         orderIndex: 4,
         order: 5,
@@ -170,7 +170,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "top_competitors",
         title: "Top Competitors",
         prompt:
-          "List 3-5 competitors of {company.name}. One short reason each. If unknown, state 'Competitors not public.'",
+          "List up to three competitors of {company.name}. Provide one short reason (≤12 words) per bullet prefixed with '-'. If unknown, output '- Competitors not publicly disclosed yet.'",
         category: "market",
         orderIndex: 5,
         order: 6,
@@ -180,7 +180,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "holding_company",
         title: "Ownership/Funding",
         prompt:
-          "{company.name} ownership: holding company? Key investors? 30-50 words. If private, state 'Ownership not public.'",
+          "Provide up to two bullet points (≤14 words each) summarizing {company.name}'s ownership structure or key investors. Include latest funding note if known. If independent/undisclosed, output '- Ownership not publicly disclosed yet.'",
         category: "financial",
         orderIndex: 6,
         order: 7,
@@ -190,7 +190,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "ceo_info_2",
         title: "CEO Information",
         prompt:
-          "{company.name} CEO: name, tenure, one achievement, one priority. 30-50 words. If unknown, state 'CEO info not public.'",
+          "Provide three bullet points (≤14 words each): 1) CEO name + role, 2) tenure or appointment year, 3) one leadership priority. If CEO unknown, mention most senior public executive and note 'Role not publicly confirmed.'",
         category: "people",
         orderIndex: 7,
         order: 8,
@@ -200,7 +200,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "cold_call_scripts",
         title: "Cold Call Scripts",
         prompt:
-          "Two cold-call openers for {company.name} CEO about {sellingSolutionsFor}. Each 2 sentences. Reference one insight. End with question.",
+          "Provide two cold-call openers. Format as two numbered lines. Each line ≤25 words, reference one insight, and end with an open question. If insight unavailable, note 'Information not publicly available yet.'",
         category: "sales",
         orderIndex: 8,
         order: 9,

@@ -34,57 +34,63 @@ export function HomeContainer() {
     if (isSubmitting) return;
 
     setIsSubmitting(true);
-    try {
-      const targetUrl = "/api/generate";
-      console.log("[HomeContainer] 🔗 Target URL:", targetUrl);
-      console.log("[HomeContainer] 📤 Payload:", {
-        company,
-        companyWebsite,
-        solution,
-        researchTarget,
-        researchWebsite,
-      });
-      const response = await fetch(targetUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          salesRepCompany: company,
-          salesRepWebsite: companyWebsite,
-          solution,
-          targetCompany: researchTarget,
-          targetWebsite: researchWebsite,
-        }),
-      });
+    const targetUrl = "/api/generate";
+    const payload = {
+      salesRepCompany: company,
+      salesRepWebsite: companyWebsite,
+      solution,
+      targetCompany: researchTarget,
+      targetWebsite: researchWebsite,
+    };
 
-      if (!response.ok) {
-        console.error("[HomeContainer] ❌ Response not OK:", {
-          status: response.status,
-          statusText: response.statusText,
+    console.log("[HomeContainer] 🔗 Target URL:", targetUrl);
+    console.log("[HomeContainer] 📤 Payload:", payload);
+
+    (async () => {
+      try {
+        const response = await fetch(targetUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
         });
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.error ?? "Failed to generate insights");
+
+        if (!response.ok) {
+          console.error("[HomeContainer] ❌ Generation request failed:", {
+            status: response.status,
+            statusText: response.statusText,
+          });
+          const data = await response.json().catch(() => ({}));
+          push({
+            title: "Generation failed",
+            description:
+              (data.error as string) ?? "Failed to start insight generation.",
+            variant: "destructive",
+          });
+        } else {
+          console.log("[HomeContainer] ✅ Generation request accepted");
+        }
+      } catch (error) {
+        console.error("[HomeContainer] 🚨 Generation request threw", error);
+        push({
+          title: "Generation failed",
+          description:
+            error instanceof Error
+              ? error.message
+              : "Please try again in a few moments.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsSubmitting(false);
       }
+    })();
 
-      push({
-        title: "Insights ready!",
-        description: "Redirecting to the dashboard now.",
-        variant: "success",
-      });
+    push({
+      title: "Generating insights...",
+      description: "Redirecting to dashboard. Tiles will appear as they complete.",
+      variant: "default",
+    });
 
-      router.push("/admin");
-    } catch (error) {
-      console.error("[HomeContainer] Failed to generate tiles", error);
-      push({
-        title: "Generation failed",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Please try again in a few moments.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+    router.push("/admin");
   };
 
   const handleResetWorkspace = async () => {

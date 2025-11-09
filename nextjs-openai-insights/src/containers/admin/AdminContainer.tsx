@@ -39,6 +39,15 @@ type WorkspaceResponse = WorkspaceSnapshot;
 export function AdminContainer() {
   const { data, error, isLoading, mutate } = useSWR<WorkspaceResponse>(
     "/api/workspace",
+    {
+      refreshInterval: (data) => {
+        // Poll every 3 seconds if no tiles yet (generation in progress)
+        const hasTiles = data?.company?.tiles && data.company.tiles.length > 0;
+        return hasTiles ? 0 : 3000; // Stop polling once we have tiles
+      },
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+    }
   );
   const { push } = useToast();
   const [isResetting, startReset] = useTransition();
@@ -293,8 +302,8 @@ export function AdminContainer() {
           />
         ) : tiles.length === 0 ? (
           <EmptyStateAde
-            title="No insights yet"
-            description="Generate a new batch on the landing page to populate this dashboard."
+            title="Generating insights..."
+            description="AI is creating tailored insights for your research target. This may take 1-2 minutes."
           />
         ) : (
           <TileGridAde
@@ -356,8 +365,8 @@ export function AdminContainer() {
           />
         ) : tiles.length === 0 ? (
           <EmptyStateDash
-            title="No insights yet"
-            description="Generate a new batch on the landing page to populate this dashboard."
+            title="Generating insights..."
+            description="AI is creating tailored insights for your research target. This may take 1-2 minutes."
           />
         ) : (
           <TileGridDash
@@ -432,8 +441,8 @@ export function AdminContainer() {
           />
         ) : tiles.length === 0 ? (
           <EmptyState
-            title="No insights yet"
-            description="Generate a new batch on the landing page and return here to review."
+            title="Generating insights..."
+            description="AI is creating tailored insights for your research target. This may take 1-2 minutes."
           />
         ) : (
           <TileGrid

@@ -136,13 +136,47 @@ function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+type OpenAIResponse = Awaited<ReturnType<OpenAI["responses"]["create"]>>;
+
+function summarizeResponse(response: OpenAIResponse) {
+  const safe = response as unknown as Record<string, unknown>;
+  const output = safe.output as unknown[];
+
+  const preview = Array.isArray(output)
+    ? output.slice(0, 3).map((item, index) => {
+        const text = coerceToText(item)?.trim() ?? "";
+        return {
+          index,
+          type:
+            (item as { type?: string; role?: string })?.type ||
+            (item as { role?: string })?.role ||
+            "unknown",
+          textPreview: text.substring(0, 160),
+          textLength: text.length,
+        };
+      })
+    : [];
+
+  return {
+    status: safe.status ?? null,
+    incompleteReason: (safe.incomplete_details as { reason?: string })?.reason,
+    usage: safe.usage ?? null,
+    outputCount: Array.isArray(output) ? output.length : 0,
+    preview,
+  };
+}
+
 async function runGenerationAttempt(
   client: OpenAI,
   prompt: string,
   title: string,
   orderIndex: number,
   model: string,
-  maxTokens?: number
+  maxTokens: number | undefined,
+  templateContext: {
+    templateId?: string;
+    templateTileId?: string;
+  }
 ) {
   console.log("[api/generate] 🧠 Calling OpenAI for tile", {
     orderIndex,
@@ -151,6 +185,9 @@ async function runGenerationAttempt(
     model,
     maxTokens: maxTokens || MAX_TOKENS,
     temperature: TEMPERATURE,
+    promptLength: prompt.length,
+    templateId: templateContext.templateId,
+    templateTileId: templateContext.templateTileId,
   });
 
   const normalizedModel = model.trim();
@@ -168,10 +205,24 @@ async function runGenerationAttempt(
     model: normalizedModel,
     input: prompt,
     max_output_tokens: maxTokens || MAX_TOKENS,
+    metadata: {
+      templateId: templateContext.templateId ?? "unknown",
+      templateTileId: templateContext.templateTileId ?? "unknown",
+      orderIndex: String(orderIndex),
+      title,
+    },
   });
 
   const content = extractResponseContent(completion);
   const usage = completion?.usage ?? null;
+
+  console.log("[api/generate] 📥 Response summary", {
+    orderIndex,
+    title,
+    summary: summarizeResponse(completion),
+    parsedPreview: content.substring(0, 160),
+    parsedLength: content.length,
+  });
 
   return {
     content,
@@ -268,7 +319,11 @@ async function generateTileWithRetry({
         title,
         orderIndex,
         model,
-        maxTokens
+        maxTokens,
+        {
+          templateId,
+          templateTileId,
+        }
       );
       let content = attemptResult.content?.trim();
 
@@ -324,6 +379,10 @@ async function generateTileWithRetry({
         title,
         attempt,
         contentPreview: trimmedContent.substring(0, 160),
+        totalTokens,
+        templateId,
+        templateTileId,
+        maxTokens,
       });
 
       return {
@@ -349,6 +408,9 @@ async function generateTileWithRetry({
         title,
         model,
         attempt,
+        maxTokens,
+        templateId,
+        templateTileId,
         error,
       });
 
@@ -366,6 +428,9 @@ async function generateTileWithRetry({
     title,
     model,
     lastError,
+      maxTokens,
+      templateId,
+      templateTileId,
   });
 
   return buildFallbackTile({
