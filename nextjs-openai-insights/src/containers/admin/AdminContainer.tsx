@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import useSWR from "swr";
 
 import { useToast } from "@/lib/state/toast-context";
@@ -31,6 +31,8 @@ import { NotesPanelAde } from "@/containers/admin/ade/NotesPanelAde";
 import { ContactsPanelAde } from "@/containers/admin/ade/ContactsPanelAde";
 import { EmptyStateAde } from "@/components/ui/EmptyStateAde";
 import { FilesPlaceholderAde } from "@/containers/admin/ade/FilesPlaceholderAde";
+import { TileDetailModal } from "@/components/ui/prompt-tiles/TileDetailModal";
+import { resolveModel } from "@/lib/ai/settings";
 
 type WorkspaceResponse = WorkspaceSnapshot;
 
@@ -42,6 +44,9 @@ export function AdminContainer() {
   const [isResetting, startReset] = useTransition();
   const [isRefreshing, startRefresh] = useTransition();
   const { isDash, isAde } = useAdminTheme();
+  const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
+  const [isPersistingOrder, setIsPersistingOrder] = useState(false);
+  const [isChatting, setIsChatting] = useState(false);
 
   const workspace = useMemo<WorkspaceResponse | null>(() => {
     if (!data) return null;
@@ -50,8 +55,55 @@ export function AdminContainer() {
 
   const tiles: Tile[] = useMemo(() => {
     if (!workspace) return [];
-    return [...workspace.company.tiles].sort((a, b) => a.orderIndex - b.orderIndex);
+    const now = new Date().toISOString();
+    return [...workspace.company.tiles]
+      .map((tile, index) => {
+        const createdAt = tile.createdAt ?? now;
+        const updatedAt = tile.updatedAt ?? createdAt;
+        const prompt =
+          tile.prompt && tile.prompt.trim().length > 0
+            ? tile.prompt
+            : `Provide a concise insight for "${tile.title}".`;
+        const history =
+          tile.history && tile.history.length > 0
+            ? tile.history
+            : [
+                {
+                  id: `legacy_user_${tile.id}`,
+                  role: "user",
+                  content: prompt,
+                  createdAt,
+                },
+                {
+                  id: `legacy_assistant_${tile.id}`,
+                  role: "assistant",
+                  content: tile.content,
+                  createdAt,
+                },
+              ];
+
+        return {
+          ...tile,
+          prompt,
+          model: resolveModel(tile.model),
+          templateId: tile.templateId ?? "legacy_template",
+          templateTileId: tile.templateTileId ?? undefined,
+          category: tile.category,
+          orderIndex: tile.orderIndex ?? index,
+          createdAt,
+          updatedAt,
+          totalTokens: tile.totalTokens ?? null,
+          attempts: tile.attempts ?? 1,
+          history,
+        };
+      })
+      .sort((a, b) => a.orderIndex - b.orderIndex);
   }, [workspace]);
+
+  const activeTile = useMemo(
+    () => tiles.find((tile) => tile.id === selectedTileId) ?? null,
+    [tiles, selectedTileId]
+  );
 
   const notes: Note[] = workspace?.company.notes ?? [];
   const contacts: Contact[] = workspace?.company.contacts ?? [];
@@ -61,18 +113,19 @@ export function AdminContainer() {
       try {
         const response = await fetch("/api/workspace", { method: "DELETE" });
         if (!response.ok) {
-          throw new Error("Não foi possível limpar o workspace");
+          throw new Error("Failed to reset the workspace");
         }
         await mutate();
         push({
-          title: "Workspace limpo",
-          description: "Volte para a home para gerar novos insights.",
+          title: "Workspace cleared",
+          description: "Generate a fresh set of insights from the landing page.",
+          variant: "success",
         });
       } catch (err) {
         push({
-          title: "Erro ao resetar",
+          title: "Reset failed",
           description:
-            err instanceof Error ? err.message : "Tente novamente em instantes.",
+            err instanceof Error ? err.message : "Please try again in a few moments.",
           variant: "destructive",
         });
       }
@@ -91,28 +144,100 @@ export function AdminContainer() {
         method: "DELETE",
       });
       if (!response.ok) {
-        throw new Error("Falha ao remover tile");
+        throw new Error("Failed to remove tile");
       }
       await mutate();
       push({
-        title: "Tile removido",
+        title: "Tile removed",
         variant: "success",
       });
     } catch (err) {
       push({
-        title: "Erro ao remover tile",
+        title: "Deletion failed",
         description:
-          err instanceof Error ? err.message : "Tente novamente em instantes.",
+          err instanceof Error ? err.message : "Please try again in a few moments.",
         variant: "destructive",
       });
     }
   };
 
+  const handleReorderTiles = async (order: string[]) => {
+    if (!order.length) return;
+    try {
+      setIsPersistingOrder(true);
+      const response = await fetch("/api/workspace/reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error ?? "Failed to persist tile order");
+      }
+      await mutate();
+    } catch (err) {
+      push({
+        title: "Reorder failed",
+        description:
+          err instanceof Error ? err.message : "Please try again shortly.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPersistingOrder(false);
+    }
+  };
+
+  const handleOpenTile = (tile: Tile) => {
+    setSelectedTileId(tile.id);
+  };
+
+  const handleCloseTile = () => {
+    setSelectedTileId(null);
+  };
+
+  const handleSubmitFollowUp = async (tileId: string, prompt: string) => {
+    try {
+      setIsChatting(true);
+      const response = await fetch(`/api/workspace/tiles/${tileId}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: prompt }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error ?? "Failed to generate follow-up insight");
+      }
+      await mutate();
+      push({
+        title: "Follow-up insight added",
+        variant: "success",
+      });
+    } catch (err) {
+      push({
+        title: "Follow-up failed",
+        description:
+          err instanceof Error ? err.message : "Please try again in a few moments.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsChatting(false);
+    }
+  };
+
+  const tileDetailModal = activeTile ? (
+    <TileDetailModal
+      tile={activeTile}
+      onClose={handleCloseTile}
+      onSubmit={(message) => handleSubmitFollowUp(activeTile.id, message)}
+      isSubmitting={isChatting}
+    />
+  ) : null;
+
   if (error) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f7f7f8] text-[#3a3a41]">
         <div className="rounded-3xl border border-red-100 bg-red-50 px-6 py-4 text-sm">
-          Ocorreu um erro ao carregar o workspace. Recarregue e tente novamente.
+          We couldn&apos;t load the workspace. Refresh the page and try again.
         </div>
       </div>
     );
@@ -152,16 +277,22 @@ export function AdminContainer() {
       >
         {isLoading && !workspace ? (
           <EmptyStateAde
-            title="Carregando insights"
-            description="Buscando informações salvas no cookie."
+            title="Loading insights"
+            description="Retrieving workspace data from the browser cookie."
           />
         ) : tiles.length === 0 ? (
           <EmptyStateAde
-            title="Nenhum insight ainda"
-            description="Gere um conjunto pela home para preencher este painel."
+            title="No insights yet"
+            description="Generate a new batch on the landing page to populate this dashboard."
           />
         ) : (
-          <TileGridAde tiles={tiles} onDeleteTile={handleDeleteTile} />
+          <TileGridAde
+            tiles={tiles}
+            onDeleteTile={handleDeleteTile}
+            onReorderTiles={handleReorderTiles}
+            onOpenTile={handleOpenTile}
+            isReordering={isPersistingOrder}
+          />
         )}
 
         <div className="space-y-10">
@@ -179,6 +310,7 @@ export function AdminContainer() {
           />
           <FilesPlaceholderAde />
         </div>
+        {tileDetailModal}
       </AdminShellAde>
     );
   }
@@ -208,16 +340,22 @@ export function AdminContainer() {
       >
         {isLoading && !workspace ? (
           <EmptyStateDash
-            title="Carregando insights"
-            description="Buscando informações salvas no cookie."
+            title="Loading insights"
+            description="Retrieving workspace data from the browser cookie."
           />
         ) : tiles.length === 0 ? (
           <EmptyStateDash
-            title="Nenhum insight ainda"
-            description="Gere um conjunto pela home para preencher este painel."
+            title="No insights yet"
+            description="Generate a new batch on the landing page to populate this dashboard."
           />
         ) : (
-          <TileGridDash tiles={tiles} onDeleteTile={handleDeleteTile} />
+          <TileGridDash
+            tiles={tiles}
+            onDeleteTile={handleDeleteTile}
+            onReorderTiles={handleReorderTiles}
+            onOpenTile={handleOpenTile}
+            isReordering={isPersistingOrder}
+          />
         )}
 
         <div className="grid gap-6 lg:grid-cols-2">
@@ -236,6 +374,7 @@ export function AdminContainer() {
         </div>
 
         <FilesPlaceholderDash />
+        {tileDetailModal}
       </AdminShellDash>
     );
   }
@@ -266,27 +405,33 @@ export function AdminContainer() {
     >
       <div className="space-y-10">
         <div className="grid gap-4 lg:hidden">
-          <MobileMetric label="Insights" value={tiles.length} hint="Tiles gerados" />
-          <MobileMetric label="Notas" value={notes.length} hint="Anotações salvas" />
+          <MobileMetric label="Insights" value={tiles.length} hint="Tiles generated" />
+          <MobileMetric label="Notes" value={notes.length} hint="Saved notes" />
           <MobileMetric
-            label="Contatos"
+            label="Contacts"
             value={contacts.length}
-            hint="Pessoas-chave mapeadas"
+            hint="Key people catalogued"
           />
         </div>
 
         {isLoading && !workspace ? (
           <EmptyState
-            title="Carregando insights"
-            description="Buscando informações salvas no cookie."
+            title="Loading insights"
+            description="Retrieving workspace data from the browser cookie."
           />
         ) : tiles.length === 0 ? (
           <EmptyState
-            title="Nenhum insight ainda"
-            description="Gere um conjunto pela home e volte para revisar aqui."
+            title="No insights yet"
+            description="Generate a new batch on the landing page and return here to review."
           />
         ) : (
-          <TileGrid tiles={tiles} onDeleteTile={handleDeleteTile} />
+          <TileGrid
+            tiles={tiles}
+            onDeleteTile={handleDeleteTile}
+            onReorderTiles={handleReorderTiles}
+            onOpenTile={handleOpenTile}
+            isReordering={isPersistingOrder}
+          />
         )}
 
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
@@ -307,6 +452,7 @@ export function AdminContainer() {
           <FilesPlaceholder />
         </div>
       </div>
+      {tileDetailModal}
     </AdminShellClassic>
   );
 }

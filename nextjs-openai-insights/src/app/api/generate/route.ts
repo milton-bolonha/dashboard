@@ -8,7 +8,12 @@ import {
   getGuestTemplate,
   processPromptVariables,
 } from "@/lib/guest-templates";
-import type { Tile, WorkspaceSnapshot } from "@/lib/types";
+import type { Tile, TileMessage, WorkspaceSnapshot } from "@/lib/types";
+import {
+  DEFAULT_MAX_OUTPUT_TOKENS,
+  DEFAULT_TEMPERATURE,
+  resolveModel,
+} from "@/lib/ai/settings";
 
 const requestSchema = z.object({
   salesRepCompany: z.string().min(2),
@@ -20,15 +25,8 @@ const requestSchema = z.object({
   model: z.string().min(2).optional(),
 });
 
-const MODEL = process.env.OPENAI_MODEL || "gpt-5-mini";
-const MAX_TOKENS = (() => {
-  const raw = Number(process.env.OPENAI_MAX_OUTPUT_TOKENS);
-  return Number.isFinite(raw) && raw > 0 ? raw : 600;
-})();
-const TEMPERATURE = (() => {
-  const raw = Number(process.env.OPENAI_TEMPERATURE);
-  return Number.isFinite(raw) ? raw : 0.7;
-})();
+const MAX_TOKENS = DEFAULT_MAX_OUTPUT_TOKENS;
+const TEMPERATURE = DEFAULT_TEMPERATURE;
 
 function normalizeContext(raw: {
   salesRepCompany: string;
@@ -109,15 +107,29 @@ const TILE_BATCH_SIZE = Math.max(
   1,
   parseInt(process.env.BROWSER_TILE_BATCH_SIZE ?? "2", 10)
 );
+const MAX_GENERATION_ATTEMPTS = 3;
+const RETRY_BASE_DELAY_MS = 300;
 
-async function generateTile(
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+type OpenAICompletion = Awaited<ReturnType<OpenAI["responses"]["create"]>>;
+
+interface GenerationAttemptResult {
+  content: string;
+  usage: Record<string, unknown> | null;
+  raw: OpenAICompletion;
+}
+
+async function runGenerationAttempt(
   client: OpenAI,
   prompt: string,
   title: string,
   orderIndex: number,
   model: string
 ) {
-  console.log("[api/generate] 🧠 Chamando OpenAI para tile", {
+  console.log("[api/generate] 🧠 Calling OpenAI for tile", {
     orderIndex,
     title,
     promptPreview: prompt.substring(0, 120),
@@ -144,43 +156,188 @@ async function generateTile(
   });
 
   const content = extractResponseContent(completion);
-
-  if (!content) {
-    console.warn("[api/generate] ⚠️ Resposta vazia da OpenAI", {
-      model: normalizedModel,
-      orderIndex,
-      title,
-      hasOutputText: Boolean(
-        (completion as { output_text?: unknown })?.output_text
-      ),
-      hasOutputItems: Array.isArray(
-        (completion as { output?: unknown })?.output
-      ),
-      rawResponse: completion,
-    });
-    return {
-      id: `tile_fallback_empty_${orderIndex}_${Date.now().toString(36)}`,
-      title,
-      content:
-        "⚠️ This insight could not be generated right now. Try refreshing this tile in a few moments.",
-      orderIndex,
-      createdAt: new Date().toISOString(),
-    } satisfies Tile;
-  }
-
-  console.log("[api/generate] ✅ Tile gerado", {
-    orderIndex,
-    title,
-    contentPreview: content.substring(0, 160),
-  });
+  const usage = completion?.usage ?? null;
 
   return {
-    id: `tile_${orderIndex}_${Date.now().toString(36)}`,
-    title,
     content,
+    usage: usage ? (usage as unknown as Record<string, unknown>) : null,
+    raw: completion,
+  };
+}
+
+function createHistoryEntry(
+  role: TileMessage["role"],
+  content: string,
+  createdAt: string
+): TileMessage {
+  return {
+    id: `${role}_${Date.now().toString(36)}`,
+    role,
+    content,
+    createdAt,
+  };
+}
+
+function buildFallbackTile({
+  prompt,
+  title,
+  templateTileId,
+  templateId,
+  category,
+  model,
+  orderIndex,
+}: {
+  prompt: string;
+  title: string;
+  templateTileId?: string;
+  templateId: string;
+  category?: string;
+  model: string;
+  orderIndex: number;
+}): Tile {
+  const timestamp = new Date().toISOString();
+  const fallbackContent =
+    "⚠️ This insight could not be generated right now. Try refreshing this tile in a few moments.";
+
+  return {
+    id: `tile_fallback_${orderIndex}_${Date.now().toString(36)}`,
+    title: `${title} (fallback)`,
+    content: fallbackContent,
+    prompt,
+    templateId,
+    templateTileId,
+    category,
+    model,
     orderIndex,
-    createdAt: new Date().toISOString(),
-  } satisfies Tile;
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    totalTokens: null,
+    attempts: MAX_GENERATION_ATTEMPTS,
+    history: [
+      createHistoryEntry("user", prompt, timestamp),
+      createHistoryEntry("assistant", fallbackContent, timestamp),
+    ],
+  };
+}
+
+async function generateTileWithRetry({
+  client,
+  prompt,
+  title,
+  orderIndex,
+  model,
+  templateId,
+  templateTileId,
+  category,
+}: {
+  client: OpenAI;
+  prompt: string;
+  title: string;
+  orderIndex: number;
+  model: string;
+  templateId: string;
+  templateTileId?: string;
+  category?: string;
+}): Promise<Tile> {
+  let attempt = 0;
+  let lastError: unknown = null;
+
+  while (attempt < MAX_GENERATION_ATTEMPTS) {
+    attempt += 1;
+    try {
+      const attemptResult = await runGenerationAttempt(
+        client,
+        prompt,
+        title,
+        orderIndex,
+        model
+      );
+      const content = attemptResult.content?.trim();
+
+      if (!content) {
+        console.warn("[api/generate] ⚠️ Empty response from OpenAI", {
+          orderIndex,
+          title,
+          model,
+          attempt,
+          rawResponse: attemptResult.raw,
+        });
+        throw new Error("empty_response");
+      }
+
+      const timestamp = new Date().toISOString();
+      const trimmedContent = clampTiles(content);
+      const promptEntry = createHistoryEntry("user", prompt, timestamp);
+      const assistantEntry = createHistoryEntry(
+        "assistant",
+        content,
+        timestamp
+      );
+      const usageInfo = attemptResult.usage as {
+        total_tokens?: number | null;
+        total_token_count?: number | null;
+      } | null;
+      const totalTokens =
+        usageInfo?.total_tokens ?? usageInfo?.total_token_count ?? null;
+
+      console.log("[api/generate] ✅ Tile generated", {
+        orderIndex,
+        title,
+        attempt,
+        contentPreview: trimmedContent.substring(0, 160),
+      });
+
+      return {
+        id: `tile_${orderIndex}_${Date.now().toString(36)}`,
+        title,
+        content: trimmedContent,
+        prompt,
+        templateId,
+        templateTileId,
+        category,
+        model,
+        orderIndex,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        totalTokens,
+        attempts: attempt,
+        history: [promptEntry, assistantEntry],
+      };
+    } catch (error) {
+      lastError = error;
+      console.warn("[api/generate] ⚠️ Tile generation attempt failed", {
+        orderIndex,
+        title,
+        model,
+        attempt,
+        error,
+      });
+
+      if (attempt >= MAX_GENERATION_ATTEMPTS) {
+        break;
+      }
+
+      const backoff = Math.pow(2, attempt) * RETRY_BASE_DELAY_MS;
+      await delay(backoff);
+    }
+  }
+
+  console.error("[api/generate] ❌ All attempts failed", {
+    orderIndex,
+    title,
+    model,
+    lastError,
+  });
+
+  return buildFallbackTile({
+    prompt,
+    title,
+    templateId,
+    templateTileId,
+    category,
+    model,
+    orderIndex,
+  });
 }
 
 export async function POST(request: Request) {
@@ -205,8 +362,9 @@ export async function POST(request: Request) {
     targetCompany,
     targetWebsite,
     templateId = "template_1",
-    model = MODEL,
+    model: requestedModel,
   } = parseResult.data;
+  const model = resolveModel(requestedModel);
 
   if (!process.env.OPENAI_API_KEY) {
     console.error("[api/generate] ❌ OPENAI_API_KEY is not configured");
@@ -252,29 +410,16 @@ export async function POST(request: Request) {
       const batchResults = await Promise.all(
         batch.map(async (item, offset) => {
           const orderIndex = start + offset;
-          try {
-            return await generateTile(
-              openai,
-              item.prompt,
-              item.title,
-              orderIndex,
-              model
-            );
-          } catch (error) {
-            console.error("[api/generate] ⚠️ Falha ao gerar tile", {
-              orderIndex,
-              title: item.title,
-              error,
-            });
-            return {
-              id: `tile_fallback_${orderIndex}_${Date.now().toString(36)}`,
-              title: `${item.title} (fallback)`,
-              content:
-                "⚠️ This insight could not be generated right now. Try refreshing this tile in a few moments.",
-              orderIndex,
-              createdAt: new Date().toISOString(),
-            } satisfies Tile;
-          }
+          return generateTileWithRetry({
+            client: openai,
+            prompt: item.prompt,
+            title: item.title,
+            orderIndex,
+            model,
+            templateId,
+            templateTileId: item.id,
+            category: item.category,
+          });
         })
       );
 
@@ -289,27 +434,15 @@ export async function POST(request: Request) {
         .length,
     });
 
-    const now = new Date().toISOString();
-    const normalizedTiles: Tile[] = tiles.map((tile, index) => ({
-      id: tile.id ?? `tile_${index}_${Date.now().toString(36)}`,
-      title: tile.title ?? `Insight ${index + 1}`,
-      content: clampTiles(
-        tile.content ??
-          "⚠️ This insight could not be generated right now. Try refreshing this tile in a few moments."
-      ),
-      orderIndex: tile.orderIndex ?? index,
-      createdAt: tile.createdAt ?? now,
-    }));
-
     const workspace: WorkspaceSnapshot = {
       sessionId: `session_${randomUUID()}`,
-      generatedAt: now,
-      tilesToGenerate: normalizedTiles.length,
+      generatedAt: new Date().toISOString(),
+      tilesToGenerate: tiles.length,
       company: {
         id: `company_${randomUUID()}`,
         name: targetCompany,
         website: targetWebsite,
-        tiles: normalizedTiles,
+        tiles,
         notes: [],
         contacts: [],
       },
@@ -318,13 +451,13 @@ export async function POST(request: Request) {
     await writeWorkspace(workspace);
 
     console.log("[api/generate] 💾 Workspace gravado em cookie", {
-      tilesGenerated: normalizedTiles.length,
+      tilesGenerated: tiles.length,
       generatedAt: workspace.generatedAt,
     });
 
     return NextResponse.json({
       success: true,
-      tilesGenerated: normalizedTiles.length,
+      tilesGenerated: tiles.length,
     });
   } catch (error) {
     console.error("[api/generate] ❌ Unexpected error", error);

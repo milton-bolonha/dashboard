@@ -1,9 +1,27 @@
+export type TileMessageRole = "assistant" | "user" | "system";
+
+export interface TileMessage {
+  id: string;
+  role: TileMessageRole;
+  content: string;
+  createdAt: string;
+}
+
 export interface Tile {
   id: string;
   title: string;
   content: string;
+  prompt: string;
+  templateId?: string;
+  templateTileId?: string;
+  category?: string;
+  model: string;
   orderIndex: number;
   createdAt: string;
+  updatedAt: string;
+  totalTokens?: number | null;
+  attempts: number;
+  history: TileMessage[];
 }
 
 export interface Note {
