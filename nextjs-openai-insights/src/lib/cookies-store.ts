@@ -1,45 +1,42 @@
 import { cookies } from "next/headers";
 import { randomUUID } from "crypto";
 
-import type {
-  Contact,
-  Note,
-  Tile,
-  WorkspaceSnapshot,
-} from "@/lib/types";
+import type { WorkspaceSnapshot } from "@/lib/types";
 
-const META_COOKIE = "insightsWorkspaceMeta";
-const DATA_COOKIE = "insightsWorkspaceData";
+const SESSION_COOKIE = "insightsWorkspaceSession";
+const CACHE_TTL_MS = 1000 * 60 * 30; // 30 minutes
 
 const COOKIE_DEFAULT_OPTIONS = {
   httpOnly: true,
   sameSite: "lax" as const,
   path: "/",
-  maxAge: 60 * 60, // 1 hour
+  maxAge: CACHE_TTL_MS / 1000,
+  secure: process.env.NODE_ENV !== "development",
 };
 
-interface MetaCookie {
-  sessionId: string;
-  companyId: string;
-  companyName: string;
-  companyWebsite: string;
-  generatedAt: string | null;
-  tilesToGenerate: number;
+const globalStore = globalThis as typeof globalThis & {
+  __WORKSPACE_CACHE__?: Map<string, CacheEntry>;
+};
+
+interface CacheEntry {
+  snapshot: WorkspaceSnapshot;
+  updatedAt: number;
 }
 
-interface DataCookie {
-  tiles: Tile[];
-  notes: Note[];
-  contacts: Contact[];
+function getWorkspaceCache(): Map<string, CacheEntry> {
+  if (!globalStore.__WORKSPACE_CACHE__) {
+    globalStore.__WORKSPACE_CACHE__ = new Map();
+  }
+  return globalStore.__WORKSPACE_CACHE__;
 }
 
-function safeJsonParse<T>(value: string | undefined | null, fallback: T): T {
-  if (!value) return fallback;
-  try {
-    return JSON.parse(value) as T;
-  } catch (error) {
-    console.warn("[cookies-store] ❗ Falha ao fazer parse de cookie", error);
-    return fallback;
+function purgeExpiredEntries() {
+  const cache = getWorkspaceCache();
+  const now = Date.now();
+  for (const [sessionId, entry] of cache.entries()) {
+    if (now - entry.updatedAt > CACHE_TTL_MS) {
+      cache.delete(sessionId);
+    }
   }
 }
 
@@ -60,122 +57,117 @@ function createDefaultWorkspace(): WorkspaceSnapshot {
   };
 }
 
-function workspaceToCookies(workspace: WorkspaceSnapshot): {
-  meta: MetaCookie;
-  data: DataCookie;
-} {
-  const normalizedTiles = Array.isArray(workspace.company.tiles)
-    ? workspace.company.tiles
-    : [];
-  const normalizedNotes = Array.isArray(workspace.company.notes)
-    ? workspace.company.notes
-    : [];
-  const normalizedContacts = Array.isArray(workspace.company.contacts)
-    ? workspace.company.contacts
-    : [];
-
-  const meta: MetaCookie = {
-    sessionId: workspace.sessionId,
-    companyId: workspace.company.id,
-    companyName: workspace.company.name,
-    companyWebsite: workspace.company.website ?? "",
-    generatedAt: workspace.generatedAt,
-    tilesToGenerate: workspace.tilesToGenerate ?? normalizedTiles.length,
-  };
-
-  const data: DataCookie = {
-    tiles: normalizedTiles,
-    notes: normalizedNotes,
-    contacts: normalizedContacts,
-  };
-
-  return { meta, data };
+async function getCurrentSession() {
+  purgeExpiredEntries();
+  const store = await cookies();
+  const sessionId = store.get(SESSION_COOKIE)?.value ?? null;
+  return { store, sessionId };
 }
 
-function cookiesToWorkspace(meta: MetaCookie, data: DataCookie): WorkspaceSnapshot {
+function getFreshEntry(sessionId: string): CacheEntry | null {
+  if (!sessionId) return null;
+  const cache = getWorkspaceCache();
+  const entry = cache.get(sessionId);
+  if (!entry) return null;
+  if (Date.now() - entry.updatedAt > CACHE_TTL_MS) {
+    cache.delete(sessionId);
+    return null;
+  }
+  entry.updatedAt = Date.now();
+  return entry;
+}
+
+function setSessionCookie(store: Awaited<ReturnType<typeof cookies>>, sessionId: string) {
+  store.set(SESSION_COOKIE, sessionId, COOKIE_DEFAULT_OPTIONS);
+}
+
+function removeSessionCookie(store: Awaited<ReturnType<typeof cookies>>) {
+  store.set(SESSION_COOKIE, "", { ...COOKIE_DEFAULT_OPTIONS, maxAge: 0 });
+}
+
+function cloneWorkspace(snapshot: WorkspaceSnapshot): WorkspaceSnapshot {
   return {
-    sessionId: meta.sessionId,
-    generatedAt: meta.generatedAt,
-    tilesToGenerate: meta.tilesToGenerate,
+    ...snapshot,
     company: {
-      id: meta.companyId,
-      name: meta.companyName,
-      website: meta.companyWebsite,
-      tiles: Array.isArray(data.tiles) ? data.tiles : [],
-      notes: Array.isArray(data.notes) ? data.notes : [],
-      contacts: Array.isArray(data.contacts) ? data.contacts : [],
+      ...snapshot.company,
+      tiles: snapshot.company.tiles.map((tile) => ({
+        ...tile,
+        history: tile.history.map((entry) => ({ ...entry })),
+      })),
+      notes: snapshot.company.notes.map((note) => ({ ...note })),
+      contacts: snapshot.company.contacts.map((contact) => ({ ...contact })),
     },
   };
 }
 
-async function ensureState() {
-  const store = await cookies();
-  const metaRaw = store.get(META_COOKIE)?.value ?? null;
-  const dataRaw = store.get(DATA_COOKIE)?.value ?? null;
-
-  let meta = safeJsonParse<MetaCookie | null>(metaRaw, null);
-  let data = safeJsonParse<DataCookie | null>(dataRaw, null);
-
-  if (!meta || !data) {
-    const fallback = createDefaultWorkspace();
-    const cookiesData = workspaceToCookies(fallback);
-    store.set(META_COOKIE, JSON.stringify(cookiesData.meta), COOKIE_DEFAULT_OPTIONS);
-    store.set(DATA_COOKIE, JSON.stringify(cookiesData.data), COOKIE_DEFAULT_OPTIONS);
-    meta = cookiesData.meta;
-    data = cookiesData.data;
-  }
-
-  return { store, meta, data };
+export async function readWorkspace(): Promise<WorkspaceSnapshot | null> {
+  const { sessionId } = await getCurrentSession();
+  if (!sessionId) return null;
+  const entry = getFreshEntry(sessionId);
+  if (!entry) return null;
+  return cloneWorkspace(entry.snapshot);
 }
 
-export async function readWorkspace(): Promise<WorkspaceSnapshot> {
-  const { meta, data } = await ensureState();
-  return cookiesToWorkspace(meta, data);
-}
-
-export async function writeWorkspace(newWorkspace: WorkspaceSnapshot): Promise<void> {
-  const { store } = await ensureState();
-  const { meta, data } = workspaceToCookies(newWorkspace);
-
-  const metaStr = JSON.stringify(meta);
-  const dataStr = JSON.stringify(data);
-
-  console.log("[cookies-store] 💾 Saving workspace cookies", {
-    metaSize: `${(metaStr.length / 1024).toFixed(2)} KB`,
-    dataSize: `${(dataStr.length / 1024).toFixed(2)} KB`,
-    totalSize: `${((metaStr.length + dataStr.length) / 1024).toFixed(2)} KB`,
-    tileCount: newWorkspace.company?.tiles?.length || 0,
+export async function writeWorkspace(newWorkspace: WorkspaceSnapshot): Promise<string> {
+  const cache = getWorkspaceCache();
+  cache.set(newWorkspace.sessionId, {
+    snapshot: cloneWorkspace(newWorkspace),
+    updatedAt: Date.now(),
   });
-
-  store.set(META_COOKIE, metaStr, COOKIE_DEFAULT_OPTIONS);
-  store.set(DATA_COOKIE, dataStr, COOKIE_DEFAULT_OPTIONS);
+  const { store } = await getCurrentSession();
+  setSessionCookie(store, newWorkspace.sessionId);
+  console.log("[cookies-store] 💾 Workspace cached in memory", {
+    sessionId: newWorkspace.sessionId,
+    tiles: newWorkspace.company.tiles.length,
+  });
+  return newWorkspace.sessionId;
 }
 
 export async function updateWorkspace(
   updater: (workspace: WorkspaceSnapshot) => WorkspaceSnapshot,
 ): Promise<WorkspaceSnapshot> {
   const current = await readWorkspace();
-  const updated = updater(current);
+  if (!current) {
+    throw new Error("workspace_not_found");
+  }
+  const updated = updater(cloneWorkspace(current));
   await writeWorkspace(updated);
   return updated;
 }
 
 export async function clearWorkspace(): Promise<void> {
-  const store = await cookies();
-  store.set(META_COOKIE, "", { ...COOKIE_DEFAULT_OPTIONS, maxAge: 0 });
-  store.set(DATA_COOKIE, "", { ...COOKIE_DEFAULT_OPTIONS, maxAge: 0 });
+  const { store, sessionId } = await getCurrentSession();
+  if (sessionId) {
+    const cache = getWorkspaceCache();
+    cache.delete(sessionId);
+  }
+  removeSessionCookie(store);
 }
 
-export async function touchWorkspace(): Promise<WorkspaceSnapshot> {
-  return updateWorkspace((workspace) => {
-    if (!workspace.generatedAt) {
-      return {
-        ...workspace,
-        generatedAt: new Date().toISOString(),
-      };
-    }
-    return workspace;
-  });
+export async function touchWorkspace(): Promise<WorkspaceSnapshot | null> {
+  const snapshot = await readWorkspace();
+  if (!snapshot) {
+    return null;
+  }
+  if (!snapshot.generatedAt) {
+    const updated: WorkspaceSnapshot = {
+      ...snapshot,
+      generatedAt: new Date().toISOString(),
+    };
+    await writeWorkspace(updated);
+    return updated;
+  }
+  return snapshot;
+}
+
+export async function ensureWorkspaceSession(): Promise<WorkspaceSnapshot> {
+  const existing = await readWorkspace();
+  if (existing) {
+    return existing;
+  }
+  const fresh = createDefaultWorkspace();
+  await writeWorkspace(fresh);
+  return fresh;
 }
 
 export function clampTiles(content: string, maxChars = 320): string {

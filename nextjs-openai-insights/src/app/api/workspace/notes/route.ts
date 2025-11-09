@@ -5,6 +5,9 @@ import { readWorkspace, updateWorkspace } from "@/lib/cookies-store";
 
 export async function GET() {
   const workspace = await readWorkspace();
+  if (!workspace) {
+    return NextResponse.json({ error: "Workspace cache expired" }, { status: 404 });
+  }
   return NextResponse.json({ notes: workspace.company.notes });
 }
 
@@ -15,27 +18,31 @@ export async function POST(request: Request) {
 
   const now = new Date().toISOString();
 
-  const updated = await updateWorkspace((workspace) => {
-    const nextNotes = [
-      {
-        id: `note_${randomUUID()}`,
-        title,
-        content,
-        createdAt: now,
-        updatedAt: now,
-      },
-      ...workspace.company.notes,
-    ].slice(0, 20);
+  try {
+    const updated = await updateWorkspace((workspace) => {
+      const nextNotes = [
+        {
+          id: `note_${randomUUID()}`,
+          title,
+          content,
+          createdAt: now,
+          updatedAt: now,
+        },
+        ...workspace.company.notes,
+      ].slice(0, 20);
 
-    return {
-      ...workspace,
-      company: {
-        ...workspace.company,
-        notes: nextNotes,
-      },
-    };
-  });
+      return {
+        ...workspace,
+        company: {
+          ...workspace.company,
+          notes: nextNotes,
+        },
+      };
+    });
 
-  return NextResponse.json({ success: true, notes: updated.company.notes });
+    return NextResponse.json({ success: true, notes: updated.company.notes });
+  } catch {
+    return NextResponse.json({ error: "Workspace cache expired" }, { status: 404 });
+  }
 }
 

@@ -23,6 +23,12 @@ export async function POST(request: Request) {
   } = parseResult.data;
 
   const currentWorkspace = await readWorkspace();
+  if (!currentWorkspace) {
+    return NextResponse.json(
+      { error: "Workspace cache expired" },
+      { status: 404 }
+    );
+  }
   const existingTiles = currentWorkspace.company.tiles || [];
   const tileMap = new Map(existingTiles.map((tile) => [tile.id, tile]));
 
@@ -46,17 +52,24 @@ export async function POST(request: Request) {
 
   const nextTiles = [...reorderedTiles, ...missingTiles];
 
-  const updatedWorkspace = await updateWorkspace((workspace) => ({
-    ...workspace,
-    company: {
-      ...workspace.company,
-      tiles: nextTiles,
-    },
-  }));
+  try {
+    const updatedWorkspace = await updateWorkspace((workspace) => ({
+      ...workspace,
+      company: {
+        ...workspace.company,
+        tiles: nextTiles,
+      },
+    }));
 
-  return NextResponse.json({
-    success: true,
-    tiles: updatedWorkspace.company.tiles,
-  });
+    return NextResponse.json({
+      success: true,
+      tiles: updatedWorkspace.company.tiles,
+    });
+  } catch {
+    return NextResponse.json(
+      { error: "Workspace cache expired" },
+      { status: 404 }
+    );
+  }
 }
 

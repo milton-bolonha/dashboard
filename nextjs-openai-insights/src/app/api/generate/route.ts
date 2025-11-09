@@ -125,6 +125,13 @@ function extractResponseContent(
   return "";
 }
 
+const USE_MOCK_OPENAI = process.env.MOCK_OPENAI_RESPONSES === "true";
+const globalStore = globalThis as typeof globalThis & {
+  __USE_MOCK_WORKSPACE__?: boolean;
+};
+
+globalStore.__USE_MOCK_WORKSPACE__ = USE_MOCK_OPENAI;
+
 const TILE_BATCH_SIZE = Math.max(
   1,
   parseInt(process.env.BROWSER_TILE_BATCH_SIZE ?? "2", 10)
@@ -136,9 +143,40 @@ function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-type OpenAIResponse = Awaited<ReturnType<OpenAI["responses"]["create"]>>;
+type OpenAIResponseSummaryShape = {
+  usage?: Record<string, unknown> | null;
+  status?: string | null;
+  output?: unknown;
+  output_text?: unknown;
+  incomplete_details?: { reason?: string | null } | null;
+  reasoning?: unknown;
+  web_search_call?: unknown;
+  [key: string]: unknown;
+};
 
-function summarizeResponse(response: OpenAIResponse) {
+type ResponseMessage = {
+  role: "assistant" | "user" | "system";
+  content: Array<{
+    type: "input_text";
+    text: string;
+  }>;
+};
+
+function buildResponseInput(prompt: string): ResponseMessage[] {
+  return [
+    {
+      role: "user",
+      content: [
+        {
+          type: "input_text",
+          text: prompt,
+        },
+      ],
+    },
+  ];
+}
+
+function summarizeResponse(response: OpenAIResponseSummaryShape) {
   const safe = response as unknown as Record<string, unknown>;
   const output = safe.output as unknown[];
 
@@ -201,9 +239,9 @@ async function runGenerationAttempt(
     );
   }
 
-  const completion = await client.responses.create({
+  const requestPayload: Record<string, unknown> = {
     model: normalizedModel,
-    input: prompt,
+    input: buildResponseInput(prompt),
     max_output_tokens: maxTokens || MAX_TOKENS,
     metadata: {
       templateId: templateContext.templateId ?? "unknown",
@@ -211,10 +249,50 @@ async function runGenerationAttempt(
       orderIndex: String(orderIndex),
       title,
     },
+    tools: [],
+    store: false,
+    include: ["reasoning.encrypted_content", "web_search_call.action.sources"],
+    reasoning: {
+      effort: "minimal",
+    },
+    text: {
+      format: {
+        type: "text",
+      },
+      verbosity: "low",
+    },
+  };
+
+  if (shouldSendTemperature && Number.isFinite(TEMPERATURE)) {
+    requestPayload.temperature = TEMPERATURE;
+  }
+
+  console.log("[api/generate] 📦 OpenAI payload", {
+    model: requestPayload.model,
+    max_output_tokens: requestPayload.max_output_tokens,
+    metadata: requestPayload.metadata,
+    hasTools: Array.isArray(requestPayload.tools)
+      ? requestPayload.tools.length > 0
+      : false,
+    include: requestPayload.include,
+    reasoning: requestPayload.reasoning,
+    text: requestPayload.text,
   });
 
-  const content = extractResponseContent(completion);
+  const completion = (await client.responses.create(
+    requestPayload as Record<string, unknown>
+  )) as unknown as OpenAIResponseSummaryShape;
+
+  const content = extractResponseContent(
+    completion as unknown as Awaited<ReturnType<OpenAI["responses"]["create"]>>
+  );
   const usage = completion?.usage ?? null;
+
+  console.log("[api/generate] 📥 Raw OpenAI response", {
+    orderIndex,
+    title,
+    raw: completion,
+  });
 
   console.log("[api/generate] 📥 Response summary", {
     orderIndex,
@@ -286,6 +364,48 @@ function buildFallbackTile({
   };
 }
 
+function buildMockTile({
+  prompt,
+  title,
+  templateTileId,
+  templateId,
+  category,
+  model,
+  orderIndex,
+}: {
+  prompt: string;
+  title: string;
+  templateTileId?: string;
+  templateId: string;
+  category?: string;
+  model: string;
+  orderIndex: number;
+}): Tile {
+  const timestamp = new Date().toISOString();
+  const mockContent = clampTiles(
+    `Mock insight for "${title}" about "${templateId}" generated at ${timestamp}.`
+  );
+  const promptEntry = createHistoryEntry("user", prompt, timestamp);
+  const assistantEntry = createHistoryEntry("assistant", mockContent, timestamp);
+
+  return {
+    id: `tile_mock_${orderIndex}_${Date.now().toString(36)}`,
+    title,
+    content: mockContent,
+    prompt,
+    templateId,
+    templateTileId,
+    category,
+    model,
+    orderIndex,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    totalTokens: null,
+    attempts: 1,
+    history: [promptEntry, assistantEntry],
+  };
+}
+
 async function generateTileWithRetry({
   client,
   prompt,
@@ -328,12 +448,11 @@ async function generateTileWithRetry({
       let content = attemptResult.content?.trim();
 
       // Accept partial output if response is incomplete but has content
-      if (
-        !content &&
-        attemptResult.raw?.status === "incomplete" &&
-        attemptResult.raw?.output_text
-      ) {
-        content = attemptResult.raw.output_text.trim();
+      if (!content && attemptResult.raw?.status === "incomplete") {
+        const fallbackText = coerceToText(attemptResult.raw?.output_text);
+        if (fallbackText) {
+          content = fallbackText.trim();
+        }
         if (content) {
           console.warn(
             "[api/generate] ⚠️ Partial response accepted for incomplete output",
@@ -470,16 +589,6 @@ export async function POST(request: Request) {
   } = parseResult.data;
   const model = resolveModel(requestedModel);
 
-  if (!process.env.OPENAI_API_KEY) {
-    console.error("[api/generate] ❌ OPENAI_API_KEY is not configured");
-    return NextResponse.json(
-      { error: "OPENAI_API_KEY is not configured" },
-      { status: 500 }
-    );
-  }
-
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
   try {
     console.log("[api/generate] 📤 Payload:", {
       salesRepCompany,
@@ -507,33 +616,61 @@ export async function POST(request: Request) {
       category: item.category,
     }));
 
-    const tiles: Tile[] = new Array(prompts.length);
+    let tiles: Tile[];
 
-    for (let start = 0; start < prompts.length; start += TILE_BATCH_SIZE) {
-      const end = Math.min(start + TILE_BATCH_SIZE, prompts.length);
-      const batch = prompts.slice(start, end);
-
-      const batchResults = await Promise.all(
-        batch.map(async (item, offset) => {
-          const orderIndex = start + offset;
-          const maxTokens = getMaxTokensForTile(item.id);
-          return generateTileWithRetry({
-            client: openai,
-            prompt: item.prompt,
-            title: item.title,
-            orderIndex,
-            model,
-            templateId,
-            templateTileId: item.id,
-            category: item.category,
-            maxTokens,
-          });
+    if (USE_MOCK_OPENAI) {
+      console.log("[api/generate] 🤖 Using mock OpenAI responses");
+      tiles = prompts.map((item, orderIndex) =>
+        buildMockTile({
+          prompt: item.prompt,
+          title: item.title,
+          templateId,
+          templateTileId: item.id,
+          category: item.category,
+          model,
+          orderIndex,
         })
       );
+    } else {
+      if (!process.env.OPENAI_API_KEY) {
+        console.error("[api/generate] ❌ OPENAI_API_KEY is not configured");
+        return NextResponse.json(
+          { error: "OPENAI_API_KEY is not configured" },
+          { status: 500 }
+        );
+      }
 
-      batchResults.forEach((tile, idx) => {
-        tiles[start + idx] = tile;
-      });
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const generatedTiles: Tile[] = new Array(prompts.length);
+
+      for (let start = 0; start < prompts.length; start += TILE_BATCH_SIZE) {
+        const end = Math.min(start + TILE_BATCH_SIZE, prompts.length);
+        const batch = prompts.slice(start, end);
+
+        const batchResults = await Promise.all(
+          batch.map(async (item, offset) => {
+            const orderIndex = start + offset;
+            const maxTokens = getMaxTokensForTile(item.id);
+            return generateTileWithRetry({
+              client: openai,
+              prompt: item.prompt,
+              title: item.title,
+              orderIndex,
+              model,
+              templateId,
+              templateTileId: item.id,
+              category: item.category,
+              maxTokens,
+            });
+          })
+        );
+
+        batchResults.forEach((tile, idx) => {
+          generatedTiles[start + idx] = tile;
+        });
+      }
+
+      tiles = generatedTiles;
     }
 
     console.log("[api/generate] ✅ Tiles gerados/com fallback", {
@@ -556,9 +693,10 @@ export async function POST(request: Request) {
       },
     };
 
-    await writeWorkspace(workspace);
+    const sessionId = await writeWorkspace(workspace);
 
-    console.log("[api/generate] 💾 Workspace gravado em cookie", {
+    console.log("[api/generate] 💾 Workspace gravado em cache", {
+      sessionId,
       tilesGenerated: tiles.length,
       generatedAt: workspace.generatedAt,
     });
@@ -566,6 +704,8 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       tilesGenerated: tiles.length,
+      sessionId,
+      workspace,
     });
   } catch (error) {
     console.error("[api/generate] ❌ Unexpected error", error);

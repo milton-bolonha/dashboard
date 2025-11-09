@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useToast } from "@/lib/state/toast-context";
+import { rememberSessionId, saveWorkspace as saveCachedWorkspace } from "@/lib/storage/workspace-browser";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { LandingFooter } from "@/components/landing/LandingFooter";
 import { ClassicHeroForm } from "@/components/landing/ClassicHeroForm";
@@ -53,13 +54,13 @@ export function HomeContainer() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
+        const data = await response.json().catch(() => null);
 
         if (!response.ok) {
           console.error("[HomeContainer] ❌ Generation request failed:", {
             status: response.status,
             statusText: response.statusText,
           });
-          const data = await response.json().catch(() => ({}));
           push({
             title: "Generation failed",
             description:
@@ -67,6 +68,12 @@ export function HomeContainer() {
             variant: "destructive",
           });
         } else {
+          if (data?.sessionId) {
+            rememberSessionId(data.sessionId);
+          }
+          if (data?.workspace) {
+            saveCachedWorkspace(data.workspace.sessionId, data.workspace);
+          }
           console.log("[HomeContainer] ✅ Generation request accepted");
         }
       } catch (error) {

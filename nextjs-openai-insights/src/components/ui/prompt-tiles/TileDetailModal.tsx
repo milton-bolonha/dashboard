@@ -74,7 +74,9 @@ export function TileDetailModal({
               Prompt sent to OpenAI
             </h3>
             <pre className="mt-2 whitespace-pre-wrap text-sm text-orange-800">
-              {tile.prompt}
+              {tile.prompt && tile.prompt.trim().length > 0
+                ? tile.prompt
+                : "Prompt details are not available for this session."}
             </pre>
           </section>
 

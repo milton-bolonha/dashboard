@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import useSWR from "swr";
 
 import { useToast } from "@/lib/state/toast-context";
@@ -33,12 +33,35 @@ import { EmptyStateAde } from "@/components/ui/EmptyStateAde";
 import { FilesPlaceholderAde } from "@/containers/admin/ade/FilesPlaceholderAde";
 import { TileDetailModal } from "@/components/ui/prompt-tiles/TileDetailModal";
 import { resolveModel } from "@/lib/ai/settings";
+import {
+  deleteWorkspace as deleteCachedWorkspace,
+  getLastSessionId,
+  loadWorkspace as loadCachedWorkspace,
+  saveWorkspace as saveCachedWorkspace,
+} from "@/lib/storage/workspace-browser";
 
 type WorkspaceResponse = WorkspaceSnapshot;
+type WorkspaceFetcherError = Error & { status?: number; data?: unknown };
+
+async function fetchWorkspace(url: string): Promise<WorkspaceResponse> {
+  const response = await fetch(url, { credentials: "include" });
+  if (!response.ok) {
+    const error: WorkspaceFetcherError = new Error("Failed to load workspace");
+    error.status = response.status;
+    try {
+      error.data = await response.json();
+    } catch {
+      error.data = null;
+    }
+    throw error;
+  }
+  return (await response.json()) as WorkspaceResponse;
+}
 
 export function AdminContainer() {
   const { data, error, isLoading, mutate } = useSWR<WorkspaceResponse>(
     "/api/workspace",
+    fetchWorkspace,
     {
       refreshInterval: (data) => {
         // Poll every 3 seconds if no tiles yet (generation in progress)
@@ -56,11 +79,48 @@ export function AdminContainer() {
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
   const [isPersistingOrder, setIsPersistingOrder] = useState(false);
   const [isChatting, setIsChatting] = useState(false);
+  const [localWorkspace, setLocalWorkspace] = useState<WorkspaceSnapshot | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const workspaceError = error as WorkspaceFetcherError | undefined;
+  const cacheWarningShownRef = useRef(false);
+
+  useEffect(() => {
+    const lastSession = getLastSessionId();
+    if (!lastSession) return;
+    const cached = loadCachedWorkspace(lastSession);
+    if (cached) {
+      setSessionId(lastSession);
+      setLocalWorkspace(cached);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!data) return;
+    setSessionId(data.sessionId);
+    setLocalWorkspace(data);
+    saveCachedWorkspace(data.sessionId, data);
+    cacheWarningShownRef.current = false;
+  }, [data]);
+
+  useEffect(() => {
+    if (
+      !cacheWarningShownRef.current &&
+      workspaceError?.status === 404 &&
+      localWorkspace
+    ) {
+      cacheWarningShownRef.current = true;
+      push({
+        title: "Session expired",
+        description: "Showing the last saved workspace. Generate a new one to refresh.",
+        variant: "destructive",
+      });
+    }
+  }, [workspaceError, localWorkspace, push]);
 
   const workspace = useMemo<WorkspaceResponse | null>(() => {
-    if (!data) return null;
-    return data;
-  }, [data]);
+    if (data) return data;
+    return localWorkspace;
+  }, [data, localWorkspace]);
 
   const tiles: Tile[] = useMemo(() => {
     if (!workspace) return [];
@@ -127,15 +187,32 @@ export function AdminContainer() {
 
   const notes: Note[] = workspace?.company.notes ?? [];
   const contacts: Contact[] = workspace?.company.contacts ?? [];
+  const cacheBanner =
+    workspaceError?.status === 404 && workspace ? (
+      <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+        Workspace cache expired on the server. You&apos;re viewing the last saved copy. Generate a new workspace from the landing page to refresh it.
+      </div>
+    ) : null;
 
   const handleResetWorkspace = () => {
     startReset(async () => {
       try {
-        const response = await fetch("/api/workspace", { method: "DELETE" });
+      const response = await fetch("/api/workspace", { method: "DELETE" });
         if (!response.ok) {
           throw new Error("Failed to reset the workspace");
         }
-        await mutate();
+      const payload = await response.json().catch(() => null);
+      if (sessionId) {
+        deleteCachedWorkspace(sessionId);
+      }
+      if (payload?.workspace) {
+        setSessionId(payload.workspace.sessionId);
+        setLocalWorkspace(payload.workspace);
+        saveCachedWorkspace(payload.workspace.sessionId, payload.workspace);
+      } else {
+        setLocalWorkspace(null);
+      }
+      await mutate();
         push({
           title: "Workspace cleared",
           description: "Generate a fresh set of insights from the landing page.",
@@ -164,6 +241,19 @@ export function AdminContainer() {
         method: "DELETE",
       });
       if (!response.ok) {
+        if (response.status === 404) {
+          push({
+            title: "Session expired",
+            description: "Return to the homepage to generate a new workspace.",
+            variant: "destructive",
+          });
+          if (sessionId) {
+            deleteCachedWorkspace(sessionId);
+          }
+          setLocalWorkspace(null);
+          await mutate();
+          return;
+        }
         throw new Error("Failed to remove tile");
       }
       await mutate();
@@ -191,6 +281,19 @@ export function AdminContainer() {
         body: JSON.stringify({ order }),
       });
       if (!response.ok) {
+        if (response.status === 404) {
+          push({
+            title: "Session expired",
+            description: "Return to the homepage to generate a new workspace.",
+            variant: "destructive",
+          });
+          if (sessionId) {
+            deleteCachedWorkspace(sessionId);
+          }
+          setLocalWorkspace(null);
+          await mutate();
+          return;
+        }
         const data = await response.json().catch(() => ({}));
         throw new Error(data.error ?? "Failed to persist tile order");
       }
@@ -224,6 +327,19 @@ export function AdminContainer() {
         body: JSON.stringify({ message: prompt }),
       });
       if (!response.ok) {
+        if (response.status === 404) {
+          push({
+            title: "Session expired",
+            description: "Return to the homepage to generate a new workspace.",
+            variant: "destructive",
+          });
+          if (sessionId) {
+            deleteCachedWorkspace(sessionId);
+          }
+          setLocalWorkspace(null);
+          await mutate();
+          return;
+        }
         const data = await response.json().catch(() => ({}));
         throw new Error(data.error ?? "Failed to generate follow-up insight");
       }
@@ -253,11 +369,13 @@ export function AdminContainer() {
     />
   ) : null;
 
-  if (error) {
+  if (workspaceError && !workspace) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f7f7f8] text-[#3a3a41]">
         <div className="rounded-3xl border border-red-100 bg-red-50 px-6 py-4 text-sm">
-          We couldn&apos;t load the workspace. Refresh the page and try again.
+          {workspaceError.status === 404
+            ? "Your workspace cache expired. Return to the homepage to generate a new set of insights."
+            : "We couldn&apos;t load the workspace. Refresh the page and try again."}
         </div>
       </div>
     );
@@ -295,10 +413,11 @@ export function AdminContainer() {
           />
         }
       >
+        {cacheBanner}
         {isLoading && !workspace ? (
           <EmptyStateAde
             title="Loading insights"
-            description="Retrieving workspace data from the browser cookie."
+            description="Rehydrating workspace data from the local cache."
           />
         ) : tiles.length === 0 ? (
           <EmptyStateAde
@@ -358,10 +477,11 @@ export function AdminContainer() {
           />
         }
       >
+        {cacheBanner}
         {isLoading && !workspace ? (
           <EmptyStateDash
             title="Loading insights"
-            description="Retrieving workspace data from the browser cookie."
+            description="Rehydrating workspace data from the local cache."
           />
         ) : tiles.length === 0 ? (
           <EmptyStateDash
@@ -424,6 +544,7 @@ export function AdminContainer() {
       }
     >
       <div className="space-y-10">
+        {cacheBanner}
         <div className="grid gap-4 lg:hidden">
           <MobileMetric label="Insights" value={tiles.length} hint="Tiles generated" />
           <MobileMetric label="Notes" value={notes.length} hint="Saved notes" />
@@ -437,7 +558,7 @@ export function AdminContainer() {
         {isLoading && !workspace ? (
           <EmptyState
             title="Loading insights"
-            description="Retrieving workspace data from the browser cookie."
+            description="Rehydrating workspace data from the local cache."
           />
         ) : tiles.length === 0 ? (
           <EmptyState

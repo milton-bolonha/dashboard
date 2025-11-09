@@ -7,16 +7,23 @@ type RouteContext = { params: Promise<{ noteId: string }> };
 export async function DELETE(_request: Request, context: RouteContext) {
   const { noteId } = await context.params;
 
-  const updated = await updateWorkspace((workspace) => {
-    return {
-      ...workspace,
-      company: {
-        ...workspace.company,
-        notes: workspace.company.notes.filter((note) => note.id !== noteId),
-      },
-    };
-  });
+  try {
+    const updated = await updateWorkspace((workspace) => {
+      return {
+        ...workspace,
+        company: {
+          ...workspace.company,
+          notes: workspace.company.notes.filter((note) => note.id !== noteId),
+        },
+      };
+    });
 
-  return NextResponse.json({ success: true, notes: updated.company.notes });
+    return NextResponse.json({ success: true, notes: updated.company.notes });
+  } catch {
+    return NextResponse.json(
+      { error: "Workspace cache expired" },
+      { status: 404 }
+    );
+  }
 }
 

@@ -8,7 +8,7 @@ Este documento detalha toda a arquitetura e fluxo da área administrativa do pro
 
 - **Origem do layout**: inspirado no dashboard original (`dashboard/app/admin`) com adaptações para o App Router do Next.js 16.
 - **Stack**: React Server Components + Client Components, SWR para data fetching, cookies para storage, Tailwind CSS para estilização rápida.
-- **Persistência**: cookies HTTP-only via helpers em `src/lib/cookies-store.ts` (`readWorkspace`, `writeWorkspace`, etc.).
+- **Persistência**: snapshot do workspace armazenado em cache em memória (mapa global com TTL) com fallback para `localStorage` no cliente. O cookie HTTP-only guarda apenas o `sessionId`.
 - **Geração de insights**: rota `POST /api/generate` invoca GPT-5 (via SDK oficial da OpenAI) e salva o snapshot no cookie.
 - **Tema padrão**: **Ade Style**, com opções para alternar para **Classic** e **Dash Style** pelo switcher interno.
 
@@ -61,7 +61,7 @@ Arquivos em `src/components/admin/*.tsx` (sem subpastas) + `src/containers/admin
 ## Fluxo de Dados
 
 1. **Carregamento inicial**  
-   `AdminContainer` usa `useSWR("/api/workspace")` para puxar o snapshot armazenado em cookie.
+   `AdminContainer` usa `useSWR("/api/workspace")` para buscar o snapshot em cache de memória. Caso o cache expire, o componente reidrata o último snapshot salvo em `localStorage`.
 
 2. **Mudança de tema**  
    `AdminThemeSwitcher` muda o valor no contexto (`AdminThemeProvider`). Persistência em `localStorage` (`admin-theme`), com fallback seguro para usuários antigos (`chatgpt` → `dash`).
@@ -71,13 +71,13 @@ Arquivos em `src/components/admin/*.tsx` (sem subpastas) + `src/containers/admin
    - Delete de tile: `DELETE /api/workspace/tiles/:tileId`
    - Criação/remover nota: `POST/DELETE /api/workspace/notes`
    - Criação/remover contato: `POST/DELETE /api/workspace/contacts`
-     Todas as rotas manipulam o cookie e retornam snapshot atualizado.
+     Todas as rotas atualizam o snapshot em memória e retornam respostas que, ao serem revalidadas, sincronizam o cache local.
 
 4. **Gerar nova rodada de insights**  
    `HomeContainer` dispara `POST /api/generate`. Ao concluir, redireciona para `/admin` (SWR revalida).
 
 5. **Limpeza do workspace**  
-   Botão “Limpar” chama `DELETE /api/workspace`. Cookies são resetados com snapshot vazio.
+   Botão “Limpar” chama `DELETE /api/workspace`. O cache em memória é limpo, a sessão é reiniciada e o `localStorage` correspondente é removido.
 
 ---
 
@@ -104,6 +104,7 @@ Todos os temas compartilham o mesmo backend e ações, trocando apenas a camada 
 ## Toques Finais & Roadmap
 
 - ✅ Temas intercambiáveis com persistência local.
+- ✅ Cache em memória com TTL e reidratação via `localStorage`.
 - ✅ Logging detalhado em `/api/generate` e containers.
 - ✅ Estrutura preparada para novas integrações (ex.: Cloudinary).
 - 🛠️ Possíveis próximos passos:

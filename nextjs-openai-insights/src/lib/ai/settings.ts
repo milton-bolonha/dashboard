@@ -1,4 +1,4 @@
-export const DEFAULT_MODEL = process.env.OPENAI_MODEL || "gpt-5-mini";
+export const DEFAULT_MODEL = process.env.OPENAI_MODEL || "gpt-5-nano";
 
 function safeNumber(source: string | undefined, fallback: number): number {
   const parsed = Number(source);

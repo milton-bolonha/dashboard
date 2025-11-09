@@ -35,6 +35,14 @@ export function NotesPanel({ notes, onNotesChanged }: NotesPanelProps) {
           body: JSON.stringify({ title, content }),
         });
         if (!response.ok) {
+          if (response.status === 404) {
+            push({
+              title: "Sessão expirada",
+              description: "Volte para a landing e gere um novo workspace.",
+              variant: "destructive",
+            });
+            return;
+          }
           throw new Error("Não foi possível salvar a nota");
         }
         setTitle("");
@@ -59,6 +67,14 @@ export function NotesPanel({ notes, onNotesChanged }: NotesPanelProps) {
           method: "DELETE",
         });
         if (!response.ok) {
+          if (response.status === 404) {
+            push({
+              title: "Sessão expirada",
+              description: "Volte para a landing e gere um novo workspace.",
+              variant: "destructive",
+            });
+            return;
+          }
           throw new Error("Falha ao remover nota");
         }
         await onNotesChanged();

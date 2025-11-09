@@ -2,11 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import OpenAI from "openai";
 
-import {
-  clampTiles,
-  readWorkspace,
-  updateWorkspace,
-} from "@/lib/cookies-store";
+import { clampTiles, readWorkspace, updateWorkspace } from "@/lib/cookies-store";
 import type { Tile, TileMessage } from "@/lib/types";
 import { DEFAULT_MAX_OUTPUT_TOKENS, resolveModel } from "@/lib/ai/settings";
 import {
@@ -143,6 +139,12 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   const workspace = await readWorkspace();
+  if (!workspace) {
+    return NextResponse.json(
+      { error: "Workspace cache expired" },
+      { status: 404 }
+    );
+  }
   const tiles = workspace.company.tiles || [];
   const tileIndex = tiles.findIndex((tile) => tile.id === tileId);
 
@@ -230,32 +232,39 @@ export async function POST(request: Request, context: RouteContext) {
     history: trimmedHistory,
   };
 
-  const updatedWorkspace = await updateWorkspace((snapshot) => {
-    const currentTiles = snapshot.company.tiles || [];
-    const index = currentTiles.findIndex((tile) => tile.id === tileId);
-    if (index === -1) {
-      return snapshot;
-    }
+  try {
+    const updatedWorkspace = await updateWorkspace((snapshot) => {
+      const currentTiles = snapshot.company.tiles || [];
+      const index = currentTiles.findIndex((tile) => tile.id === tileId);
+      if (index === -1) {
+        return snapshot;
+      }
 
-    const nextTiles = [...currentTiles];
-    nextTiles[index] = updatedTile;
+      const nextTiles = [...currentTiles];
+      nextTiles[index] = updatedTile;
 
-    return {
-      ...snapshot,
-      company: {
-        ...snapshot.company,
-        tiles: nextTiles,
-      },
-    };
-  });
+      return {
+        ...snapshot,
+        company: {
+          ...snapshot.company,
+          tiles: nextTiles,
+        },
+      };
+    });
 
-  const refreshedTile =
-    updatedWorkspace.company.tiles.find((tile) => tile.id === tileId) ??
-    updatedTile;
+    const refreshedTile =
+      updatedWorkspace.company.tiles.find((tile) => tile.id === tileId) ??
+      updatedTile;
 
-  return NextResponse.json({
-    success: true,
-    tile: refreshedTile,
-  });
+    return NextResponse.json({
+      success: true,
+      tile: refreshedTile,
+    });
+  } catch {
+    return NextResponse.json(
+      { error: "Workspace cache expired" },
+      { status: 404 }
+    );
+  }
 }
 

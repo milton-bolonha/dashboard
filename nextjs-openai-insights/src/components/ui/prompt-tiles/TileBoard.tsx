@@ -119,6 +119,7 @@ function SortableTileCard({
         ...style,
         cursor: isDragging ? "grabbing" : "default",
       }}
+      data-testid="tile-card"
       className={`group relative flex flex-col gap-4 rounded-3xl border ${tokens.border} ${tokens.background} p-6 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg`}
     >
       <div className="flex items-start justify-between gap-3">
