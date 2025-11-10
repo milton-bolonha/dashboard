@@ -51,7 +51,13 @@ export function TileDetailModal({
 
   const history = useMemo<TileMessage[]>(() => {
     if (Array.isArray(tile.history) && tile.history.length > 0) {
-      return tile.history;
+      return tile.history.map((entry) => ({
+        ...entry,
+        role:
+          entry.role === "assistant" || entry.role === "system" || entry.role === "user"
+            ? entry.role
+            : "assistant",
+      }));
     }
     return [
       {
