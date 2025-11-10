@@ -196,11 +196,13 @@ export function TileDetailModal({
               <button
                 type="button"
                 onClick={() => handleCopyContent(entry.content, entry.id)}
-                className={copyButtonClass}
+                className={`${copyButtonClass} group cursor-pointer`}
                 aria-label="Copy assistant reply"
               >
                 <Copy className="h-3.5 w-3.5" />
-                {copyLabel}
+                <span className="opacity-0 transition-opacity group-hover:opacity-100">
+                  {copyLabel}
+                </span>
               </button>
             </div>
           </div>
@@ -242,11 +244,13 @@ export function TileDetailModal({
             <button
               type="button"
               onClick={() => handleCopyContent(entry.content, entry.id)}
-              className={copyButtonClass}
+              className={`${copyButtonClass} group cursor-pointer`}
               aria-label="Copy message"
             >
               <Copy className="h-3.5 w-3.5" />
-              {copyLabel}
+              <span className="opacity-0 transition-opacity group-hover:opacity-100">
+                {copyLabel}
+              </span>
             </button>
           </div>
         </div>
@@ -341,10 +345,12 @@ export function TileDetailModal({
                     <button
                       type="button"
                       onClick={() => handleCopyContent(tile.prompt, "prompt")}
-                      className="inline-flex items-center gap-2 rounded-full border border-[#F3C8A9] px-3 py-1 text-xs font-semibold text-[#C55E16] transition hover:bg-[#FFF2E5]"
+                      className="group inline-flex items-center gap-2 rounded-full border border-[#F3C8A9] px-3 py-1 text-xs font-semibold text-[#C55E16] transition hover:bg-[#FFF2E5] cursor-pointer"
                     >
                       <Copy className="h-3 w-3" />
-                      {copiedKey === "prompt" ? "Copied" : "Copy"}
+                      <span className="opacity-0 transition-opacity group-hover:opacity-100">
+                        {copiedKey === "prompt" ? "Copied" : "Copy"}
+                      </span>
                     </button>
                   </div>
                   <pre className="mt-3 max-h-64 overflow-y-auto whitespace-pre-wrap rounded-xl bg-[#FFF3E4] px-4 py-3 text-[13px] leading-relaxed text-[#5a3112]">
@@ -560,7 +566,7 @@ function AttachmentPickerModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full border border-[#EFEFEF] p-2 text-[#6f6f6f] transition hover:border-[#DCDCDC] hover:text-black"
+            className="rounded-full border border-[#EFEFEF] p-2 text-[#6f6f6f] transition hover:border-[#DCDCDC] hover:text-black cursor-pointer"
             aria-label="Close attachment picker"
           >
             <X className="h-4 w-4" />

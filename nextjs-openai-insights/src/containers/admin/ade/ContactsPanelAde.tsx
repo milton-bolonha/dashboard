@@ -125,7 +125,7 @@ export function ContactsPanelAde({
                     type="button"
                     onClick={() => onRegenerateContact(contact.id)}
                     disabled={isRegenerating || isPending}
-                    className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-[#1f1f1f] ring-1 ring-black/5 transition hover:text-black disabled:cursor-not-allowed disabled:text-[#a1a1a1]"
+                    className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-[#1f1f1f] ring-1 ring-black/5 transition hover:text-black disabled:cursor-not-allowed disabled:text-[#a1a1a1] cursor-pointer"
                     aria-label="Regenerate outreach"
                   >
                     {isRegenerating ? (
@@ -137,7 +137,7 @@ export function ContactsPanelAde({
                   <button
                     type="button"
                     onClick={() => handleDelete(contact.id)}
-                    className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-[#8a8a8a] ring-1 ring-black/5 transition hover:text-red-500 disabled:cursor-not-allowed"
+                    className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-[#8a8a8a] ring-1 ring-black/5 transition hover:text-red-500 disabled:cursor-not-allowed cursor-pointer"
                     disabled={isPending}
                     aria-label="Remove contact"
                   >

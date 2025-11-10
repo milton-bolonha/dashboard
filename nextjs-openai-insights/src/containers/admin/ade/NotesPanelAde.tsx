@@ -156,7 +156,7 @@ export function NotesPanelAde({ notes, onNotesChanged }: NotesPanelAdeProps) {
               <button
                 type="submit"
                 disabled={isPending}
-                className="inline-flex items-center justify-center rounded-full bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1a1a1a] disabled:cursor-not-allowed disabled:bg-[#9e9e9e]"
+              className="inline-flex items-center justify-center rounded-full bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1a1a1a] disabled:cursor-not-allowed disabled:bg-[#9e9e9e] whitespace-nowrap"
               >
                 {isPending ? "Saving…" : isEditing ? "Save note" : "Add note"}
               </button>

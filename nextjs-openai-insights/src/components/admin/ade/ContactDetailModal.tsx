@@ -144,11 +144,13 @@ export function ContactDetailModal({
               <button
                 type="button"
                 onClick={() => handleCopyText(entry.content, entry.id)}
-                className="inline-flex items-center gap-1 rounded-full border border-transparent px-3 py-1 text-[#7d7d7d] transition hover:border-black/10 hover:text-black"
+                className="group inline-flex items-center gap-1 rounded-full border border-transparent px-3 py-1 text-[#7d7d7d] transition hover:border-black/10 hover:text-black cursor-pointer"
                 aria-label="Copy assistant reply"
               >
                 <Copy className="h-3.5 w-3.5" />
-                {copyLabel}
+                <span className="opacity-0 transition-opacity group-hover:opacity-100">
+                  {copyLabel}
+                </span>
               </button>
             </div>
           </div>
@@ -172,11 +174,13 @@ export function ContactDetailModal({
             <button
               type="button"
               onClick={() => handleCopyText(entry.content, entry.id)}
-              className="inline-flex items-center gap-1 rounded-full border border-transparent px-3 py-1 text-[#7d7d7d] transition hover:border-black/10 hover:text-black"
+              className="group inline-flex items-center gap-1 rounded-full border border-transparent px-3 py-1 text-[#7d7d7d] transition hover:border-black/10 hover:text-black cursor-pointer"
               aria-label="Copy message"
             >
               <Copy className="h-3.5 w-3.5" />
-              {copyLabel}
+              <span className="opacity-0 transition-opacity group-hover:opacity-100">
+                {copyLabel}
+              </span>
             </button>
           </div>
         </div>
@@ -257,57 +261,15 @@ export function ContactDetailModal({
           <div className="flex flex-1 flex-col overflow-hidden">
             <div className="flex-1 overflow-y-auto bg-white px-8 py-6">
               <div className="space-y-5">
-                <section className="rounded-2xl border border-[#ededed] bg-white p-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.3em] text-[#5f5f5f]">
-                        Contact chat
-                      </h3>
-                      <p className="text-sm text-[#6f6f6f]">
-                        Ask the AI to deepen research on this stakeholder or craft new outreach angles.
-                      </p>
+                <div className="space-y-5">
+                  {history.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-[#e4e4e4] bg-[#fafafa] px-4 py-6 text-center text-sm text-[#7a7a7a]">
+                      No conversation captured yet. Send a prompt to generate tailored insights for this contact.
                     </div>
-                  </div>
-
-                  <div className="mt-4 space-y-4">
-                    {history.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-[#e4e4e4] bg-[#fafafa] px-4 py-6 text-center text-sm text-[#7a7a7a]">
-                        No conversation captured yet. Send a prompt to generate tailored insights for this contact.
-                      </div>
-                    ) : (
-                      history.map(renderHistoryEntry)
-                    )}
-                  </div>
-
-                  <form onSubmit={handleSubmitChat} className="mt-5 space-y-3">
-                    <div className="rounded-2xl border border-[#e7e7e7] bg-[#f5f5f5] p-3 shadow-inner transition focus-within:border-[#d9d9d9] focus-within:bg-white">
-                      <textarea
-                        value={message}
-                        onChange={(event) => setMessage(event.target.value)}
-                        placeholder="Ask the AI to tailor messaging, summarize the latest insight, or suggest next steps…"
-                        className="h-28 w-full resize-none border-none bg-transparent text-sm text-[#2d2d2d] outline-none focus:bg-white focus:ring-0"
-                        disabled={isChatting}
-                      />
-                    </div>
-                    <div className="flex justify-end">
-                      <button
-                        type="submit"
-                        disabled={isChatting || message.trim().length === 0}
-                        className="inline-flex h-10 items-center justify-center rounded-full bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1a1a1a] disabled:cursor-not-allowed disabled:bg-[#9e9e9e]"
-                        aria-label="Send follow-up"
-                      >
-                        {isChatting ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <span className="flex items-center gap-2">
-                            Send
-                            <SendHorizontal className="h-4 w-4" />
-                          </span>
-                        )}
-                      </button>
-                    </div>
-                  </form>
-                </section>
+                  ) : (
+                    history.map(renderHistoryEntry)
+                  )}
+                </div>
 
                 {(Object.keys(OUTREACH_METADATA) as OutreachKey[]).map((key) => {
                   const tile = outreach[key];
@@ -328,10 +290,12 @@ export function ContactDetailModal({
                           type="button"
                           onClick={() => handleCopyText(tile?.content, key)}
                           disabled={!tile?.content}
-                          className="inline-flex h-9 items-center gap-2 rounded-full border border-[#e4e4e4] px-3 text-xs font-semibold text-[#1f1f1f] transition hover:bg-[#f5f5f5] disabled:cursor-not-allowed disabled:text-[#a1a1a1]"
+                          className="group inline-flex h-9 items-center gap-2 rounded-full border border-[#e4e4e4] px-3 text-xs font-semibold text-[#1f1f1f] transition hover:bg-[#f5f5f5] disabled:cursor-not-allowed disabled:text-[#a1a1a1] cursor-pointer"
                         >
                           <Copy className="h-3.5 w-3.5" />
-                          {copiedKey === key ? "Copied" : "Copy"}
+                          <span className="opacity-0 transition-opacity group-hover:opacity-100">
+                            {copiedKey === key ? "Copied" : "Copy"}
+                          </span>
                         </button>
                       </div>
                       <div className="mt-4 rounded-xl bg-[#f9f9f9] px-4 py-3 text-sm leading-relaxed text-[#2f2f2f]">
@@ -356,8 +320,38 @@ export function ContactDetailModal({
               </div>
             </div>
 
-            <footer className="px-8 py-4 text-xs text-[#7d7d7d]">
-              Insights combine AI output with your workspace notes to keep context synced.
+            <footer className="px-8 py-4">
+              <form onSubmit={handleSubmitChat} className="space-y-3">
+                <div className="rounded-2xl border border-[#e7e7e7] bg-[#f5f5f5] p-3 shadow-inner transition focus-within:border-[#d9d9d9] focus-within:bg-white">
+                  <textarea
+                    value={message}
+                    onChange={(event) => setMessage(event.target.value)}
+                    placeholder="Ask the AI to tailor messaging, summarize the latest insight, or suggest next steps…"
+                    className="h-28 w-full resize-none border-none bg-transparent text-sm text-[#2d2d2d] outline-none focus:bg-white focus:ring-0"
+                    disabled={isChatting}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-[#7d7d7d]">
+                    Insights combine AI output with your workspace notes to keep context synced.
+                  </p>
+                  <button
+                    type="submit"
+                    disabled={isChatting || message.trim().length === 0}
+                    className="inline-flex h-10 items-center justify-center rounded-full bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1a1a1a] disabled:cursor-not-allowed disabled:bg-[#9e9e9e] whitespace-nowrap"
+                    aria-label="Send follow-up"
+                  >
+                    {isChatting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <span className="flex items-center gap-2">
+                        Send
+                        <SendHorizontal className="h-4 w-4" />
+                      </span>
+                    )}
+                  </button>
+                </div>
+              </form>
             </footer>
           </div>
         </aside>

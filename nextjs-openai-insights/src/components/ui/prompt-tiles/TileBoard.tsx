@@ -176,7 +176,7 @@ function SortableTileCard({
             type="button"
             onClick={() => onRegenerateTile?.(tile.id)}
             disabled={isRegenerating}
-            className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-[#1f1f1f] ring-1 ring-black/5 transition hover:text-black disabled:cursor-not-allowed disabled:text-gray-400"
+            className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-[#1f1f1f] ring-1 ring-black/5 transition hover:text-black disabled:cursor-not-allowed disabled:text-gray-400 cursor-pointer"
             aria-label="Regenerate insight"
           >
             {isRegenerating ? (
@@ -188,7 +188,7 @@ function SortableTileCard({
           <button
             type="button"
             onClick={() => onDeleteTile(tile.id)}
-            className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-[#8a8a8a] ring-1 ring-black/5 transition hover:text-red-500"
+            className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-[#8a8a8a] ring-1 ring-black/5 transition hover:text-red-500 cursor-pointer"
             aria-label="Remove tile"
           >
             <Trash2 className="h-4 w-4" />

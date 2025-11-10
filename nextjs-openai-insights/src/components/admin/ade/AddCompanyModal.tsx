@@ -112,12 +112,6 @@ export function AddCompanyModal({
     [validators],
   );
 
-  const isFieldEnabled = (field: FieldName) => {
-    const index = FIELD_ORDER.indexOf(field);
-    if (index === 0) return true;
-    return FIELD_ORDER.slice(0, index).every((prev) => validators[prev]);
-  };
-
   if (!open) return null;
 
   const handleChange = (field: FieldName, value: string) => {
@@ -162,37 +156,6 @@ export function AddCompanyModal({
     }
   };
 
-  const renderStatusIndicator = (field: FieldName) => {
-    if (!isFieldEnabled(field)) {
-      return (
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f2f2f2] text-[#9a9a9a]">
-          •
-        </span>
-      );
-    }
-    if (validators[field]) {
-      const isLast = field === FIELD_ORDER[FIELD_ORDER.length - 1];
-      return (
-        <button
-          type="submit"
-          disabled={!allValid || isSubmitting || !isLast}
-          className={`flex h-8 w-8 items-center justify-center rounded-full ${
-            isLast && allValid
-              ? "bg-black text-white transition hover:bg-[#1a1a1a] disabled:bg-[#9e9e9e]"
-              : "bg-[#f0f0f0] text-[#1f1f1f]"
-          }`}
-        >
-          {isLast ? <ArrowRight className="h-4 w-4" /> : "✓"}
-        </button>
-      );
-    }
-    return (
-      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f0f0f0] text-[#9a9a9a]">
-        •
-      </span>
-    );
-  };
-
   const handleRequestClose = () => {
     setValues(DEFAULT_VALUES);
     setTouched({
@@ -229,40 +192,28 @@ export function AddCompanyModal({
 
         <form onSubmit={handleSubmit} className="space-y-5 px-8 py-6">
           {FIELD_ORDER.map((field) => {
-            const enabled = isFieldEnabled(field);
             const details = FIELD_DETAILS[field];
             const showError = touched[field] && !validators[field];
             return (
               <div
                 key={field}
-                className={`flex flex-col gap-2 rounded-2xl border px-4 py-4 transition ${
-                  enabled
-                    ? "border-[#e4e4e4] bg-white"
-                    : "border-dashed border-[#e4e4e4] bg-[#fafafa]"
-                }`}
+                className="flex flex-col gap-2 rounded-2xl border border-[#e4e4e4] bg-white px-4 py-4 transition"
               >
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex-1">
-                    <label className="text-xs font-semibold uppercase tracking-[0.28em] text-[#8a8a8a]">
-                      {details.label}
-                    </label>
-                    <input
-                      required
-                      type={details.type}
-                      inputMode={details.type === "url" ? "url" : "text"}
-                      value={values[field]}
-                      onChange={(event) => handleChange(field, event.target.value)}
-                      onBlur={() => handleBlur(field)}
-                      disabled={!enabled || isSubmitting}
-                      className={`mt-1 w-full border-b border-transparent bg-transparent px-1 py-2 text-sm text-[#1f1f1f] placeholder:text-[#a1a1a1] focus:border-black focus:outline-none ${
-                        !enabled
-                          ? "cursor-not-allowed text-[#b3b3b3] placeholder:text-[#c1c1c1]"
-                          : ""
-                      }`}
-                      placeholder={details.placeholder}
-                    />
-                  </div>
-                  {renderStatusIndicator(field)}
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold uppercase tracking-[0.28em] text-[#8a8a8a]">
+                    {details.label}
+                  </label>
+                  <input
+                    required
+                    type={details.type}
+                    inputMode={details.type === "url" ? "url" : "text"}
+                    value={values[field]}
+                    onChange={(event) => handleChange(field, event.target.value)}
+                    onBlur={() => handleBlur(field)}
+                    disabled={isSubmitting}
+                    className="w-full rounded-lg border border-[#e4e4e4] bg-white px-3 py-2 text-sm text-[#1f1f1f] placeholder:text-[#a1a1a1] focus:border-black focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:bg-[#f5f5f5]"
+                    placeholder={details.placeholder}
+                  />
                 </div>
                 {showError ? (
                   <p className="text-xs text-[#FF5A5F]">
