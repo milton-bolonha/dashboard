@@ -1,14 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import {
-  CalendarClock,
-  ChevronRight,
-  Menu,
-  Plus,
-  Sparkles,
-  UserPlus,
-} from "lucide-react";
+import { CalendarClock, ChevronRight, Menu, Plus, UserPlus } from "lucide-react";
 
 interface CompanyOption {
   sessionId: string;
@@ -70,11 +63,10 @@ export function AdminSidebarAde({
       }`}
     >
       <header className="mb-8 flex w-full items-center justify-between">
-        <div className={collapsed ? "hidden" : "flex items-center gap-2"}>
-          <span className="text-sm font-semibold uppercase tracking-[0.28em]">
+        <div className={collapsed ? "hidden" : "flex items-center"}>
+          <span className="text-sm font-semibold uppercase tracking-[0.28em] text-gray-700">
             {workspaceName}
           </span>
-          <Sparkles className="h-4 w-4 text-amber-400" />
         </div>
         <button
           type="button"
@@ -148,8 +140,8 @@ export function AdminSidebarAde({
                   onClick={() => onSelectCompany(company.sessionId)}
                   className={`flex h-9 w-9 items-center justify-center rounded-full border text-xs font-semibold transition ${
                     company.isActive
-                      ? "border-black bg-black text-white"
-                      : "border-transparent bg-white text-gray-700 hover:border-gray-300"
+                      ? "border-gray-900 text-gray-900"
+                      : "border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900"
                   }`}
                   title={company.name}
                 >
@@ -158,23 +150,30 @@ export function AdminSidebarAde({
               ))}
             </div>
           ) : (
-            <ul className="mt-4 space-y-2 text-sm text-gray-700">
+            <ul className="mt-4 space-y-1 text-sm">
               {companies.map((company) => (
                 <li key={company.sessionId}>
                   <button
                     type="button"
                     onClick={() => onSelectCompany(company.sessionId)}
-                    className={`flex w-full flex-col rounded-md px-2 py-2 text-left transition hover:bg-gray-200 ${
-                      company.isActive ? "bg-black text-white hover:bg-black" : ""
+                    className={`flex w-full flex-col px-1 py-2 text-left transition ${
+                      company.isActive
+                        ? "font-semibold text-gray-900"
+                        : "text-gray-600 hover:text-gray-900"
                     }`}
+                    aria-current={company.isActive ? "page" : undefined}
                   >
                     <div className="flex items-center justify-between">
                       <span className="truncate font-medium">{company.name}</span>
-                      <ChevronRight className="h-4 w-4 opacity-60" />
+                      <ChevronRight
+                        className={`h-4 w-4 transition ${
+                          company.isActive ? "text-gray-400" : "text-gray-300"
+                        }`}
+                      />
                     </div>
                     <span
-                      className={`mt-1 flex items-center gap-1 text-[0.65rem] uppercase tracking-[0.28em] ${
-                        company.isActive ? "text-white/70" : "text-gray-500"
+                      className={`mt-1 flex items-center gap-1 text-[0.65rem] uppercase tracking-[0.28em] text-gray-400 ${
+                        company.isActive ? "font-medium text-gray-500" : ""
                       }`}
                     >
                       <CalendarClock className="h-3 w-3" />

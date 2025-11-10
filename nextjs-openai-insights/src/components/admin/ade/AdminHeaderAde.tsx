@@ -6,11 +6,6 @@ import { ChevronDown, Moon, Plus, Settings } from "lucide-react";
 interface AdminHeaderAdeProps {
   workspaceName: string;
   companyName: string;
-  isLoading: boolean;
-  onRefresh: () => void;
-  onReset: () => void;
-  isRefreshing: boolean;
-  isResetting: boolean;
   onCustomizeBackground?: () => void;
   onSaveTemplate?: () => void;
   actionSlot?: React.ReactNode;
@@ -19,11 +14,6 @@ interface AdminHeaderAdeProps {
 export function AdminHeaderAde({
   workspaceName,
   companyName,
-  isLoading,
-  onRefresh,
-  onReset,
-  isRefreshing,
-  isResetting,
   onCustomizeBackground,
   onSaveTemplate,
   actionSlot,
@@ -96,22 +86,6 @@ export function AdminHeaderAde({
           ) : null}
         </div>
         {actionSlot}
-        <button
-          type="button"
-          onClick={onRefresh}
-          disabled={isLoading || isRefreshing}
-          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-400 disabled:opacity-60"
-        >
-          {isRefreshing ? "Refreshing…" : "Refresh"}
-        </button>
-        <button
-          type="button"
-          onClick={onReset}
-          disabled={isResetting}
-          className="rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:bg-gray-600"
-        >
-          {isResetting ? "Clearing…" : "Reset"}
-        </button>
       </div>
     </div>
   );

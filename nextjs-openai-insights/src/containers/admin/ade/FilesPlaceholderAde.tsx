@@ -4,7 +4,7 @@ export function FilesPlaceholderAde() {
       <header>
         <h3 className="text-lg font-semibold text-gray-900">Files & Assets</h3>
         <p className="text-sm text-gray-600">
-          Upload e gerencie documentos importantes deste workspace.
+          Upload and manage the key documents that support this workspace.
         </p>
       </header>
 
@@ -21,11 +21,11 @@ export function FilesPlaceholderAde() {
       </div>
 
       <div className="rounded-xl border-2 border-dashed border-gray-300 p-6 text-center text-sm text-gray-600">
-        Upload arrastando e soltando aqui (10 MB máx) — integração Cloudinary chegando.
+        Drag and drop to upload (10 MB max) — Cloudinary integration coming soon.
       </div>
 
       <div className="flex justify-center py-8 text-gray-500">
-        Nenhum arquivo enviado ainda.
+        No files uploaded yet.
       </div>
     </section>
   );

@@ -107,13 +107,14 @@ export function TileDetailModal({
 
   const infoSummary = useMemo(() => {
     const lines = [
+      tile.templateTileId ? `Template: ${tile.templateTileId}` : "Template: Custom insight",
       `Model: ${tile.model ?? "—"}`,
       tile.totalTokens ? `Tokens: ${tile.totalTokens}` : null,
       tile.createdAt ? `Created: ${formatDate(tile.createdAt)}` : null,
       tile.updatedAt ? `Updated: ${formatDate(tile.updatedAt)}` : null,
     ].filter(Boolean) as string[];
     return lines.join("\n");
-  }, [tile.model, tile.totalTokens, tile.createdAt, tile.updatedAt]);
+  }, [tile.templateTileId, tile.model, tile.totalTokens, tile.createdAt, tile.updatedAt]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -158,6 +159,17 @@ export function TileDetailModal({
   const renderHistoryEntry = (entry: TileMessage) => {
     const timestamp = formatTimestamp(entry.createdAt ?? tile.updatedAt);
     const copyLabel = copiedKey === entry.id ? "Copied" : "Copy";
+    const baseMetaClass =
+      "mt-2 flex flex-wrap items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.32em]";
+    const assistantMetaClass = `${baseMetaClass} ${
+      isAde ? "text-[#9f9f9f]" : "text-[#b97a42]"
+    }`;
+    const userMetaClass = `${baseMetaClass} ${isAde ? "text-[#9f9f9f]" : "text-[#a1a1a1]"}`;
+    const copyButtonClass = `inline-flex items-center gap-1 rounded-full border border-transparent px-3 py-1 transition ${
+      isAde
+        ? "text-[#7D7D7D] hover:border-black/10 hover:text-black"
+        : "text-[#b97a42] hover:border-[#E7B488] hover:text-[#7f4d15]"
+    }`;
 
     if (entry.role === "assistant") {
       return (
@@ -169,30 +181,22 @@ export function TileDetailModal({
           >
             <Bot className="h-4 w-4" />
           </div>
-          <div
-            className={`max-w-xl rounded-2xl border px-4 py-3 shadow-sm ${
-              isAde ? "border-[#EEEEEE] bg-[#F9F9F9]" : "border-orange-200 bg-white"
-            }`}
-          >
-            <p className="text-sm leading-relaxed text-[#2f2f2f] whitespace-pre-wrap">
-              {entry.content}
-            </p>
-            <div className="mt-3 flex items-center justify-between text-xs">
-              <span
-                className={`font-semibold uppercase tracking-[0.3em] ${
-                  isAde ? "text-[#9f9f9f]" : "text-[#b97a42]"
-                }`}
-              >
-                {timestamp}
-              </span>
+          <div className="flex flex-col">
+            <div
+              className={`max-w-xl rounded-2xl border px-4 py-3 shadow-sm ${
+                isAde ? "border-[#EEEEEE] bg-[#F9F9F9]" : "border-orange-200 bg-white"
+              }`}
+            >
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#2f2f2f]">
+                {entry.content}
+              </p>
+            </div>
+            <div className={`${assistantMetaClass} justify-start`}>
+              <span>{timestamp}</span>
               <button
                 type="button"
                 onClick={() => handleCopyContent(entry.content, entry.id)}
-                className={`inline-flex items-center gap-1 rounded-full border border-transparent px-2 py-1 transition ${
-                  isAde
-                    ? "text-[#7D7D7D] hover:border-black/10 hover:text-black"
-                    : "text-[#b97a42] hover:border-[#E7B488] hover:text-[#7f4d15]"
-                }`}
+                className={copyButtonClass}
                 aria-label="Copy assistant reply"
               >
                 <Copy className="h-3.5 w-3.5" />
@@ -220,31 +224,25 @@ export function TileDetailModal({
 
     return (
       <div key={entry.id} className="flex justify-end">
-        <div
-          className={`max-w-xl rounded-2xl border px-4 py-3 shadow-sm ${
-            isAde ? "border-[#EFEFEF] bg-white" : "border-slate-200 bg-white"
-          }`}
-        >
-          <p className="text-sm leading-relaxed text-[#1f1f1f] whitespace-pre-wrap">
-            {entry.content}
-          </p>
-          <div className="mt-3 flex items-center justify-between text-xs">
-            <span
-              className={`flex items-center gap-1 font-semibold uppercase tracking-[0.3em] ${
-                isAde ? "text-[#9f9f9f]" : "text-[#a1a1a1]"
-              }`}
-            >
+        <div className="flex max-w-xl flex-col items-end">
+          <div
+            className={`w-full rounded-2xl border px-4 py-3 shadow-sm ${
+              isAde ? "border-[#EFEFEF] bg-white" : "border-slate-200 bg-white"
+            }`}
+          >
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#1f1f1f]">
+              {entry.content}
+            </p>
+          </div>
+          <div className={`${userMetaClass} justify-end`}>
+            <span className="flex items-center gap-1">
               <User className="h-3 w-3" />
               {timestamp}
             </span>
             <button
               type="button"
               onClick={() => handleCopyContent(entry.content, entry.id)}
-              className={`inline-flex items-center gap-1 rounded-full border border-transparent px-2 py-1 transition ${
-                isAde
-                  ? "text-[#7D7D7D] hover:border-black/10 hover:text-black"
-                  : "text-[#b97a42] hover:border-[#E7B488] hover:text-[#7f4d15]"
-              }`}
+              className={copyButtonClass}
               aria-label="Copy message"
             >
               <Copy className="h-3.5 w-3.5" />
@@ -281,15 +279,12 @@ export function TileDetailModal({
               <h2 className="text-2xl font-semibold leading-tight text-gray-900">
                 {tile.title}
               </h2>
-              <p className="text-sm text-gray-500">
-                {tile.templateTileId ?? "Custom insight"}
-              </p>
             </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 title={infoSummary}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-600 transition hover:border-gray-300 hover:text-gray-900"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-600 transition hover:border-gray-300 hover:text-gray-900 cursor-pointer"
                 aria-label="Insight details"
               >
                 <Info className="h-4 w-4" />
@@ -297,7 +292,7 @@ export function TileDetailModal({
               <button
                 type="button"
                 onClick={handleRequestClose}
-                className={`flex h-10 w-10 items-center justify-center rounded-full border ${
+                className={`flex h-10 w-10 items-center justify-center rounded-full border cursor-pointer ${
                   isAde
                     ? "border-gray-200 text-gray-700 transition hover:bg-gray-100"
                     : "border-[#F4C7A6] bg-white text-[#E46B1F] hover:bg-[#FFE8D5]"

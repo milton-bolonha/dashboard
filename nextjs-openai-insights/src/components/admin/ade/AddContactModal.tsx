@@ -76,7 +76,7 @@ export function AddContactModal({
             type="button"
             onClick={handleRequestClose}
             className="flex h-9 w-9 items-center justify-center rounded-full border border-[#D4D1FF] text-[#544AE6] transition hover:bg-[#ECEBFF]"
-            aria-label="Fechar modal de contato"
+            aria-label="Close contact modal"
           >
             <X className="h-4 w-4" />
           </button>
@@ -85,13 +85,13 @@ export function AddContactModal({
         <form onSubmit={handleSubmit} className="space-y-5 px-6 py-6">
           <div>
             <label className="text-xs font-semibold uppercase tracking-[0.28em] text-[#6B63C7]">
-              Nome completo
+              Full name
             </label>
             <input
               required
               value={form.name}
               onChange={(event) => handleChange(event, "name")}
-              placeholder="Ex.: Ana Costa — Diretora de Operações"
+              placeholder="e.g., Ana Costa — Director of Operations"
               autoFocus
               className="mt-2 w-full border-b border-[#C7C1FF] bg-transparent px-1 py-2 text-sm text-[#2F2A94] placeholder-[#6B63C7]/70 focus:border-[#544AE6] focus:outline-none"
             />
@@ -99,12 +99,12 @@ export function AddContactModal({
 
           <div>
             <label className="text-xs font-semibold uppercase tracking-[0.28em] text-[#6B63C7]">
-              Cargo
+              Role or title
             </label>
             <input
               value={form.jobTitle}
               onChange={(event) => handleChange(event, "jobTitle")}
-              placeholder="Ex.: VP of Customer Experience"
+              placeholder="e.g., VP of Customer Experience"
               className="mt-2 w-full border-b border-[#C7C1FF] bg-transparent px-1 py-2 text-sm text-[#2F2A94] placeholder-[#6B63C7]/70 focus:border-[#544AE6] focus:outline-none"
             />
           </div>
@@ -125,14 +125,14 @@ export function AddContactModal({
 
           <div className="flex items-center justify-between">
             <p className="text-xs text-[#6B63C7]">
-              Use um contacto real — isso facilita cadências personalizadas e follow-ups.
+              Use a real contact — it keeps cadences personal and follow-ups relevant.
             </p>
             <button
               type="submit"
               disabled={isSubmitting || !form.name.trim()}
               className="inline-flex items-center rounded-full bg-[#5246E9] px-5 py-2 text-sm font-semibold text-white shadow-lg transition hover:bg-[#4337d8] disabled:cursor-not-allowed disabled:bg-[#B4AEFF]"
             >
-              {isSubmitting ? "Salvando..." : "Salvar contato"}
+              {isSubmitting ? "Saving..." : "Save contact"}
             </button>
           </div>
         </form>

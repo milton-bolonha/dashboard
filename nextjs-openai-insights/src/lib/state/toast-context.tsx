@@ -8,6 +8,7 @@ interface Toast {
   title?: string;
   description?: string;
   variant?: "default" | "destructive" | "success";
+  duration?: number;
 }
 
 interface ToastContextValue {
@@ -25,13 +26,20 @@ export function ToastProvider({ children }: PropsWithChildren): ReactNode {
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID()
         : `toast_${Math.random().toString(36).slice(2, 9)}`;
+    const duration = toast.duration ?? 5000;
     setToasts((prev) => [
       ...prev,
       {
         id,
         ...toast,
+        duration,
       },
     ]);
+    if (duration > 0 && typeof window !== "undefined") {
+      window.setTimeout(() => {
+        setToasts((prev) => prev.filter((item) => item.id !== id));
+      }, duration);
+    }
   }, []);
 
   const dismiss = useCallback((id: string) => {

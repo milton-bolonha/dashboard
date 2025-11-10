@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import { useRouter } from "next/navigation";
 
@@ -74,8 +74,6 @@ export function AdminContainer() {
   const { push } = useToast();
   const router = useRouter();
   const { theme } = useAdminTheme();
-  const [isResetting, startReset] = useTransition();
-  const [isRefreshing, startRefresh] = useTransition();
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
   const [isPersistingOrder, setIsPersistingOrder] = useState(false);
   const [isChatting, setIsChatting] = useState(false);
@@ -308,67 +306,6 @@ export function AdminContainer() {
     },
     [data, push, viewingSessionId],
   );
-
-  const handleResetWorkspace = () => {
-    if (!isViewingServerWorkspace) {
-      push({
-        title: "Switch to active workspace",
-        description: "Reset is only available for the most recently generated workspace.",
-        variant: "destructive",
-      });
-      return;
-    }
-    startReset(async () => {
-      try {
-        const response = await fetch("/api/workspace", { method: "DELETE" });
-        if (!response.ok) {
-          throw new Error("Failed to reset the workspace");
-        }
-        const payload = await response.json().catch(() => null);
-        if (sessionId) {
-          deleteCachedWorkspace(sessionId);
-        }
-        if (payload?.workspace) {
-          setSessionId(payload.workspace.sessionId);
-          setLocalWorkspace(payload.workspace);
-          saveCachedWorkspace(payload.workspace.sessionId, payload.workspace);
-          setViewingSessionId(payload.workspace.sessionId);
-        } else {
-          setLocalWorkspace(null);
-          setViewingSessionId(null);
-        }
-        await mutate();
-        refreshStoredWorkspaces();
-        push({
-          title: "Workspace cleared",
-          description: "Generate a fresh set of insights from the landing page.",
-          variant: "success",
-        });
-      } catch (err) {
-        push({
-          title: "Reset failed",
-          description:
-            err instanceof Error ? err.message : "Please try again in a few moments.",
-          variant: "destructive",
-        });
-      }
-    });
-  };
-
-  const handleRefresh = () => {
-    if (!isViewingServerWorkspace) {
-      push({
-        title: "Switch to latest workspace",
-        description: "Refresh only works for the most recently generated workspace.",
-        variant: "destructive",
-      });
-      return;
-    }
-    startRefresh(async () => {
-      await mutate();
-      refreshStoredWorkspaces();
-    });
-  };
 
   const handleDeleteTile = async (tileId: string) => {
     if (!isViewingServerWorkspace) {
@@ -830,11 +767,6 @@ export function AdminContainer() {
           <AdminHeaderAde
             workspaceName={workspaceLabel}
             companyName={companyName}
-            isLoading={isLoading && !workspace}
-            onRefresh={handleRefresh}
-            onReset={handleResetWorkspace}
-            isRefreshing={isRefreshing}
-            isResetting={isResetting}
           />
         }
       >
@@ -861,7 +793,7 @@ export function AdminContainer() {
           />
         )}
 
-        <div className="space-y-12">
+        <div className="mt-12 space-y-12">
           <ContactsPanelAde
             contacts={contacts}
             onContactsChanged={async () => {

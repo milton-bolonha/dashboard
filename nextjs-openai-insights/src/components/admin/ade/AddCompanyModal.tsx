@@ -37,7 +37,7 @@ const FIELD_DETAILS: Record<
 > = {
   company: {
     label: "I am a sales rep at",
-    placeholder: "Ex.: Acme Corp",
+    placeholder: "e.g., Acme Corp",
     type: "text",
   },
   companyWebsite: {
@@ -47,12 +47,12 @@ const FIELD_DETAILS: Record<
   },
   solution: {
     label: "I am selling solutions for",
-    placeholder: "Ex.: Revenue intelligence platform",
+    placeholder: "e.g., Revenue intelligence platform",
     type: "text",
   },
   researchTarget: {
     label: "I want to research this company",
-    placeholder: "Ex.: Globex",
+    placeholder: "e.g., Globex",
     type: "text",
   },
   researchWebsite: {
@@ -221,15 +221,15 @@ export function AddCompanyModal({
               Collect the target account details
             </h2>
             <p className="text-sm text-[#6B63C7]">
-              These prompts mirroring the landing flow let you spin up a fresh set of
-              insights without leaving o dashboard.
+              These prompts mirror the landing flow so you can spin up a fresh set of
+              insights without leaving the dashboard.
             </p>
           </div>
           <button
             type="button"
             onClick={handleRequestClose}
             className="flex h-10 w-10 items-center justify-center rounded-full border border-[#D4D1FF] text-[#5246E9] transition hover:bg-[#ECEBFF]"
-            aria-label="Fechar modal de geração"
+            aria-label="Close workspace generation modal"
           >
             <X className="h-5 w-5" />
           </button>
@@ -275,8 +275,8 @@ export function AddCompanyModal({
                 {showError ? (
                   <p className="text-xs text-[#FF5A5F]">
                     {details.type === "url"
-                      ? "Insira uma URL válida começando com http(s)://"
-                      : "Preencha este campo com pelo menos 2 caracteres."}
+                      ? "Enter a valid URL starting with http(s)://"
+                      : "Provide at least 2 characters for this field."}
                   </p>
                 ) : null}
               </div>
@@ -291,7 +291,7 @@ export function AddCompanyModal({
 
           <div className="flex items-center justify-between">
             <p className="text-xs text-[#6B63C7]">
-              Ao gerar, o workspace atual será substituído pelos novos insights deste target.
+              Generating a workspace replaces the current insights with this target’s results.
             </p>
             <button
               type="submit"
@@ -301,11 +301,11 @@ export function AddCompanyModal({
               {isSubmitting ? (
                 <>
                   <span className="h-4 w-4 animate-spin rounded-full border-b-2 border-white" />
-                  <span>Gerando…</span>
+                  <span>Generating…</span>
                 </>
               ) : (
                 <>
-                  <span>Gerar insights</span>
+                  <span>Generate insights</span>
                   <ArrowRight className="h-4 w-4" />
                 </>
               )}
