@@ -1,11 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import useSWR from "swr";
 import { useRouter } from "next/navigation";
 
 import { useToast } from "@/lib/state/toast-context";
-import type { Contact, Note, Tile, WorkspaceSnapshot } from "@/lib/types";
+import type {
+  Contact,
+  Note,
+  Tile,
+  TileChatAttachment,
+  WorkspaceSnapshot,
+} from "@/lib/types";
 import { AdminShellAde } from "@/components/admin/ade/AdminShellAde";
 import { AdminHeaderAde } from "@/components/admin/ade/AdminHeaderAde";
 import { AdminSidebarAde } from "@/components/admin/ade/AdminSidebarAde";
@@ -17,6 +23,7 @@ import { FilesPlaceholderAde } from "@/containers/admin/ade/FilesPlaceholderAde"
 import { TileDetailModal } from "@/components/ui/prompt-tiles/TileDetailModal";
 import { AddContactModal } from "@/components/admin/ade/AddContactModal";
 import { AddCompanyModal } from "@/components/admin/ade/AddCompanyModal";
+import { ContactDetailModal } from "@/components/admin/ade/ContactDetailModal";
 import { resolveModel } from "@/lib/ai/settings";
 import {
   deleteWorkspace as deleteCachedWorkspace,
@@ -24,10 +31,16 @@ import {
   loadWorkspace as loadCachedWorkspace,
   saveWorkspace as saveCachedWorkspace,
   rememberSessionId,
+  listStoredWorkspaces,
 } from "@/lib/storage/workspace-browser";
+import { useAdminTheme } from "@/lib/state/admin-theme-context";
 
 type WorkspaceResponse = WorkspaceSnapshot;
 type WorkspaceFetcherError = Error & { status?: number; data?: unknown };
+type TileChatPayload = {
+  message: string;
+  attachments?: TileChatAttachment[];
+};
 
 async function fetchWorkspace(url: string): Promise<WorkspaceResponse> {
   const response = await fetch(url, { credentials: "include" });
@@ -60,6 +73,7 @@ export function AdminContainer() {
   );
   const { push } = useToast();
   const router = useRouter();
+  const { theme } = useAdminTheme();
   const [isResetting, startReset] = useTransition();
   const [isRefreshing, startRefresh] = useTransition();
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
@@ -67,30 +81,46 @@ export function AdminContainer() {
   const [isChatting, setIsChatting] = useState(false);
   const [localWorkspace, setLocalWorkspace] = useState<WorkspaceSnapshot | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [viewingSessionId, setViewingSessionId] = useState<string | null>(null);
+  const [storedWorkspaces, setStoredWorkspaces] = useState<
+    Array<{ sessionId: string; snapshot: WorkspaceSnapshot }>
+  >([]);
   const [isAddContactModalOpen, setAddContactModalOpen] = useState(false);
   const [isAddCompanyModalOpen, setAddCompanyModalOpen] = useState(false);
   const [isSavingContact, setIsSavingContact] = useState(false);
   const [isGeneratingWorkspace, setIsGeneratingWorkspace] = useState(false);
+  const [regeneratingTileIds, setRegeneratingTileIds] = useState<Set<string>>(new Set());
+  const [regeneratingContactId, setRegeneratingContactId] = useState<string | null>(null);
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const workspaceError = error as WorkspaceFetcherError | undefined;
   const cacheWarningShownRef = useRef(false);
 
+  const refreshStoredWorkspaces = useCallback(() => {
+    const entries = listStoredWorkspaces();
+    setStoredWorkspaces(entries);
+  }, []);
+
   useEffect(() => {
+    refreshStoredWorkspaces();
     const lastSession = getLastSessionId();
     if (!lastSession) return;
     const cached = loadCachedWorkspace(lastSession);
     if (cached) {
       setSessionId(lastSession);
       setLocalWorkspace(cached);
+      setViewingSessionId(lastSession);
     }
-  }, []);
+  }, [refreshStoredWorkspaces]);
 
   useEffect(() => {
     if (!data) return;
     setSessionId(data.sessionId);
     setLocalWorkspace(data);
     saveCachedWorkspace(data.sessionId, data);
+    refreshStoredWorkspaces();
+    setViewingSessionId((current) => current ?? data.sessionId);
     cacheWarningShownRef.current = false;
-  }, [data]);
+  }, [data, refreshStoredWorkspaces]);
 
   useEffect(() => {
     if (
@@ -108,9 +138,22 @@ export function AdminContainer() {
   }, [workspaceError, localWorkspace, push]);
 
   const workspace = useMemo<WorkspaceResponse | null>(() => {
-    if (data) return data;
-    return localWorkspace;
-  }, [data, localWorkspace]);
+    if (viewingSessionId) {
+      if (data && data.sessionId === viewingSessionId) {
+        return data;
+      }
+      if (localWorkspace && localWorkspace.sessionId === viewingSessionId) {
+        return localWorkspace;
+      }
+      const stored = storedWorkspaces.find(
+        (entry) => entry.sessionId === viewingSessionId
+      );
+      if (stored) {
+        return stored.snapshot;
+      }
+    }
+    return data ?? localWorkspace;
+  }, [data, localWorkspace, storedWorkspaces, viewingSessionId]);
 
   const tiles: Tile[] = useMemo(() => {
     if (!workspace) return [];
@@ -175,8 +218,63 @@ export function AdminContainer() {
     [tiles, selectedTileId]
   );
 
-  const notes: Note[] = workspace?.company.notes ?? [];
-  const contacts: Contact[] = workspace?.company.contacts ?? [];
+  const notes: Note[] = useMemo(
+    () => workspace?.company.notes ?? [],
+    [workspace?.company.notes],
+  );
+  const contacts: Contact[] = useMemo(
+    () => workspace?.company.contacts ?? [],
+    [workspace?.company.contacts],
+  );
+  const activeContact = useMemo(
+    () => contacts.find((contact) => contact.id === selectedContactId) ?? null,
+    [contacts, selectedContactId],
+  );
+
+  useEffect(() => {
+    if (selectedContactId && !contacts.some((contact) => contact.id === selectedContactId)) {
+      setSelectedContactId(null);
+    }
+  }, [contacts, selectedContactId]);
+  const companyOptions = useMemo(() => {
+    const map = new Map<string, WorkspaceSnapshot>();
+    storedWorkspaces.forEach(({ sessionId, snapshot }) => {
+      map.set(sessionId, snapshot);
+    });
+    if (data) {
+      map.set(data.sessionId, data);
+    }
+    if (localWorkspace) {
+      map.set(localWorkspace.sessionId, localWorkspace);
+    }
+    const entries = Array.from(map.entries()).map(([session, snapshot]) => {
+      const generatedAt = snapshot.generatedAt ?? snapshot.company?.tiles?.[0]?.createdAt ?? "";
+      const isActive = viewingSessionId
+        ? viewingSessionId === session
+        : data
+        ? data.sessionId === session
+        : localWorkspace?.sessionId === session;
+      return {
+        sessionId: session,
+        name: snapshot.company.name || "Workspace",
+        generatedAt,
+        tilesCount: snapshot.company.tiles?.length ?? 0,
+        notesCount: snapshot.company.notes?.length ?? 0,
+        contactsCount: snapshot.company.contacts?.length ?? 0,
+        isActive,
+      };
+    });
+    return entries.sort((a, b) => {
+      const aTime = a.generatedAt ? Date.parse(a.generatedAt) : 0;
+      const bTime = b.generatedAt ? Date.parse(b.generatedAt) : 0;
+      return bTime - aTime;
+    });
+  }, [storedWorkspaces, data, localWorkspace, viewingSessionId]);
+  const isViewingServerWorkspace = useMemo(() => {
+    if (!data) return false;
+    if (!viewingSessionId) return true;
+    return viewingSessionId === data.sessionId;
+  }, [data, viewingSessionId]);
   const cacheBanner =
     workspaceError?.status === 404 && workspace ? (
       <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
@@ -184,25 +282,63 @@ export function AdminContainer() {
       </div>
     ) : null;
 
+  const handleSelectWorkspace = useCallback(
+    (nextSessionId: string) => {
+      if (nextSessionId === viewingSessionId) return;
+      if (data && data.sessionId === nextSessionId) {
+        setViewingSessionId(nextSessionId);
+        setLocalWorkspace(data);
+        rememberSessionId(nextSessionId);
+        return;
+      }
+      const cached = loadCachedWorkspace(nextSessionId);
+      if (cached) {
+        setLocalWorkspace(cached);
+        setViewingSessionId(nextSessionId);
+        setSessionId(nextSessionId);
+        rememberSessionId(nextSessionId);
+        return;
+      }
+      push({
+        title: "Workspace unavailable",
+        description:
+          "We couldn't find that workspace locally. Generate it again from the landing page.",
+        variant: "destructive",
+      });
+    },
+    [data, push, viewingSessionId],
+  );
+
   const handleResetWorkspace = () => {
+    if (!isViewingServerWorkspace) {
+      push({
+        title: "Switch to active workspace",
+        description: "Reset is only available for the most recently generated workspace.",
+        variant: "destructive",
+      });
+      return;
+    }
     startReset(async () => {
       try {
-      const response = await fetch("/api/workspace", { method: "DELETE" });
+        const response = await fetch("/api/workspace", { method: "DELETE" });
         if (!response.ok) {
           throw new Error("Failed to reset the workspace");
         }
-      const payload = await response.json().catch(() => null);
-      if (sessionId) {
-        deleteCachedWorkspace(sessionId);
-      }
-      if (payload?.workspace) {
-        setSessionId(payload.workspace.sessionId);
-        setLocalWorkspace(payload.workspace);
-        saveCachedWorkspace(payload.workspace.sessionId, payload.workspace);
-      } else {
-        setLocalWorkspace(null);
-      }
-      await mutate();
+        const payload = await response.json().catch(() => null);
+        if (sessionId) {
+          deleteCachedWorkspace(sessionId);
+        }
+        if (payload?.workspace) {
+          setSessionId(payload.workspace.sessionId);
+          setLocalWorkspace(payload.workspace);
+          saveCachedWorkspace(payload.workspace.sessionId, payload.workspace);
+          setViewingSessionId(payload.workspace.sessionId);
+        } else {
+          setLocalWorkspace(null);
+          setViewingSessionId(null);
+        }
+        await mutate();
+        refreshStoredWorkspaces();
         push({
           title: "Workspace cleared",
           description: "Generate a fresh set of insights from the landing page.",
@@ -220,12 +356,29 @@ export function AdminContainer() {
   };
 
   const handleRefresh = () => {
+    if (!isViewingServerWorkspace) {
+      push({
+        title: "Switch to latest workspace",
+        description: "Refresh only works for the most recently generated workspace.",
+        variant: "destructive",
+      });
+      return;
+    }
     startRefresh(async () => {
       await mutate();
+      refreshStoredWorkspaces();
     });
   };
 
   const handleDeleteTile = async (tileId: string) => {
+    if (!isViewingServerWorkspace) {
+      push({
+        title: "Switch to latest workspace",
+        description: "Delete tiles on the most recently generated workspace.",
+        variant: "destructive",
+      });
+      return;
+    }
     try {
       const response = await fetch(`/api/workspace/tiles/${tileId}`, {
         method: "DELETE",
@@ -247,6 +400,7 @@ export function AdminContainer() {
         throw new Error("Failed to remove tile");
       }
       await mutate();
+      refreshStoredWorkspaces();
       push({
         title: "Tile removed",
         variant: "success",
@@ -263,6 +417,14 @@ export function AdminContainer() {
 
   const handleReorderTiles = async (order: string[]) => {
     if (!order.length) return;
+    if (!isViewingServerWorkspace) {
+      push({
+        title: "Switch to latest workspace",
+        description: "Reorder tiles on the most recently generated workspace.",
+        variant: "destructive",
+      });
+      return;
+    }
     try {
       setIsPersistingOrder(true);
       const response = await fetch("/api/workspace/reorder", {
@@ -288,6 +450,7 @@ export function AdminContainer() {
         throw new Error(data.error ?? "Failed to persist tile order");
       }
       await mutate();
+      refreshStoredWorkspaces();
     } catch (err) {
       push({
         title: "Reorder failed",
@@ -300,12 +463,62 @@ export function AdminContainer() {
     }
   };
 
+  const handleRegenerateTile = async (tileId: string) => {
+    if (!isViewingServerWorkspace) {
+      push({
+        title: "Switch to latest workspace",
+        description: "Regenerate insights on the most recently generated workspace.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setRegeneratingTileIds((prev) => {
+      const next = new Set(prev);
+      next.add(tileId);
+      return next;
+    });
+    try {
+      const response = await fetch(`/api/workspace/tiles/${tileId}/regenerate`, {
+        method: "POST",
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(
+          (payload.error as string) ?? "We couldn't regenerate this insight right now.",
+        );
+      }
+      await mutate();
+      refreshStoredWorkspaces();
+    } catch (err) {
+      push({
+        title: "Regeneration failed",
+        description:
+          err instanceof Error ? err.message : "Please try again shortly.",
+        variant: "destructive",
+      });
+    } finally {
+      setRegeneratingTileIds((prev) => {
+        const next = new Set(prev);
+        next.delete(tileId);
+        return next;
+      });
+    }
+  };
+
   const handleCreateContactFromModal = async (payload: {
     name: string;
     jobTitle: string;
     linkedinUrl: string;
   }) => {
     if (isSavingContact) return;
+    if (!isViewingServerWorkspace) {
+      push({
+        title: "Switch to latest workspace",
+        description: "Add contacts on the most recently generated workspace.",
+        variant: "destructive",
+      });
+      return;
+    }
     const trimmedName = payload.name.trim();
     if (!trimmedName) {
       push({
@@ -333,14 +546,19 @@ export function AdminContainer() {
           (data.error as string) ?? "We couldn't save this contact right now.",
         );
       }
+      const data = await response.json().catch(() => null);
       push({
         title: "Contact saved",
         description: "The target contact is now part of this workspace.",
         variant: "success",
       });
       setAddContactModalOpen(false);
+      if (data?.contact?.id) {
+        setSelectedContactId(data.contact.id);
+      }
       await mutate();
       router.refresh();
+      refreshStoredWorkspaces();
     } catch (err) {
       push({
         title: "Contact not saved",
@@ -401,6 +619,9 @@ export function AdminContainer() {
       }
       if (data?.workspace) {
         saveCachedWorkspace(data.workspace.sessionId, data.workspace);
+        setLocalWorkspace(data.workspace);
+        setViewingSessionId(data.workspace.sessionId);
+        setSessionId(data.workspace.sessionId);
       }
 
       push({
@@ -411,6 +632,7 @@ export function AdminContainer() {
       setAddCompanyModalOpen(false);
       await mutate();
       router.refresh();
+      refreshStoredWorkspaces();
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Please try again shortly.";
@@ -433,13 +655,48 @@ export function AdminContainer() {
     setSelectedTileId(null);
   };
 
-  const handleSubmitFollowUp = async (tileId: string, prompt: string) => {
+  const handleOpenContactCard = (contact: Contact) => {
+    setSelectedContactId(contact.id);
+  };
+
+  const handleCloseContactModal = () => {
+    setSelectedContactId(null);
+  };
+
+  const handleSubmitFollowUp = async (
+    tileId: string,
+    payload: TileChatPayload,
+  ) => {
+    if (!isViewingServerWorkspace) {
+      push({
+        title: "Switch to latest workspace",
+        description: "Continue the AI conversation on the most recent workspace.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const trimmedMessage = payload.message.trim();
+    if (!trimmedMessage) return;
+
+    const attachments = payload.attachments ?? [];
+    const formattedMessage =
+      attachments.length === 0
+        ? trimmedMessage
+        : `${trimmedMessage}\n\nAttachments:\n${attachments
+            .map((attachment) =>
+              attachment.url
+                ? `- ${attachment.name} → ${attachment.url}`
+                : `- ${attachment.name}`,
+            )
+            .join("\n")}`;
+
     try {
       setIsChatting(true);
       const response = await fetch(`/api/workspace/tiles/${tileId}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: prompt }),
+        body: JSON.stringify({ message: formattedMessage, attachments }),
       });
       if (!response.ok) {
         if (response.status === 404) {
@@ -459,6 +716,7 @@ export function AdminContainer() {
         throw new Error(data.error ?? "Failed to generate follow-up insight");
       }
       await mutate();
+      refreshStoredWorkspaces();
       push({
         title: "Follow-up insight added",
         variant: "success",
@@ -475,12 +733,68 @@ export function AdminContainer() {
     }
   };
 
+  const handleRegenerateContact = async (contactId: string) => {
+    if (!isViewingServerWorkspace) {
+      push({
+        title: "Switch to latest workspace",
+        description: "Regenerate contacts on the most recent workspace.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setRegeneratingContactId(contactId);
+    try {
+      const response = await fetch(
+        `/api/workspace/contacts/${contactId}/regenerate`,
+        { method: "POST" },
+      );
+      if (!response.ok) {
+        if (response.status === 404) {
+          push({
+            title: "Session expired",
+            description: "Return to the homepage to generate a new workspace.",
+            variant: "destructive",
+          });
+          if (sessionId) {
+            deleteCachedWorkspace(sessionId);
+          }
+          setLocalWorkspace(null);
+          await mutate();
+          return;
+        }
+        const data = await response.json().catch(() => ({}));
+        throw new Error(
+          (data.error as string) ?? "We couldn't refresh this contact now.",
+        );
+      }
+      await mutate();
+      router.refresh();
+      refreshStoredWorkspaces();
+      push({
+        title: "Contact updated",
+        description: "Outreach insights regenerated for this contact.",
+        variant: "success",
+      });
+    } catch (error) {
+      push({
+        title: "Regeneration failed",
+        description:
+          error instanceof Error ? error.message : "Try again in a few moments.",
+        variant: "destructive",
+      });
+    } finally {
+      setRegeneratingContactId(null);
+    }
+  };
+
   const tileDetailModal = activeTile ? (
     <TileDetailModal
       tile={activeTile}
       onClose={handleCloseTile}
-      onSubmit={(message) => handleSubmitFollowUp(activeTile.id, message)}
+      onSubmit={(payload) => handleSubmitFollowUp(activeTile.id, payload)}
       isSubmitting={isChatting}
+      theme={theme}
     />
   ) : null;
 
@@ -506,10 +820,8 @@ export function AdminContainer() {
         sidebar={
           <AdminSidebarAde
             workspaceName={workspaceLabel}
-            companyName={companyName}
-            tilesCount={tiles.length}
-            notesCount={notes.length}
-            contactsCount={contacts.length}
+            companies={companyOptions}
+            onSelectCompany={handleSelectWorkspace}
             onAddCompany={() => setAddCompanyModalOpen(true)}
             onAddContact={() => setAddContactModalOpen(true)}
           />
@@ -544,26 +856,41 @@ export function AdminContainer() {
             onReorderTiles={handleReorderTiles}
             onOpenTile={handleOpenTile}
             isReordering={isPersistingOrder}
+            onRegenerateTile={handleRegenerateTile}
+            regeneratingTileIds={Array.from(regeneratingTileIds)}
           />
         )}
 
-        <div className="space-y-10">
-          <NotesPanelAde
-            notes={notes}
-            onNotesChanged={async () => {
-              await mutate();
-            }}
-          />
+        <div className="space-y-12">
           <ContactsPanelAde
             contacts={contacts}
             onContactsChanged={async () => {
               await mutate();
+              refreshStoredWorkspaces();
             }}
             onAddContact={() => setAddContactModalOpen(true)}
+            onRegenerateContact={handleRegenerateContact}
+            regeneratingContactId={regeneratingContactId}
+            onOpenContact={handleOpenContactCard}
+          />
+          <NotesPanelAde
+            notes={notes}
+            onNotesChanged={async () => {
+              await mutate();
+              refreshStoredWorkspaces();
+            }}
           />
           <FilesPlaceholderAde />
         </div>
         {tileDetailModal}
+        {activeContact ? (
+          <ContactDetailModal
+            contact={activeContact}
+            onClose={handleCloseContactModal}
+            onRegenerate={() => handleRegenerateContact(activeContact.id)}
+            isRegenerating={regeneratingContactId === activeContact.id}
+          />
+        ) : null}
       </AdminShellAde>
 
       <AddContactModal

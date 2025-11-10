@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 
 import { readWorkspace, updateWorkspace } from "@/lib/cookies-store";
+import { generateContactOutreach } from "@/lib/ai/contact-outreach";
 
 export async function GET() {
   const workspace = await readWorkspace();
@@ -20,21 +21,45 @@ export async function POST(request: Request) {
     typeof body?.linkedinUrl === "string" ? body.linkedinUrl.trim() : "";
 
   if (!name) {
-    return NextResponse.json({ error: "Nome é obrigatório" }, { status: 400 });
+    return NextResponse.json({ error: "Name is required" }, { status: 400 });
   }
 
   const now = new Date().toISOString();
+  const workspace = await readWorkspace();
+  if (!workspace) {
+    return NextResponse.json(
+      { error: "Workspace cache expired" },
+      { status: 404 },
+    );
+  }
+
+  const contactId = `contact_${randomUUID()}`;
+  const baseContact = {
+    id: contactId,
+    name,
+    jobTitle,
+    linkedinUrl,
+    createdAt: now,
+  };
+
+  let outreach = undefined;
+
+  try {
+    outreach = await generateContactOutreach({
+      contact: baseContact,
+      company: workspace.company,
+      tiles: workspace.company.tiles ?? [],
+      notes: workspace.company.notes ?? [],
+      model: workspace.company.tiles?.[0]?.model,
+    });
+  } catch (error) {
+    console.error("[api/workspace/contacts] Failed generating outreach", error);
+  }
 
   try {
     const updated = await updateWorkspace((workspace) => {
       const nextContacts = [
-        {
-          id: `contact_${randomUUID()}`,
-          name,
-          jobTitle,
-          linkedinUrl,
-          createdAt: now,
-        },
+        { ...baseContact, outreach },
         ...workspace.company.contacts,
       ].slice(0, 20);
 
@@ -47,7 +72,15 @@ export async function POST(request: Request) {
       };
     });
 
-    return NextResponse.json({ success: true, contacts: updated.company.contacts });
+    const created =
+      updated.company.contacts.find((contact) => contact.id === contactId) ??
+      baseContact;
+
+    return NextResponse.json({
+      success: true,
+      contact: created,
+      contacts: updated.company.contacts,
+    });
   } catch {
     return NextResponse.json({ error: "Workspace cache expired" }, { status: 404 });
   }

@@ -10,14 +10,22 @@ import {
   type ConversationTurn,
 } from "@/lib/ai/response-input";
 
+const attachmentSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  url: z.string().url().optional(),
+});
+
 const messageSchema = z.object({
   message: z.string().min(2, "Message is too short"),
   model: z.string().min(2).optional(),
+  attachments: z.array(attachmentSchema).optional(),
 });
 
 const MAX_CHAT_ATTEMPTS = 2;
 const CHAT_RETRY_DELAY_MS = 400;
 const MAX_HISTORY_LENGTH = 12;
+const USE_MOCK_OPENAI = process.env.MOCK_OPENAI_RESPONSES === "true";
 
 type RouteContext = { params: Promise<{ tileId: string }> };
 
@@ -131,13 +139,6 @@ export async function POST(request: Request, context: RouteContext) {
     );
   }
 
-  if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json(
-      { error: "OPENAI_API_KEY is not configured" },
-      { status: 500 }
-    );
-  }
-
   const workspace = await readWorkspace();
   if (!workspace) {
     return NextResponse.json(
@@ -156,62 +157,79 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   const existingTile = tiles[tileIndex];
+  const attachments = parseResult.data.attachments ?? [];
   const userMessage = parseResult.data.message.trim();
+  const formattedUserMessage =
+    attachments.length === 0
+      ? userMessage
+      : `${userMessage}\n\nAttachments:\n${attachments
+          .map((item) =>
+            item.url ? `- ${item.name} → ${item.url}` : `- ${item.name}`,
+          )
+          .join("\n")}`;
   const model = resolveModel(parseResult.data.model ?? existingTile.model);
 
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const shouldMock =
+    USE_MOCK_OPENAI || !process.env.OPENAI_API_KEY;
 
-  let attempt = 0;
-  let lastError: unknown = null;
   let assistantContent = "";
   let usage:
     | Record<string, unknown>
     | null = null;
 
-  const conversationInput = buildConversationMessages(
-    existingTile,
-    userMessage
-  );
+  if (shouldMock) {
+    assistantContent = `Here’s a suggested follow-up based on your latest message:\n\n${formattedUserMessage}`;
+  } else {
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
-  while (attempt < MAX_CHAT_ATTEMPTS) {
-    attempt += 1;
-    try {
-      const response = await runChatAttempt(openai, conversationInput, model);
-      assistantContent = extractAssistantContent(response).trim();
+    let attempt = 0;
+    let lastError: unknown = null;
 
-      if (!assistantContent) {
-        throw new Error("empty_response");
-      }
+    const conversationInput = buildConversationMessages(
+      existingTile,
+      formattedUserMessage
+    );
 
-      usage = (response.usage || null) as unknown as Record<
-        string,
-        unknown
-      > | null;
-      break;
-    } catch (error) {
-      lastError = error;
-      if (attempt >= MAX_CHAT_ATTEMPTS) {
+    while (attempt < MAX_CHAT_ATTEMPTS) {
+      attempt += 1;
+      try {
+        const response = await runChatAttempt(openai, conversationInput, model);
+        assistantContent = extractAssistantContent(response).trim();
+
+        if (!assistantContent) {
+          throw new Error("empty_response");
+        }
+
+        usage = (response.usage || null) as unknown as Record<
+          string,
+          unknown
+        > | null;
         break;
+      } catch (error) {
+        lastError = error;
+        if (attempt >= MAX_CHAT_ATTEMPTS) {
+          break;
+        }
+        const backoff = Math.pow(2, attempt) * CHAT_RETRY_DELAY_MS;
+        await new Promise((resolve) => setTimeout(resolve, backoff));
       }
-      const backoff = Math.pow(2, attempt) * CHAT_RETRY_DELAY_MS;
-      await new Promise((resolve) => setTimeout(resolve, backoff));
+    }
+
+    if (!assistantContent) {
+      return NextResponse.json(
+        {
+          error: "AI did not return content",
+          details: lastError
+            ? String((lastError as Error).message ?? lastError)
+            : undefined,
+        },
+        { status: 502 }
+      );
     }
   }
 
-  if (!assistantContent) {
-    return NextResponse.json(
-      {
-        error: "AI did not return content",
-        details: lastError
-          ? String((lastError as Error).message ?? lastError)
-          : undefined,
-      },
-      { status: 502 }
-    );
-  }
-
   const timestamp = new Date().toISOString();
-  const userEntry = timelineEntry("user", userMessage, timestamp);
+  const userEntry = timelineEntry("user", formattedUserMessage, timestamp);
   const assistantEntry = timelineEntry("assistant", assistantContent, timestamp);
   const trimmedHistory = [...existingTile.history, userEntry, assistantEntry].slice(
     -MAX_HISTORY_LENGTH

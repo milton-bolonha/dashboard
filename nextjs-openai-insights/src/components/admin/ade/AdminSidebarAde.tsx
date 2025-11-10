@@ -1,24 +1,37 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Coins, Contact, Menu, Plus, Sparkles, Users2 } from "lucide-react";
+import {
+  CalendarClock,
+  ChevronRight,
+  Menu,
+  Plus,
+  Sparkles,
+  UserPlus,
+} from "lucide-react";
 
-interface AdminSidebarAdeProps {
-  workspaceName: string;
-  companyName: string;
+interface CompanyOption {
+  sessionId: string;
+  name: string;
+  generatedAt?: string;
   tilesCount: number;
   notesCount: number;
   contactsCount: number;
+  isActive: boolean;
+}
+
+interface AdminSidebarAdeProps {
+  workspaceName: string;
+  companies: CompanyOption[];
+  onSelectCompany: (sessionId: string) => void;
   onAddCompany?: () => void;
   onAddContact?: () => void;
 }
 
 export function AdminSidebarAde({
   workspaceName,
-  companyName,
-  tilesCount,
-  notesCount,
-  contactsCount,
+  companies,
+  onSelectCompany,
   onAddCompany,
   onAddContact,
 }: AdminSidebarAdeProps) {
@@ -28,145 +41,193 @@ export function AdminSidebarAde({
   useEffect(() => {
     const asideElement = rootRef.current?.closest("aside");
     if (!asideElement) return;
-    const width = collapsed ? "5rem" : "16rem";
+    const width = collapsed ? "4.5rem" : "17rem";
     asideElement.style.width = width;
     asideElement.classList.toggle("ade-sidebar-collapsed", collapsed);
   }, [collapsed]);
 
+  const formatGeneratedAt = (value?: string) => {
+    if (!value) return "Recently generated";
+    try {
+      return new Intl.DateTimeFormat("en-US", {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(new Date(value));
+    } catch {
+      return value;
+    }
+  };
+
+  const handleCollapseToggle = () => setCollapsed((state) => !state);
+
   return (
     <div
       ref={rootRef}
-      className={`flex h-full flex-col text-[#6b6b6b] transition-all duration-200 ${
+      className={`flex h-full flex-col bg-[#efefef] px-4 py-6 text-[#5f5f5f] transition-all duration-200 ${
         collapsed ? "items-center" : ""
       }`}
     >
-      <div
-        className={`mb-8 flex items-center ${
-          collapsed ? "justify-center" : "justify-between"
-        }`}
-      >
-        <div className={collapsed ? "hidden" : "flex items-center space-x-2"}>
-          <span className="text-lg font-semibold text-gray-800">
+      <header className="mb-8 flex w-full items-center justify-between">
+        <div className={collapsed ? "hidden" : "flex items-center gap-2"}>
+          <span className="text-sm font-semibold uppercase tracking-[0.28em]">
             {workspaceName}
           </span>
           <Sparkles className="h-4 w-4 text-amber-400" />
         </div>
         <button
           type="button"
-          onClick={() => setCollapsed((value) => !value)}
+          onClick={handleCollapseToggle}
           className="rounded p-1 transition hover:bg-gray-200"
+          aria-label="Toggle sidebar"
         >
           <Menu className="h-5 w-5 text-gray-700" />
         </button>
-      </div>
+      </header>
 
-      <nav className="flex-1 space-y-4">
-        {!collapsed ? (
-          <div className="space-y-1">
-            <SidebarLink icon={<Coins className="h-4 w-4" />} label="Earn Credits" />
-            <SidebarLink label="Invite Friends" />
-            <SidebarLink label="Suggest Features" />
+      {!collapsed ? (
+        <nav className="mb-8 space-y-2 text-sm">
+          <p className="px-1 text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
+            Actions
+          </p>
+          <button
+            type="button"
+            className="flex w-full items-center justify-between rounded-md px-2 py-2 text-left transition hover:bg-gray-200"
+          >
+            <span>Earn credits</span>
+            <Plus className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className="flex w-full items-center justify-between rounded-md px-2 py-2 text-left transition hover:bg-gray-200"
+          >
+            <span>Invite friends</span>
+            <Plus className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className="flex w-full items-center justify-between rounded-md px-2 py-2 text-left transition hover:bg-gray-200"
+          >
+            <span>Suggest features</span>
+            <Plus className="h-4 w-4" />
+          </button>
+        </nav>
+      ) : null}
+
+      <div className="flex-1 w-full overflow-y-auto">
+        <section className="mb-8">
+          <div
+            className={`flex items-center ${
+              collapsed ? "justify-center" : "justify-between"
+            } gap-2 px-1`}
+          >
+            {!collapsed ? (
+              <span className="text-sm font-semibold text-gray-800">
+                Companies / Entities
+              </span>
+            ) : null}
+            <button
+              type="button"
+              onClick={onAddCompany}
+              className={`flex h-8 w-8 items-center justify-center rounded-full border border-gray-400 text-gray-600 transition hover:bg-gray-200 ${
+                onAddCompany ? "" : "cursor-not-allowed opacity-60"
+              }`}
+              aria-label="Add company"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
           </div>
-        ) : null}
 
-        <div className="space-y-2">
-          {!collapsed ? (
-            <>
-              <SectionHeader label="Insights" count={tilesCount} />
-              <SectionHeader label="Notas" count={notesCount} />
-              <SectionHeader label="Contatos" count={contactsCount} />
-            </>
-          ) : null}
-          {!collapsed ? (
-            <div className="space-y-2 rounded-lg bg-white p-3 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Users2 className="h-4 w-4 text-gray-600" />
-                  <span className="text-sm text-gray-700">Companies</span>
-                </div>
+          {collapsed ? (
+            <div className="mt-4 flex flex-col items-center gap-3">
+              {companies.slice(0, 6).map((company) => (
                 <button
+                  key={company.sessionId}
                   type="button"
-                  onClick={onAddCompany}
-                  className="rounded p-1 transition hover:bg-gray-200"
-                  aria-label="Add company"
+                  onClick={() => onSelectCompany(company.sessionId)}
+                  className={`flex h-9 w-9 items-center justify-center rounded-full border text-xs font-semibold transition ${
+                    company.isActive
+                      ? "border-black bg-black text-white"
+                      : "border-transparent bg-white text-gray-700 hover:border-gray-300"
+                  }`}
+                  title={company.name}
                 >
-                  <Plus className="h-4 w-4 text-gray-600" />
+                  {company.name.charAt(0).toUpperCase()}
                 </button>
-              </div>
-              <div className="rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-800">
-                {companyName}
-              </div>
+              ))}
             </div>
-          ) : null}
+          ) : (
+            <ul className="mt-4 space-y-2 text-sm text-gray-700">
+              {companies.map((company) => (
+                <li key={company.sessionId}>
+                  <button
+                    type="button"
+                    onClick={() => onSelectCompany(company.sessionId)}
+                    className={`flex w-full flex-col rounded-md px-2 py-2 text-left transition hover:bg-gray-200 ${
+                      company.isActive ? "bg-black text-white hover:bg-black" : ""
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="truncate font-medium">{company.name}</span>
+                      <ChevronRight className="h-4 w-4 opacity-60" />
+                    </div>
+                    <span
+                      className={`mt-1 flex items-center gap-1 text-[0.65rem] uppercase tracking-[0.28em] ${
+                        company.isActive ? "text-white/70" : "text-gray-500"
+                      }`}
+                    >
+                      <CalendarClock className="h-3 w-3" />
+                      {formatGeneratedAt(company.generatedAt)}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
 
-          {!collapsed ? (
-            <div className="space-y-2 rounded-lg bg-white p-3 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Contact className="h-4 w-4 text-gray-600" />
-                  <span className="text-sm text-gray-700">Contacts</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={onAddContact}
-                  className="rounded p-1 transition hover:bg-gray-200"
-                  aria-label="Add contact"
-                >
-                  <Plus className="h-4 w-4 text-gray-600" />
-                </button>
-              </div>
-              <p className="text-xs text-gray-500">
-                Cadastre decisores-chave para agilizar follow-ups.
-              </p>
-            </div>
-          ) : null}
-        </div>
-      </nav>
-
-      <div className={collapsed ? "hidden" : "space-y-2 text-center text-xs text-gray-500"}>
-        <p>Faça login para gerenciar perfil e ajustes.</p>
-        <div className="flex justify-center space-x-2">
-          <button className="rounded-lg border border-gray-300 px-3 py-1 text-xs font-medium transition hover:bg-gray-50">
-            Log in
-          </button>
-          <button className="rounded-lg px-3 py-1 text-xs font-medium text-gray-600 transition hover:text-gray-900">
-            Sign up
-          </button>
-        </div>
+        <section>
+          <div
+            className={`flex items-center ${
+              collapsed ? "justify-center" : "justify-between"
+            } gap-2 px-1`}
+          >
+            {!collapsed ? (
+              <span className="text-sm font-semibold text-gray-800">Contacts</span>
+            ) : null}
+            <button
+              type="button"
+              onClick={onAddContact}
+              className={`flex h-8 w-8 items-center justify-center rounded-full border border-gray-400 text-gray-600 transition hover:bg-gray-200 ${
+                onAddContact ? "" : "cursor-not-allowed opacity-60"
+              }`}
+              aria-label="Add contact"
+            >
+              <UserPlus className="h-4 w-4" />
+            </button>
+          </div>
+        </section>
       </div>
-    </div>
-  );
-}
 
-interface SidebarLinkProps {
-  icon?: React.ReactNode;
-  label: string;
-}
-
-function SidebarLink({ icon, label }: SidebarLinkProps) {
-  return (
-    <a
-      className="flex items-center space-x-3 rounded-md px-2 py-2 text-sm text-[#6B6B6B] transition hover:bg-gray-100 hover:text-black"
-      href="#"
-    >
-      {icon}
-      <span>{label}</span>
-    </a>
-  );
-}
-
-interface SectionHeaderProps {
-  label: string;
-  count: number;
-}
-
-function SectionHeader({ label, count }: SectionHeaderProps) {
-  return (
-    <div className="flex items-center justify-between rounded-md px-2 py-2 text-sm text-gray-700">
-      <span>{label}</span>
-      <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-600">
-        {count}
-      </span>
+      {!collapsed ? (
+        <footer className="mt-8 w-full space-y-2 text-sm text-gray-600">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between rounded-md px-2 py-2 text-left transition hover:bg-gray-200"
+          >
+            <span>Profile</span>
+            <span>👤</span>
+          </button>
+          <button
+            type="button"
+            className="flex w-full items-center justify-between rounded-md px-2 py-2 text-left transition hover:bg-gray-200"
+          >
+            <span>Settings</span>
+            <span>⚙️</span>
+          </button>
+        </footer>
+      ) : null}
     </div>
   );
 }

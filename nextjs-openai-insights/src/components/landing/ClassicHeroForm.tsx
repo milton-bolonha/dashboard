@@ -271,7 +271,7 @@ export function ClassicHeroForm({
           }}
         />
         <div className="mx-auto max-w-5xl px-2 text-center sm:px-6 lg:px-4">
-          <h1 className="mt-16 mb-4 text-2xl font-bold tracking-tight text-black sm:text-3xl lg:text-4xl">
+          <h1 className="mb-4 text-2xl font-bold tracking-tight text-black sm:text-3xl lg:text-4xl">
             Smarter Research. Faster Outreach. More Selling
           </h1>
           <p className="mx-auto mb-6 max-w-3xl text-xl text-gray-600">
@@ -348,7 +348,7 @@ export function ClassicHeroForm({
               type="button"
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className="flex items-center justify-center space-x-2 rounded-xl bg-blue-600 px-8 py-4 text-lg font-semibold text-white shadow-lg transition-all duration-300 hover:-translate-y-1 hover:bg-blue-700 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex cursor-pointer items-center justify-center space-x-2 rounded-xl bg-blue-600 px-8 py-4 text-lg font-semibold text-white shadow-lg transition-all duration-300 hover:-translate-y-1 hover:bg-blue-700 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSubmitting ? (
                 <>
@@ -415,7 +415,7 @@ function PrimaryCTA({
       type="button"
       onClick={onClick}
       disabled={isSubmitting}
-      className="flex items-center justify-center space-x-2 rounded-xl bg-blue-600 px-8 py-4 text-lg font-semibold text-white shadow-lg transition-all duration-300 hover:-translate-y-1 hover:bg-blue-700 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
+      className="flex cursor-pointer items-center justify-center space-x-2 rounded-xl bg-blue-600 px-8 py-4 text-lg font-semibold text-white shadow-lg transition-all duration-300 hover:-translate-y-1 hover:bg-blue-700 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
     >
       {isSubmitting ? (
         <>

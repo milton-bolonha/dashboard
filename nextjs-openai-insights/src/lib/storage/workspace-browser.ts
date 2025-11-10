@@ -107,3 +107,24 @@ export function rememberSessionId(sessionId: string) {
   persistIndex(index);
 }
 
+export function listStoredSessionIds(): string[] {
+  return getIndex();
+}
+
+export function listStoredWorkspaces(
+  limit: number = DEFAULT_MAX_WORKSPACES
+): Array<{ sessionId: string; snapshot: WorkspaceSnapshot }> {
+  if (!isBrowser()) return [];
+  const index = getIndex().slice(0, limit);
+  const entries: Array<{ sessionId: string; snapshot: WorkspaceSnapshot }> = [];
+
+  index.forEach((sessionId) => {
+    const snapshot = loadWorkspace(sessionId);
+    if (snapshot) {
+      entries.push({ sessionId, snapshot });
+    }
+  });
+
+  return entries;
+}
+

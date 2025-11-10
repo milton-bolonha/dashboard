@@ -24,6 +24,12 @@ export interface Tile {
   history: TileMessage[];
 }
 
+export interface TileChatAttachment {
+  id: string;
+  name: string;
+  url?: string;
+}
+
 export interface Note {
   id: string;
   title: string;
@@ -32,12 +38,27 @@ export interface Note {
   updatedAt: string;
 }
 
+export interface ContactOutreachTile {
+  id: string;
+  title: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContactOutreach {
+  contactInsights?: ContactOutreachTile;
+  emailPitch?: ContactOutreachTile;
+  coldCallScript?: ContactOutreachTile;
+}
+
 export interface Contact {
   id: string;
   name: string;
   jobTitle?: string;
   linkedinUrl?: string;
   createdAt: string;
+  outreach?: ContactOutreach;
 }
 
 export interface WorkspaceCompany {

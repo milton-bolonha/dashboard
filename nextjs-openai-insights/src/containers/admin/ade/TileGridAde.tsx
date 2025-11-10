@@ -7,6 +7,8 @@ interface TileGridAdeProps {
   onReorderTiles: (order: string[]) => Promise<void> | void;
   onOpenTile: (tile: Tile) => void;
   isReordering: boolean;
+  onRegenerateTile?: (tileId: string) => void;
+  regeneratingTileIds?: string[];
 }
 
 export function TileGridAde({
@@ -15,6 +17,8 @@ export function TileGridAde({
   onReorderTiles,
   onOpenTile,
   isReordering,
+  onRegenerateTile,
+  regeneratingTileIds,
 }: TileGridAdeProps) {
   return (
     <TileBoard
@@ -24,6 +28,8 @@ export function TileGridAde({
       onReorderTiles={onReorderTiles}
       onOpenTile={onOpenTile}
       isReordering={isReordering}
+      onRegenerateTile={onRegenerateTile}
+      regeneratingTileIds={regeneratingTileIds}
     />
   );
 }

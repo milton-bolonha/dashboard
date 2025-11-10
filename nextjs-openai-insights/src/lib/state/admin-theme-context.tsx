@@ -6,10 +6,11 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useState,
   type ReactNode,
 } from "react";
 
-type AdminTheme = "classic" | "dash" | "ade";
+export type AdminTheme = "classic" | "dash" | "ade";
 
 interface AdminThemeContextValue {
   theme: AdminTheme;
@@ -33,29 +34,49 @@ interface AdminThemeProviderProps {
 
 export function AdminThemeProvider({
   children,
+  initialTheme,
 }: AdminThemeProviderProps) {
-  useEffect(() => {
+  const [theme, setThemeState] = useState<AdminTheme>(() => {
     if (typeof window !== "undefined") {
-      window.localStorage.setItem(STORAGE_KEY, DEFAULT_THEME);
+      const stored = window.localStorage.getItem(STORAGE_KEY);
+      if (
+        stored === "classic" ||
+        stored === "dash" ||
+        stored === "ade"
+      ) {
+        return stored;
+      }
     }
-  }, []);
+    return initialTheme ?? DEFAULT_THEME;
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(STORAGE_KEY, theme);
+    } catch {
+      // ignore storage failures
+    }
+  }, [theme]);
 
   const setTheme = useCallback((nextTheme: AdminTheme) => {
-    void nextTheme;
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(STORAGE_KEY, DEFAULT_THEME);
-    }
+    setThemeState((current) => {
+      if (current === nextTheme) {
+        return current;
+      }
+      return nextTheme;
+    });
   }, []);
 
   const value = useMemo<AdminThemeContextValue>(
     () => ({
-      theme: DEFAULT_THEME,
+      theme,
       setTheme,
-      isClassic: false,
-      isDash: false,
-      isAde: true,
+      isClassic: theme === "classic",
+      isDash: theme === "dash",
+      isAde: theme === "ade",
     }),
-    [setTheme],
+    [setTheme, theme],
   );
 
   return (

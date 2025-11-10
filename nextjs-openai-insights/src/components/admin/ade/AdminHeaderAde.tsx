@@ -32,79 +32,77 @@ export function AdminHeaderAde({
   const [showTemplates, setShowTemplates] = useState(false);
 
   return (
-    <div className="flex h-full items-center justify-between px-6">
-      <div>
+    <div className="flex h-full items-center px-6">
+      <div className="flex flex-col">
         <h1 className="text-2xl font-semibold text-gray-800">{workspaceName}</h1>
         <div className="text-sm text-gray-500">{companyName}</div>
       </div>
-      <div className="flex items-center space-x-4">
-        <div className="flex items-center space-x-2">
+      <div className="ml-auto flex items-center gap-3">
+        <button
+          type="button"
+          className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 transition hover:bg-gray-200"
+          title="Toggle theme"
+        >
+          <Moon className="h-5 w-5 text-gray-700" />
+        </button>
+        {onCustomizeBackground ? (
           <button
             type="button"
+            onClick={onCustomizeBackground}
             className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 transition hover:bg-gray-200"
-            title="Alternar modo"
+            title="Customize background"
           >
-            <Moon className="h-5 w-5 text-gray-700" />
+            <Settings className="h-5 w-5 text-gray-700" />
           </button>
-          {onCustomizeBackground ? (
-            <button
-              type="button"
-              onClick={onCustomizeBackground}
-              className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 transition hover:bg-gray-200"
-              title="Personalizar background"
-            >
-              <Settings className="h-5 w-5 text-gray-700" />
-            </button>
+        ) : null}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowDashboards((value) => !value)}
+            className="flex items-center space-x-2 rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-200"
+          >
+            <span>Dashboards</span>
+            <ChevronDown className="h-4 w-4" />
+          </button>
+          {showDashboards ? (
+            <div className="absolute right-0 top-full mt-2 w-60 rounded-lg border border-gray-200 bg-white p-4 shadow-lg">
+              <p className="text-sm text-gray-500">No extra dashboards available yet.</p>
+            </div>
           ) : null}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setShowDashboards((value) => !value)}
-              className="flex items-center space-x-2 rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-200"
-            >
-              <span>Dashboards</span>
-              <ChevronDown className="h-4 w-4" />
-            </button>
-            {showDashboards ? (
-              <div className="absolute right-0 top-full mt-2 w-60 rounded-lg border border-gray-200 bg-white p-4 shadow-lg">
-                <p className="text-sm text-gray-500">Nenhum dashboard extra disponível.</p>
-              </div>
-            ) : null}
-          </div>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setShowTemplates((value) => !value)}
-              className="flex items-center space-x-2 rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-200"
-            >
-              <span>Templates</span>
-              <ChevronDown className="h-4 w-4" />
-            </button>
-            {showTemplates ? (
-              <div className="absolute right-0 top-full mt-2 w-72 rounded-lg border border-gray-200 bg-white p-4 shadow-lg">
-                <div className="space-y-2">
-                  <button
-                    type="button"
-                    onClick={onSaveTemplate}
-                    className="flex w-full items-center justify-between rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 transition hover:border-gray-300"
-                  >
-                    <span>Salvar como template</span>
-                    <Plus className="h-4 w-4" />
-                  </button>
-                  <p className="text-xs text-gray-500">Nenhum template salvo ainda.</p>
-                </div>
-              </div>
-            ) : null}
-          </div>
-          {actionSlot}
         </div>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowTemplates((value) => !value)}
+            className="flex items-center space-x-2 rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-200"
+          >
+            <span>Templates</span>
+            <ChevronDown className="h-4 w-4" />
+          </button>
+          {showTemplates ? (
+            <div className="absolute right-0 top-full mt-2 w-72 rounded-lg border border-gray-200 bg-white p-4 shadow-lg">
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={onSaveTemplate}
+                  className="flex w-full items-center justify-between rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 transition hover:border-gray-300"
+                >
+                  <span>Save as template</span>
+                  <Plus className="h-4 w-4" />
+                </button>
+                <p className="text-xs text-gray-500">You don’t have templates yet.</p>
+              </div>
+            </div>
+          ) : null}
+        </div>
+        {actionSlot}
         <button
           type="button"
           onClick={onRefresh}
           disabled={isLoading || isRefreshing}
           className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-400 disabled:opacity-60"
         >
-          {isRefreshing ? "Atualizando..." : "Atualizar"}
+          {isRefreshing ? "Refreshing…" : "Refresh"}
         </button>
         <button
           type="button"
@@ -112,7 +110,7 @@ export function AdminHeaderAde({
           disabled={isResetting}
           className="rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:bg-gray-600"
         >
-          {isResetting ? "Limpando..." : "Resetar"}
+          {isResetting ? "Clearing…" : "Reset"}
         </button>
       </div>
     </div>
