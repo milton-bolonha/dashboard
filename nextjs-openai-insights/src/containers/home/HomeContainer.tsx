@@ -4,7 +4,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useToast } from "@/lib/state/toast-context";
-import { rememberSessionId, saveWorkspace as saveCachedWorkspace } from "@/lib/storage/workspace-browser";
+import {
+  clearAllWorkspaces,
+  rememberSessionId,
+  saveWorkspace as saveCachedWorkspace,
+} from "@/lib/storage/workspace-browser";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { LandingFooter } from "@/components/landing/LandingFooter";
 import { ClassicHeroForm } from "@/components/landing/ClassicHeroForm";
@@ -106,6 +110,7 @@ export function HomeContainer() {
       if (!response.ok) {
         throw new Error("Could not reset the workspace");
       }
+      clearAllWorkspaces();
       push({
         title: "Workspace cleared",
         description: "Submit the form again to generate a fresh workspace.",

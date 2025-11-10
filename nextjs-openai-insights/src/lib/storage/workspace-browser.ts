@@ -128,3 +128,21 @@ export function listStoredWorkspaces(
   return entries;
 }
 
+export function clearAllWorkspaces() {
+  if (!isBrowser()) return;
+  const index = getIndex();
+  index.forEach((sessionId) => {
+    try {
+      localStorage.removeItem(storageKey(sessionId));
+    } catch {
+      // ignore
+    }
+  });
+  try {
+    localStorage.removeItem(INDEX_KEY);
+    localStorage.removeItem(LAST_SESSION_KEY);
+  } catch {
+    // ignore
+  }
+}
+
