@@ -48,60 +48,57 @@ export function HomeContainer() {
       targetWebsite: researchWebsite,
     };
 
-    console.log("[HomeContainer] 🔗 Target URL:", targetUrl);
-    console.log("[HomeContainer] 📤 Payload:", payload);
+    try {
+      const response = await fetch(targetUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json().catch(() => null);
 
-    (async () => {
-      try {
-        const response = await fetch(targetUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+      if (!response.ok) {
+        console.error("[HomeContainer] ❌ Generation request failed:", {
+          status: response.status,
+          statusText: response.statusText,
         });
-        const data = await response.json().catch(() => null);
-
-        if (!response.ok) {
-          console.error("[HomeContainer] ❌ Generation request failed:", {
-            status: response.status,
-            statusText: response.statusText,
-          });
-          push({
-            title: "Generation failed",
-            description:
-              (data.error as string) ?? "Failed to start insight generation.",
-            variant: "destructive",
-          });
-        } else {
-          if (data?.sessionId) {
-            rememberSessionId(data.sessionId);
-          }
-          if (data?.workspace) {
-            saveCachedWorkspace(data.workspace.sessionId, data.workspace);
-          }
-          console.log("[HomeContainer] ✅ Generation request accepted");
-        }
-      } catch (error) {
-        console.error("[HomeContainer] 🚨 Generation request threw", error);
         push({
           title: "Generation failed",
           description:
-            error instanceof Error
-              ? error.message
-              : "Please try again in a few moments.",
+            (data?.error as string) ?? "Failed to start insight generation.",
           variant: "destructive",
         });
-      } finally {
-        setIsSubmitting(false);
+        return;
       }
-    })();
 
-    push({
-      title: "Generating insights...",
-      description: "Redirecting to dashboard. Tiles will appear as they complete.",
-      variant: "default",
-    });
+      if (data?.sessionId) {
+        rememberSessionId(data.sessionId);
+      }
+      if (data?.workspace) {
+        saveCachedWorkspace(data.workspace.sessionId, data.workspace);
+      }
+      console.log("[HomeContainer] ✅ Generation request accepted");
 
-    router.push("/admin");
+      push({
+        title: "Generating insights...",
+        description:
+          "Redirecting to dashboard. Tiles will appear as they complete.",
+        variant: "default",
+      });
+
+      router.push("/admin");
+    } catch (error) {
+      console.error("[HomeContainer] 🚨 Generation request threw", error);
+      push({
+        title: "Generation failed",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Please try again in a few moments.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleResetWorkspace = async () => {
