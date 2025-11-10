@@ -131,15 +131,15 @@ function SortableTileCard({
         ref={setNodeRef}
         style={{
           ...style,
-          cursor: isDragging ? "grabbing" : "grab",
+          cursor: isDragging ? "grabbing" : "pointer",
         }}
         data-testid="tile-card"
-        className={`group relative flex h-[220px] flex-col overflow-hidden rounded-[20px] border border-[#ededed] bg-white shadow-sm transition duration-150 hover:-translate-y-1 hover:shadow-lg ${isDragging ? "opacity-90" : ""}`}
+        className={`group relative flex h-[220px] flex-col overflow-hidden rounded-[20px] border border-[#ededed] bg-white transition duration-150 ${isDragging ? "opacity-90" : ""}`}
       >
         <button
           type="button"
           onClick={() => onOpenTile(tile)}
-          className="flex flex-1 flex-col justify-between px-4 py-4 text-left"
+          className="flex flex-1 cursor-pointer flex-col justify-between px-4 py-4 text-left transition-colors hover:text-[#151515]"
         >
           <div className="flex items-center justify-between gap-3">
             <h4 className="truncate text-base font-semibold text-[#151515]">
@@ -160,21 +160,23 @@ function SortableTileCard({
           </p>
         </button>
 
-        <div className="pointer-events-none absolute top-4 right-4 flex gap-2 opacity-0 transition group-hover:opacity-100">
+        <div className="pointer-events-none absolute bottom-4 right-4 flex items-center gap-2 opacity-0 transition group-hover:opacity-100">
           <button
             type="button"
-            className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full border border-transparent bg-white text-[#1f1f1f] shadow hover:border-black/20"
+            className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-white/95 px-3 py-1.5 text-xs font-semibold text-[#303030] ring-1 ring-black/5 transition hover:text-black cursor-grab active:cursor-grabbing"
             {...(listeners ?? {})}
             {...attributes}
             aria-label="Drag to reorder"
+            title="Drag"
           >
             <GripVertical className="h-4 w-4" />
+            <span>Drag</span>
           </button>
           <button
             type="button"
             onClick={() => onRegenerateTile?.(tile.id)}
             disabled={isRegenerating}
-            className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full border border-transparent bg-white text-[#1f1f1f] shadow hover:border-black/20 disabled:cursor-not-allowed disabled:text-gray-400"
+            className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-[#1f1f1f] ring-1 ring-black/5 transition hover:text-black disabled:cursor-not-allowed disabled:text-gray-400"
             aria-label="Regenerate insight"
           >
             {isRegenerating ? (
@@ -186,7 +188,7 @@ function SortableTileCard({
           <button
             type="button"
             onClick={() => onDeleteTile(tile.id)}
-            className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full border border-transparent bg-white text-[#A3A3A3] shadow hover:border-red-200 hover:bg-red-50 hover:text-red-500"
+            className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-[#8a8a8a] ring-1 ring-black/5 transition hover:text-red-500"
             aria-label="Remove tile"
           >
             <Trash2 className="h-4 w-4" />

@@ -59,6 +59,7 @@ export interface Contact {
   linkedinUrl?: string;
   createdAt: string;
   outreach?: ContactOutreach;
+  chatHistory?: TileMessage[];
 }
 
 export interface WorkspaceCompany {

@@ -89,6 +89,7 @@ export function AdminContainer() {
   const [isGeneratingWorkspace, setIsGeneratingWorkspace] = useState(false);
   const [regeneratingTileIds, setRegeneratingTileIds] = useState<Set<string>>(new Set());
   const [regeneratingContactId, setRegeneratingContactId] = useState<string | null>(null);
+  const [isContactChatting, setIsContactChatting] = useState(false);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const workspaceError = error as WorkspaceFetcherError | undefined;
   const cacheWarningShownRef = useRef(false);
@@ -273,13 +274,6 @@ export function AdminContainer() {
     if (!viewingSessionId) return true;
     return viewingSessionId === data.sessionId;
   }, [data, viewingSessionId]);
-  const cacheBanner =
-    workspaceError?.status === 404 && workspace ? (
-      <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-        Workspace cache expired on the server. You&apos;re viewing the last saved copy. Generate a new workspace from the landing page to refresh it.
-      </div>
-    ) : null;
-
   const handleSelectWorkspace = useCallback(
     (nextSessionId: string) => {
       if (nextSessionId === viewingSessionId) return;
@@ -600,6 +594,61 @@ export function AdminContainer() {
     setSelectedContactId(null);
   };
 
+  const handleSubmitContactChat = async (contactId: string, message: string) => {
+    if (!isViewingServerWorkspace) {
+      push({
+        title: "Switch to latest workspace",
+        description: "Continue the AI conversation on the most recent workspace.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const trimmed = message.trim();
+    if (!trimmed) return;
+
+    try {
+      setIsContactChatting(true);
+      const response = await fetch(`/api/workspace/contacts/${contactId}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: trimmed }),
+      });
+      if (!response.ok) {
+        if (response.status === 404) {
+          push({
+            title: "Session expired",
+            description: "Return to the homepage to generate a new workspace.",
+            variant: "destructive",
+          });
+          if (sessionId) {
+            deleteCachedWorkspace(sessionId);
+          }
+          setLocalWorkspace(null);
+          await mutate();
+          return;
+        }
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error ?? "Failed to generate follow-up insight");
+      }
+      await mutate();
+      refreshStoredWorkspaces();
+      push({
+        title: "Contact insight updated",
+        variant: "success",
+      });
+    } catch (error) {
+      push({
+        title: "Chat failed",
+        description:
+          error instanceof Error ? error.message : "Please try again in a few moments.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsContactChatting(false);
+    }
+  };
+
   const handleSubmitFollowUp = async (
     tileId: string,
     payload: TileChatPayload,
@@ -747,7 +796,7 @@ export function AdminContainer() {
     );
   }
 
-  const workspaceLabel = "Insights Dashboard";
+  const workspaceLabel = workspace?.company.name ?? "Workspace";
   const companyName = workspace?.company.name ?? "Workspace";
 
   return (
@@ -770,7 +819,6 @@ export function AdminContainer() {
           />
         }
       >
-        {cacheBanner}
         {isLoading && !workspace ? (
           <EmptyStateAde
             title="Loading insights"
@@ -821,6 +869,8 @@ export function AdminContainer() {
             onClose={handleCloseContactModal}
             onRegenerate={() => handleRegenerateContact(activeContact.id)}
             isRegenerating={regeneratingContactId === activeContact.id}
+            onSubmitChat={(message) => handleSubmitContactChat(activeContact.id, message)}
+            isChatting={isContactChatting}
           />
         ) : null}
       </AdminShellAde>

@@ -4,16 +4,14 @@ import { useState } from "react";
 import { ChevronDown, Moon, Plus, Settings } from "lucide-react";
 
 interface AdminHeaderAdeProps {
-  workspaceName: string;
-  companyName: string;
+  workspaceName?: string;
+  companyName?: string;
   onCustomizeBackground?: () => void;
   onSaveTemplate?: () => void;
   actionSlot?: React.ReactNode;
 }
 
 export function AdminHeaderAde({
-  workspaceName,
-  companyName,
   onCustomizeBackground,
   onSaveTemplate,
   actionSlot,
@@ -22,12 +20,8 @@ export function AdminHeaderAde({
   const [showTemplates, setShowTemplates] = useState(false);
 
   return (
-    <div className="flex h-full items-center px-6">
-      <div className="flex flex-col">
-        <h1 className="text-2xl font-semibold text-gray-800">{workspaceName}</h1>
-        <div className="text-sm text-gray-500">{companyName}</div>
-      </div>
-      <div className="ml-auto flex items-center gap-3">
+    <div className="flex h-full w-full items-center justify-end gap-3 px-6">
+      <div className="flex items-center gap-3">
         <button
           type="button"
           className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 transition hover:bg-gray-200"
@@ -84,6 +78,14 @@ export function AdminHeaderAde({
               </div>
             </div>
           ) : null}
+        </div>
+        <div className="flex items-center gap-2">
+          <button className="rounded-full bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-900">
+            Log in
+          </button>
+          <button className="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-gray-50">
+            Sign up
+          </button>
         </div>
         {actionSlot}
       </div>

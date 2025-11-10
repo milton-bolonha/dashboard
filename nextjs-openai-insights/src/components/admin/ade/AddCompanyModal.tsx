@@ -165,7 +165,7 @@ export function AddCompanyModal({
   const renderStatusIndicator = (field: FieldName) => {
     if (!isFieldEnabled(field)) {
       return (
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#E4E2FF] text-[#9A94FF]">
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f2f2f2] text-[#9a9a9a]">
           •
         </span>
       );
@@ -178,8 +178,8 @@ export function AddCompanyModal({
           disabled={!allValid || isSubmitting || !isLast}
           className={`flex h-8 w-8 items-center justify-center rounded-full ${
             isLast && allValid
-              ? "bg-[#5246E9] text-white shadow-lg transition hover:bg-[#4337d8] disabled:bg-[#B4AEFF]"
-              : "bg-[#D4D1FF] text-[#5246E9]"
+              ? "bg-black text-white transition hover:bg-[#1a1a1a] disabled:bg-[#9e9e9e]"
+              : "bg-[#f0f0f0] text-[#1f1f1f]"
           }`}
         >
           {isLast ? <ArrowRight className="h-4 w-4" /> : "✓"}
@@ -187,7 +187,7 @@ export function AddCompanyModal({
       );
     }
     return (
-      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#D4D1FF] text-[#5246E9]">
+      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f0f0f0] text-[#9a9a9a]">
         •
       </span>
     );
@@ -208,27 +208,19 @@ export function AddCompanyModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm" onClick={handleRequestClose}>
-      <div
-        className="w-full max-w-4xl overflow-hidden rounded-[28px] border border-[#D4D1FF] bg-white shadow-[0px_32px_80px_rgba(82,70,233,0.35)]"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <header className="flex items-start justify-between gap-4 border-b border-[#E4E2FF] bg-gradient-to-r from-[#E4E2FF] via-[#F5F4FF] to-[#FFFFFF] px-8 py-6">
-          <div>
-            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-[#5246E9]">
-              Generate new workspace
-            </p>
-            <h2 className="text-2xl font-semibold text-[#1F1B63]">
-              Collect the target account details
-            </h2>
-            <p className="text-sm text-[#6B63C7]">
-              These prompts mirror the landing flow so you can spin up a fresh set of
-              insights without leaving the dashboard.
+      <div className="w-full max-w-4xl overflow-hidden rounded-[28px] border border-[#e4e4e4] bg-white shadow-[0_32px_80px_rgba(15,23,42,0.2)]" onClick={(event) => event.stopPropagation()}>
+        <header className="flex items-start justify-between gap-4 px-8 py-6">
+          <div className="space-y-2">
+            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-[#9a9a9a]">Generate new workspace</p>
+            <h2 className="text-2xl font-semibold text-[#1f1f1f]">Collect the target account details</h2>
+            <p className="text-sm text-[#6f6f6f]">
+              These prompts mirror the landing flow so you can spin up a fresh set of insights without leaving the dashboard.
             </p>
           </div>
           <button
             type="button"
             onClick={handleRequestClose}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-[#D4D1FF] text-[#5246E9] transition hover:bg-[#ECEBFF]"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-[#e4e4e4] text-[#444] transition hover:bg-[#f5f5f5]"
             aria-label="Close workspace generation modal"
           >
             <X className="h-5 w-5" />
@@ -245,13 +237,13 @@ export function AddCompanyModal({
                 key={field}
                 className={`flex flex-col gap-2 rounded-2xl border px-4 py-4 transition ${
                   enabled
-                    ? "border-[#D4D1FF] bg-white shadow-sm"
-                    : "border-dashed border-[#E4E2FF] bg-[#F7F6FF]"
+                    ? "border-[#e4e4e4] bg-white"
+                    : "border-dashed border-[#e4e4e4] bg-[#fafafa]"
                 }`}
               >
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex-1">
-                    <label className="text-xs font-semibold uppercase tracking-[0.28em] text-[#6B63C7]">
+                    <label className="text-xs font-semibold uppercase tracking-[0.28em] text-[#8a8a8a]">
                       {details.label}
                     </label>
                     <input
@@ -262,9 +254,9 @@ export function AddCompanyModal({
                       onChange={(event) => handleChange(field, event.target.value)}
                       onBlur={() => handleBlur(field)}
                       disabled={!enabled || isSubmitting}
-                      className={`mt-1 w-full border-b border-transparent bg-transparent px-1 py-2 text-sm text-[#1F1B63] placeholder-[#7C75D8] focus:border-[#5246E9] focus:outline-none ${
+                      className={`mt-1 w-full border-b border-transparent bg-transparent px-1 py-2 text-sm text-[#1f1f1f] placeholder:text-[#a1a1a1] focus:border-black focus:outline-none ${
                         !enabled
-                          ? "cursor-not-allowed text-[#A29BF3] placeholder-[#AAB0FF]"
+                          ? "cursor-not-allowed text-[#b3b3b3] placeholder:text-[#c1c1c1]"
                           : ""
                       }`}
                       placeholder={details.placeholder}
@@ -284,23 +276,23 @@ export function AddCompanyModal({
           })}
 
           {error ? (
-            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-[#B42318]">
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-[#b42318]">
               {error}
             </div>
           ) : null}
 
           <div className="flex items-center justify-between">
-            <p className="text-xs text-[#6B63C7]">
+            <p className="text-xs text-[#6f6f6f]">
               Generating a workspace replaces the current insights with this target’s results.
             </p>
             <button
               type="submit"
               disabled={!allValid || isSubmitting}
-              className="inline-flex items-center gap-2 rounded-full bg-[#5246E9] px-6 py-2 text-sm font-semibold text-white shadow-lg transition hover:bg-[#4337d8] disabled:cursor-not-allowed disabled:bg-[#B4AEFF]"
+              className="inline-flex items-center gap-2 rounded-full bg-black px-6 py-2 text-sm font-semibold text-white transition hover:bg-[#1a1a1a] disabled:cursor-not-allowed disabled:bg-[#9e9e9e]"
             >
               {isSubmitting ? (
                 <>
-                  <span className="h-4 w-4 animate-spin rounded-full border-b-2 border-white" />
+                  <span className="h-4 w-4 animate-spin rounded-full border-b-2 border-white border-r-2 border-transparent" />
                   <span>Generating…</span>
                 </>
               ) : (
