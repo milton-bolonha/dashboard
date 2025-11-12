@@ -19,7 +19,7 @@ test.describe("Insights generation flow", () => {
     await fillField("researchTarget", "Upwork");
     await fillField("researchWebsite", "https://www.upwork.com");
 
-    const submitButton = page.locator('button:has-text("Connect CRM")');
+    const submitButton = page.locator('button:has-text("Gerar insights agora")');
     await expect(submitButton).toBeEnabled({ timeout: 5_000 });
     await submitButton.click();
 

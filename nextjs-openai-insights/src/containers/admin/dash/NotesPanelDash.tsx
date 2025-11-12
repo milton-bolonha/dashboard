@@ -21,7 +21,7 @@ export function NotesPanelDash({ notes, onNotesChanged }: NotesPanelDashProps) {
     if (!title.trim() && !content.trim()) {
       push({
         title: "Preencha a nota",
-        description: "Adicione um título ou conteúdo antes de salvar.",
+        description: "Add a title or content before saving.",
         variant: "destructive",
       });
       return;
@@ -35,7 +35,7 @@ export function NotesPanelDash({ notes, onNotesChanged }: NotesPanelDashProps) {
           body: JSON.stringify({ title, content }),
         });
         if (!response.ok) {
-          throw new Error("Não foi possível salvar a nota");
+          throw new Error("Could not save the note");
         }
         setTitle("");
         setContent("");
@@ -59,7 +59,7 @@ export function NotesPanelDash({ notes, onNotesChanged }: NotesPanelDashProps) {
           method: "DELETE",
         });
         if (!response.ok) {
-          throw new Error("Falha ao remover nota");
+          throw new Error("Failed to remove note");
         }
         await onNotesChanged();
         push({ title: "Nota removida", variant: "success" });
@@ -93,7 +93,7 @@ export function NotesPanelDash({ notes, onNotesChanged }: NotesPanelDashProps) {
         <textarea
           value={content}
           onChange={(event) => setContent(event.target.value)}
-          placeholder="Conteúdo da nota"
+          placeholder="Note content"
           rows={4}
           className="rounded-lg border border-[#dcdcde] bg-[#fdfdfd] px-4 py-3 text-sm text-[#202123] outline-none transition focus:border-[#b5b5bc]"
         />
@@ -102,14 +102,14 @@ export function NotesPanelDash({ notes, onNotesChanged }: NotesPanelDashProps) {
           disabled={isPending}
           className="inline-flex items-center justify-center rounded-md bg-[#202123] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#34343a] disabled:cursor-not-allowed disabled:bg-[#4d4e53]"
         >
-          {isPending ? "Salvando..." : "Adicionar nota"}
+          {isPending ? "Saving..." : "Add note"}
         </button>
       </form>
 
       <div className="space-y-3">
         {notes.length === 0 ? (
           <p className="text-sm text-[#5a5b60]">
-            Nenhuma nota registrada. Comece adicionando os principais highlights.
+            No notes recorded. Start by adding the main highlights.
           </p>
         ) : (
           notes.map((note) => (

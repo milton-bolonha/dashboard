@@ -3,15 +3,17 @@
 import { useState, useTransition } from "react";
 import { Pencil, Trash2 } from "lucide-react";
 
+import type { AdeAppearanceTokens } from "@/lib/ade-theme";
 import type { Note } from "@/lib/types";
 import { useToast } from "@/lib/state/toast-context";
 
 interface NotesPanelAdeProps {
+  appearance: AdeAppearanceTokens;
   notes: Note[];
   onNotesChanged: () => Promise<void>;
 }
 
-export function NotesPanelAde({ notes, onNotesChanged }: NotesPanelAdeProps) {
+export function NotesPanelAde({ appearance, notes, onNotesChanged }: NotesPanelAdeProps) {
   const { push } = useToast();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -19,6 +21,11 @@ export function NotesPanelAde({ notes, onNotesChanged }: NotesPanelAdeProps) {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
 
   const isEditing = editingNoteId !== null;
+  const headingColor = appearance.headingColor ?? "#1f1f1f";
+  const textColor = appearance.textColor ?? "#2c2c2c";
+  const mutedColor = appearance.mutedTextColor ?? "#6f6f6f";
+  const cardBorder = appearance.cardBorderColor ?? "#d9d9d9";
+  const surfaceColor = appearance.surfaceColor ?? "#ffffff";
 
   const resetForm = () => {
     setTitle("");
@@ -100,79 +107,127 @@ export function NotesPanelAde({ notes, onNotesChanged }: NotesPanelAdeProps) {
   };
 
   return (
-    <section className="space-y-4">
-      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">Deal notes</h3>
-          <p className="text-sm text-gray-500">
-            Capture headlines, objections and next steps while triaging insights.
-          </p>
-        </div>
-        <span className="inline-flex items-center rounded-full border border-gray-200 px-3 py-1 text-xs font-semibold uppercase tracking-[0.28em] text-gray-600">
+    <section className="space-y-4" suppressHydrationWarning>
+      <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <h3 className="text-lg font-semibold" style={{ color: headingColor || "#000000" }} suppressHydrationWarning>
+          Deal notes
+        </h3>
+        <span
+          className="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.28em]"
+          style={{ borderColor: cardBorder, color: mutedColor }}
+          suppressHydrationWarning
+        >
           {notes.length} saved
         </span>
-      </div>
+      </header>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <form
-          onSubmit={handleCreate}
-          className="flex h-full flex-col gap-3 rounded-2xl border border-dashed border-[#d9d9d9] bg-white p-4"
-        >
-          <div className="space-y-2">
-            <label className="text-xs font-semibold uppercase tracking-[0.28em] text-[#8a8a8a]">
-              Title
-            </label>
-            <input
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              placeholder="Headline or signal"
-              className="w-full rounded-lg border border-[#e4e4e4] bg-white px-3 py-2 text-sm font-medium text-[#1f1f1f] placeholder:text-[#a1a1a1] focus:border-black focus:outline-none focus:ring-0"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-xs font-semibold uppercase tracking-[0.28em] text-[#8a8a8a]">
-              Notes
-            </label>
-            <textarea
-              value={content}
-              onChange={(event) => setContent(event.target.value)}
-              placeholder="Add context, key stakeholders or follow-up tasks…"
-              rows={4}
-              className="w-full resize-none rounded-lg border border-[#e4e4e4] bg-white px-3 py-3 text-sm text-[#1f1f1f] placeholder:text-[#a1a1a1] focus:border-black focus:outline-none focus:ring-0"
-            />
-          </div>
-          <div className="mt-auto flex items-center justify-between">
-            <span className="text-xs text-[#6f6f6f]">All notes stay attached to this workspace.</span>
-            <div className="flex items-center gap-3">
-              {isEditing ? (
+        {notes.length === 0 ? (
+          <article className="flex flex-col overflow-hidden rounded-2xl border" style={{ borderColor: cardBorder, backgroundColor: surfaceColor }} suppressHydrationWarning>
+            <header className="bg-[#E87C2A] text-white p-3">
+              <input
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                placeholder="Note title"
+                className="w-full bg-transparent text-white placeholder-white/70 text-sm font-semibold"
+                type="text"
+              />
+            </header>
+            <div className="flex-1 p-4 bg-white">
+              <textarea
+                value={content}
+                onChange={(event) => setContent(event.target.value)}
+                placeholder="Note content"
+                rows={3}
+                className="w-full text-sm text-gray-700 mb-2 resize-none"
+              />
+              <div className="flex justify-end space-x-2">
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="text-xs font-semibold uppercase tracking-[0.24em] text-[#6f6f6f] transition hover:text-black"
+                  className="px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 rounded"
                 >
                   Cancel
                 </button>
-              ) : null}
-              <button
-                type="submit"
-                disabled={isPending}
-              className="inline-flex items-center justify-center rounded-full bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1a1a1a] disabled:cursor-not-allowed disabled:bg-[#9e9e9e] whitespace-nowrap"
-              >
-                {isPending ? "Saving…" : isEditing ? "Save note" : "Add note"}
-              </button>
+                <button
+                  type="submit"
+                  onClick={() => handleCreate({} as React.FormEvent<HTMLFormElement>)}
+                  disabled={isPending || (!title.trim() && !content.trim())}
+                  className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                >
+                  Create Note
+                </button>
+              </div>
             </div>
-          </div>
-        </form>
-
-        {notes.length === 0 ? (
-          <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-[#d9d9d9] bg-white px-4 text-center text-sm text-[#6f6f6f]">
-            No notes yet. Use this space to log signals, objections and next steps while you review the tiles.
-          </div>
+          </article>
         ) : (
-          notes.map((note) => (
+          <>
+            <form
+              onSubmit={handleCreate}
+              className="flex h-full flex-col gap-3 rounded-2xl border border-dashed p-4"
+              style={{ borderColor: cardBorder, backgroundColor: surfaceColor }}
+              suppressHydrationWarning
+            >
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-[0.28em]" style={{ color: mutedColor }} suppressHydrationWarning>
+                  Title
+                </label>
+                <input
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                  placeholder="Headline or signal"
+                  className="w-full rounded-lg border px-3 py-2 text-sm font-medium focus:border-black focus:outline-none focus:ring-0"
+                  suppressHydrationWarning
+                  style={{
+                    borderColor: cardBorder,
+                    color: textColor,
+                    backgroundColor: surfaceColor,
+                  }}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-[0.28em]" style={{ color: mutedColor }} suppressHydrationWarning>
+                  Notes
+                </label>
+                <textarea
+                  value={content}
+                  onChange={(event) => setContent(event.target.value)}
+                  placeholder="Capture context, signals or next steps…"
+                  rows={4}
+                  className="w-full resize-none rounded-lg border px-3 py-3 text-sm focus:border-black focus:outline-none focus:ring-0"
+                  suppressHydrationWarning
+                  style={{
+                    borderColor: cardBorder,
+                    color: textColor,
+                    backgroundColor: surfaceColor,
+                  }}
+                />
+              </div>
+              <div className="mt-auto flex items-center justify-end gap-3">
+                {isEditing ? (
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="text-xs font-semibold uppercase tracking-[0.24em] text-[#6f6f6f] transition hover:text-black"
+                  >
+                    Cancel
+                  </button>
+                ) : null}
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="inline-flex items-center justify-center rounded-full bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-black/90 disabled:cursor-not-allowed disabled:bg-black/40 whitespace-nowrap"
+                >
+                  {isPending ? "Saving…" : isEditing ? "Save note" : "Add note"}
+                </button>
+              </div>
+            </form>
+            {notes.map((note) => (
             <article
               key={note.id}
-              className="flex flex-col overflow-hidden rounded-2xl border border-[#ededed] bg-white"
+              className="flex flex-col overflow-hidden rounded-2xl border"
+              style={{ borderColor: cardBorder, backgroundColor: surfaceColor }}
+              suppressHydrationWarning
             >
               <header className="bg-[#E87C2A] px-4 py-3 text-white">
                 <h4 className="text-sm font-semibold">
@@ -180,11 +235,15 @@ export function NotesPanelAde({ notes, onNotesChanged }: NotesPanelAdeProps) {
                 </h4>
               </header>
               <div className="flex-1 px-4 py-4">
-                <p className="whitespace-pre-line text-sm text-[#3b3b3b]">
+                <p className="whitespace-pre-line text-sm" style={{ color: textColor }} suppressHydrationWarning>
                   {note.content}
                 </p>
               </div>
-              <footer className="flex items-center justify-between border-t border-[#f0f0f0] px-4 py-3 text-xs text-[#6f6f6f]">
+              <footer
+                className="flex items-center justify-between border-t px-4 py-3 text-xs"
+                style={{ borderColor: cardBorder, color: mutedColor }}
+                suppressHydrationWarning
+              >
                 <span>
                   Updated{" "}
                   {new Date(note.updatedAt).toLocaleDateString("en-US", {
@@ -212,10 +271,10 @@ export function NotesPanelAde({ notes, onNotesChanged }: NotesPanelAdeProps) {
                 </div>
               </footer>
             </article>
-          ))
+          ))}
+          </>
         )}
       </div>
     </section>
   );
 }
-

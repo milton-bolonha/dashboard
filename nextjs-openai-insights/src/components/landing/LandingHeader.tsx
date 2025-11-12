@@ -5,9 +5,15 @@ import Image from "next/image";
 
 interface LandingHeaderProps {
   onHelpClick?: () => void;
+  onLogin?: () => void;
+  onSignUp?: () => void;
 }
 
-export function LandingHeader({ onHelpClick }: LandingHeaderProps) {
+export function LandingHeader({
+  onHelpClick,
+  onLogin,
+  onSignUp,
+}: LandingHeaderProps) {
   return (
     <header
       className="fixed top-0 left-0 right-0 z-50"
@@ -26,10 +32,16 @@ export function LandingHeader({ onHelpClick }: LandingHeaderProps) {
         </Link>
 
         <div className="flex items-center space-x-3">
-          <button className="rounded-full bg-black px-5 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-gray-800">
+          <button
+            onClick={onLogin}
+            className="rounded-full bg-black px-5 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-gray-800"
+          >
             Log in
           </button>
-          <button className="rounded-full border border-gray-300 bg-white px-5 py-1.5 text-sm font-semibold text-black transition-colors hover:bg-gray-50">
+          <button
+            onClick={onSignUp}
+            className="rounded-full border border-gray-300 bg-white px-5 py-1.5 text-sm font-semibold text-black transition-colors hover:bg-gray-50"
+          >
             Sign up
           </button>
           <button

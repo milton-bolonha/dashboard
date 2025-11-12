@@ -6,7 +6,12 @@ import OpenAI from "openai";
 import { writeWorkspace } from "@/lib/cookies-store";
 import {
   getGuestTemplate,
+  getPromptAgent,
   processPromptVariables,
+  resolveTemplateTiles,
+  PROMPT_VARIABLE_DEFINITIONS,
+  type PromptAgentId,
+  type PromptVariableId,
 } from "@/lib/guest-templates";
 import type { Tile, WorkspaceSnapshot } from "@/lib/types";
 import { DEFAULT_MAX_OUTPUT_TOKENS, resolveModel } from "@/lib/ai/settings";
@@ -24,6 +29,10 @@ const requestSchema = z.object({
   targetWebsite: z.string().url(),
   templateId: z.string().min(2).optional(),
   model: z.string().min(2).optional(),
+  promptAgent: z.string().min(2).optional(),
+  responseLength: z.enum(["short", "medium", "long"]).optional(),
+  promptVariables: z.array(z.string().min(1)).max(16).optional(),
+  bulkPrompts: z.array(z.string().min(2)).max(200).optional(),
 });
 
 const MAX_TOKENS = DEFAULT_MAX_OUTPUT_TOKENS;
@@ -56,6 +65,11 @@ function normalizeContext(raw: {
   solution: string;
   targetCompany: string;
   targetWebsite: string;
+  promptAgent?: string;
+  responseLength?: "short" | "medium" | "long";
+  promptVariables?: string[];
+  bulkPrompts?: string[];
+  model?: string;
 }) {
   const salesRepCompany = raw.salesRepCompany.trim();
   const targetCompany = raw.targetCompany.trim();
@@ -76,6 +90,17 @@ function normalizeContext(raw: {
     companyWebsite: raw.targetWebsite.trim(),
     salesRepWebsite: raw.salesRepWebsite.trim(),
     solution,
+    promptAgent: raw.promptAgent,
+    responseLength: raw.responseLength ?? "medium",
+    promptVariables:
+      raw.promptVariables && raw.promptVariables.length > 0
+        ? raw.promptVariables.join(", ")
+        : undefined,
+    bulkPrompts:
+      raw.bulkPrompts && raw.bulkPrompts.length > 0
+        ? raw.bulkPrompts.join(" || ")
+        : undefined,
+    model: raw.model,
   };
 }
 
@@ -89,6 +114,9 @@ function composeTileFromGeneration(
     category?: string;
     model: string;
     orderIndex: number;
+    agentId?: string;
+    responseLength?: "short" | "medium" | "long";
+    promptVariables?: string[];
   },
 ): Tile {
   return {
@@ -106,6 +134,9 @@ function composeTileFromGeneration(
     totalTokens: generation.totalTokens,
     attempts: generation.attempts,
     history: generation.history,
+    agentId: params.agentId,
+    responseLength: params.responseLength,
+    promptVariables: params.promptVariables,
   };
 }
 
@@ -143,8 +174,22 @@ export async function POST(request: Request) {
     targetWebsite,
     templateId = "template_1",
     model: requestedModel,
+    promptAgent: requestedPromptAgent,
+    responseLength,
+    promptVariables: rawPromptVariables = [],
+    bulkPrompts = [],
   } = parseResult.data;
-  const model = resolveModel(requestedModel);
+  const agentDefinition = getPromptAgent(
+    requestedPromptAgent as PromptAgentId | undefined,
+  );
+  const agentId = agentDefinition.id as PromptAgentId;
+  const normalizedPromptVariables = rawPromptVariables.filter(
+    (value): value is PromptVariableId =>
+      PROMPT_VARIABLE_DEFINITIONS.some(
+        (definition) => definition.id === value,
+      ),
+  );
+  const model = resolveModel(requestedModel ?? agentDefinition.defaultModel);
 
   try {
     console.log("[api/generate] 📤 Payload:", {
@@ -155,6 +200,10 @@ export async function POST(request: Request) {
       targetWebsite,
       templateId,
       model,
+      agentId,
+      responseLength,
+      promptVariablesCount: normalizedPromptVariables.length,
+      bulkPromptsCount: bulkPrompts.length,
     });
 
     const template = getGuestTemplate(templateId);
@@ -164,14 +213,40 @@ export async function POST(request: Request) {
       solution,
       targetCompany,
       targetWebsite,
+      promptAgent: agentId,
+      responseLength,
+      promptVariables: normalizedPromptVariables,
+      bulkPrompts,
+      model,
     });
 
-    const prompts = template.tiles.map((item) => ({
-      ...item,
-      prompt: processPromptVariables(item.prompt, normalizedContext),
-      templateTileId: item.templateTileId ?? item.id,
-      category: item.category,
-    }));
+    const resolvedTiles = resolveTemplateTiles(template, {
+      templateId,
+      agentId,
+      responseLength,
+      promptVariables: normalizedPromptVariables,
+      bulkPrompts,
+    });
+
+    const prompts = resolvedTiles.map((item) => {
+      const runtimeContext = {
+        ...normalizedContext,
+        tile: {
+          id: item.id,
+          title: item.title,
+          category: item.category,
+          agentId: item.agentId,
+          responseLength: item.preferredLength,
+          variables: item.runtimeVariables,
+        },
+      };
+
+      return {
+        ...item,
+        prompt: processPromptVariables(item.prompt, runtimeContext),
+        templateTileId: item.templateTileId ?? item.id,
+      };
+    });
 
     let tiles: Tile[];
 
@@ -195,6 +270,9 @@ export async function POST(request: Request) {
           category: item.category,
           model,
           orderIndex,
+          agentId: item.agentId,
+          responseLength: item.preferredLength,
+          promptVariables: item.runtimeVariables,
         });
       });
     } else {
@@ -236,6 +314,9 @@ export async function POST(request: Request) {
               category: item.category,
               model,
               orderIndex,
+              agentId: item.agentId,
+              responseLength: item.preferredLength,
+              promptVariables: item.runtimeVariables,
             });
           }),
         );
@@ -268,6 +349,17 @@ export async function POST(request: Request) {
         tiles,
         notes: [],
         contacts: [],
+      },
+      appearance: {
+        baseColor: process.env.NEXT_PUBLIC_ADE_BASE_COLOR ?? "#f5f5f0",
+      },
+      promptSettings: {
+        templateId,
+        model,
+        promptAgent: agentId,
+        responseLength,
+        promptVariables: normalizedPromptVariables,
+        bulkPrompts,
       },
     };
 

@@ -5,15 +5,14 @@ import OpenAI from "openai";
 import { clampTiles, readWorkspace, updateWorkspace } from "@/lib/cookies-store";
 import type { Tile, TileMessage } from "@/lib/types";
 import { DEFAULT_MAX_OUTPUT_TOKENS, resolveModel } from "@/lib/ai/settings";
-import {
-  toResponsesInput,
-  type ConversationTurn,
-} from "@/lib/ai/response-input";
 
 const attachmentSchema = z.object({
   id: z.string(),
   name: z.string(),
   url: z.string().url().optional(),
+  mimeType: z.string().optional(),
+  size: z.number().optional(),
+  textContent: z.string().optional(),
 });
 
 const messageSchema = z.object({
@@ -28,6 +27,11 @@ const MAX_HISTORY_LENGTH = 12;
 const USE_MOCK_OPENAI = process.env.MOCK_OPENAI_RESPONSES === "true";
 
 type RouteContext = { params: Promise<{ tileId: string }> };
+
+type ConversationTurn = {
+  role: "assistant" | "system" | "user";
+  content: string;
+};
 
 function timelineEntry(
   role: TileMessage["role"],
@@ -76,52 +80,32 @@ async function runChatAttempt(
   input: ConversationTurn[],
   model: string
 ) {
-  return client.responses.create({
+  return client.chat.completions.create({
     model,
-    input: toResponsesInput(input),
-    max_output_tokens: DEFAULT_MAX_OUTPUT_TOKENS,
+    messages: input.map((turn) => ({
+      role: turn.role,
+      content: turn.content,
+    })),
+    max_tokens: DEFAULT_MAX_OUTPUT_TOKENS,
   });
 }
 
-function coerceToText(value: unknown): string {
-  if (value === null || typeof value === "undefined") return "";
-  if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean") {
-    return String(value);
-  }
-  if (Array.isArray(value)) {
-    return value.map(coerceToText).filter(Boolean).join("");
-  }
-  if (typeof value === "object") {
-    const record = value as Record<string, unknown>;
-    if ("output_text" in record) return coerceToText(record.output_text);
-    if ("text" in record) return coerceToText(record.text);
-    if ("content" in record) return coerceToText(record.content);
-    if ("value" in record) return coerceToText(record.value);
-    if ("parts" in record) return coerceToText(record.parts);
-    if ("messages" in record) return coerceToText(record.messages);
-  }
-  return "";
-}
+// coerceToText removed - no longer used with chat completions API
 
 function extractAssistantContent(
   response: Awaited<ReturnType<typeof runChatAttempt>>
 ) {
   const safeResponse = response as {
-    output_text?: unknown;
-    output?: unknown;
+    choices?: Array<{
+      message?: {
+        content?: string;
+      };
+    }>;
   };
 
-  const fromOutput = coerceToText(safeResponse.output_text);
-  if (fromOutput.trim()) return fromOutput.trim();
-
-  if (Array.isArray(safeResponse.output)) {
-    const aggregated = safeResponse.output
-      .map((item: unknown) => coerceToText(item))
-      .filter(Boolean)
-      .join("\n")
-      .trim();
-    if (aggregated) return aggregated;
+  if (safeResponse.choices && safeResponse.choices.length > 0) {
+    const content = safeResponse.choices[0]?.message?.content;
+    if (content) return content.trim();
   }
 
   return "";
@@ -130,9 +114,14 @@ function extractAssistantContent(
 export async function POST(request: Request, context: RouteContext) {
   const { tileId } = await context.params;
 
+  console.log(`[API] /api/workspace/tiles/${tileId}/chat - Starting request`);
+
   const body = await request.json().catch(() => null);
+  console.log(`[API] /api/workspace/tiles/${tileId}/chat - Received body:`, body);
+
   const parseResult = messageSchema.safeParse(body);
   if (!parseResult.success) {
+    console.error(`[API] /api/workspace/tiles/${tileId}/chat - Invalid payload:`, parseResult.error.flatten());
     return NextResponse.json(
       { error: "Invalid payload", details: parseResult.error.flatten() },
       { status: 400 }
@@ -141,33 +130,73 @@ export async function POST(request: Request, context: RouteContext) {
 
   const workspace = await readWorkspace();
   if (!workspace) {
+    console.error(`[API] /api/workspace/tiles/${tileId}/chat - No workspace found`);
     return NextResponse.json(
       { error: "Workspace cache expired" },
       { status: 404 }
     );
   }
+  console.log(`[API] /api/workspace/tiles/${tileId}/chat - Workspace found:`, workspace.sessionId);
+  
   const tiles = workspace.company.tiles || [];
+  console.log(`[API] /api/workspace/tiles/${tileId}/chat - Total tiles:`, tiles.length);
+  console.log(`[API] /api/workspace/tiles/${tileId}/chat - Looking for tileId:`, tileId);
+  console.log(`[API] /api/workspace/tiles/${tileId}/chat - Available tile IDs:`, tiles.map(t => t.id));
+  
   const tileIndex = tiles.findIndex((tile) => tile.id === tileId);
 
   if (tileIndex === -1) {
+    console.error(`[API] /api/workspace/tiles/${tileId}/chat - Tile not found in workspace`);
     return NextResponse.json(
-      { error: "Tile not found" },
+      { error: "Tile not found", tileId, availableTiles: tiles.map(t => t.id) },
       { status: 404 }
     );
   }
 
   const existingTile = tiles[tileIndex];
+  console.log(`[API] /api/workspace/tiles/${tileId}/chat - Found tile:`, existingTile.id);
+
   const attachments = parseResult.data.attachments ?? [];
   const userMessage = parseResult.data.message.trim();
-  const formattedUserMessage =
-    attachments.length === 0
-      ? userMessage
-      : `${userMessage}\n\nAttachments:\n${attachments
-          .map((item) =>
-            item.url ? `- ${item.name} → ${item.url}` : `- ${item.name}`,
-          )
-          .join("\n")}`;
+  console.log(`[API] /api/workspace/tiles/${tileId}/chat - User message: "${userMessage}"`);
+  console.log(`[API] /api/workspace/tiles/${tileId}/chat - Attachments:`, attachments.length);
+
+  const referenceLines = attachments
+    .filter((item) => !item.textContent)
+    .map((item) => {
+      const metaParts: string[] = [];
+      if (item.mimeType) metaParts.push(item.mimeType);
+      if (typeof item.size === "number") {
+        const kib = Math.max(Math.round(item.size / 1024), 1);
+        metaParts.push(`${kib} KB`);
+      }
+      const meta = metaParts.length ? ` (${metaParts.join(", ")})` : "";
+      if (item.url) {
+        return `- ${item.name}${meta} → ${item.url}`;
+      }
+      return `- ${item.name}${meta}`;
+    });
+  const inlinePreviews = attachments
+    .filter((item) => item.textContent)
+    .map((item, index) => {
+      const metaParts: string[] = [];
+      if (item.mimeType) metaParts.push(item.mimeType);
+      if (typeof item.size === "number") {
+        const kib = Math.max(Math.round(item.size / 1024), 1);
+        metaParts.push(`${kib} KB`);
+      }
+      const meta = metaParts.length ? ` (${metaParts.join(", ")})` : "";
+      return `Attachment ${index + 1}: ${item.name}${meta}\n${item.textContent}`;
+    });
+  let formattedUserMessage = userMessage;
+  if (referenceLines.length > 0) {
+    formattedUserMessage += `\n\nAttachments:\n${referenceLines.join("\n")}`;
+  }
+  if (inlinePreviews.length > 0) {
+    formattedUserMessage += `\n\nAttachment previews:\n${inlinePreviews.join("\n\n")}`;
+  }
   const model = resolveModel(parseResult.data.model ?? existingTile.model);
+  console.log(`[API] /api/workspace/tiles/${tileId}/chat - Using model: ${model}`);
 
   const shouldMock =
     USE_MOCK_OPENAI || !process.env.OPENAI_API_KEY;

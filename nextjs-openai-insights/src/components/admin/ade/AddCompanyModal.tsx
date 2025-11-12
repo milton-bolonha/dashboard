@@ -195,26 +195,21 @@ export function AddCompanyModal({
             const details = FIELD_DETAILS[field];
             const showError = touched[field] && !validators[field];
             return (
-              <div
-                key={field}
-                className="flex flex-col gap-2 rounded-2xl border border-[#e4e4e4] bg-white px-4 py-4 transition"
-              >
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-[0.28em] text-[#8a8a8a]">
-                    {details.label}
-                  </label>
-                  <input
-                    required
-                    type={details.type}
-                    inputMode={details.type === "url" ? "url" : "text"}
-                    value={values[field]}
-                    onChange={(event) => handleChange(field, event.target.value)}
-                    onBlur={() => handleBlur(field)}
-                    disabled={isSubmitting}
-                    className="w-full rounded-lg border border-[#e4e4e4] bg-white px-3 py-2 text-sm text-[#1f1f1f] placeholder:text-[#a1a1a1] focus:border-black focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:bg-[#f5f5f5]"
-                    placeholder={details.placeholder}
-                  />
-                </div>
+              <div key={field} className="flex flex-col gap-1">
+                <label className="text-xs font-semibold uppercase tracking-[0.28em] text-[#8a8a8a]">
+                  {details.label}
+                </label>
+                <input
+                  required
+                  type={details.type}
+                  inputMode={details.type === "url" ? "url" : "text"}
+                  value={values[field]}
+                  onChange={(event) => handleChange(field, event.target.value)}
+                  onBlur={() => handleBlur(field)}
+                  disabled={isSubmitting}
+                  className="w-full rounded-lg border border-[#e4e4e4] bg-white px-3 py-2 text-sm text-[#1f1f1f] placeholder:text-[#a1a1a1] focus:border-black focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:bg-[#f5f5f5]"
+                  placeholder={details.placeholder}
+                />
                 {showError ? (
                   <p className="text-xs text-[#FF5A5F]">
                     {details.type === "url"

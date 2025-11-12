@@ -17,9 +17,10 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { CSSProperties } from "react";
-import { Trash2, GripVertical, ChevronRight, RotateCw, Loader2 } from "lucide-react";
+import { Trash2, GripVertical, ChevronRight, RotateCw, Loader2, Plus } from "lucide-react";
 import { useEffect, useMemo, useState, useCallback } from "react";
 
+import type { AdeAppearanceTokens } from "@/lib/ade-theme";
 import type { Tile } from "@/lib/types";
 
 type TileBoardVariant = "classic" | "dash" | "ade";
@@ -33,6 +34,9 @@ interface TileBoardProps {
   isReordering?: boolean;
   onRegenerateTile?: (tileId: string) => void;
   regeneratingTileIds?: string[];
+  appearance?: AdeAppearanceTokens;
+  onAddPrompt?: () => void;
+  onBulkUploadPrompts?: () => void;
 }
 
 interface SortableTileCardProps {
@@ -296,7 +300,19 @@ export function TileBoard({
   isReordering: externalReordering = false,
   onRegenerateTile,
   regeneratingTileIds,
+  appearance,
+  onAddPrompt,
+  onBulkUploadPrompts,
 }: TileBoardProps) {
+  const handleAddPrompt = useCallback(() => {
+    if (onAddPrompt) {
+      onAddPrompt();
+    } else {
+      // Default implementation - could be replaced with modal opening
+      console.log("Add prompt functionality coming soon");
+    }
+  }, [onAddPrompt]);
+
   const isAdeVariant = variant === "ade";
   const sortingStrategy = isAdeVariant
     ? rectSortingStrategy
@@ -363,24 +379,40 @@ export function TileBoard({
 
   return (
     <section className="flex flex-col gap-6">
-      <header className="flex flex-col gap-1">
+      <header className="flex items-center justify-between">
         <h3
-          className={
-            isAdeVariant ? "text-xl font-semibold text-[#1f1f1f]" : "text-xl font-semibold text-slate-900"
-          }
+          className="text-lg font-semibold"
+          style={isAdeVariant ? { color: appearance?.headingColor || "#000000" } : { color: "#000000" }}
         >
           AI Insight Tiles
         </h3>
-        <p
-          className={
-            isAdeVariant ? "text-sm text-[#6f6f6f]" : "text-sm text-slate-500"
-          }
-        >
-          Drag to reorder tiles. Click a card to open the full prompt, analyse the
-          AI reply, and continue iterating.
-        </p>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              if (onBulkUploadPrompts) {
+                onBulkUploadPrompts();
+              } else {
+                console.log("Bulk upload functionality coming soon");
+              }
+            }}
+            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+          >
+            Bulk Upload Your Prompt
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={handleAddPrompt}
+            className="inline-flex items-center gap-2 rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800"
+          >
+            Add Prompt
+          </button>
+        </div>
         {(isReordering || externalReordering) && (
-          <p className="text-xs text-orange-600">Saving new order…</p>
+          <p className="absolute right-0 top-full mt-1 text-xs text-orange-600">Saving new order…</p>
         )}
       </header>
 
@@ -394,6 +426,27 @@ export function TileBoard({
           strategy={sortingStrategy}
         >
           <div className={containerClassName}>
+            {/* Always show Add Prompt box first */}
+            <button
+              type="button"
+              onClick={handleAddPrompt}
+              className="group relative flex h-[220px] flex-col overflow-hidden rounded-[20px] border-2 border-dashed border-gray-400 bg-white transition-all duration-200 flex-col items-center justify-center cursor-pointer hover:border-gray-500 hover:bg-gray-50"
+              style={isAdeVariant ? { backgroundColor: appearance?.surfaceColor, borderColor: appearance?.cardBorderColor } : undefined}
+            >
+              <div className="flex flex-col items-center space-y-3">
+                <div className="w-12 h-12 rounded-full bg-gray-300 group-hover:bg-gray-400 transition-colors flex items-center justify-center">
+                  <Plus className="w-6 h-6 text-gray-600 group-hover:text-gray-700" />
+                </div>
+                <span 
+                  className="text-sm font-medium" 
+                  style={isAdeVariant ? { color: appearance?.textColor || "#2c2c2c" } : { color: "#4b5563" }}
+                >
+                  Add Prompt
+                </span>
+              </div>
+            </button>
+
+            {/* Then show existing tiles */}
             {items.map((tile) => (
               <SortableTile
                 key={tile.id}

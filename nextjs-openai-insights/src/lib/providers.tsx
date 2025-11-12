@@ -4,6 +4,7 @@ import type { PropsWithChildren } from "react";
 import { SWRConfig } from "swr";
 
 import { ToastProvider } from "@/lib/state/toast-context";
+import { MembershipProvider } from "@/lib/state/membership-context";
 
 const swrConfig = {
   fetcher: async (resource: RequestInfo, init?: RequestInit) => {
@@ -39,7 +40,9 @@ const swrConfig = {
 export function Providers({ children }: PropsWithChildren) {
   return (
     <SWRConfig value={swrConfig}>
-      <ToastProvider>{children}</ToastProvider>
+      <MembershipProvider>
+        <ToastProvider>{children}</ToastProvider>
+      </MembershipProvider>
     </SWRConfig>
   );
 }

@@ -1,16 +1,24 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useRef, useState, type ChangeEvent } from "react";
+
+export interface ClassicHeroFormSubmission {
+  company: string;
+  companyWebsite: string;
+  solution: string;
+  researchTarget: string;
+  researchWebsite: string;
+  templateId: string;
+  model: string;
+  promptAgent: string;
+  responseLength: string;
+  promptVariables: string[];
+  bulkPrompts: string[];
+}
 
 interface ClassicHeroFormProps {
   isSubmitting: boolean;
-  onSubmit: (payload: {
-    company: string;
-    companyWebsite: string;
-    solution: string;
-    researchTarget: string;
-    researchWebsite: string;
-  }) => Promise<void>;
+  onSubmit: (payload: ClassicHeroFormSubmission) => Promise<void>;
   onReset?: () => Promise<void>;
 }
 
@@ -46,6 +54,8 @@ type InputState = Record<(typeof FIELD_CONFIG)[number]["name"], string>;
 
 type TouchedState = Record<(typeof FIELD_CONFIG)[number]["name"], boolean>;
 
+// Constants removed - configuration moved to admin modal
+
 export function ClassicHeroForm({
   isSubmitting,
   onSubmit,
@@ -58,13 +68,6 @@ export function ClassicHeroForm({
     researchTarget: "",
     researchWebsite: "",
   });
-  const [touched, setTouched] = useState<TouchedState>({
-    company: false,
-    companyWebsite: false,
-    solution: false,
-    researchTarget: false,
-    researchWebsite: false,
-  });
   const [focused, setFocused] = useState<TouchedState>({
     company: false,
     companyWebsite: false,
@@ -73,6 +76,10 @@ export function ClassicHeroForm({
     researchWebsite: false,
   });
   const [error, setError] = useState<string | null>(null);
+  const [bulkPrompts, setBulkPrompts] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Effects removed - configuration moved to admin modal
 
   const isUrlValid = (value: string) => {
     if (!value.trim()) return false;
@@ -84,49 +91,88 @@ export function ClassicHeroForm({
     }
   };
 
-  const isFieldValid = useMemo(() => {
-    return {
-      company: values.company.trim().length > 1,
-      companyWebsite: isUrlValid(values.companyWebsite),
-      solution: values.solution.trim().length > 1,
-      researchTarget: values.researchTarget.trim().length > 1,
-      researchWebsite: isUrlValid(values.researchWebsite),
-    } satisfies Record<(typeof FIELD_CONFIG)[number]["name"], boolean>;
-  }, [values]);
+  const isFieldValid = {
+    company: values.company.trim().length > 1,
+    companyWebsite: isUrlValid(values.companyWebsite),
+    solution: values.solution.trim().length > 1,
+    researchTarget: values.researchTarget.trim().length > 1,
+    researchWebsite: isUrlValid(values.researchWebsite),
+  };
 
-  const canEnableField = useMemo(() => {
-    return {
-      company: true,
-      companyWebsite: Boolean(values.company.trim()),
-      solution: Boolean(values.companyWebsite.trim()),
-      researchTarget: Boolean(values.solution.trim()),
-      researchWebsite: Boolean(values.researchTarget.trim()),
-    } satisfies Record<(typeof FIELD_CONFIG)[number]["name"], boolean>;
-  }, [values]);
+  const canEnableField = {
+    company: true,
+    companyWebsite: Boolean(values.company.trim()),
+    solution: Boolean(values.companyWebsite.trim()),
+    researchTarget: Boolean(values.solution.trim()),
+    researchWebsite: Boolean(values.researchTarget.trim()),
+  };
 
-  const allValid = useMemo(() => {
-    return Object.values(isFieldValid).every(Boolean);
-  }, [isFieldValid]);
+  const allValid = Object.values(isFieldValid).every(Boolean);
 
-  const fieldStates = useMemo(() => {
-    return FIELD_CONFIG.reduce((acc, field) => {
-      const name = field.name;
-      const value = values[name];
-      acc[name] = {
-        isValid: isFieldValid[name],
-        hasContent: value.trim().length > 0,
-        focused: focused[name],
-      };
-      return acc;
-    }, {} as Record<(typeof FIELD_CONFIG)[number]["name"], { isValid: boolean; hasContent: boolean; focused: boolean }>);
-  }, [focused, isFieldValid, values]);
+  const fieldStates = FIELD_CONFIG.reduce((acc, field) => {
+    const name = field.name;
+    const value = values[name];
+    acc[name] = {
+      isValid: isFieldValid[name],
+      hasContent: value.trim().length > 0,
+      focused: focused[name],
+    };
+    return acc;
+  }, {} as Record<(typeof FIELD_CONFIG)[number]["name"], { isValid: boolean; hasContent: boolean; focused: boolean }>);
+
+  // Functions removed - configuration moved to admin modal
+
+  const handleBulkUploadClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const parseCsvPrompts = (text: string) => {
+    return text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .filter((line, index, arr) => {
+        if (index === 0) {
+          const lowered = line.toLowerCase();
+          if (
+            lowered.includes("prompt") &&
+            (arr.length === 1 || arr[1].split(",").length >= 1)
+          ) {
+            return false;
+          }
+        }
+        return true;
+      });
+  };
+
+  const handleBulkFileChange = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const prompts = parseCsvPrompts(text);
+        if (prompts.length === 0) {
+          setBulkPrompts([]);
+        } else {
+          setBulkPrompts(prompts);
+        }
+      } catch (readError) {
+        console.error("[ClassicHeroForm] 🚨 Erro ao ler CSV", readError);
+      } finally {
+        event.target.value = "";
+      }
+    },
+    []
+  );
+
+  // handleBulkClear removed - no longer used
 
   const handleChange = (name: keyof InputState, next: string) => {
     setValues((prev) => ({ ...prev, [name]: next }));
   };
 
   const handleBlur = (name: keyof InputState) => {
-    setTouched((prev) => ({ ...prev, [name]: true }));
     setFocused((prev) => ({ ...prev, [name]: false }));
   };
 
@@ -134,32 +180,28 @@ export function ClassicHeroForm({
     setFocused((prev) => ({ ...prev, [name]: true }));
   };
 
-  const hasFieldError = (name: keyof InputState) => {
-    if (!touched[name]) return false;
-    return !isFieldValid[name];
-  };
-
   const handleSubmit = async () => {
     setError(null);
     if (!allValid) {
       setError("Fill in all fields before continuing.");
-      setTouched({
-        company: true,
-        companyWebsite: true,
-        solution: true,
-        researchTarget: true,
-        researchWebsite: true,
-      });
       return;
     }
 
     try {
-      await onSubmit(values);
+      await onSubmit({
+        ...values,
+        templateId: "template_1", // Default template
+        model: "gpt-5-mini", // Default model
+        promptAgent: "ade_research_analyst", // Default agent
+        responseLength: "medium", // Default length
+        promptVariables: [],
+        bulkPrompts,
+      });
     } catch (submitError) {
       const message =
         submitError instanceof Error
           ? submitError.message
-          : "Falha ao gerar insights";
+          : "Failed to generate insights";
       setError(message);
     }
   };
@@ -318,15 +360,18 @@ export function ClassicHeroForm({
                       enabled
                     )}
                   </div>
-                  {hasFieldError(field.name) && (
-                    <p className="mt-2 text-left text-sm text-red-500">
-                      Please review this field.
-                    </p>
-                  )}
                 </div>
               );
             })}
           </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={handleBulkFileChange}
+          />
 
           <p className="mb-6 text-lg text-black">
             Ask WebApp research your whole territory for you
@@ -341,19 +386,19 @@ export function ClassicHeroForm({
           <div className="flex flex-col justify-center gap-4 sm:flex-row">
             <PrimaryCTA
               label="Connect CRM"
-              isSubmitting={isSubmitting}
-              onClick={handleSubmit}
+              isSubmitting={false}
+              onClick={() => {}}
             />
             <button
               type="button"
-              onClick={handleSubmit}
+              onClick={handleBulkUploadClick}
               disabled={isSubmitting}
-              className="flex cursor-pointer items-center justify-center space-x-2 rounded-xl bg-blue-600 px-8 py-4 text-lg font-semibold text-white shadow-lg transition-all duration-300 hover:-translate-y-1 hover:bg-blue-700 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex cursor-pointer items-center justify-center space-x-2 rounded-xl border border-blue-500 bg-white px-8 py-4 text-lg font-semibold text-blue-600 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:bg-blue-50 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSubmitting ? (
                 <>
-                  <span className="h-5 w-5 animate-spin rounded-full border-b-2 border-white" />
-                  <span>Processing...</span>
+                  <span className="h-5 w-5 animate-spin rounded-full border-b-2 border-blue-500" />
+                  <span>Loading...</span>
                 </>
               ) : (
                 <>
@@ -405,10 +450,12 @@ function PrimaryCTA({
   label,
   isSubmitting,
   onClick,
+  loadingLabel = "Gerando workspace...",
 }: {
   label: string;
   isSubmitting: boolean;
   onClick: () => void | Promise<void>;
+  loadingLabel?: string;
 }) {
   return (
     <button
@@ -420,7 +467,7 @@ function PrimaryCTA({
       {isSubmitting ? (
         <>
           <span className="h-5 w-5 animate-spin rounded-full border-b-2 border-white" />
-          <span>Preparing workspace...</span>
+          <span>{loadingLabel}</span>
         </>
       ) : (
         <>

@@ -1,33 +1,54 @@
-export function FilesPlaceholderAde() {
+import type { AdeAppearanceTokens } from "@/lib/ade-theme";
+
+interface FilesPlaceholderAdeProps {
+  appearance: AdeAppearanceTokens;
+}
+
+export function FilesPlaceholderAde({ appearance }: FilesPlaceholderAdeProps) {
+  const headingColor = appearance.headingColor ?? "#1f1f1f";
+  const textColor = appearance.textColor ?? "#2c2c2c";
+  const cardBorder = appearance.cardBorderColor ?? "#d9d9d9";
+  const surfaceColor = appearance.surfaceColor ?? "#ffffff";
+
   return (
-    <section className="space-y-6">
+    <section className="space-y-4" suppressHydrationWarning>
       <header>
-        <h3 className="text-lg font-semibold text-gray-900">Files & Assets</h3>
-        <p className="text-sm text-gray-600">
-          Upload and manage the key documents that support this workspace.
-        </p>
+        <h3
+          className="text-lg font-semibold"
+          style={{ color: headingColor || "#000000" }}
+          suppressHydrationWarning
+        >
+          Files & Assets
+        </h3>
       </header>
 
-      <div className="flex space-x-1 rounded-full bg-gray-100 p-1 text-sm font-medium text-gray-600">
-        <button className="flex items-center space-x-2 rounded-full bg-white px-3 py-2 text-gray-900 shadow-sm">
+      <div
+        className="flex w-fit space-x-1 rounded-full p-1 text-sm font-medium"
+        style={{ backgroundColor: "rgba(0,0,0,0.05)", color: textColor }}
+        suppressHydrationWarning
+      >
+        <button className="flex items-center space-x-2 rounded-full bg-white px-3 py-2 text-black shadow-sm">
           <span>Documents</span>
         </button>
-        <button className="flex items-center space-x-2 rounded-full px-3 py-2 transition hover:text-gray-900">
+        <button className="flex items-center space-x-2 rounded-full px-3 py-2 transition hover:text-black">
           <span>Images</span>
         </button>
-        <button className="flex items-center space-x-2 rounded-full px-3 py-2 transition hover:text-gray-900">
+        <button className="flex items-center space-x-2 rounded-full px-3 py-2 transition hover:text-black">
           <span>Archives</span>
         </button>
       </div>
 
-      <div className="rounded-xl border-2 border-dashed border-gray-300 p-6 text-center text-sm text-gray-600">
-        Drag and drop to upload (10 MB max) — Cloudinary integration coming soon.
-      </div>
-
-      <div className="flex justify-center py-8 text-gray-500">
-        No files uploaded yet.
+      <div
+        className="rounded-xl border-2 border-dashed px-6 py-10 text-center text-sm"
+        suppressHydrationWarning
+        style={{
+          borderColor: cardBorder,
+          color: textColor,
+          backgroundColor: surfaceColor,
+        }}
+      >
+        Drag & drop to upload (10 MB max). Cloudinary integration coming soon.
       </div>
     </section>
   );
 }
-

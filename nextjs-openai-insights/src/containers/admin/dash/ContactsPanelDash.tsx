@@ -25,7 +25,7 @@ export function ContactsPanelDash({
     if (!name.trim()) {
       push({
         title: "Informe o nome",
-        description: "Adicione pelo menos o nome do contato.",
+        description: "Add at least the contact name.",
         variant: "destructive",
       });
       return;
@@ -39,7 +39,7 @@ export function ContactsPanelDash({
           body: JSON.stringify({ name, jobTitle, linkedinUrl: linkedin }),
         });
         if (!response.ok) {
-          throw new Error("Não foi possível salvar o contato");
+          throw new Error("Could not save the contact");
         }
         setName("");
         setJobTitle("");
@@ -64,7 +64,7 @@ export function ContactsPanelDash({
           method: "DELETE",
         });
         if (!response.ok) {
-          throw new Error("Falha ao remover contato");
+          throw new Error("Failed to remove contact");
         }
         await onContactsChanged();
         push({ title: "Contato removido", variant: "success" });
@@ -112,14 +112,14 @@ export function ContactsPanelDash({
           disabled={isPending}
           className="inline-flex items-center justify-center rounded-md bg-[#202123] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#34343a] disabled:cursor-not-allowed disabled:bg-[#4d4e53]"
         >
-          {isPending ? "Salvando..." : "Adicionar contato"}
+          {isPending ? "Saving..." : "Add contact"}
         </button>
       </form>
 
       <div className="space-y-3">
         {contacts.length === 0 ? (
           <p className="text-sm text-[#5a5b60]">
-            Nenhum contato salvo ainda. Comece listando decisores e apoiadores.
+            No contacts saved yet. Start by listing decision makers and supporters.
           </p>
         ) : (
           contacts.map((contact) => (

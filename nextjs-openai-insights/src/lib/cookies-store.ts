@@ -77,7 +77,10 @@ function getFreshEntry(sessionId: string): CacheEntry | null {
   return entry;
 }
 
-function setSessionCookie(store: Awaited<ReturnType<typeof cookies>>, sessionId: string) {
+function setSessionCookie(
+  store: Awaited<ReturnType<typeof cookies>>,
+  sessionId: string
+) {
   store.set(SESSION_COOKIE, sessionId, COOKIE_DEFAULT_OPTIONS);
 }
 
@@ -108,7 +111,9 @@ export async function readWorkspace(): Promise<WorkspaceSnapshot | null> {
   return cloneWorkspace(entry.snapshot);
 }
 
-export async function writeWorkspace(newWorkspace: WorkspaceSnapshot): Promise<string> {
+export async function writeWorkspace(
+  newWorkspace: WorkspaceSnapshot
+): Promise<string> {
   const cache = getWorkspaceCache();
   cache.set(newWorkspace.sessionId, {
     snapshot: cloneWorkspace(newWorkspace),
@@ -124,7 +129,7 @@ export async function writeWorkspace(newWorkspace: WorkspaceSnapshot): Promise<s
 }
 
 export async function updateWorkspace(
-  updater: (workspace: WorkspaceSnapshot) => WorkspaceSnapshot,
+  updater: (workspace: WorkspaceSnapshot) => WorkspaceSnapshot
 ): Promise<WorkspaceSnapshot> {
   const current = await readWorkspace();
   if (!current) {
@@ -142,6 +147,8 @@ export async function clearWorkspace(): Promise<void> {
     cache.delete(sessionId);
   }
   removeSessionCookie(store);
+  // Note: Custom colors in localStorage are handled by the client-side reset handler
+  // This keeps the separation of concerns - server clears workspace, client clears UI preferences
 }
 
 export async function touchWorkspace(): Promise<WorkspaceSnapshot | null> {
@@ -176,4 +183,3 @@ export function clampTiles(content: string, maxChars = 320): string {
   }
   return `${content.slice(0, maxChars)}…`;
 }
-

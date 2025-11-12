@@ -22,12 +22,19 @@ export interface Tile {
   totalTokens?: number | null;
   attempts: number;
   history: TileMessage[];
+  agentId?: string;
+  responseLength?: "short" | "medium" | "long";
+  promptVariables?: string[];
 }
 
 export interface TileChatAttachment {
   id: string;
   name: string;
   url?: string;
+  mimeType?: string;
+  size?: number;
+  textContent?: string;
+  dataUrl?: string;
 }
 
 export interface Note {
@@ -71,10 +78,29 @@ export interface WorkspaceCompany {
   contacts: Contact[];
 }
 
+export interface WorkspaceAppearance {
+  baseColor: string;
+  surfaceColor?: string;
+  sidebarColor?: string;
+  textColor?: string;
+  mutedTextColor?: string;
+}
+
+export interface WorkspacePromptSettings {
+  templateId: string;
+  model?: string;
+  promptAgent?: string;
+  responseLength?: "short" | "medium" | "long";
+  promptVariables?: string[];
+  bulkPrompts?: string[];
+}
+
 export interface WorkspaceSnapshot {
   sessionId: string;
   company: WorkspaceCompany;
   generatedAt: string | null;
   tilesToGenerate: number;
+  promptSettings?: WorkspacePromptSettings;
+  appearance?: WorkspaceAppearance;
 }
 

@@ -22,7 +22,7 @@ export function ContactsPanel({ contacts, onContactsChanged }: ContactsPanelProp
     if (!name.trim()) {
       push({
         title: "Informe o nome",
-        description: "Adicione pelo menos o nome do contato.",
+        description: "Add at least the contact name.",
         variant: "destructive",
       });
       return;
@@ -44,7 +44,7 @@ export function ContactsPanel({ contacts, onContactsChanged }: ContactsPanelProp
             });
             return;
           }
-          throw new Error("Não foi possível salvar o contato");
+          throw new Error("Could not save the contact");
         }
         setName("");
         setJobTitle("");
@@ -77,7 +77,7 @@ export function ContactsPanel({ contacts, onContactsChanged }: ContactsPanelProp
             });
             return;
           }
-          throw new Error("Falha ao remover contato");
+          throw new Error("Failed to remove contact");
         }
         await onContactsChanged();
         push({ title: "Contato removido", variant: "success" });
@@ -125,14 +125,14 @@ export function ContactsPanel({ contacts, onContactsChanged }: ContactsPanelProp
           disabled={isPending}
           className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-500"
         >
-          {isPending ? "Salvando..." : "Adicionar contato"}
+          {isPending ? "Saving..." : "Add contact"}
         </button>
       </form>
 
       <div className="space-y-3">
         {contacts.length === 0 ? (
           <p className="text-sm text-slate-500">
-            Nenhum contato salvo ainda. Comece adicionando decisores ou campeões internos.
+            No contacts saved yet. Start by adding decision makers or internal champions.
           </p>
         ) : (
           contacts.map((contact) => (

@@ -15,6 +15,7 @@ import {
 
 import type { Tile, TileChatAttachment, TileMessage } from "@/lib/types";
 import type { AdminTheme } from "@/lib/state/admin-theme-context";
+import { AttachmentPickerModal } from "@/components/ui/attachments/AttachmentPickerModal";
 
 interface TileDetailModalProps {
   tile: Tile;
@@ -368,22 +369,40 @@ export function TileDetailModal({
               <form onSubmit={handleSubmit} className="space-y-3">
                 {attachments.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
-                    {attachments.map((attachment) => (
-                      <span
-                        key={attachment.id}
-                        className="inline-flex items-center gap-2 rounded-full bg-[#F2F2F2] px-3 py-1 text-xs font-semibold text-[#414141]"
-                      >
-                        {attachment.name}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveAttachment(attachment.id)}
-                          className="rounded-full border border-transparent p-1 transition hover:border-white hover:bg-white"
-                          aria-label="Remove attachment"
+                    {attachments.map((attachment) => {
+                      const showSize =
+                        typeof attachment.size === "number"
+                          ? `${Math.max(Math.round(attachment.size / 1024), 1)} KB`
+                          : null;
+                      return (
+                        <span
+                          key={attachment.id}
+                          className="inline-flex items-center gap-2 rounded-full bg-[#F2F2F2] px-3 py-1 text-xs font-semibold text-[#414141]"
                         >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </span>
-                    ))}
+                          <span className="flex items-center gap-2">
+                            <span className="max-w-[160px] truncate">{attachment.name}</span>
+                            {showSize ? (
+                              <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-[#7b7b7b]">
+                                {showSize}
+                              </span>
+                            ) : null}
+                            {attachment.textContent ? (
+                              <span className="rounded-full bg-black/80 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.24em] text-white">
+                                Texto
+                              </span>
+                            ) : null}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveAttachment(attachment.id)}
+                            className="rounded-full border border-transparent p-1 transition hover:border-white hover:bg-white"
+                            aria-label="Remove attachment"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      );
+                    })}
                   </div>
                 ) : null}
 
@@ -399,15 +418,16 @@ export function TileDetailModal({
                     <button
                       type="button"
                       onClick={() => setAttachmentPickerOpen(true)}
-                      className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E3E3E3] text-[#3c3c3c] transition hover:border-black/20 hover:text-black"
+                      className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E3E3E3] text-[#3c3c3c] transition hover:border-black/20 hover:text-black disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
                       aria-label="Attach files"
+                      disabled={isSubmitting}
                     >
                       <Paperclip className="h-4 w-4" />
                     </button>
                     <button
                       type="submit"
                       disabled={isSubmitting || message.trim().length === 0}
-                      className="flex h-10 w-10 items-center justify-center rounded-full bg-black text-white shadow-lg transition hover:bg-gray-900 disabled:cursor-not-allowed disabled:bg-gray-400"
+                      className="flex h-10 w-10 items-center justify-center rounded-full bg-black text-white shadow-lg transition hover:bg-gray-900 disabled:cursor-not-allowed disabled:bg-gray-400 cursor-pointer"
                       aria-label="Send follow-up"
                     >
                       {isSubmitting ? (
@@ -430,185 +450,12 @@ export function TileDetailModal({
         onSelect={handleAttachmentSelect}
         inputKey={attachmentInputKey}
       />
-
       {copiedKey ? (
         <div className="pointer-events-none fixed bottom-10 right-8 z-[70] rounded-full bg-black px-4 py-2 text-xs font-semibold text-white shadow-lg">
           Copied!
         </div>
       ) : null}
     </>
-  );
-}
-
-type CloudinaryWidget = {
-  open: () => void;
-  close: () => void;
-};
-
-type CloudinaryUploadInfo = {
-  asset_id?: string;
-  secure_url?: string;
-  url?: string;
-  original_filename?: string;
-  format?: string;
-};
-
-type CloudinaryUploadResult = {
-  event: string;
-  info?: CloudinaryUploadInfo;
-};
-
-function AttachmentPickerModal({
-  open,
-  onClose,
-  onSelect,
-  inputKey,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onSelect: (attachments: TileChatAttachment[]) => void;
-  inputKey: number;
-}) {
-  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-  const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
-  const isCloudinaryConfigured = Boolean(cloudName && uploadPreset);
-  const [widgetReady, setWidgetReady] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    const cloudinary = (window as Window & {
-      cloudinary?: { createUploadWidget?: unknown };
-    }).cloudinary;
-    return Boolean(
-      (cloudinary as { createUploadWidget?: unknown } | undefined)?.createUploadWidget,
-    );
-  });
-
-  useEffect(() => {
-    if (!open || !isCloudinaryConfigured || widgetReady) return;
-    if (typeof window === "undefined") return;
-    const script = document.createElement("script");
-    script.src = "https://widget.cloudinary.com/v2.0/global/all.js";
-    script.async = true;
-    script.onload = () => setWidgetReady(true);
-    script.onerror = () => setWidgetReady(false);
-    document.body.appendChild(script);
-    return () => {
-      script.onload = null;
-      script.onerror = null;
-    };
-  }, [open, isCloudinaryConfigured, widgetReady]);
-
-  const handleLocalSelect = (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    const now = Date.now();
-    const attachments = Array.from(files).map((file, index) => ({
-      id: `local_${now}_${index}`,
-      name: file.name,
-    }));
-    onSelect(attachments);
-  };
-
-  const handleOpenCloudinary = () => {
-    if (!isCloudinaryConfigured || typeof window === "undefined") return;
-    const cloudinary = (window as Window & {
-      cloudinary?: {
-        createUploadWidget?: (
-          options: Record<string, unknown>,
-          callback: (error: unknown, result: CloudinaryUploadResult) => void,
-        ) => CloudinaryWidget;
-      };
-    }).cloudinary;
-    if (!cloudinary?.createUploadWidget) return;
-
-    const widget = cloudinary.createUploadWidget(
-      {
-        cloudName,
-        uploadPreset,
-        sources: ["local", "url", "camera"],
-        multiple: true,
-        maxFiles: 5,
-      },
-      (_error, result) => {
-        if (!result || result.event !== "success" || !result.info) return;
-        const info = result.info;
-        const url = info.secure_url ?? info.url;
-        const attachment: TileChatAttachment = {
-          id: `cloudinary_${info.asset_id ?? Date.now().toString(36)}`,
-          name: info.original_filename
-            ? `${info.original_filename}${info.format ? `.${info.format}` : ""}`
-            : "Cloudinary asset",
-          url: url ?? undefined,
-        };
-        onSelect([attachment]);
-      },
-    );
-
-    widget.open();
-  };
-
-  if (!open) return null;
-
-  return (
-    <div
-      className="fixed inset-0 z-[60] flex justify-start bg-slate-950/50 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <aside
-        className="relative flex h-full w-full max-w-md flex-col border-r border-[#EFEFEF] bg-white shadow-2xl"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <header className="flex items-center justify-between border-b border-[#F1F1F1] px-5 py-4">
-          <div>
-            <h2 className="text-base font-semibold text-[#1f1f1f]">Attach files</h2>
-            <p className="text-xs text-[#6f6f6f]">
-              Upload decks, screenshots or research artifacts to keep this thread in sync.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full border border-[#EFEFEF] p-2 text-[#6f6f6f] transition hover:border-[#DCDCDC] hover:text-black cursor-pointer"
-            aria-label="Close attachment picker"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </header>
-        <div className="flex flex-1 flex-col gap-6 px-6 py-6">
-          {isCloudinaryConfigured ? (
-            <button
-              type="button"
-              onClick={handleOpenCloudinary}
-              disabled={!widgetReady}
-              className="flex items-center justify-center gap-2 rounded-2xl border border-[#E0DEFF] bg-[#F7F6FF] px-4 py-4 text-sm font-semibold text-[#5246E9] shadow-sm transition hover:border-[#C7C1FF] hover:bg-[#EEECFF] disabled:cursor-not-allowed disabled:text-[#B4AEFF]"
-            >
-              <Paperclip className="h-4 w-4" />
-              {widgetReady ? "Browse Cloudinary library" : "Preparing Cloudinary widget…"}
-            </button>
-          ) : (
-            <div className="rounded-2xl border border-dashed border-[#E0DEFF] bg-[#FBFAFF] px-4 py-4 text-sm text-[#6B63C7]">
-              Configure <code className="text-xs font-semibold">NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME</code>{" "}
-              and <code className="text-xs font-semibold">NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET</code> to
-              enable Cloudinary uploads.
-            </div>
-          )}
-          <div className="space-y-2 text-center">
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#9B9B9B]">
-              or upload locally
-            </p>
-            <label className="flex cursor-pointer flex-col items-center gap-3 rounded-2xl border border-dashed border-[#D0D0D0] px-6 py-10 text-sm text-[#7d7d7d] transition hover:border-black/20 hover:bg-[#fafafa]">
-              <Paperclip className="h-6 w-6 text-[#4b4b4b]" />
-              <span>Select files from your computer</span>
-              <input
-                key={inputKey}
-                type="file"
-                multiple
-                onChange={(event) => handleLocalSelect(event.target.files)}
-                className="hidden"
-              />
-            </label>
-          </div>
-        </div>
-      </aside>
-    </div>
   );
 }
 

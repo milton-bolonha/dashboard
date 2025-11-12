@@ -1,84 +1,166 @@
-<div align="center">
+# nextjs-openai-insights · Admin Ade Refresh (Nov/2025)
 
-# nextjs-openai-insights
-
-MVP inspirado no `dashboard`, mas 100% cookie-based e otimizado para Vercel. Gere tiles de insight com GPT‑5, organize notas/contatos e valide hipóteses sem depender de MongoDB ou Clerk.
-
-</div>
+MVP baseado em Next.js 16 App Router que gera tiles de insight com GPT-5, salva tudo em cache de sessão via cookies httpOnly e entrega uma área administrativa full-fidelity no tema **Ade** com notas, contatos, arquivos e chat contextual.
 
 ---
 
-## 🔭 Visão Geral
+## Visão Geral
 
-- **Home**: formulário minimalista reutilizando a mesma linguagem visual do dashboard.
-- **Admin**: três temas disponíveis (Ade Style padrão, Classic e Dash Style) com header + sidebar + grid de tiles, além de painéis para notas e contatos.
-- **Armazenamento**: cookies httpOnly (`insightsWorkspace`) com limite de 1h.
-- **IA**: função serverless `ai-generate` chamando `openai.responses.create` (modelo padrão `gpt-5-mini`).
-- **Notas & Contatos**: CRUD simples via rotas `/api/workspace/*`, tudo persistido no cookie.
-- **Toasts & Suspense**: provider customizado + fallbacks nativos do App Router.
+- **Home (`/`)**: formulário clássico recolorido que dispara a geração do workspace via `/api/generate`.
+- **Admin (`/admin`)**: tema Ade refinado (monocromático cinza) com header, sidebar, tiles, contatos, notas e uploads.
+- **Sessões**: snapshots ficam em memória (TTL 30 min) e o cookie `insightsWorkspaceSession` referencia o workspace ativo.
+- **IA**: tiles, regenerações e chats usam `openai.responses.create` (modelo padrão `gpt-5-mini`) com fallback de conteúdo mock.
+- **Interações**: drag-and-drop (dnd-kit), toasts auto-dismiss, modais com layout unificado e chat que replica a experiência dos tiles nos contatos.
 
-## 🧱 Estrutura
+---
+
+## Principais Atualizações · Novembro/2025
+
+- Header Ade simplificado com CTAs `Log in`/`Sign up` alinhados à direita e sem rótulos redundantes.
+- Sidebar Ade sem emojis, com ícones Lucide, hover transparente e apenas o nome da company em destaque.
+- Cards de tiles e contatos com cluster flutuante de ações (drag, regenerate, delete) e cursores configurados.
+- `TileDetailModal` redesenhado: tooltip compacto para metadados, copy button visível só no hover e timestamps menores.
+- `ContactDetailModal` ganhou chat completo, histórico persistido e UI espelhando o modal dos tiles.
+- Painel de notas com cards laranja originais, botão de editar e formulário compacto alinhado à grade.
+- Modais (`AddCompany`, `AddContact`, `AttachFiles`) migraram para a paleta cinza, texto em inglês e cursores consistentes.
+- Toast provider agora encerra notificações automaticamente após 5s.
+
+Consulte `full-report-10-11.md` e `novo-fluxo.md` para a linha do tempo detalhada e o fluxo atualizado.
+
+---
+
+## Stack e Arquitetura
+
+| Camada       | Destaques                                                                                                   |
+| ------------ | ----------------------------------------------------------------------------------------------------------- |
+| UI           | App Router + Server/Client Components, Tailwind, framer-motion local para transições simples.               |
+| Estado       | `AdminThemeProvider`, `ToastProvider`, `useTransition` para tarefas async, SWR para `/api/workspace`.       |
+| Persistência | Cache em memória (Map global) + cookie httpOnly + `localStorage` como fallback/rehydrate.                   |
+| IA           | Helpers em `src/lib/ai/tile-generation.ts` unificam geração/regeneração e chat (tiles e contatos).          |
+| Infra        | APIs Next (`/api/generate`, `/api/workspace/**`, `/api/workspace/contacts/**`, etc.) com logs estruturados. |
+
+### Diagrama 10.11
+
+```
+Home (form) → POST /api/generate → cookies-store.ts grava snapshot
+                 ↓
+        redirect /admin
+                 ↓
+    AdminContainer monta UI
+      ├─ useGuestWorkspace → /api/workspace
+      └─ useJobStreaming (tiles) ou ações locais (contatos/notas)
+```
+
+Para o passo-a-passo completo, veja `novo-fluxo.md`.
+
+---
+
+## Estrutura de Pastas
 
 ```
 nextjs-openai-insights/
 ├─ src/
-│  ├─ app/                            # App Router (home, admin, APIs)
-│  ├─ components/                     # UI compartilhada (header, tiles, etc.)
-│  ├─ containers/                     # Lógica de páginas (Home/Admin)
-│  └─ lib/                            # Cookies store, providers, env, tipos
-└─ README.md                          # Este guia
+│  ├─ app/                       # Páginas e rotas API
+│  ├─ components/                # UI compartilhada (landing/admin/tiles)
+│  ├─ containers/                # Lógica das páginas (Home/Admin)
+│  ├─ lib/                       # Stores, tipos, helpers de IA e state global
+│  └─ styles/                    # Tailwind globals
+├─ README.md
+├─ README-admin.md               # Guia aprofundado só do Admin
+├─ full-report-10-11.md          # Recorte das mudanças mais recentes
+└─ novo-fluxo.md                 # Fluxo operacional atualizado
 ```
 
-## 🚀 Rodando localmente
+---
 
-> Pré-requisitos: Node 18+, `OPENAI_API_KEY`.
+## Como Rodar
 
-1. Instale dependências na raiz do monorepo
-   ```bash
-   npm install
-   ```
+Pré-requisitos: Node 18+, chave da OpenAI e (opcional) configuração Cloudinary para anexos.
 
-2. Crie `.env.local` no app (defina `OPENAI_API_KEY`)
-   ```bash
-   cd nextjs-openai-insights
-   cp env.template.txt .env.local # ou crie manualmente
-   ```
+```bash
+# 1. Instale dependências na raiz do monorepo
+npm install
 
-3. Rode o Next.js em modo desenvolvimento:
-   ```bash
-   npm run dev
-   ```
+# 2. Configure variáveis de ambiente
+cd nextjs-openai-insights
+cp env.template.txt .env.local
+# preencha OPENAI_API_KEY e demais variáveis, inclusive Cloudinary se usar uploads
 
-4. Abra `http://localhost:3000`, preencha o formulário e confira os tiles em `/admin`.
+# 3. Suba o app
+npm run dev
+```
 
-## 🔌 Variáveis de ambiente
+Abra `http://localhost:3000`, gere um workspace e navegue até `/admin` para testar o tema Ade.
 
-| Variável | Padrão | Descrição |
-|----------|--------|-----------|
-| `OPENAI_API_KEY` | — | Obrigatória para a função serverless. |
-| `OPENAI_MODEL` | `gpt-5-mini` | Modelo usado na geração dos tiles. |
-| `OPENAI_MAX_OUTPUT_TOKENS` | `600` | Limite de tokens por tile. |
-| `OPENAI_TEMPERATURE` | `0.7` | Temperatura padrão das respostas. |
-| `NEXT_PUBLIC_APP_URL` | — | Opcional: define host público (para links/perfis). |
+---
 
-## 🧠 Fluxo principal
+## Variáveis de Ambiente
 
-1. **HomeContainer** chama o endpoint interno `/api/generate`.
-2. **Route `/api/generate`** valida a requisição, dispara as chamadas OpenAI em série (com fallback) e grava o snapshot em cookies.
-3. **AdminContainer** usa SWR em `/api/workspace` para carregar snapshot.
-4. **Notas/Contatos/Tiles** usam rotas REST (`/api/workspace/*`) com helper `updateWorkspace()`.
+| Variável                               | Padrão       | Uso                                                  |
+| -------------------------------------- | ------------ | ---------------------------------------------------- |
+| `OPENAI_API_KEY`                       | —            | Obrigatória para todas as chamadas de IA.            |
+| `OPENAI_MODEL`                         | `gpt-5-mini` | Modelo principal dos tiles/chats.                    |
+| `OPENAI_MAX_OUTPUT_TOKENS`             | `600`        | Limite de tokens por requisição.                     |
+| `OPENAI_TEMPERATURE`                   | `0.7`        | Temperatura padrão das respostas.                    |
+| `NEXT_PUBLIC_APP_URL`                  | —            | Link público usado em componentes sociais.           |
+| `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME`    | —            | Necessário para habilitar upload no modal de anexos. |
+| `NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET` | —            | Preset do widget Cloudinary (opcional).              |
 
-## 🛡️ Cache & consistência
+Sem a configuração Cloudinary os uploads permanecem bloqueados, porém o dropzone e a UX continuam disponíveis.
 
-- Rotas Next retornam `Cache-Control: no-store` para manter estado consistente.
+---
 
-## 📌 Roadmap sugerido
+## Fluxos-Chave
 
-- Migrar armazenamento para um backend durável quando exceder 4 KB por cookie.
-- Adicionar reorder/export de tiles e histórico de execuções.
-- Integrar autenticação (Clerk) quando sair do MVP público.
-- Extrair componentes globais para `packages/` compartilhado no monorepo.
+- **Geração inicial**: `HomeContainer` → `/api/generate` → `cookies-store.ts`.
+- **Regenerar tiles**: `TileBoard` → `/api/workspace/tiles/[tileId]/regenerate`.
+- **Chat em tiles**: `TileDetailModal` → `/api/workspace/tiles/[tileId]/chat`.
+- **Chat em contatos**: `ContactDetailModal` → `/api/workspace/contacts/[contactId]/chat`.
+- **Notas**: `NotesPanelAde` → `POST /api/workspace/notes` e `PATCH/DELETE /api/workspace/notes/[noteId]`.
+- **Upload (mock)**: `AttachFilesModal` abre widget Cloudinary quando as variáveis públicas estão configuradas.
 
-## 📄 Licença
+Todos os handlers usam `cookies-store.ts` para garantir consistência na sessão atual.
 
-Uso interno. Revise antes de abrir o repositório ou compartilhar externamente.
+---
+
+## UX do Tema Ade
+
+- Paleta monocromática cinza (botões sólidos ou outline preto/branco).
+- Hover transparente na sidebar, ícones Lucide para Profile/Settings.
+- Cartões com cluster flutuante no canto inferior direito (drag/refresh/delete).
+- Chat com copy button discreto (mostra texto só ao passar o mouse) e timestamps menores.
+- Modais com cabeçalhos limpos, tooltip com metadados no ícone `i` e cursores configurados para todos os controles.
+- Toasts auto-dismiss (5s) e reaproveitamento do provider customizado.
+
+---
+
+## APIs Disponíveis
+
+| Método       | Rota                                       | Descrição                                       |
+| ------------ | ------------------------------------------ | ----------------------------------------------- |
+| POST         | `/api/generate`                            | Cria novo workspace e popula os tiles iniciais. |
+| GET          | `/api/workspace`                           | Retorna snapshot atual (usa cookie).            |
+| POST         | `/api/workspace/tiles`                     | Adiciona tile mock (usado por testes).          |
+| DELETE       | `/api/workspace/tiles/[tileId]`            | Remove um tile.                                 |
+| POST         | `/api/workspace/tiles/[tileId]/regenerate` | Recria conteúdo do tile.                        |
+| POST         | `/api/workspace/tiles/[tileId]/chat`       | Continua chat do tile (detalhes).               |
+| POST         | `/api/workspace/contacts`                  | Cria contato e gera outreach inicial.           |
+| POST         | `/api/workspace/contacts/[contactId]/chat` | Chat contextual do contato.                     |
+| DELETE       | `/api/workspace/contacts/[contactId]`      | Remove contato.                                 |
+| POST         | `/api/workspace/notes`                     | Cria nota.                                      |
+| PATCH/DELETE | `/api/workspace/notes/[noteId]`            | Edita ou remove nota.                           |
+
+Todas retornam o snapshot atualizado para reidratar o cliente via SWR/localStorage.
+
+---
+
+## Referências
+
+- `full-report-10-11.md` — changelog completo das entregas mais recentes.
+- `README-admin.md` — foco em arquitetura e temas do Admin.
+- `novo-fluxo.md` — diagrama e detalhamento do fluxo operacional após o refresh de novembro.
+- `fluxo-resumido.md` (histórico) — versão anterior do pipeline de geração.
+
+---
+
+Mantemos a licença de uso interno. Revise antes de compartilhar externamente.

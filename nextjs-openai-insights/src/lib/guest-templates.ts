@@ -1,3 +1,61 @@
+export interface PromptAgentDefinition {
+  id: string;
+  label: string;
+  description: string;
+  defaultModel: string;
+}
+
+export const PROMPT_AGENTS = [
+  {
+    id: "ade_research_analyst",
+    label: "Research Analyst (Ade)",
+    description: "Consultoria focada em dados verificáveis e insights acionáveis.",
+    defaultModel: "gpt-5-mini",
+  },
+  {
+    id: "ade_sales_coach",
+    label: "Sales Coach (Ade)",
+    description:
+      "Fala direta, CTA forte e direcionamento para movimento comercial imediato.",
+    defaultModel: "gpt-4o-mini",
+  },
+] as const satisfies PromptAgentDefinition[];
+
+export type PromptAgentId = (typeof PROMPT_AGENTS)[number]["id"];
+
+export const PROMPT_RESPONSE_LENGTHS = [
+  { id: "short" as const, label: "Curta" },
+  { id: "medium" as const, label: "Média" },
+  { id: "long" as const, label: "Longa" },
+] as const;
+
+export type PromptResponseLength =
+  (typeof PROMPT_RESPONSE_LENGTHS)[number]["id"];
+
+export const PROMPT_VARIABLE_DEFINITIONS = [
+  {
+    id: "includeRevenueSignals",
+    label: "Sinais de receita",
+    description: "Inclui dados financeiros, MRR e menções a funding.",
+  },
+  {
+    id: "includeHiringSignals",
+    label: "Contratações",
+    description: "Destaca vagas abertas e movimentos de expansão de equipe.",
+  },
+  {
+    id: "includeProductLaunches",
+    label: "Lançamentos",
+    description: "Menciona releases recentes, roadmap e novos produtos.",
+  },
+] as const;
+
+export type PromptVariableId =
+  (typeof PROMPT_VARIABLE_DEFINITIONS)[number]["id"];
+
+export const DEFAULT_PROMPT_AGENT_ID: PromptAgentId =
+  PROMPT_AGENTS[0]?.id ?? "ade_research_analyst";
+
 interface TemplateTile {
   id: string;
   templateTileId?: string;
@@ -7,6 +65,16 @@ interface TemplateTile {
   orderIndex: number;
   order: number;
   defaultSize: { w: number; h: number };
+  agentId?: PromptAgentId;
+  preferredLength?: PromptResponseLength;
+  bulkGroup?: string;
+  defaultVariables?: PromptVariableId[];
+}
+
+interface TemplateDefaults {
+  agentId?: PromptAgentId;
+  responseLength?: PromptResponseLength;
+  variables?: PromptVariableId[];
 }
 
 interface GuestTemplate {
@@ -15,10 +83,89 @@ interface GuestTemplate {
   description: string;
   icon: string;
   tiles: TemplateTile[];
+  defaults?: TemplateDefaults;
 }
 
 interface GuestTemplatesMap {
   [templateId: string]: GuestTemplate;
+}
+
+export interface ResolvedTemplateTile extends TemplateTile {
+  agentId: PromptAgentId;
+  preferredLength: PromptResponseLength;
+  runtimeVariables: PromptVariableId[];
+}
+
+export interface ResolveTemplateOptions {
+  templateId: string;
+  agentId?: PromptAgentId;
+  responseLength?: PromptResponseLength;
+  promptVariables?: PromptVariableId[];
+  bulkPrompts?: string[];
+}
+
+function mergeVariables(
+  tileDefaults: PromptVariableId[] | undefined,
+  runtime: PromptVariableId[] | undefined,
+): PromptVariableId[] {
+  const merged = new Set<PromptVariableId>(tileDefaults ?? []);
+  (runtime ?? []).forEach((value) => merged.add(value));
+  return Array.from(merged);
+}
+
+export function resolveTemplateTiles(
+  template: GuestTemplate,
+  options: ResolveTemplateOptions,
+): ResolvedTemplateTile[] {
+  const templateAgent = template.defaults?.agentId ?? DEFAULT_PROMPT_AGENT_ID;
+  const templateLength = template.defaults?.responseLength ?? "medium";
+  const templateVariables = template.defaults?.variables ?? [];
+
+  const runtimeAgent = options.agentId ?? templateAgent;
+  const runtimeLength = options.responseLength ?? templateLength;
+  const runtimeVariables = options.promptVariables ?? templateVariables;
+
+  const resolvedBase = template.tiles.map<ResolvedTemplateTile>((tile) => {
+    const mergedVariables = mergeVariables(tile.defaultVariables, runtimeVariables);
+    return {
+      ...tile,
+      agentId: tile.agentId ?? runtimeAgent,
+      preferredLength: tile.preferredLength ?? runtimeLength,
+      runtimeVariables: mergedVariables,
+    };
+  });
+
+  const bulkTiles =
+    options.bulkPrompts?.map<ResolvedTemplateTile>((prompt, index) => {
+      const id = `bulk_prompt_${index + 1}`;
+      return {
+        id,
+        templateTileId: id,
+        title: `Bulk Prompt ${index + 1}`,
+        prompt,
+        category: "bulk",
+        orderIndex: resolvedBase.length + index,
+        order: resolvedBase.length + index + 1,
+        defaultSize: { w: 4, h: 2 },
+        agentId: runtimeAgent,
+        preferredLength: runtimeLength,
+        runtimeVariables,
+        bulkGroup: "csv_upload",
+      };
+    }) ?? [];
+
+  return [...resolvedBase, ...bulkTiles].map((tile, index) => ({
+    ...tile,
+    orderIndex: index,
+    order: index + 1,
+  }));
+}
+
+export function getPromptAgent(agentId?: PromptAgentId): PromptAgentDefinition {
+  return (
+    PROMPT_AGENTS.find((agent) => agent.id === agentId) ??
+    PROMPT_AGENTS[0]
+  );
 }
 
 export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
@@ -27,6 +174,11 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
     name: "Essential Research",
     description: "Eight high-signal tiles for accelerated research.",
     icon: "📊",
+    defaults: {
+      agentId: "ade_research_analyst",
+      responseLength: "medium",
+      variables: ["includeRevenueSignals", "includeProductLaunches"],
+    },
     tiles: [
       {
         id: "company_description",
@@ -37,6 +189,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         orderIndex: 0,
         order: 1,
         defaultSize: { w: 4, h: 2 },
+        defaultVariables: ["includeProductLaunches"],
       },
       {
         id: "revenue_model",
@@ -47,6 +200,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         orderIndex: 1,
         order: 2,
         defaultSize: { w: 4, h: 2 },
+        defaultVariables: ["includeRevenueSignals"],
       },
       {
         id: "international_offices",
@@ -57,6 +211,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         orderIndex: 2,
         order: 3,
         defaultSize: { w: 4, h: 2 },
+        defaultVariables: ["includeHiringSignals"],
       },
       {
         id: "business_goals_2025",
@@ -87,6 +242,9 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         orderIndex: 5,
         order: 6,
         defaultSize: { w: 4, h: 2 },
+        agentId: "ade_sales_coach",
+        preferredLength: "medium",
+        defaultVariables: ["includeProductLaunches"],
       },
       {
         id: "ceo_info",
@@ -107,6 +265,8 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         orderIndex: 7,
         order: 8,
         defaultSize: { w: 4, h: 2 },
+        agentId: "ade_sales_coach",
+        preferredLength: "long",
       },
     ],
   },
@@ -115,6 +275,11 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
     name: "Deep Dive Research",
     description: "Nine tiles for advanced competitive and strategic analysis.",
     icon: "🔍",
+    defaults: {
+      agentId: "ade_research_analyst",
+      responseLength: "long",
+      variables: ["includeRevenueSignals", "includeHiringSignals"],
+    },
     tiles: [
       {
         id: "company_description_2",
@@ -135,6 +300,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         orderIndex: 1,
         order: 2,
         defaultSize: { w: 4, h: 2 },
+        defaultVariables: ["includeRevenueSignals"],
       },
       {
         id: "biggest_goal_2025",
@@ -155,6 +321,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         orderIndex: 3,
         order: 4,
         defaultSize: { w: 4, h: 2 },
+        defaultVariables: ["includeHiringSignals"],
       },
       {
         id: "solution_need_2",
@@ -165,6 +332,8 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         orderIndex: 4,
         order: 5,
         defaultSize: { w: 4, h: 2 },
+        agentId: "ade_sales_coach",
+        preferredLength: "medium",
       },
       {
         id: "top_competitors",
@@ -205,6 +374,8 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         orderIndex: 8,
         order: 9,
         defaultSize: { w: 4, h: 2 },
+        agentId: "ade_sales_coach",
+        preferredLength: "long",
       },
     ],
   },
