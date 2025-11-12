@@ -4,7 +4,7 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 const isPublicRoute = createRouteMatcher([
   "/",
   "/trial(.*)",
-  "/admin(.*)", // ⭐ Admin público (guest)
+  "/admin(.*)",
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/api/webhooks(.*)",
@@ -12,19 +12,16 @@ const isPublicRoute = createRouteMatcher([
   "/api/deploy/webhook",
   "/api/health/mongodb",
   "/api/guest(.*)",
-  "/api/streams/jobs(.*)", // SSE streams de jobs devem ser públicos (autorização por chave do canal)
-  // IAForms / Prompts: permitir fluxo guest (auth/ownerId é checado nas rotas quando necessário)
+  "/api/streams/jobs(.*)",
   "/api/prompt(.*)",
   "/api/prompt-jobs(.*)",
   "/api/themes(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
-  // Permitir acesso direto às Netlify Functions utilitárias
   if (req.nextUrl.pathname.startsWith("/.netlify/")) {
     return;
   }
-  // Se a rota não for pública, protege
   if (!isPublicRoute(req)) {
     await auth.protect();
   }
@@ -32,9 +29,7 @@ export default clerkMiddleware(async (auth, req) => {
 
 export const config = {
   matcher: [
-    // Roda o middleware em todas as rotas, exceto arquivos estáticos e _next
-    "/((?!.+\\.[\\w]+$|_next).*)",
-    // Sempre roda nas rotas de API
+    "/((?!.+[\\.][\\w]+$|_next).*)",
     "/api/(.*)",
   ],
 };

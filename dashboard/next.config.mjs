@@ -13,10 +13,6 @@ const nextConfig = {
   // Configuração para Netlify
   serverExternalPackages: ["mongodb"],
   webpack: (config, { isServer }) => {
-    // A biblioteca do MongoDB usa alguns módulos que não são feitos
-    // para o navegador. Esta configuração diz ao Next.js para
-    // fornecer versões vazias para eles no lado do cliente, evitando
-    // erros de build e de runtime que quebram a autenticação.
     config.resolve.fallback = {
       ...config.resolve.fallback,
       "mongodb-client-encryption": false,
@@ -27,9 +23,8 @@ const nextConfig = {
       "supports-color": false,
     };
 
-    // Otimizações para serverless
     if (isServer) {
-      config.optimization.minimize = false; // Desabilitar minificação para melhor debugging
+      config.optimization.minimize = false;
     }
 
     return config;
