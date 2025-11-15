@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 
-import { readWorkspace, updateWorkspace } from "@/lib/cookies-store";
+import { readWorkspace, updateWorkspace, getCurrentSession } from "@/lib/cookies-store";
+import { syncWorkspaceNotesToMongo } from "@/lib/storage/mongodb-store";
 
 export async function GET() {
   const workspace = await readWorkspace();
@@ -39,6 +40,18 @@ export async function POST(request: Request) {
         },
       };
     });
+
+    // Dual-write: Sync notes to MongoDB if available (non-blocking)
+    try {
+      const { sessionId } = await getCurrentSession();
+      if (sessionId) {
+        await syncWorkspaceNotesToMongo(sessionId, updated.company.notes);
+        console.log("[API] /api/workspace/notes - ✅ Notes também sincronizados no MongoDB");
+      }
+    } catch (mongoError) {
+      const errorMessage = mongoError instanceof Error ? mongoError.message : String(mongoError);
+      console.warn("[API] /api/workspace/notes - ⚠️ Falha ao sincronizar no MongoDB (não crítico):", errorMessage);
+    }
 
     return NextResponse.json({ success: true, notes: updated.company.notes });
   } catch {

@@ -5,6 +5,7 @@ import OpenAI from "openai";
 
 import { writeWorkspace } from "@/lib/cookies-store";
 import { checkUsageMiddleware } from "@/lib/server/usage-middleware";
+import { migrateWorkspaceToMongo } from "@/lib/db/migration-helpers";
 import {
   getGuestTemplate,
   getPromptAgent,
@@ -407,6 +408,16 @@ export async function POST(request: Request) {
       tilesGenerated: tiles.length,
       generatedAt: workspace.generatedAt,
     });
+
+    // Dual-write: Save to MongoDB if available (non-blocking)
+    try {
+      await migrateWorkspaceToMongo(workspace);
+      console.log("[api/generate] ✅ Workspace também salvo no MongoDB");
+    } catch (mongoError) {
+      // Log but don't fail the request if MongoDB is unavailable
+      const errorMessage = mongoError instanceof Error ? mongoError.message : String(mongoError);
+      console.warn("[api/generate] ⚠️ Falha ao salvar no MongoDB (não crítico):", errorMessage);
+    }
 
     return NextResponse.json({
       success: true,

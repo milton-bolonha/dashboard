@@ -3,7 +3,7 @@
  * For Next.js API routes
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 interface UsageLimits {
   maxTilesPerDay: number;
@@ -20,9 +20,9 @@ const DEFAULT_LIMITS: UsageLimits = {
 // In-memory storage for server-side tracking (in production, use Redis or DB)
 const usageStore = new Map<string, Array<{ timestamp: number; tilesGenerated?: number }>>();
 
-function getSessionId(body: any, headers: Headers): string {
+function getSessionId(body: Record<string, unknown> | null, headers: Headers): string {
   // Try to get sessionId from request body or headers
-  const sessionId = body?.sessionId || headers.get("x-session-id") || "anonymous";
+  const sessionId = (body?.sessionId as string | undefined) || headers.get("x-session-id") || "anonymous";
   return sessionId;
 }
 
@@ -93,7 +93,7 @@ function checkUsageLimits(
  * Middleware function to check usage limits before processing request
  */
 export async function checkUsageMiddleware(
-  body: any,
+  body: Record<string, unknown> | null,
   headers: Headers,
   tilesToGenerate?: number
 ): Promise<{ allowed: boolean; response?: NextResponse }> {

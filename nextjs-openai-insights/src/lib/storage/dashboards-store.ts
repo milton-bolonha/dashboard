@@ -1,7 +1,10 @@
 "use client";
 
 import type { Dashboard, CompanyWithDashboards } from "@/lib/types/dashboard";
-import type { WorkspaceSnapshot } from "@/lib/types";
+import type { WorkspaceSnapshot, Tile } from "@/lib/types";
+
+// Re-export types for convenience
+export type { Dashboard, CompanyWithDashboards };
 
 const DASHBOARDS_STORAGE_KEY = "insights_dashboards";
 const ACTIVE_DASHBOARD_KEY = "insights_active_dashboard";
@@ -140,7 +143,6 @@ export function getOrCreateCompanyFromWorkspace(workspace: WorkspaceSnapshot | n
           // IMPORTANTE: Mesclar tiles do workspace com dashboard ao invés de sobrescrever
           // Isso garante que tiles criados individualmente não sejam perdidos
           const dashboardTileIds = new Set(existingTiles.map(t => t.id));
-          const workspaceTileIds = new Set(workspaceTiles.map(t => t.id));
           
           // Encontrar tiles do workspace que não estão no dashboard
           const missingTiles = workspaceTiles.filter(t => !dashboardTileIds.has(t.id));
@@ -318,14 +320,14 @@ export function updateDashboard(companyId: string, dashboardId: string, updates:
   const currentDashboard = company.dashboards[dashboardIndex];
   
   // Special handling for tiles array - merge instead of replace if needed
-  let finalUpdates = { ...updates };
+  const finalUpdates = { ...updates };
   if (updates.tiles && Array.isArray(updates.tiles)) {
     // If updating tiles, use the provided array directly (it should already include all tiles)
     console.log("[updateDashboard] 📊 Updating tiles", {
       dashboardId,
       oldTilesCount: currentDashboard.tiles?.length ?? 0,
       newTilesCount: updates.tiles.length,
-      newTileIds: updates.tiles.map((t: any) => t.id),
+      newTileIds: updates.tiles.map((t: Tile) => t.id),
     });
   }
   

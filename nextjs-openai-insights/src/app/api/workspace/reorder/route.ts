@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { readWorkspace, updateWorkspace } from "@/lib/cookies-store";
+import { readWorkspace, updateWorkspace, getCurrentSession } from "@/lib/cookies-store";
+import { syncWorkspaceTilesToMongo } from "@/lib/storage/mongodb-store";
 
 const reorderSchema = z.object({
   order: z.array(z.string().min(1)).min(1),
@@ -60,6 +61,18 @@ export async function POST(request: Request) {
         tiles: nextTiles,
       },
     }));
+
+    // Dual-write: Sync tiles to MongoDB if available (non-blocking)
+    try {
+      const { sessionId } = await getCurrentSession();
+      if (sessionId) {
+        await syncWorkspaceTilesToMongo(sessionId, updatedWorkspace.company.tiles);
+        console.log("[API] /api/workspace/reorder - ✅ Tiles também sincronizados no MongoDB");
+      }
+    } catch (mongoError) {
+      const errorMessage = mongoError instanceof Error ? mongoError.message : String(mongoError);
+      console.warn("[API] /api/workspace/reorder - ⚠️ Falha ao sincronizar no MongoDB (não crítico):", errorMessage);
+    }
 
     return NextResponse.json({
       success: true,

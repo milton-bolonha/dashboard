@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 
-import { readWorkspace, updateWorkspace } from "@/lib/cookies-store";
+import { readWorkspace, updateWorkspace, getCurrentSession } from "@/lib/cookies-store";
 import { generateContactOutreach } from "@/lib/ai/contact-outreach";
+import { syncWorkspaceContactsToMongo } from "@/lib/storage/mongodb-store";
 
 export async function GET() {
   const workspace = await readWorkspace();
@@ -75,6 +76,18 @@ export async function POST(request: Request) {
     const created =
       updated.company.contacts.find((contact) => contact.id === contactId) ??
       baseContact;
+
+    // Dual-write: Sync contacts to MongoDB if available (non-blocking)
+    try {
+      const { sessionId } = await getCurrentSession();
+      if (sessionId) {
+        await syncWorkspaceContactsToMongo(sessionId, updated.company.contacts);
+        console.log("[API] /api/workspace/contacts - ✅ Contacts também sincronizados no MongoDB");
+      }
+    } catch (mongoError) {
+      const errorMessage = mongoError instanceof Error ? mongoError.message : String(mongoError);
+      console.warn("[API] /api/workspace/contacts - ⚠️ Falha ao sincronizar no MongoDB (não crítico):", errorMessage);
+    }
 
     return NextResponse.json({
       success: true,

@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { randomUUID } from "crypto";
 
-import { readWorkspace, updateWorkspace } from "@/lib/cookies-store";
+import { readWorkspace, updateWorkspace, getCurrentSession } from "@/lib/cookies-store";
 import { resolveModel } from "@/lib/ai/settings";
 import type { Tile } from "@/lib/types";
 import { generateTileContent } from "@/lib/ai/tile-generation";
+import { syncWorkspaceTilesToMongo } from "@/lib/storage/mongodb-store";
 
 const createTileSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -127,6 +128,19 @@ export async function POST(request: Request) {
     }));
 
     console.log("[API] /api/workspace/tiles - Workspace updated successfully");
+
+    // Dual-write: Sync tiles to MongoDB if available (non-blocking)
+    try {
+      const { sessionId } = await getCurrentSession();
+      if (sessionId) {
+        await syncWorkspaceTilesToMongo(sessionId, updatedWorkspace.company.tiles);
+        console.log("[API] /api/workspace/tiles - ✅ Tiles também sincronizados no MongoDB");
+      }
+    } catch (mongoError) {
+      // Log but don't fail the request if MongoDB is unavailable
+      const errorMessage = mongoError instanceof Error ? mongoError.message : String(mongoError);
+      console.warn("[API] /api/workspace/tiles - ⚠️ Falha ao sincronizar no MongoDB (não crítico):", errorMessage);
+    }
 
     return NextResponse.json({
       success: true,

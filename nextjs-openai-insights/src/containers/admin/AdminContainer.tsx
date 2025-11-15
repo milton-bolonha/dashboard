@@ -775,8 +775,8 @@ export function AdminContainer() {
       companyId: company.id,
       companyName: company.name,
       dashboardsCount: company.dashboards.length,
-      companyContactsCount: company.contacts?.length ?? 0,
-      companyNotesCount: company.notes?.length ?? 0,
+      companyContactsCount: company.dashboards.reduce((sum, d) => sum + (d.contacts?.length ?? 0), 0),
+      companyNotesCount: company.dashboards.reduce((sum, d) => sum + (d.notes?.length ?? 0), 0),
     });
     
     setCurrentCompany(company);

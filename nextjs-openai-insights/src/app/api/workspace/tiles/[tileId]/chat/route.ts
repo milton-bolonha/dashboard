@@ -139,6 +139,7 @@ async function runChatAttempt(
     };
     
     console.log(`[API] runChatAttempt - Using GPT-5 responses API for model ${model}`);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return client.responses.create(params as any);
   } else {
     // GPT-4 and older models use chat.completions.create() API
@@ -164,6 +165,7 @@ async function runChatAttempt(
     }
     
     console.log(`[API] runChatAttempt - Using GPT-4 chat completions API for model ${model}`);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return client.chat.completions.create(params as any);
   }
 }
@@ -176,11 +178,13 @@ function extractAssistantContent(
 ) {
   // Check if this is a GPT-5 response (responses API)
   // GPT-5 responses have different structure than chat completions
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const responseAny = response as any;
   const isGPT5Response = !!(responseAny.output || responseAny.text || responseAny.content);
   
   if (isGPT5Response || (model && isGPT5Model(model))) {
     // GPT-5 responses API structure - can have multiple formats
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const gpt5Response = responseAny;
     
     console.log(`[API] extractAssistantContent - GPT-5 response structure:`, {
@@ -455,10 +459,12 @@ export async function POST(request: Request, context: RouteContext) {
         // Extract usage information (structure differs between GPT-4 and GPT-5)
         if (isGPT5Model(model)) {
           // GPT-5 responses API may have usage in a different location
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const gpt5Response = response as any;
           usage = (gpt5Response.usage || gpt5Response.metadata?.usage || null) as Record<string, unknown> | null;
         } else {
           // GPT-4 chat completions API
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           usage = (response as any).usage || null;
         }
         break;

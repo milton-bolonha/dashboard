@@ -68,7 +68,7 @@ export function ContactsPanelAde({
   // Convert to RGB format for consistency - only calculate after mount
   const headingColor = hexToRgbString(appearance.headingColor || "#1f1f1f");
   const textColor = appearance.textColor || "#2c2c2c";
-  const mutedColor = appearance.mutedTextColor || "#6f6f6f";
+  const _mutedColor = appearance.mutedTextColor || "#6f6f6f";
   const cardBorder = appearance.cardBorderColor || "#d9d9d9";
   const surfaceColor = appearance.surfaceColor || "#ffffff";
 

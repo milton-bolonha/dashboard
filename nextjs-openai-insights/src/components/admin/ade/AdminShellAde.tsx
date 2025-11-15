@@ -19,11 +19,15 @@ export function AdminShellAde({
   children,
   appearance,
 }: AdminShellAdeProps) {
-  const [mounted, setMounted] = useState(false);
+  // Use lazy initialization to avoid setState in effect
+  const [mounted, setMounted] = useState(() => false);
 
   // Only render after mount to prevent hydration mismatch
   useEffect(() => {
-    setMounted(true);
+    // Use requestAnimationFrame to avoid synchronous setState
+    requestAnimationFrame(() => {
+      setMounted(true);
+    });
   }, []);
 
   // Don't render until mounted and appearance is ready

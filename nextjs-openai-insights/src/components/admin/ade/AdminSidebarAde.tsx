@@ -47,6 +47,7 @@ export function AdminSidebarAde({
   // SIMPLIFIED: Always use appearance.textColor directly (it's already calculated correctly)
   // No reactive system, no recalculation - just trust the appearance prop
   // IMPORTANT: useMemo must be called before any early returns (Rules of Hooks)
+  // Use appearance object as dependency to match React Compiler inference
   const colors = useMemo(() => {
     if (!appearance?.textColor || !appearance?.sidebarColor) {
       return {
@@ -71,13 +72,16 @@ export function AdminSidebarAde({
       badgeBg: hexToRgbString(badgeBackground),
       badgeText: hexToRgbString(badgeTextColor),
     };
-  }, [appearance?.sidebarColor, appearance?.textColor, appearance?.mutedTextColor, appearance?.overlayColor]);
+  }, [appearance]);
 
   const { primaryText, mutedText, hoverBg, badgeBg, badgeText } = colors;
   
   // Only render after mount to prevent hydration mismatch
   useEffect(() => {
-    setIsMounted(true);
+    // Use requestAnimationFrame to avoid synchronous setState
+    requestAnimationFrame(() => {
+      setIsMounted(true);
+    });
   }, []);
 
   // Handle collapsed state changes

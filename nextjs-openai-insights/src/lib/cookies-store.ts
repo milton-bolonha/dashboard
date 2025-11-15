@@ -57,7 +57,7 @@ function createDefaultWorkspace(): WorkspaceSnapshot {
   };
 }
 
-async function getCurrentSession() {
+export async function getCurrentSession() {
   purgeExpiredEntries();
   const store = await cookies();
   const sessionId = store.get(SESSION_COOKIE)?.value ?? null;

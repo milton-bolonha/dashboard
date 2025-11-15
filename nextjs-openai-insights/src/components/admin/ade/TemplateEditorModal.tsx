@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Plus, Trash2, Save, Copy } from "lucide-react";
+import { X, Plus, Trash2, Save } from "lucide-react";
 
 import type { AdeAppearanceTokens } from "@/lib/ade-theme";
 import type { EditableTemplate, EditableTemplateTile } from "@/lib/types/dashboard-template";
@@ -9,7 +9,6 @@ import { GUEST_DASHBOARD_TEMPLATES } from "@/lib/guest-templates";
 import {
   saveEditableTemplate,
   getEditableTemplate,
-  loadEditableTemplates,
 } from "@/lib/storage/templates-store";
 
 interface TemplateEditorModalProps {
@@ -55,7 +54,7 @@ function convertGuestTemplateToEditable(
 export function TemplateEditorModal({
   open,
   onClose,
-  appearance,
+  appearance: _appearance,
   templateId,
   sourceTemplateId,
   onSave,
@@ -68,16 +67,48 @@ export function TemplateEditorModal({
   useEffect(() => {
     if (!open) return;
 
-    setIsLoading(true);
-    setHasChanges(false);
+    // Use requestAnimationFrame to avoid synchronous setState in effect
+    requestAnimationFrame(() => {
+      setIsLoading(true);
+      setHasChanges(false);
 
-    if (templateId) {
-      // Editing existing editable template
-      const existing = getEditableTemplate(templateId);
-      if (existing) {
-        setTemplate(existing);
+      if (templateId) {
+        // Editing existing editable template
+        const existing = getEditableTemplate(templateId);
+        if (existing) {
+          setTemplate(existing);
+        } else {
+          // Fallback: create new empty template
+          setTemplate({
+            id: generateId(),
+            name: "New Template",
+            description: "",
+            tiles: [],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            isCustom: true,
+          });
+        }
+      } else if (sourceTemplateId) {
+        // Duplicating from default template
+        const guestTemplate = GUEST_DASHBOARD_TEMPLATES[sourceTemplateId as keyof typeof GUEST_DASHBOARD_TEMPLATES];
+        if (guestTemplate) {
+          const editable = convertGuestTemplateToEditable(sourceTemplateId, guestTemplate);
+          setTemplate(editable);
+        } else {
+          // Fallback: create new empty template
+          setTemplate({
+            id: generateId(),
+            name: "New Template",
+            description: "",
+            tiles: [],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            isCustom: true,
+          });
+        }
       } else {
-        // Fallback: create new empty template
+        // Creating new template from scratch
         setTemplate({
           id: generateId(),
           name: "New Template",
@@ -88,38 +119,9 @@ export function TemplateEditorModal({
           isCustom: true,
         });
       }
-    } else if (sourceTemplateId) {
-      // Duplicating from default template
-      const guestTemplate = GUEST_DASHBOARD_TEMPLATES[sourceTemplateId as keyof typeof GUEST_DASHBOARD_TEMPLATES];
-      if (guestTemplate) {
-        const editable = convertGuestTemplateToEditable(sourceTemplateId, guestTemplate);
-        setTemplate(editable);
-      } else {
-        // Fallback: create new empty template
-        setTemplate({
-          id: generateId(),
-          name: "New Template",
-          description: "",
-          tiles: [],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          isCustom: true,
-        });
-      }
-    } else {
-      // Creating new template from scratch
-      setTemplate({
-        id: generateId(),
-        name: "New Template",
-        description: "",
-        tiles: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        isCustom: true,
-      });
-    }
 
-    setIsLoading(false);
+      setIsLoading(false);
+    });
   }, [open, templateId, sourceTemplateId]);
 
   const handleUpdateTemplate = (updates: Partial<EditableTemplate>) => {
@@ -245,7 +247,7 @@ export function TemplateEditorModal({
             <div className="text-center py-12 text-[#6f6f6f]">Template not found</div>
           ) : (
             <div className="space-y-4">
-              {template.tiles.map((tile, index) => (
+              {template.tiles.map((tile) => (
                 <div
                   key={tile.id}
                   className="rounded-lg border border-[#e4e4e4] bg-white p-4 space-y-3"

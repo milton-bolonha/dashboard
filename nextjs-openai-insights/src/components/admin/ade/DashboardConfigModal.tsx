@@ -93,8 +93,11 @@ export function DashboardConfigModal({
         }
         return t;
       });
-      setTemplates([...templatesWithConfigs, ...customTemplates]);
-      setEditableTemplates(editableTemplatesList);
+      // Use requestAnimationFrame to avoid synchronous setState in effect
+      requestAnimationFrame(() => {
+        setTemplates([...templatesWithConfigs, ...customTemplates]);
+        setEditableTemplates(editableTemplatesList);
+      });
     }
   }, [open]);
 
@@ -188,7 +191,7 @@ export function DashboardConfigModal({
     setDuplicatingTemplateId(templateId);
   };
 
-  const handleSaveEditableTemplate = (template: EditableTemplate) => {
+  const handleSaveEditableTemplate = (_template: EditableTemplate) => {
     // Reload editable templates
     setEditableTemplates(loadEditableTemplates());
     setEditingEditableTemplateId(null);
