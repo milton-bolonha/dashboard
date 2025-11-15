@@ -1458,17 +1458,18 @@ export function AdminContainer() {
             window.localStorage.setItem(BASE_COLOR_STORAGE_KEY, normalized);
             // If dashboard has saved appearance, restore it to localStorage
             if (dashboard.appearance && dashboard.appearance.sidebarColor && dashboard.appearance.textColor) {
+              const computed = computeAdeAppearanceTokens(normalized);
               const appearanceTokens: AdeAppearanceTokens = {
                 baseColor: normalized,
-                surfaceColor: dashboard.appearance.surfaceColor || computeAdeAppearanceTokens(normalized).surfaceColor,
+                surfaceColor: dashboard.appearance.surfaceColor || computed.surfaceColor,
                 sidebarColor: dashboard.appearance.sidebarColor,
-                sidebarBorderColor: dashboard.appearance.sidebarBorderColor || computeAdeAppearanceTokens(normalized).sidebarBorderColor,
-                cardBorderColor: dashboard.appearance.cardBorderColor || computeAdeAppearanceTokens(normalized).cardBorderColor,
-                headingColor: dashboard.appearance.headingColor || dashboard.appearance.textColor || computeAdeAppearanceTokens(normalized).headingColor,
+                sidebarBorderColor: computed.sidebarBorderColor,
+                cardBorderColor: computed.cardBorderColor,
+                headingColor: dashboard.appearance.headingColor || dashboard.appearance.textColor || computed.headingColor,
                 textColor: dashboard.appearance.textColor,
-                mutedTextColor: dashboard.appearance.mutedTextColor || computeAdeAppearanceTokens(normalized).mutedTextColor,
-                actionColor: dashboard.appearance.actionColor || computeAdeAppearanceTokens(normalized).actionColor,
-                overlayColor: dashboard.appearance.overlayColor || computeAdeAppearanceTokens(normalized).overlayColor,
+                mutedTextColor: dashboard.appearance.mutedTextColor || computed.mutedTextColor,
+                actionColor: computed.actionColor,
+                overlayColor: computed.overlayColor,
               };
               window.localStorage.setItem(APPEARANCE_STORAGE_KEY, JSON.stringify(appearanceTokens));
               console.log("[DashboardSwitch] 💾 Saved dashboard appearance to localStorage:", {
@@ -2100,7 +2101,7 @@ export function AdminContainer() {
             }
             return null;
           })
-          .filter((t): Tile => t !== null);
+          .filter((t): t is Tile => t !== null);
         
         updateDashboard(currentCompany.id, currentDashboard.id, {
           tiles: reorderedTiles,

@@ -1,4 +1,4 @@
-import { MongoClient, type Db, type Collection, type MongoClientOptions } from "mongodb";
+import { MongoClient, type Db, type Collection, type MongoClientOptions, type Document } from "mongodb";
 
 const uri = process.env.MONGODB_URI || "mongodb://localhost:27017/dashboard-engine";
 
@@ -52,27 +52,42 @@ interface MongoConnectionState {
   lastConnectedAt: number | null;
 }
 
-const mongoState = (globalThis[globalStateKey as never] ??= {
-  client: null,
-  clientPromise: null,
-  failureCount: 0,
-  circuitOpenUntil: 0,
-  closing: false,
-  lastConnectedAt: null,
-}) as MongoConnectionState;
+// Type-safe global state access for Next.js serverless compatibility
+const globalState = globalThis as typeof globalThis & {
+  [key: symbol]: MongoConnectionState | undefined;
+};
+
+const getMongoState = (): MongoConnectionState => {
+  if (!globalState[globalStateKey]) {
+    globalState[globalStateKey] = {
+      client: null,
+      clientPromise: null,
+      failureCount: 0,
+      circuitOpenUntil: 0,
+      closing: false,
+      lastConnectedAt: null,
+    };
+  }
+  return globalState[globalStateKey]!;
+};
+
+const mongoState = getMongoState();
 
 function isCircuitOpen(): boolean {
-  if (!mongoState.circuitOpenUntil) return false;
-  return Date.now() < mongoState.circuitOpenUntil;
+  const state = getMongoState();
+  if (!state.circuitOpenUntil) return false;
+  return Date.now() < state.circuitOpenUntil;
 }
 
 function openCircuit(error: Error): void {
-  mongoState.circuitOpenUntil = Date.now() + CIRCUIT_BREAKER_TIMEOUT_MS;
+  const state = getMongoState();
+  state.circuitOpenUntil = Date.now() + CIRCUIT_BREAKER_TIMEOUT_MS;
   console.warn(
     "[MongoDB] ⚠️ Circuit breaker aberto",
     JSON.stringify({
-      until: new Date(mongoState.circuitOpenUntil).toISOString(),
+      until: new Date(state.circuitOpenUntil).toISOString(),
       reason: error?.message,
+      failureCount: state.failureCount,
     })
   );
 }
@@ -80,6 +95,7 @@ function openCircuit(error: Error): void {
 async function createMongoClient(): Promise<MongoClient> {
   let attempt = 0;
   let delayMs = CONNECT_BACKOFF_BASE_MS;
+  let lastError: Error | null = null;
 
   while (attempt < MAX_CONNECT_RETRIES) {
     attempt += 1;
@@ -92,18 +108,33 @@ async function createMongoClient(): Promise<MongoClient> {
 
       const startedAt = Date.now();
       const newClient = new MongoClient(uri, options);
-      await newClient.connect();
+      
+      // Connect with timeout handling
+      await Promise.race([
+        newClient.connect(),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error("Connection timeout")),
+            options.connectTimeoutMS
+          )
+        ),
+      ]);
 
-      mongoState.failureCount = 0;
-      mongoState.lastConnectedAt = Date.now();
+      const state = getMongoState();
+      state.failureCount = 0;
+      state.lastConnectedAt = Date.now();
 
+      // Set up event handlers for connection lifecycle
       newClient.on("close", () => {
         console.warn(
           "[MongoDB] ⚠️ Conexão encerrada",
           JSON.stringify({ when: new Date().toISOString() })
         );
-        mongoState.client = null;
-        mongoState.clientPromise = null;
+        const state = getMongoState();
+        if (state.client === newClient) {
+          state.client = null;
+          state.clientPromise = null;
+        }
       });
 
       newClient.on("error", (clientError: Error) => {
@@ -123,66 +154,90 @@ async function createMongoClient(): Promise<MongoClient> {
 
       return newClient;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorObj = error instanceof Error ? error : new Error(String(error));
+      lastError = errorObj;
+      const errorMessage = errorObj.message;
+      
       console.error(
         "[MongoDB] ❌ Falha na tentativa de conexão",
         JSON.stringify({ attempt: attemptLabel, message: errorMessage })
       );
 
       if (attempt >= MAX_CONNECT_RETRIES) {
-        openCircuit(error instanceof Error ? error : new Error(errorMessage));
-        throw error;
+        openCircuit(errorObj);
+        throw errorObj;
       }
 
+      // Exponential backoff with jitter
       await new Promise((resolve) => setTimeout(resolve, delayMs));
       delayMs = Math.min(delayMs * 2, 10000);
     }
   }
 
-  throw new Error("MongoDB connection attempts exhausted");
+  // This should never be reached, but TypeScript needs it
+  throw lastError || new Error("MongoDB connection attempts exhausted");
 }
 
 async function getMongoClientInternal(): Promise<MongoClient> {
-  if (mongoState.client) {
-    return mongoState.client;
+  const state = getMongoState();
+  
+  // Return existing client if available and connected
+  if (state.client) {
+    try {
+      // Ping to verify connection is still alive
+      await state.client.db().admin().ping();
+      return state.client;
+    } catch {
+      // Connection is dead, clear it
+      state.client = null;
+      state.clientPromise = null;
+    }
   }
 
-  if (mongoState.clientPromise) {
-    return mongoState.clientPromise;
+  // Return existing promise if connection is in progress
+  if (state.clientPromise) {
+    return state.clientPromise;
   }
 
+  // Check circuit breaker
   if (isCircuitOpen()) {
     const error = new Error("MongoDB circuit breaker aberto") as Error & { code?: string };
     error.code = "MONGODB_CIRCUIT_OPEN";
     throw error;
   }
 
-  mongoState.clientPromise = createMongoClient()
+  // Create new connection
+  state.clientPromise = createMongoClient()
     .then((connectedClient) => {
-      mongoState.client = connectedClient;
-      mongoState.clientPromise = null;
-      mongoState.circuitOpenUntil = 0;
+      const currentState = getMongoState();
+      currentState.client = connectedClient;
+      currentState.clientPromise = null;
+      currentState.circuitOpenUntil = 0;
+      currentState.failureCount = 0;
       return connectedClient;
     })
     .catch((error) => {
-      mongoState.clientPromise = null;
-      mongoState.client = null;
-      mongoState.failureCount += 1;
+      const currentState = getMongoState();
+      currentState.clientPromise = null;
+      currentState.client = null;
+      currentState.failureCount += 1;
       openCircuit(error instanceof Error ? error : new Error(String(error)));
       throw error;
     });
 
-  return mongoState.clientPromise;
+  return state.clientPromise;
 }
 
 export async function closeMongoClient(reason = "manual-close"): Promise<void> {
-  if (!mongoState.client || mongoState.closing) {
+  const state = getMongoState();
+  
+  if (!state.client || state.closing) {
     return;
   }
 
   try {
-    mongoState.closing = true;
-    await mongoState.client.close();
+    state.closing = true;
+    await state.client.close();
     console.log(
       "[MongoDB] 🔌 Conexão encerrada manualmente",
       JSON.stringify({ reason })
@@ -194,16 +249,21 @@ export async function closeMongoClient(reason = "manual-close"): Promise<void> {
       JSON.stringify({ message: errorMessage })
     );
   } finally {
-    mongoState.closing = false;
-    mongoState.client = null;
-    mongoState.clientPromise = null;
+    const finalState = getMongoState();
+    finalState.closing = false;
+    finalState.client = null;
+    finalState.clientPromise = null;
   }
 }
 
 async function invalidateMongoConnection(error: Error): Promise<void> {
+  const state = getMongoState();
   console.warn(
     "[MongoDB] ⚠️ Invalidando conexão atual",
-    JSON.stringify({ message: error?.message })
+    JSON.stringify({ 
+      message: error?.message,
+      failureCount: state.failureCount,
+    })
   );
   await closeMongoClient("invalidate-on-error");
 }
@@ -276,8 +336,11 @@ export async function withRetry<T>(
 
 /**
  * Helper para acessar collections
+ * Best practice: Use Document constraint for MongoDB compatibility
  */
-export async function getCollection<T = unknown>(collectionName: string): Promise<Collection<T>> {
+export async function getCollection<T extends Document = Document>(
+  collectionName: string
+): Promise<Collection<T>> {
   const client = await getMongoClient();
   const db = client.db();
   return db.collection<T>(collectionName);
@@ -408,7 +471,7 @@ import type { BulkWriteOptions, BulkWriteResult, AnyBulkWriteOperation } from "m
 /**
  * Aplica bulkWrite com logging estruturado + métricas.
  */
-export async function bulkWriteWithMetrics<T>(
+export async function bulkWriteWithMetrics<T extends Document>(
   collection: string,
   operations: AnyBulkWriteOperation<T>[],
   options: BulkWriteOptions = {},
@@ -435,7 +498,7 @@ export async function bulkWriteWithMetrics<T>(
 /**
  * Helper para upsert em lote com controle de ordered/unordered.
  */
-export async function bulkUpsert<T extends Record<string, unknown>>(
+export async function bulkUpsert<T extends Document>(
   collection: string,
   items: T[],
   keyFields: (keyof T)[],
@@ -482,9 +545,10 @@ import type { Filter, UpdateFilter, FindOptions, UpdateOptions } from "mongodb";
 
 /**
  * Helper para operações CRUD tipadas
+ * Best practice: All types must extend Document for MongoDB compatibility
  */
 export const db = {
-  async find<T>(
+  async find<T extends Document>(
     collection: string,
     filter: Filter<T> = {},
     options: FindOptions<T> = {}
@@ -493,7 +557,7 @@ export const db = {
     return await coll.find(filter, options).toArray();
   },
 
-  async findOne<T>(
+  async findOne<T extends Document>(
     collection: string,
     filter: Filter<T>
   ): Promise<T | null> {
@@ -501,7 +565,7 @@ export const db = {
     return await coll.findOne(filter);
   },
 
-  async insertOne<T extends { createdAt?: Date; updatedAt?: Date }>(
+  async insertOne<T extends Document & { createdAt?: Date; updatedAt?: Date }>(
     collection: string,
     doc: Omit<T, "createdAt" | "updatedAt">
   ) {
@@ -514,7 +578,7 @@ export const db = {
     return result;
   },
 
-  async insertMany<T extends { createdAt?: Date; updatedAt?: Date }>(
+  async insertMany<T extends Document & { createdAt?: Date; updatedAt?: Date }>(
     collection: string,
     docs: Array<Omit<T, "createdAt" | "updatedAt">>
   ) {
@@ -528,7 +592,7 @@ export const db = {
     return result;
   },
 
-  async updateOne<T>(
+  async updateOne<T extends Document>(
     collection: string,
     filter: Filter<T>,
     update: UpdateFilter<T>
@@ -542,7 +606,7 @@ export const db = {
     return result;
   },
 
-  async updateMany<T>(
+  async updateMany<T extends Document>(
     collection: string,
     filter: Filter<T>,
     update: UpdateFilter<T>
@@ -558,7 +622,7 @@ export const db = {
     return result;
   },
 
-  async findOneAndUpdate<T>(
+  async findOneAndUpdate<T extends Document>(
     collection: string,
     filter: Filter<T>,
     update: UpdateFilter<T>,
@@ -573,7 +637,7 @@ export const db = {
     return result;
   },
 
-  async bulkWrite<T>(
+  async bulkWrite<T extends Document>(
     collection: string,
     operations: AnyBulkWriteOperation<T>[],
     options: BulkWriteOptions = {},
@@ -582,24 +646,24 @@ export const db = {
     return await bulkWriteWithMetrics(collection, operations, options, metadata);
   },
 
-  async deleteMany<T>(collection: string, filter: Filter<T>) {
+  async deleteMany<T extends Document>(collection: string, filter: Filter<T>) {
     const coll = await getCollection<T>(collection);
     const result = await coll.deleteMany(filter);
     return result;
   },
 
-  async deleteOne<T>(collection: string, filter: Filter<T>) {
+  async deleteOne<T extends Document>(collection: string, filter: Filter<T>) {
     const coll = await getCollection<T>(collection);
     const result = await coll.deleteOne(filter);
     return result;
   },
 
-  async count<T>(collection: string, filter: Filter<T> = {}): Promise<number> {
+  async count<T extends Document>(collection: string, filter: Filter<T> = {}): Promise<number> {
     const coll = await getCollection<T>(collection);
     return await coll.countDocuments(filter);
   },
 
-  async distinct<T>(
+  async distinct<T extends Document>(
     collection: string,
     field: string,
     filter: Filter<T> = {}

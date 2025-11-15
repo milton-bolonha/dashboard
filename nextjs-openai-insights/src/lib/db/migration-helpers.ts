@@ -15,15 +15,22 @@ import { loadCompaniesWithDashboards } from "../storage/dashboards-store";
 
 /**
  * Migrate a single workspace snapshot to MongoDB
+ * Best practice: Validate input and handle errors gracefully
  */
 export async function migrateWorkspaceToMongo(
   workspace: WorkspaceSnapshot
 ): Promise<boolean> {
+  // Validate input
+  if (!workspace || !workspace.sessionId) {
+    console.error("[Migration] ❌ Workspace inválido: sessionId ausente");
+    return false;
+  }
+
   try {
     const workspaceDoc = workspaceSnapshotToDocument(workspace);
 
-    // Upsert workspace
-    await db.findOneAndUpdate<WorkspaceDocument>(
+    // Upsert workspace with proper error handling
+    const result = await db.findOneAndUpdate<WorkspaceDocument>(
       "workspaces",
       { sessionId: workspace.sessionId },
       {
@@ -35,31 +42,56 @@ export async function migrateWorkspaceToMongo(
           createdAt: new Date(),
         },
       },
-      { upsert: true }
+      { upsert: true, returnDocument: "after" }
     );
 
-    console.log("[Migration] ✅ Workspace migrado:", workspace.sessionId);
+    if (!result) {
+      console.warn("[Migration] ⚠️ Upsert retornou null:", workspace.sessionId);
+      return false;
+    }
+
+    console.log("[Migration] ✅ Workspace migrado:", {
+      sessionId: workspace.sessionId,
+      companyName: workspace.company?.name,
+    });
     return true;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("[Migration] ❌ Erro ao migrar workspace:", errorMessage);
+    const errorCode = (error as Error & { code?: number | string }).code;
+    console.error("[Migration] ❌ Erro ao migrar workspace:", {
+      sessionId: workspace.sessionId,
+      message: errorMessage,
+      code: errorCode,
+    });
     return false;
   }
 }
 
 /**
  * Migrate a company with dashboards to MongoDB
+ * Best practice: Validate input, handle errors per dashboard, and provide detailed logging
  */
 export async function migrateDashboardToMongo(
   company: CompanyWithDashboards
 ): Promise<boolean> {
+  // Validate input
+  if (!company || !company.id) {
+    console.error("[Migration] ❌ Company inválida: id ausente");
+    return false;
+  }
+
+  if (!Array.isArray(company.dashboards)) {
+    console.error("[Migration] ❌ Company inválida: dashboards não é array", company.id);
+    return false;
+  }
+
   try {
     // Create workspace document from company
     const workspaceDoc: WorkspaceDocument = {
       sessionId: company.id,
       company: {
         id: company.id,
-        name: company.name,
+        name: company.name || "Unnamed Company",
         website: company.website,
         tiles: [],
         notes: [],
@@ -71,8 +103,8 @@ export async function migrateDashboardToMongo(
       updatedAt: new Date(company.updatedAt),
     };
 
-    // Upsert workspace
-    await db.findOneAndUpdate<WorkspaceDocument>(
+    // Upsert workspace with error handling
+    const workspaceResult = await db.findOneAndUpdate<WorkspaceDocument>(
       "workspaces",
       { sessionId: company.id },
       {
@@ -84,41 +116,92 @@ export async function migrateDashboardToMongo(
           createdAt: new Date(),
         },
       },
-      { upsert: true }
+      { upsert: true, returnDocument: "after" }
     );
 
-    // Migrate all dashboards
-    for (const dashboard of company.dashboards) {
-      const dashboardDoc = dashboardToDocument(dashboard);
-      await db.findOneAndUpdate<DashboardDocument>(
-        "dashboards",
-        { id: dashboard.id },
-        {
-          $set: {
-            ...dashboardDoc,
-            updatedAt: new Date(),
-          },
-          $setOnInsert: {
-            createdAt: new Date(),
-          },
-        },
-        { upsert: true }
-      );
+    if (!workspaceResult) {
+      console.warn("[Migration] ⚠️ Falha ao criar workspace:", company.id);
+      return false;
     }
 
-    console.log("[Migration] ✅ Company migrada:", company.id, {
-      dashboardsCount: company.dashboards.length,
+    // Migrate all dashboards with individual error handling
+    const dashboardResults: Array<{ success: boolean; dashboardId: string }> = [];
+    
+    for (const dashboard of company.dashboards) {
+      try {
+        if (!dashboard || !dashboard.id) {
+          console.warn("[Migration] ⚠️ Dashboard inválido ignorado:", {
+            companyId: company.id,
+            dashboardName: dashboard?.name,
+          });
+          continue;
+        }
+
+        const dashboardDoc = dashboardToDocument(dashboard);
+        const result = await db.findOneAndUpdate<DashboardDocument>(
+          "dashboards",
+          { id: dashboard.id },
+          {
+            $set: {
+              ...dashboardDoc,
+              updatedAt: new Date(),
+            },
+            $setOnInsert: {
+              createdAt: new Date(),
+            },
+          },
+          { upsert: true, returnDocument: "after" }
+        );
+
+        dashboardResults.push({
+          success: !!result,
+          dashboardId: dashboard.id,
+        });
+      } catch (dashboardError) {
+        const errorMessage =
+          dashboardError instanceof Error
+            ? dashboardError.message
+            : String(dashboardError);
+        console.error("[Migration] ❌ Erro ao migrar dashboard:", {
+          companyId: company.id,
+          dashboardId: dashboard?.id,
+          message: errorMessage,
+        });
+        dashboardResults.push({
+          success: false,
+          dashboardId: dashboard?.id || "unknown",
+        });
+      }
+    }
+
+    const successCount = dashboardResults.filter((r) => r.success).length;
+    const failureCount = dashboardResults.length - successCount;
+
+    console.log("[Migration] ✅ Company migrada:", {
+      companyId: company.id,
+      companyName: company.name,
+      dashboardsTotal: company.dashboards.length,
+      dashboardsSuccess: successCount,
+      dashboardsFailed: failureCount,
     });
-    return true;
+
+    // Consider migration successful if at least workspace was created
+    return successCount > 0 || company.dashboards.length === 0;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("[Migration] ❌ Erro ao migrar company:", errorMessage);
+    const errorCode = (error as Error & { code?: number | string }).code;
+    console.error("[Migration] ❌ Erro ao migrar company:", {
+      companyId: company.id,
+      message: errorMessage,
+      code: errorCode,
+    });
     return false;
   }
 }
 
 /**
  * Sync all localStorage data to MongoDB
+ * Best practice: Batch processing with error handling per item and progress tracking
  */
 export async function syncLocalStorageToMongo(): Promise<{
   success: boolean;
@@ -132,42 +215,73 @@ export async function syncLocalStorageToMongo(): Promise<{
     // Load all companies from localStorage
     const companies = loadCompaniesWithDashboards();
 
+    if (!Array.isArray(companies)) {
+      throw new Error("loadCompaniesWithDashboards returned invalid data");
+    }
+
     console.log("[Migration] 🔄 Iniciando migração de localStorage para MongoDB", {
       companiesCount: companies.length,
+      timestamp: new Date().toISOString(),
     });
 
-    for (const company of companies) {
+    // Process companies sequentially to avoid overwhelming MongoDB
+    for (let i = 0; i < companies.length; i++) {
+      const company = companies[i];
+      
+      if (!company || !company.id) {
+        errors.push(`Invalid company at index ${i}: missing id`);
+        continue;
+      }
+
       try {
         const success = await migrateDashboardToMongo(company);
         if (success) {
           companiesMigrated++;
+          console.log(`[Migration] ✅ Company ${i + 1}/${companies.length} migrada:`, company.id);
         } else {
-          errors.push(`Failed to migrate company ${company.id}`);
+          errors.push(`Failed to migrate company ${company.id} (${company.name || "unnamed"})`);
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        errors.push(`Error migrating company ${company.id}: ${errorMessage}`);
-        console.error(`[Migration] ❌ Erro ao migrar company ${company.id}:`, errorMessage);
+        const errorCode = (error as Error & { code?: number | string }).code;
+        errors.push(
+          `Error migrating company ${company.id}: ${errorMessage}${errorCode ? ` (code: ${errorCode})` : ""}`
+        );
+        console.error(`[Migration] ❌ Erro ao migrar company ${company.id}:`, {
+          message: errorMessage,
+          code: errorCode,
+        });
       }
     }
 
+    const successRate = companies.length > 0 
+      ? ((companiesMigrated / companies.length) * 100).toFixed(1)
+      : "0";
+
     console.log("[Migration] ✅ Migração concluída", {
+      companiesTotal: companies.length,
       companiesMigrated,
+      companiesFailed: errors.length,
+      successRate: `${successRate}%`,
       errorsCount: errors.length,
     });
 
     return {
-      success: errors.length === 0,
+      success: errors.length === 0 && companiesMigrated > 0,
       companiesMigrated,
       errors,
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("[Migration] ❌ Erro crítico na migração:", errorMessage);
+    const errorCode = (error as Error & { code?: number | string }).code;
+    console.error("[Migration] ❌ Erro crítico na migração:", {
+      message: errorMessage,
+      code: errorCode,
+    });
     return {
       success: false,
       companiesMigrated,
-      errors: [`Critical error: ${errorMessage}`],
+      errors: [`Critical error: ${errorMessage}${errorCode ? ` (code: ${errorCode})` : ""}`],
     };
   }
 }

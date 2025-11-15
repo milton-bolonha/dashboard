@@ -1,11 +1,13 @@
-import type { Dashboard, WorkspaceAppearance } from "@/lib/types/dashboard";
-import type { Tile, Note, Contact } from "@/lib/types";
+import type { Document } from "mongodb";
+import type { Dashboard } from "@/lib/types/dashboard";
+import type { Tile, Note, Contact, WorkspaceAppearance } from "@/lib/types";
 
 /**
  * Dashboard model for MongoDB
  * Maps to Dashboard interface but with MongoDB-specific fields
+ * Best practice: Extends Document for MongoDB compatibility
  */
-export interface DashboardDocument {
+export interface DashboardDocument extends Document {
   _id?: string;
   id: string; // Dashboard ID (same as in Dashboard interface)
   name: string;
@@ -46,26 +48,34 @@ export interface ContactDocument extends Omit<Contact, "createdAt"> {
 
 /**
  * Convert Dashboard to DashboardDocument
+ * Best practice: Validate input and handle date conversions safely
  */
 export function dashboardToDocument(
   dashboard: Dashboard
 ): Omit<DashboardDocument, "_id" | "createdAt" | "updatedAt"> {
+  if (!dashboard || !dashboard.id) {
+    throw new Error("Invalid dashboard: missing id");
+  }
+  if (!dashboard.companyId) {
+    throw new Error("Invalid dashboard: missing companyId");
+  }
+
   return {
     id: dashboard.id,
-    name: dashboard.name,
+    name: dashboard.name || "Unnamed Dashboard",
     companyId: dashboard.companyId,
     templateId: dashboard.templateId,
-    tiles: dashboard.tiles.map((tile) => ({
+    tiles: (dashboard.tiles || []).map((tile) => ({
       ...tile,
       createdAt: new Date(tile.createdAt),
       updatedAt: new Date(tile.updatedAt),
     })) as TileDocument[],
-    notes: dashboard.notes.map((note) => ({
+    notes: (dashboard.notes || []).map((note) => ({
       ...note,
       createdAt: new Date(note.createdAt),
       updatedAt: new Date(note.updatedAt),
     })) as NoteDocument[],
-    contacts: dashboard.contacts.map((contact) => ({
+    contacts: (dashboard.contacts || []).map((contact) => ({
       ...contact,
       createdAt: new Date(contact.createdAt),
     })) as ContactDocument[],
@@ -77,33 +87,48 @@ export function dashboardToDocument(
 
 /**
  * Convert DashboardDocument to Dashboard
+ * Best practice: Validate input and handle Date conversion safely
  */
 export function dashboardDocumentToDashboard(
   doc: DashboardDocument
 ): Dashboard {
+  if (!doc || !doc.id) {
+    throw new Error("Invalid DashboardDocument: missing id");
+  }
+  if (!doc.companyId) {
+    throw new Error("Invalid DashboardDocument: missing companyId");
+  }
+
+  const toISOString = (date: Date | string): string => {
+    if (date instanceof Date) {
+      return date.toISOString();
+    }
+    return new Date(date).toISOString();
+  };
+
   return {
     id: doc.id,
     name: doc.name,
     companyId: doc.companyId,
     templateId: doc.templateId,
-    tiles: doc.tiles.map((tile) => ({
+    tiles: (doc.tiles || []).map((tile) => ({
       ...tile,
-      createdAt: tile.createdAt.toISOString(),
-      updatedAt: tile.updatedAt.toISOString(),
+      createdAt: toISOString(tile.createdAt),
+      updatedAt: toISOString(tile.updatedAt),
     })),
-    notes: doc.notes.map((note) => ({
+    notes: (doc.notes || []).map((note) => ({
       ...note,
-      createdAt: note.createdAt.toISOString(),
-      updatedAt: note.updatedAt.toISOString(),
+      createdAt: toISOString(note.createdAt),
+      updatedAt: toISOString(note.updatedAt),
     })),
-    contacts: doc.contacts.map((contact) => ({
+    contacts: (doc.contacts || []).map((contact) => ({
       ...contact,
-      createdAt: contact.createdAt.toISOString(),
+      createdAt: toISOString(contact.createdAt),
     })),
     appearance: doc.appearance,
     contrastMode: doc.contrastMode,
-    createdAt: doc.createdAt.toISOString(),
-    updatedAt: doc.updatedAt.toISOString(),
+    createdAt: toISOString(doc.createdAt),
+    updatedAt: toISOString(doc.updatedAt),
     isActive: doc.isActive,
   };
 }

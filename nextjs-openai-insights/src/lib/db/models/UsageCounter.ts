@@ -1,8 +1,11 @@
+import type { Document } from "mongodb";
+
 /**
  * Usage counter model for MongoDB
  * Tracks API usage for rate limiting
+ * Best practice: Extends Document for MongoDB compatibility
  */
-export interface UsageCounterDocument {
+export interface UsageCounterDocument extends Document {
   _id?: string;
   sessionId: string; // Session identifier
   userId?: string; // Clerk user ID (when integrated, FASE 2)
