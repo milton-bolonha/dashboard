@@ -1421,8 +1421,8 @@ export function AdminContainer() {
       fromDashboardName: currentDashboard?.name,
       toDashboardId: dashboardId,
       currentTilesCount: currentDashboard?.tiles?.length ?? 0,
-      currentContactsCount: currentCompany.contacts?.length ?? 0,
-      currentNotesCount: currentCompany.notes?.length ?? 0,
+      currentContactsCount: currentCompany.dashboards.reduce((sum, d) => sum + (d.contacts?.length ?? 0), 0),
+      currentNotesCount: currentCompany.dashboards.reduce((sum, d) => sum + (d.notes?.length ?? 0), 0),
     });
     
     setActiveDashboard(currentCompany.id, dashboardId);
@@ -1438,8 +1438,8 @@ export function AdminContainer() {
           dashboardName: dashboard.name,
           tilesCount: dashboard.tiles?.length ?? 0,
           isActive: dashboard.isActive,
-          contactsCount: updatedCompany.contacts?.length ?? 0,
-          notesCount: updatedCompany.notes?.length ?? 0,
+          contactsCount: updatedCompany.dashboards.reduce((sum, d) => sum + (d.contacts?.length ?? 0), 0),
+          notesCount: updatedCompany.dashboards.reduce((sum, d) => sum + (d.notes?.length ?? 0), 0),
         });
         setCurrentDashboard(dashboard);
         
