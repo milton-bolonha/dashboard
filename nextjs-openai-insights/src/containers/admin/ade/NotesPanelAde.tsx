@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { useEffect, useState, useTransition } from "react";
+import { Pencil, Trash2, Plus } from "lucide-react";
 
 import type { AdeAppearanceTokens } from "@/lib/ade-theme";
+import { hexToRgbString } from "@/lib/color";
 import type { Note } from "@/lib/types";
 import { useToast } from "@/lib/state/toast-context";
 
@@ -19,18 +20,34 @@ export function NotesPanelAde({ appearance, notes, onNotesChanged }: NotesPanelA
   const [content, setContent] = useState("");
   const [isPending, startTransition] = useTransition();
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // Only render after mount to prevent hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Don't render until mounted and appearance is ready
+  if (!mounted || !appearance) {
+    return null;
+  }
 
   const isEditing = editingNoteId !== null;
-  const headingColor = appearance.headingColor ?? "#1f1f1f";
-  const textColor = appearance.textColor ?? "#2c2c2c";
-  const mutedColor = appearance.mutedTextColor ?? "#6f6f6f";
-  const cardBorder = appearance.cardBorderColor ?? "#d9d9d9";
-  const surfaceColor = appearance.surfaceColor ?? "#ffffff";
+  // Use saved values from appearance directly (like AI Insight Tiles does)
+  // Fallback to defaults if not available (backward compatibility)
+  // Convert to RGB format for consistency - only calculate after mount
+  const headingColor = hexToRgbString(appearance.headingColor || "#1f1f1f");
+  const textColor = appearance.textColor || "#2c2c2c";
+  const mutedColor = appearance.mutedTextColor || "#6f6f6f";
+  const cardBorder = appearance.cardBorderColor || "#d9d9d9";
+  const surfaceColor = appearance.surfaceColor || "#ffffff";
 
   const resetForm = () => {
     setTitle("");
     setContent("");
     setEditingNoteId(null);
+    setShowForm(false);
   };
 
   const handleCreate = (event: React.FormEvent<HTMLFormElement>) => {
@@ -107,86 +124,60 @@ export function NotesPanelAde({ appearance, notes, onNotesChanged }: NotesPanelA
   };
 
   return (
-    <section className="space-y-4" suppressHydrationWarning>
+    <section className="space-y-4">
       <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <h3 className="text-lg font-semibold" style={{ color: headingColor || "#000000" }} suppressHydrationWarning>
+        <h3 className="text-lg font-semibold" style={{ color: headingColor }}>
           Deal notes
         </h3>
-        <span
-          className="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.28em]"
-          style={{ borderColor: cardBorder, color: mutedColor }}
-          suppressHydrationWarning
-        >
-          {notes.length} saved
-        </span>
       </header>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {notes.length === 0 ? (
-          <article className="flex flex-col overflow-hidden rounded-2xl border" style={{ borderColor: cardBorder, backgroundColor: surfaceColor }} suppressHydrationWarning>
-            <header className="bg-[#E87C2A] text-white p-3">
-              <input
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                placeholder="Note title"
-                className="w-full bg-transparent text-white placeholder-white/70 text-sm font-semibold"
-                type="text"
-              />
-            </header>
-            <div className="flex-1 p-4 bg-white">
-              <textarea
-                value={content}
-                onChange={(event) => setContent(event.target.value)}
-                placeholder="Note content"
-                rows={3}
-                className="w-full text-sm text-gray-700 mb-2 resize-none"
-              />
-              <div className="flex justify-end space-x-2">
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 rounded"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  onClick={() => handleCreate({} as React.FormEvent<HTMLFormElement>)}
-                  disabled={isPending || (!title.trim() && !content.trim())}
-                  className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-                >
-                  Create Note
-                </button>
+        {/* Add Note button (similar to Add Prompt, Add Contact) */}
+        {!showForm && !isEditing && (
+          <button
+            type="button"
+            onClick={() => setShowForm(true)}
+            className="group relative flex h-[220px] flex-col overflow-hidden rounded-[20px] border-2 border-dashed transition-all duration-200 flex-col items-center justify-center cursor-pointer hover:border-gray-500"
+            style={{
+              backgroundColor: surfaceColor || "#ffffff",
+              borderColor: cardBorder || "#d9d9d9",
+            }}
+          >
+            <div className="flex flex-col items-center space-y-3">
+              <div className="w-12 h-12 rounded-full bg-gray-300 group-hover:bg-gray-400 transition-colors flex items-center justify-center">
+                <Plus className="w-6 h-6 text-gray-600 group-hover:text-gray-700" />
               </div>
+              <span className="text-sm font-medium" style={{ color: textColor || "#2c2c2c" }}>
+                Add Note
+              </span>
             </div>
-          </article>
-        ) : (
-          <>
-            <form
-              onSubmit={handleCreate}
-              className="flex h-full flex-col gap-3 rounded-2xl border border-dashed p-4"
-              style={{ borderColor: cardBorder, backgroundColor: surfaceColor }}
-              suppressHydrationWarning
-            >
+          </button>
+        )}
+
+        {/* Form (shown when showForm is true or when editing) */}
+        {(showForm || isEditing) && (
+          <form
+            onSubmit={handleCreate}
+            className="flex h-full flex-col gap-3 rounded-2xl border border-dashed p-4 bg-white"
+            style={{ borderColor: cardBorder }}
+          >
               <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-[0.28em]" style={{ color: mutedColor }} suppressHydrationWarning>
+                <label className="text-xs font-semibold uppercase tracking-[0.28em]" style={{ color: mutedColor }}>
                   Title
                 </label>
                 <input
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
                   placeholder="Headline or signal"
-                  className="w-full rounded-lg border px-3 py-2 text-sm font-medium focus:border-black focus:outline-none focus:ring-0"
-                  suppressHydrationWarning
+                  className="w-full rounded-lg border px-3 py-2 text-sm font-medium focus:border-black focus:outline-none focus:ring-0 bg-white"
                   style={{
                     borderColor: cardBorder,
-                    color: textColor,
-                    backgroundColor: surfaceColor,
+                    color: "#1f1f1f",
                   }}
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-[0.28em]" style={{ color: mutedColor }} suppressHydrationWarning>
+                <label className="text-xs font-semibold uppercase tracking-[0.28em]" style={{ color: mutedColor }}>
                   Notes
                 </label>
                 <textarea
@@ -194,55 +185,58 @@ export function NotesPanelAde({ appearance, notes, onNotesChanged }: NotesPanelA
                   onChange={(event) => setContent(event.target.value)}
                   placeholder="Capture context, signals or next steps…"
                   rows={4}
-                  className="w-full resize-none rounded-lg border px-3 py-3 text-sm focus:border-black focus:outline-none focus:ring-0"
-                  suppressHydrationWarning
+                  className="w-full resize-none rounded-lg border px-3 py-3 text-sm focus:border-black focus:outline-none focus:ring-0 bg-white"
                   style={{
                     borderColor: cardBorder,
-                    color: textColor,
-                    backgroundColor: surfaceColor,
+                    color: "#1f1f1f",
                   }}
                 />
               </div>
               <div className="mt-auto flex items-center justify-end gap-3">
-                {isEditing ? (
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    className="text-xs font-semibold uppercase tracking-[0.24em] text-[#6f6f6f] transition hover:text-black"
-                  >
-                    Cancel
-                  </button>
-                ) : null}
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="text-xs font-semibold uppercase tracking-[0.24em] text-[#6f6f6f] transition hover:text-black cursor-pointer"
+                >
+                  Cancel
+                </button>
                 <button
                   type="submit"
-                  disabled={isPending}
-                  className="inline-flex items-center justify-center rounded-full bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-black/90 disabled:cursor-not-allowed disabled:bg-black/40 whitespace-nowrap"
+                  disabled={isPending || (!title.trim() && !content.trim())}
+                  className="inline-flex items-center justify-center rounded-full bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-black/90 disabled:cursor-not-allowed disabled:bg-black/40 whitespace-nowrap cursor-pointer"
                 >
                   {isPending ? "Saving…" : isEditing ? "Save note" : "Add note"}
                 </button>
               </div>
             </form>
-            {notes.map((note) => (
+        )}
+
+        {/* Existing notes */}
+        {notes.map((note) => (
             <article
               key={note.id}
               className="flex flex-col overflow-hidden rounded-2xl border"
-              style={{ borderColor: cardBorder, backgroundColor: surfaceColor }}
-              suppressHydrationWarning
+              style={{ 
+                borderColor: cardBorder || "#d9d9d9", 
+                backgroundColor: surfaceColor || "#ffffff" 
+              }}
             >
               <header className="bg-[#E87C2A] px-4 py-3 text-white">
                 <h4 className="text-sm font-semibold">
                   {note.title?.length ? note.title : "Untitled note"}
                 </h4>
               </header>
-              <div className="flex-1 px-4 py-4">
-                <p className="whitespace-pre-line text-sm" style={{ color: textColor }} suppressHydrationWarning>
+              <div className="flex-1 px-4 py-4 bg-white">
+                <p className="whitespace-pre-line text-sm" style={{ color: textColor || "#2c2c2c" }}>
                   {note.content}
                 </p>
               </div>
               <footer
                 className="flex items-center justify-between border-t px-4 py-3 text-xs"
-                style={{ borderColor: cardBorder, color: mutedColor }}
-                suppressHydrationWarning
+                style={{ 
+                  borderColor: cardBorder || "#d9d9d9", 
+                  color: mutedColor || "#6f6f6f" 
+                }}
               >
                 <span>
                   Updated{" "}
@@ -271,9 +265,7 @@ export function NotesPanelAde({ appearance, notes, onNotesChanged }: NotesPanelA
                 </div>
               </footer>
             </article>
-          ))}
-          </>
-        )}
+        ))}
       </div>
     </section>
   );

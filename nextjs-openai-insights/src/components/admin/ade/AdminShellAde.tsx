@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 
 import type { AdeAppearanceTokens } from "@/lib/ade-theme";
@@ -16,10 +19,21 @@ export function AdminShellAde({
   children,
   appearance,
 }: AdminShellAdeProps) {
+  const [mounted, setMounted] = useState(false);
+
+  // Only render after mount to prevent hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Don't render until mounted and appearance is ready
+  if (!mounted || !appearance) {
+    return null;
+  }
+
   return (
     <div
       className="flex h-screen overflow-hidden"
-      suppressHydrationWarning
       style={{
         backgroundColor: "transparent", // Deixa o body controlar a cor de fundo
         color: appearance.textColor,
@@ -27,9 +41,8 @@ export function AdminShellAde({
     >
       <aside
         className="hidden w-64 flex-shrink-0 flex-col p-4 transition-all duration-200 lg:flex lg:overflow-y-auto"
-        suppressHydrationWarning
         style={{
-          backgroundColor: toRgba("#808080", 0.15), // Semi-transparent gray overlay
+          backgroundColor: appearance.sidebarColor || toRgba("#808080", 0.15), // Use sidebarColor from appearance
           backdropFilter: "blur(10px)",
           color: appearance.textColor,
         }}
@@ -42,7 +55,6 @@ export function AdminShellAde({
       >
         <header
           className="flex flex-shrink-0 items-center px-4"
-          suppressHydrationWarning
           style={{
             height: "72px",
             backgroundColor: "transparent",
@@ -57,7 +69,6 @@ export function AdminShellAde({
         >
           <div
             className="container mx-auto min-h-full px-6 py-8"
-            suppressHydrationWarning
             style={{ color: appearance.textColor }}
           >
             {children}

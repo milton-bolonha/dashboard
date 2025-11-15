@@ -34,7 +34,7 @@ export async function POST(_request: Request, context: RouteContext) {
       company: workspace.company,
       tiles: workspace.company.tiles ?? [],
       notes: workspace.company.notes ?? [],
-      model: workspace.company.tiles?.[0]?.model,
+      model: "gpt-5", // Use GPT-5 for contact generation
     });
   } catch (error) {
     console.error(

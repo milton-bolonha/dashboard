@@ -169,6 +169,15 @@ export function HomeContainer() {
   };
 
   const handleResetWorkspace = async () => {
+    // Clear appearance tokens from localStorage when resetting
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.removeItem("ade-appearance-tokens");
+        console.log("[HomeContainer] 🗑️ Cleared appearance tokens from localStorage (reset)");
+      } catch (e) {
+        console.warn("[HomeContainer] ⚠️ Failed to clear appearance tokens:", e);
+      }
+    }
     try {
       const response = await fetch("/api/workspace", { method: "DELETE" });
       if (!response.ok) {

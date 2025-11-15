@@ -10,7 +10,7 @@ export const PROMPT_AGENTS = [
     id: "ade_research_analyst",
     label: "Research Analyst (Ade)",
     description: "Consultoria focada em dados verificáveis e insights acionáveis.",
-    defaultModel: "gpt-5-mini",
+    defaultModel: "gpt-5-nano",
   },
   {
     id: "ade_sales_coach",
@@ -69,12 +69,16 @@ interface TemplateTile {
   preferredLength?: PromptResponseLength;
   bulkGroup?: string;
   defaultVariables?: PromptVariableId[];
+  useMaxMode?: boolean;
+  requestSize?: "small" | "medium" | "large";
 }
 
 interface TemplateDefaults {
   agentId?: PromptAgentId;
   responseLength?: PromptResponseLength;
   variables?: PromptVariableId[];
+  useMaxMode?: boolean;
+  requestSize?: "small" | "medium" | "large";
 }
 
 interface GuestTemplate {
@@ -94,6 +98,8 @@ export interface ResolvedTemplateTile extends TemplateTile {
   agentId: PromptAgentId;
   preferredLength: PromptResponseLength;
   runtimeVariables: PromptVariableId[];
+  useMaxMode: boolean;
+  requestSize: "small" | "medium" | "large";
 }
 
 export interface ResolveTemplateOptions {
@@ -120,6 +126,8 @@ export function resolveTemplateTiles(
   const templateAgent = template.defaults?.agentId ?? DEFAULT_PROMPT_AGENT_ID;
   const templateLength = template.defaults?.responseLength ?? "medium";
   const templateVariables = template.defaults?.variables ?? [];
+  const templateUseMaxMode = template.defaults?.useMaxMode ?? false;
+  const templateRequestSize = template.defaults?.requestSize ?? "small";
 
   const runtimeAgent = options.agentId ?? templateAgent;
   const runtimeLength = options.responseLength ?? templateLength;
@@ -132,6 +140,8 @@ export function resolveTemplateTiles(
       agentId: tile.agentId ?? runtimeAgent,
       preferredLength: tile.preferredLength ?? runtimeLength,
       runtimeVariables: mergedVariables,
+      useMaxMode: tile.useMaxMode ?? templateUseMaxMode,
+      requestSize: tile.requestSize ?? templateRequestSize,
     };
   });
 
@@ -178,13 +188,15 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
       agentId: "ade_research_analyst",
       responseLength: "medium",
       variables: ["includeRevenueSignals", "includeProductLaunches"],
+      useMaxMode: false,
+      requestSize: "small",
     },
     tiles: [
       {
         id: "company_description",
         title: "What They Do",
         prompt:
-          "Provide exactly three bullet points (≤12 words each) describing {company.name}'s core offering, primary customers, and differentiator. Prefix each line with '-'. If information is unavailable, output '- No verified public information available yet.'",
+          "Describe {company.name}'s core offering, primary customers, and differentiator in three short sentences (≤12 words each). Synthesize key information concisely. If information is unavailable, state 'No verified public information available yet.'",
         category: "basic",
         orderIndex: 0,
         order: 1,
@@ -195,7 +207,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "revenue_model",
         title: "Revenue Generation",
         prompt:
-          "Provide exactly three bullet points (≤14 words each) summarizing how {company.name} earns revenue. Mention specific products, services, or fee structures when known. If unclear, output '- Revenue model not publicly disclosed yet.'",
+          "Summarize how {company.name} earns revenue in three short sentences (≤14 words each). Mention specific products, services, or fee structures when known. Synthesize the revenue model concisely. If unclear, state 'Revenue model not publicly disclosed yet.'",
         category: "financial",
         orderIndex: 1,
         order: 2,
@@ -206,7 +218,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "international_offices",
         title: "International Presence",
         prompt:
-          "Provide up to three bullet points (≤14 words each) covering {company.name}'s HQ, key regions, and notable offices. Prefix each line with '-'. If unknown, output '- Geographic footprint not publicly disclosed yet.'",
+          "Describe {company.name}'s geographic footprint in up to three short sentences (≤14 words each). Cover HQ location, key regions, and notable offices. Synthesize the international presence concisely. If unknown, state 'Geographic footprint not publicly disclosed yet.'",
         category: "market",
         orderIndex: 2,
         order: 3,
@@ -217,7 +229,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "business_goals_2025",
         title: "2025 Business Goals",
         prompt:
-          "Provide up to two bullet points (≤14 words each) describing {company.name}'s 2025 priorities. Include source/year in parentheses when known. If no public goals, output '- Strategic priorities not publicly available yet.'",
+          "Describe {company.name}'s 2025 priorities in up to two short sentences (≤14 words each). Include source/year in parentheses when known. Synthesize strategic goals concisely. If no public goals, state 'Strategic priorities not publicly available yet.'",
         category: "strategy",
         orderIndex: 3,
         order: 4,
@@ -227,7 +239,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "business_challenges",
         title: "2025 Business Challenges",
         prompt:
-          "Provide up to two bullet points (≤14 words each) highlighting 2025 challenges for {company.name}. Reference a recent signal in parentheses when available. If unclear, output '- Challenges not publicly available yet.'",
+          "Highlight 2025 challenges for {company.name} in up to two short sentences (≤14 words each). Reference a recent signal in parentheses when available. Synthesize key challenges concisely. If unclear, state 'Challenges not publicly available yet.'",
         category: "insights",
         orderIndex: 4,
         order: 5,
@@ -250,7 +262,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "ceo_info",
         title: "CEO Information",
         prompt:
-          "Provide three bullet points (≤14 words each): 1) CEO name + role, 2) tenure, 3) one leadership focus. If CEO not public, mention highest-ranking executive and note 'Role not publicly confirmed.'",
+          "Provide CEO information in three short sentences (≤14 words each): CEO name and role, tenure, and one leadership focus. Synthesize executive details concisely. If CEO not public, mention highest-ranking executive and note 'Role not publicly confirmed.'",
         category: "people",
         orderIndex: 6,
         order: 7,
@@ -279,13 +291,15 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
       agentId: "ade_research_analyst",
       responseLength: "long",
       variables: ["includeRevenueSignals", "includeHiringSignals"],
+      useMaxMode: true,
+      requestSize: "medium",
     },
     tiles: [
       {
         id: "company_description_2",
         title: "What They Do",
         prompt:
-          "Provide exactly three bullet points (≤12 words each) describing {company.name}'s offering, core customers, and differentiator. Prefix with '-'. If information is unavailable, output '- No verified public information available yet.'",
+          "Describe {company.name}'s offering, core customers, and differentiator in three short sentences (≤12 words each). Synthesize key information concisely. If information is unavailable, state 'No verified public information available yet.'",
         category: "basic",
         orderIndex: 0,
         order: 1,
@@ -295,7 +309,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "revenue_model_2",
         title: "Revenue Generation",
         prompt:
-          "Provide exactly three bullet points (≤14 words each) describing how {company.name} earns revenue. Cite specific products, services, or fee models when possible. If unclear, output '- Revenue model not publicly disclosed yet.'",
+          "Describe how {company.name} earns revenue in three short sentences (≤14 words each). Cite specific products, services, or fee models when possible. Synthesize the revenue model concisely. If unclear, state 'Revenue model not publicly disclosed yet.'",
         category: "financial",
         orderIndex: 1,
         order: 2,
@@ -306,7 +320,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "biggest_goal_2025",
         title: "Biggest 2025 Goal",
         prompt:
-          "Provide up to two bullet points (≤14 words each) for {company.name}'s top 2025 goal. Include source/year in parentheses when known. If unknown, output '- Goal not publicly available yet.'",
+          "Describe {company.name}'s top 2025 goal in up to two short sentences (≤14 words each). Include source/year in parentheses when known. Synthesize the primary objective concisely. If unknown, state 'Goal not publicly available yet.'",
         category: "strategy",
         orderIndex: 2,
         order: 3,
@@ -316,7 +330,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "industry_challenges",
         title: "Industry Challenges",
         prompt:
-          "Provide up to two bullet points (≤14 words each) outlining industry pressures on {company.name}. Reference a credible signal in parentheses when available. If unclear, output '- Industry challenges not publicly specified yet.'",
+          "Outline industry pressures on {company.name} in up to two short sentences (≤14 words each). Reference a credible signal in parentheses when available. Synthesize key industry challenges concisely. If unclear, state 'Industry challenges not publicly specified yet.'",
         category: "insights",
         orderIndex: 3,
         order: 4,
@@ -339,7 +353,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "top_competitors",
         title: "Top Competitors",
         prompt:
-          "List up to three competitors of {company.name}. Provide one short reason (≤12 words) per bullet prefixed with '-'. If unknown, output '- Competitors not publicly disclosed yet.'",
+          "List up to three competitors of {company.name} with one short reason each (≤12 words per competitor). Synthesize competitive landscape concisely. If unknown, state 'Competitors not publicly disclosed yet.'",
         category: "market",
         orderIndex: 5,
         order: 6,
@@ -349,7 +363,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "holding_company",
         title: "Ownership/Funding",
         prompt:
-          "Provide up to two bullet points (≤14 words each) summarizing {company.name}'s ownership structure or key investors. Include latest funding note if known. If independent/undisclosed, output '- Ownership not publicly disclosed yet.'",
+          "Summarize {company.name}'s ownership structure or key investors in up to two short sentences (≤14 words each). Include latest funding note if known. Synthesize ownership details concisely. If independent/undisclosed, state 'Ownership not publicly disclosed yet.'",
         category: "financial",
         orderIndex: 6,
         order: 7,
@@ -359,7 +373,7 @@ export const GUEST_DASHBOARD_TEMPLATES: GuestTemplatesMap = {
         id: "ceo_info_2",
         title: "CEO Information",
         prompt:
-          "Provide three bullet points (≤14 words each): 1) CEO name + role, 2) tenure or appointment year, 3) one leadership priority. If CEO unknown, mention most senior public executive and note 'Role not publicly confirmed.'",
+          "Provide CEO information in three short sentences (≤14 words each): CEO name and role, tenure or appointment year, and one leadership priority. Synthesize executive details concisely. If CEO unknown, mention most senior public executive and note 'Role not publicly confirmed.'",
         category: "people",
         orderIndex: 7,
         order: 8,

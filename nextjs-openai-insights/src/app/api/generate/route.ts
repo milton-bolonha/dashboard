@@ -4,11 +4,13 @@ import { z } from "zod";
 import OpenAI from "openai";
 
 import { writeWorkspace } from "@/lib/cookies-store";
+import { checkUsageMiddleware } from "@/lib/server/usage-middleware";
 import {
   getGuestTemplate,
   getPromptAgent,
   processPromptVariables,
   resolveTemplateTiles,
+  GUEST_DASHBOARD_TEMPLATES,
   PROMPT_VARIABLE_DEFINITIONS,
   type PromptAgentId,
   type PromptVariableId,
@@ -37,7 +39,21 @@ const requestSchema = z.object({
 
 const MAX_TOKENS = DEFAULT_MAX_OUTPUT_TOKENS;
 
-// Reduce tokens for tiles that often hit limits
+// Map request size to max tokens
+function getMaxTokensForRequestSize(size: "small" | "medium" | "large"): number {
+  switch (size) {
+    case "small":
+      return 400; // ~200-400 tokens
+    case "medium":
+      return 800; // ~600-800 tokens
+    case "large":
+      return 1600; // ~1200-1600 tokens
+    default:
+      return 400;
+  }
+}
+
+// Reduce tokens for tiles that often hit limits (legacy function, kept for backward compatibility)
 function getMaxTokensForTile(templateTileId: string | undefined): number {
   const problemTiles = [
     "business_goals_2025",
@@ -191,6 +207,18 @@ export async function POST(request: Request) {
   );
   const model = resolveModel(requestedModel ?? agentDefinition.defaultModel);
 
+  // Check usage limits before processing
+  const template = GUEST_DASHBOARD_TEMPLATES[templateId];
+  const estimatedTiles = template?.tiles.length || 8;
+  
+  const usageCheck = await checkUsageMiddleware(payload, request.headers, estimatedTiles);
+  if (!usageCheck.allowed) {
+    return usageCheck.response || NextResponse.json(
+      { error: "Usage limit exceeded", code: "USAGE_LIMIT_EXCEEDED" },
+      { status: 429 }
+    );
+  }
+  
   try {
     console.log("[api/generate] 📤 Payload:", {
       salesRepCompany,
@@ -294,13 +322,22 @@ export async function POST(request: Request) {
         const batchResults = await Promise.all(
           batch.map(async (item, offset) => {
             const orderIndex = start + offset;
-            const maxTokens = getMaxTokensForTile(item.templateTileId ?? item.id);
+            
+            // Use requestSize from template tile if available, otherwise fallback to getMaxTokensForTile
+            const requestSize = item.requestSize ?? "small";
+            const maxTokens = item.requestSize 
+              ? getMaxTokensForRequestSize(requestSize)
+              : getMaxTokensForTile(item.templateTileId ?? item.id);
+            
+            // Determine model: use template's useMaxMode if available, otherwise use provided model
+            const tileModel = item.useMaxMode ? "gpt-5" : (model || "gpt-5-nano");
+            
             const generation = await generateTileContent({
               client: openai,
               prompt: item.prompt,
               title: item.title,
               orderIndex,
-              model,
+              model: tileModel,
               templateId,
               templateTileId: item.templateTileId ?? item.id,
               category: item.category,

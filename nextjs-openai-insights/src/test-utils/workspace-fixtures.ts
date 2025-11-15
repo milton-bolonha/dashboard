@@ -43,7 +43,7 @@ export function createTileFixture(overrides: Partial<Tile> = {}): Tile {
     templateId: overrides.templateId,
     templateTileId: overrides.templateTileId,
     category: overrides.category ?? "basic",
-    model: overrides.model ?? "gpt-5-mini",
+    model: overrides.model ?? "gpt-5-nano",
     orderIndex: overrides.orderIndex ?? 0,
     createdAt: overrides.createdAt ?? timestamp,
     updatedAt: overrides.updatedAt ?? timestamp,

@@ -17,10 +17,18 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { CSSProperties } from "react";
-import { Trash2, GripVertical, ChevronRight, RotateCw, Loader2, Plus } from "lucide-react";
+import {
+  Trash2,
+  GripVertical,
+  ChevronRight,
+  RotateCw,
+  Loader2,
+  Plus,
+} from "lucide-react";
 import { useEffect, useMemo, useState, useCallback } from "react";
 
 import type { AdeAppearanceTokens } from "@/lib/ade-theme";
+import { hexToRgbString } from "@/lib/color";
 import type { Tile } from "@/lib/types";
 
 type TileBoardVariant = "classic" | "dash" | "ade";
@@ -138,19 +146,26 @@ function SortableTileCard({
           cursor: isDragging ? "grabbing" : "pointer",
         }}
         data-testid="tile-card"
-        className={`group relative flex h-[220px] flex-col overflow-hidden rounded-[20px] border border-[#ededed] bg-white transition duration-150 ${isDragging ? "opacity-90" : ""}`}
+        className={`group relative flex h-[220px] flex-col overflow-hidden rounded-[20px] border border-[#ededed] bg-white transition duration-150 ${
+          isDragging ? "opacity-90" : ""
+        }`}
       >
-        <button
-          type="button"
-          onClick={() => onOpenTile(tile)}
-          className="flex flex-1 cursor-pointer flex-col justify-between px-4 py-4 text-left transition-colors hover:text-[#151515]"
-        >
+        {/* Header - bg branco com border bottom cinza claro */}
+        <div className="bg-white border-b border-[#e4e4e7] px-4 py-3">
           <div className="flex items-center justify-between gap-3">
             <h4 className="truncate text-base font-semibold text-[#151515]">
               {tile.title}
             </h4>
             <ChevronRight className="h-4 w-4 text-[#C4C4C4] transition group-hover:text-black" />
           </div>
+        </div>
+
+        {/* Body - bg cinza clarinho */}
+        <button
+          type="button"
+          onClick={() => onOpenTile(tile)}
+          className="flex flex-1 cursor-pointer flex-col justify-between bg-[#fafafa] px-4 py-4 text-left transition-colors hover:text-[#151515]"
+        >
           <p
             className="text-sm leading-relaxed text-[#3a3a3a]"
             style={{
@@ -223,8 +238,8 @@ function SortableTileCard({
           <button
             type="button"
             className="flex h-8 w-8 items-center justify-center rounded-full bg-white/70 text-orange-500 shadow-sm transition hover:bg-white"
-          {...(listeners ?? {})}
-          {...attributes}
+            {...(listeners ?? {})}
+            {...attributes}
             aria-label="Drag to reorder"
           >
             <GripVertical className="h-4 w-4" />
@@ -253,9 +268,7 @@ function SortableTileCard({
         className="flex w-full flex-col items-start gap-3 text-left"
       >
         <div className="flex w-full items-start justify-between gap-3">
-          <h4 className="text-lg font-semibold text-slate-900">
-            {tile.title}
-          </h4>
+          <h4 className="text-lg font-semibold text-slate-900">{tile.title}</h4>
           <ChevronRight className="h-4 w-4 text-slate-300 transition group-hover:text-orange-500" />
         </div>
         <p className={`text-sm leading-relaxed ${tokens.textMuted}`}>
@@ -264,7 +277,9 @@ function SortableTileCard({
       </button>
 
       <footer className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
-        <span className={`inline-flex items-center rounded-full bg-gradient-to-r ${tokens.accent} px-3 py-1 text-white shadow-sm`}>
+        <span
+          className={`inline-flex items-center rounded-full bg-gradient-to-r ${tokens.accent} px-3 py-1 text-white shadow-sm`}
+        >
           {tile.model}
         </span>
         <span className="flex items-center gap-1">
@@ -366,7 +381,11 @@ export function TileBoard({
           return currentItems;
         }
         const newOrder = arrayMove(currentItems, oldIndex, newIndex);
-        void commitReorder(newOrder);
+        // CRITICAL: Não chamar commitReorder dentro de setState
+        // Usar setTimeout para executar após o render
+        setTimeout(() => {
+          void commitReorder(newOrder);
+        }, 0);
         return newOrder;
       });
     },
@@ -382,7 +401,11 @@ export function TileBoard({
       <header className="flex items-center justify-between">
         <h3
           className="text-lg font-semibold"
-          style={isAdeVariant ? { color: appearance?.headingColor || "#000000" } : { color: "#000000" }}
+          style={
+            isAdeVariant
+              ? { color: hexToRgbString(appearance?.headingColor || "#1f1f1f") }
+              : { color: "rgb(0, 0, 0)" }
+          }
         >
           AI Insight Tiles
         </h3>
@@ -399,8 +422,18 @@ export function TileBoard({
             className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
           >
             Bulk Upload Your Prompt
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 10l7-7m0 0l7 7m-7-7v18"
+              />
             </svg>
           </button>
           <button
@@ -412,7 +445,9 @@ export function TileBoard({
           </button>
         </div>
         {(isReordering || externalReordering) && (
-          <p className="absolute right-0 top-full mt-1 text-xs text-orange-600">Saving new order…</p>
+          <p className="absolute right-0 top-full mt-1 text-xs text-orange-600">
+            Saving new order…
+          </p>
         )}
       </header>
 
@@ -431,15 +466,26 @@ export function TileBoard({
               type="button"
               onClick={handleAddPrompt}
               className="group relative flex h-[220px] flex-col overflow-hidden rounded-[20px] border-2 border-dashed border-gray-400 bg-white transition-all duration-200 flex-col items-center justify-center cursor-pointer hover:border-gray-500 hover:bg-gray-50"
-              style={isAdeVariant ? { backgroundColor: appearance?.surfaceColor, borderColor: appearance?.cardBorderColor } : undefined}
+              style={
+                isAdeVariant
+                  ? {
+                      backgroundColor: appearance?.surfaceColor,
+                      borderColor: appearance?.cardBorderColor,
+                    }
+                  : undefined
+              }
             >
               <div className="flex flex-col items-center space-y-3">
                 <div className="w-12 h-12 rounded-full bg-gray-300 group-hover:bg-gray-400 transition-colors flex items-center justify-center">
                   <Plus className="w-6 h-6 text-gray-600 group-hover:text-gray-700" />
                 </div>
-                <span 
-                  className="text-sm font-medium" 
-                  style={isAdeVariant ? { color: appearance?.textColor || "#2c2c2c" } : { color: "#4b5563" }}
+                <span
+                  className="text-sm font-medium"
+                  style={
+                    isAdeVariant
+                      ? { color: appearance?.textColor || "#2c2c2c" }
+                      : { color: "#4b5563" }
+                  }
                 >
                   Add Prompt
                 </span>
@@ -502,4 +548,3 @@ function SortableTile({
     />
   );
 }
-

@@ -41,6 +41,25 @@ export function rgbToHex({ r, g, b }: RGB): string {
   return `#${componentToHex(r)}${componentToHex(g)}${componentToHex(b)}`;
 }
 
+/**
+ * Converts hex color to RGB string format (rgb(r, g, b))
+ * If input is already RGB/RGBA format, returns as-is
+ * Falls back to black if conversion fails
+ */
+export function hexToRgbString(color: string): string {
+  // If already RGB/RGBA format, return as-is
+  if (color.startsWith("rgb") || color.startsWith("rgba")) {
+    return color;
+  }
+  
+  const rgb = hexToRgb(color);
+  if (!rgb) {
+    return "rgb(0, 0, 0)"; // Fallback to black
+  }
+  
+  return `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+}
+
 export function rgbToHsl({ r, g, b }: RGB): HSL {
   const normalizedR = r / 255;
   const normalizedG = g / 255;

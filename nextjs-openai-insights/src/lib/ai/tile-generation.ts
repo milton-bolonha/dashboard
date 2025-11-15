@@ -72,13 +72,17 @@ function coerceToText(value: unknown): string {
 }
 
 function buildResponsesInput(prompt: string) {
+  // Get language instruction from env var or default to English
+  const responseLanguage = process.env.NEXT_PUBLIC_AI_RESPONSE_LANGUAGE || "English";
+  const languageInstruction = `\n\nIMPORTANT: Respond ONLY in ${responseLanguage}. Do not use any other language.`;
+  
   return [
     {
       role: "user" as const,
       content: [
         {
           type: "input_text" as const,
-          text: prompt,
+          text: prompt + languageInstruction,
         },
       ],
     },

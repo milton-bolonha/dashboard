@@ -82,6 +82,7 @@ export interface WorkspaceAppearance {
   baseColor: string;
   surfaceColor?: string;
   sidebarColor?: string;
+  headingColor?: string; // Added: heading color (same as textColor but saved separately for clarity)
   textColor?: string;
   mutedTextColor?: string;
 }

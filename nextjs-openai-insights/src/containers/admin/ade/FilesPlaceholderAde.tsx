@@ -1,21 +1,26 @@
 import type { AdeAppearanceTokens } from "@/lib/ade-theme";
+import { hexToRgbString } from "@/lib/color";
 
 interface FilesPlaceholderAdeProps {
   appearance: AdeAppearanceTokens;
 }
 
 export function FilesPlaceholderAde({ appearance }: FilesPlaceholderAdeProps) {
-  const headingColor = appearance.headingColor ?? "#1f1f1f";
-  const textColor = appearance.textColor ?? "#2c2c2c";
-  const cardBorder = appearance.cardBorderColor ?? "#d9d9d9";
-  const surfaceColor = appearance.surfaceColor ?? "#ffffff";
+  // Use saved values from appearance directly (like AI Insight Tiles does)
+  // Fallback to defaults if not available (backward compatibility)
+  // Convert to RGB format for consistency (React converts some hex to RGB automatically)
+  const headingColorHex = appearance?.headingColor || "#1f1f1f";
+  const headingColor = hexToRgbString(headingColorHex);
+  const textColor = appearance?.textColor || "#2c2c2c";
+  const cardBorder = appearance?.cardBorderColor || "#d9d9d9";
+  const surfaceColor = appearance?.surfaceColor || "#ffffff";
 
   return (
     <section className="space-y-4" suppressHydrationWarning>
       <header>
         <h3
           className="text-lg font-semibold"
-          style={{ color: headingColor || "#000000" }}
+          style={{ color: headingColor }}
           suppressHydrationWarning
         >
           Files & Assets

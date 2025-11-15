@@ -279,30 +279,28 @@ export function ContactDetailModal({
                       key={key}
                       className="rounded-2xl border border-[#ededed] bg-white p-5"
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.3em] text-[#5f5f5f]">
-                            {metadata.title}
-                          </h3>
-                          <p className="text-sm text-[#6f6f6f]">{metadata.description}</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleCopyText(tile?.content, key)}
-                          disabled={!tile?.content}
-                          className="group inline-flex h-9 items-center gap-2 rounded-full border border-[#e4e4e4] px-3 text-xs font-semibold text-[#1f1f1f] transition hover:bg-[#f5f5f5] disabled:cursor-not-allowed disabled:text-[#a1a1a1] cursor-pointer"
-                        >
-                          <Copy className="h-3.5 w-3.5" />
-                          <span className="opacity-0 transition-opacity group-hover:opacity-100">
-                            {copiedKey === key ? "Copied" : "Copy"}
-                          </span>
-                        </button>
+                      <div>
+                        <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.3em] text-[#5f5f5f]">
+                          {metadata.title}
+                        </h3>
+                        <p className="text-sm text-[#6f6f6f]">{metadata.description}</p>
                       </div>
                       <div className="mt-4 rounded-xl bg-[#f9f9f9] px-4 py-3 text-sm leading-relaxed text-[#2f2f2f]">
                         {tile?.content?.trim()?.length
                           ? tile.content
                           : "No insight generated yet. Refresh outreach to create this view."}
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyText(tile?.content, key)}
+                        disabled={!tile?.content}
+                        className="mt-3 group inline-flex items-center gap-2 text-xs font-semibold text-[#7d7d7d] transition hover:text-black disabled:cursor-not-allowed disabled:text-[#a1a1a1] cursor-pointer"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                        <span className="opacity-0 transition-opacity group-hover:opacity-100">
+                          {copiedKey === key ? "Copied" : "Copy"}
+                        </span>
+                      </button>
                       <div className="mt-3 text-[0.65rem] uppercase tracking-[0.28em] text-[#8a8a8a]">
                         Updated{" "}
                         {tile?.updatedAt

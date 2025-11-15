@@ -191,7 +191,7 @@ export function ClassicHeroForm({
       await onSubmit({
         ...values,
         templateId: "template_1", // Default template
-        model: "gpt-5-mini", // Default model
+        model: "gpt-5-nano", // Default model
         promptAgent: "ade_research_analyst", // Default agent
         responseLength: "medium", // Default length
         promptVariables: [],

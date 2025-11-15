@@ -12,13 +12,31 @@ const createTileSchema = z.object({
   prompt: z.string().min(1, "Prompt is required"),
   model: z.string().optional(),
   useMaxPrompt: z.boolean().optional(),
+  requestSize: z.enum(["small", "medium", "large"]).optional(),
 });
+
+// Map request size to max tokens
+function getMaxTokensForSize(size: "small" | "medium" | "large"): number {
+  switch (size) {
+    case "small":
+      return 400; // ~200-400 tokens
+    case "medium":
+      return 800; // ~600-800 tokens
+    case "large":
+      return 1600; // ~1200-1600 tokens
+    default:
+      return 400;
+  }
+}
 
 export async function POST(request: Request) {
   console.log("[API] /api/workspace/tiles - Creating custom tile");
 
   const body = await request.json().catch(() => null);
   console.log("[API] /api/workspace/tiles - Received body:", body);
+  
+  // Check usage limits (simplified check - in production use proper middleware)
+  // For now, we'll rely on client-side tracking and add server-side checks later
 
   const parseResult = createTileSchema.safeParse(body);
   if (!parseResult.success) {
@@ -40,33 +58,56 @@ export async function POST(request: Request) {
 
   console.log("[API] /api/workspace/tiles - Workspace found:", workspace.sessionId);
 
-  const { title, prompt, model, useMaxPrompt } = parseResult.data;
-  const selectedModel = model || (useMaxPrompt ? "gpt-4" : "gpt-3.5-turbo");
+  const { title, prompt, model, useMaxPrompt, requestSize = "small" } = parseResult.data;
+  
+  // Determine model: useMaxPrompt = true -> gpt-5, false -> gpt-5-nano
+  const selectedModel = model || (useMaxPrompt ? "gpt-5" : "gpt-5-nano");
   const resolvedModel = resolveModel(selectedModel);
+  
+  // Get max tokens based on request size
+  const maxTokens = getMaxTokensForSize(requestSize);
 
-  console.log("[API] /api/workspace/tiles - Creating tile with model:", resolvedModel);
+  // Add company context to prompt (internal context, not visible to user)
+  // This helps the AI understand which company is being researched
+  const companyName = workspace.company.name || "the company";
+  const companyWebsite = workspace.company.website;
+  const companyContext = companyWebsite 
+    ? `[Context: This research is about ${companyName} (${companyWebsite}). Use this information to provide accurate and relevant insights, but do not mention the company name or website in your response unless explicitly asked.]\n\n`
+    : `[Context: This research is about ${companyName}. Use this information to provide accurate and relevant insights, but do not mention the company name in your response unless explicitly asked.]\n\n`;
+  const enhancedPrompt = companyContext + prompt;
+
+  console.log("[API] /api/workspace/tiles - Creating tile with model:", resolvedModel, "maxTokens:", maxTokens, "company:", companyName);
 
   try {
     // Generate tile content
     const existingTiles = workspace.company.tiles || [];
     const generationResult = await generateTileContent({
-      prompt,
+      prompt: enhancedPrompt,
       title,
       templateId: "custom",
       model: resolvedModel,
       orderIndex: existingTiles.length,
-      maxTokens: 2000,
+      maxTokens,
     });
 
+    // Para tiles individuais criados pelo usuário, colocar no início (orderIndex negativo)
+    // Isso faz com que apareçam primeiro, mas ainda podem ser reordenados via drag and drop
+    // Usamos -1 para o mais recente, -2 para o anterior, etc.
+    // Tiles de template têm orderIndex positivo (0, 1, 2...)
+    const minOrderIndex = existingTiles.length > 0 
+      ? Math.min(...existingTiles.map(t => t.orderIndex ?? 0))
+      : 0;
+    const newOrderIndex = minOrderIndex < 0 ? minOrderIndex - 1 : -1;
+    
     const newTile: Tile = {
       id: `tile_${randomUUID()}`,
       title,
       content: generationResult.content,
-      prompt,
+      prompt, // Store original prompt (without company context) for display
       templateId: "custom",
       category: "custom",
       model: resolvedModel,
-      orderIndex: existingTiles.length,
+      orderIndex: newOrderIndex, // Negativo para aparecer primeiro
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       totalTokens: generationResult.totalTokens,

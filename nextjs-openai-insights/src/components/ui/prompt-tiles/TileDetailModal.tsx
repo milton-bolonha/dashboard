@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   Bot,
@@ -41,6 +41,7 @@ export function TileDetailModal({
   const [attachments, setAttachments] = useState<TileChatAttachment[]>([]);
   const [isAttachmentPickerOpen, setAttachmentPickerOpen] = useState(false);
   const [attachmentInputKey, setAttachmentInputKey] = useState(() => Date.now());
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const isAde = theme === "ade";
 
@@ -75,6 +76,13 @@ export function TileDetailModal({
       },
     ].filter((entry) => entry.content && entry.content.trim().length > 0);
   }, [tile.content, tile.createdAt, tile.history, tile.id, tile.prompt, tile.updatedAt]);
+
+  // Scroll automático para a última mensagem quando o histórico muda ou após envio
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
+  }, [history, isSubmitting]);
 
   const formatTimestamp = (value: string | undefined) => {
     if (!value) return "N/A";
@@ -328,7 +336,10 @@ export function TileDetailModal({
                     build a thread.
                   </div>
                 ) : (
-                  history.map(renderHistoryEntry)
+                  <>
+                    {history.map(renderHistoryEntry)}
+                    <div ref={messagesEndRef} />
+                  </>
                 )}
               </div>
 

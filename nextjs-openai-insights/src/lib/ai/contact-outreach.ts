@@ -107,12 +107,9 @@ CONTACT:
 
 ${baseContext}
 
-Provide concise bullet points highlighting:
-- Role responsibilities and KPIs
-- Likely challenges/pain points
-- Motivations and triggers for outreach
-- Recommended talk tracks
-Limit to 180 words. Use a friendly but professional tone.`,
+Provide concise insights in short sentences highlighting role responsibilities and KPIs, likely challenges and pain points, motivations and triggers for outreach, and recommended talk tracks. Synthesize key information concisely. Limit to 180 words. Use a friendly but professional tone.
+
+IMPORTANT: Respond ONLY in English. Do not use any other language.`,
     },
     {
       key: "emailPitch",
@@ -127,13 +124,9 @@ CONTACT:
 
 ${baseContext}
 
-Email requirements:
-- Subject line tailored to ${company.name}
-- Reference their goals or pain points
-- Keep the body under 90 words
-- Include up to 3 short bullet points
-- Close with a clear CTA
-Return as Subject: [...] / Body: [...]`,
+Email requirements: Subject line tailored to ${company.name}, reference their goals or pain points, keep the body under 90 words with concise sentences (avoid bullet points), and close with a clear CTA. Synthesize the message concisely. Return as Subject: [...] / Body: [...]
+
+IMPORTANT: Respond ONLY in English. Do not use any other language.`,
     },
     {
       key: "coldCallScript",
@@ -154,7 +147,9 @@ Structure:
 - 3 discovery questions
 - Suggested next step
 - Quick objection handler
-Keep it under 150 words, conversational tone.`,
+Keep it under 150 words, conversational tone.
+
+IMPORTANT: Respond ONLY in English. Do not use any other language.`,
     },
   ];
 

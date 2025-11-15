@@ -3,10 +3,17 @@
 import { useState } from "react";
 import { X, Plus, Zap } from "lucide-react";
 
+type RequestSize = "small" | "medium" | "large";
+
 interface AddPromptModalProps {
   open: boolean;
   onClose: () => void;
-  onAddPrompt?: (prompt: { title: string; description: string; useMaxPrompt: boolean }) => void;
+  onAddPrompt?: (prompt: {
+    title: string;
+    description: string;
+    useMaxPrompt: boolean;
+    requestSize: RequestSize;
+  }) => void;
 }
 
 export function AddPromptModal({
@@ -17,6 +24,7 @@ export function AddPromptModal({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [useMaxPrompt, setUseMaxPrompt] = useState(false);
+  const [requestSize, setRequestSize] = useState<RequestSize>("small");
 
   const handleSubmit = () => {
     if (!title.trim()) return;
@@ -25,12 +33,14 @@ export function AddPromptModal({
       title: title.trim(),
       description: description.trim() || title.trim(),
       useMaxPrompt,
+      requestSize,
     });
 
     // Reset form
     setTitle("");
     setDescription("");
     setUseMaxPrompt(false);
+    setRequestSize("small");
 
     onClose();
   };
@@ -39,18 +49,29 @@ export function AddPromptModal({
     setTitle("");
     setDescription("");
     setUseMaxPrompt(false);
+    setRequestSize("small");
     onClose();
   };
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm" onClick={handleClose}>
-      <div className="w-full max-w-2xl max-h-[80vh] overflow-hidden rounded-[28px] border border-[#e4e4e4] bg-white shadow-[0_32px_80px_rgba(15,23,42,0.2)]" onClick={(event) => event.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm"
+      onClick={handleClose}
+    >
+      <div
+        className="w-full max-w-2xl max-h-[80vh] overflow-hidden rounded-[28px] border border-[#e4e4e4] bg-white shadow-[0_32px_80px_rgba(15,23,42,0.2)]"
+        onClick={(event) => event.stopPropagation()}
+      >
         <header className="flex items-start justify-between gap-4 px-8 py-6">
           <div className="space-y-2">
-            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-[#9a9a9a]">Add New Prompt</p>
-            <h2 className="text-2xl font-semibold text-[#1f1f1f]">Create Custom Research Prompt</h2>
+            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-[#9a9a9a]">
+              Add New Prompt
+            </p>
+            <h2 className="text-2xl font-semibold text-[#1f1f1f]">
+              Create Custom Research Prompt
+            </h2>
           </div>
           <button
             type="button"
@@ -63,7 +84,7 @@ export function AddPromptModal({
         </header>
 
         <div className="flex flex-col">
-          <div className="flex-1 px-8 py-6 space-y-6">
+          <div className="flex-1 px-8 pb-6 space-b-6 overflow-y-auto max-h-[60vh]">
             {/* Title */}
             <div className="space-y-2">
               <label className="block text-sm font-semibold text-[#1f1f1f]">
@@ -92,22 +113,85 @@ export function AddPromptModal({
               />
             </div>
 
+            {/* Request Size */}
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-[#1f1f1f]">
+                Request Size
+              </label>
+              <div className="grid grid-cols-3 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setRequestSize("small")}
+                  className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${
+                    requestSize === "small"
+                      ? "border-black bg-black text-white"
+                      : "border-[#e4e4e4] bg-white text-[#1f1f1f] hover:border-black/30"
+                  }`}
+                >
+                  Small
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRequestSize("medium")}
+                  className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${
+                    requestSize === "medium"
+                      ? "border-black bg-black text-white"
+                      : "border-[#e4e4e4] bg-white text-[#1f1f1f] hover:border-black/30"
+                  }`}
+                >
+                  Medium
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRequestSize("large")}
+                  disabled={!useMaxPrompt}
+                  className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${
+                    requestSize === "large"
+                      ? "border-black bg-black text-white"
+                      : "border-[#e4e4e4] bg-white text-[#1f1f1f] hover:border-black/30"
+                  } ${!useMaxPrompt ? "opacity-50 cursor-not-allowed" : ""}`}
+                  title={
+                    !useMaxPrompt
+                      ? "Large size only available with Max Mode"
+                      : ""
+                  }
+                >
+                  Large
+                </button>
+              </div>
+              <p className="text-xs text-[#6f6f6f]">
+                {requestSize === "small" && "Short responses (~200-400 tokens)"}
+                {requestSize === "medium" &&
+                  "Medium responses (~600-800 tokens)"}
+                {requestSize === "large" &&
+                  "Long responses (~1200-1600 tokens, requires Max Mode)"}
+              </p>
+            </div>
+
             {/* MAX PROMPT Checkbox */}
             <div className="space-y-3">
               <label className="flex items-center space-x-3 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={useMaxPrompt}
-                  onChange={(e) => setUseMaxPrompt(e.target.checked)}
+                  onChange={(e) => {
+                    setUseMaxPrompt(e.target.checked);
+                    if (!e.target.checked && requestSize === "large") {
+                      setRequestSize("medium");
+                    }
+                  }}
                   className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
                 />
                 <div className="flex items-center space-x-2">
                   <Zap className="w-4 h-4 text-amber-500" />
-                  <span className="text-sm font-semibold text-[#1f1f1f]">Use MAX PROMPT</span>
+                  <span className="text-sm font-semibold text-[#1f1f1f]">
+                    Use MAX MODE
+                  </span>
                 </div>
               </label>
               <p className="text-xs text-[#6f6f6f] ml-7">
-                Enable advanced AI with smarter search and more elaborate responses using GPT-4 instead of GPT-3.5 mini.
+                Enable advanced AI with greater capabilities using GPT-5 instead
+                of GPT-5-nano. Large request size requires Max Mode.
               </p>
             </div>
           </div>
