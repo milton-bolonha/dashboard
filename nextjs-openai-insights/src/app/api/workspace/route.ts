@@ -4,44 +4,53 @@ import { clearWorkspace, ensureWorkspaceSession, touchWorkspace } from "@/lib/co
 import { db } from "@/lib/db/mongodb";
 import { workspaceDocumentToSnapshot, type WorkspaceDocument } from "@/lib/db/models/Workspace";
 import { getCurrentSession } from "@/lib/cookies-store";
+import { getAuth } from "@/lib/auth/get-auth";
 
+/**
+ * GET /api/workspace
+ * Load workspace
+ * Security: Members load from MongoDB (scoped by userId), Guests load from localStorage only
+ */
 export async function GET() {
-  // Try MongoDB first
-  try {
-    const { sessionId } = await getCurrentSession();
-    if (sessionId) {
+  const { userId } = await getAuth();
+  const { sessionId } = await getCurrentSession();
+
+  // Members: Try MongoDB first (scoped by userId for security)
+  if (userId && sessionId) {
+    try {
       const workspaceDoc = await db.findOne<WorkspaceDocument>("workspaces", {
         sessionId,
+        userId, // Security: Filter by userId
       });
 
       if (workspaceDoc) {
         const workspace = workspaceDocumentToSnapshot(workspaceDoc);
-        console.log("[api/workspace] ✅ Workspace carregado do MongoDB");
+        console.log("[api/workspace] ✅ Workspace carregado do MongoDB (member)");
         return NextResponse.json(workspace, {
           headers: {
             "Cache-Control": "no-store",
           },
         });
       }
-    }
-  } catch (error) {
-    // MongoDB unavailable or error - fallback to localStorage
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    const errorCode = (error as Error & { code?: string }).code;
-    
-    if (errorCode === "MONGODB_CIRCUIT_OPEN") {
-      console.log("[api/workspace] ⚠️ MongoDB circuit breaker aberto, usando fallback localStorage");
-    } else {
-      console.warn("[api/workspace] ⚠️ Erro ao ler do MongoDB, usando fallback localStorage:", errorMessage);
+    } catch (error) {
+      // MongoDB unavailable or error - fallback to localStorage
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorCode = (error as Error & { code?: string }).code;
+      
+      if (errorCode === "MONGODB_CIRCUIT_OPEN") {
+        console.log("[api/workspace] ⚠️ MongoDB circuit breaker aberto, usando fallback localStorage");
+      } else {
+        console.warn("[api/workspace] ⚠️ Erro ao ler do MongoDB, usando fallback localStorage:", errorMessage);
+      }
     }
   }
 
-  // Fallback to localStorage
+  // Guests: Load from localStorage only (never MongoDB)
   // Use ensureWorkspaceSession to create a default workspace if none exists
   // This prevents "cache expired" error on first load
   const workspace = await ensureWorkspaceSession();
   
-  console.log("[api/workspace] ✅ Workspace carregado/criado do localStorage (fallback)");
+  console.log("[api/workspace] ✅ Workspace carregado/criado do localStorage", userId ? "(fallback member)" : "(guest)");
   return NextResponse.json(workspace, {
     headers: {
       "Cache-Control": "no-store",

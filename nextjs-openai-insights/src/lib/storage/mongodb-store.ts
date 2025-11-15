@@ -34,10 +34,18 @@ async function isMongoAvailable(): Promise<boolean> {
 /**
  * Load companies with dashboards from MongoDB
  * Returns array of companies (for compatibility with localStorage API)
+ * Security: Only loads data for the specified userId (if provided)
+ * If userId is null, returns empty array (guests should not access MongoDB)
  */
 export async function loadCompaniesWithDashboardsFromMongo(
-  sessionId?: string
+  sessionId?: string,
+  userId?: string | null
 ): Promise<CompanyWithDashboards[]> {
+  // Security: Guests (userId === null) should never access MongoDB
+  if (!userId) {
+    return [];
+  }
+
   if (!(await isMongoAvailable())) {
     return [];
   }
@@ -45,15 +53,19 @@ export async function loadCompaniesWithDashboardsFromMongo(
   try {
     let workspaceDocs: WorkspaceDocument[];
 
+    // Build filter with userId for security isolation
+    const filter: { sessionId?: string; userId: string } = {
+      userId,
+    };
+
     if (sessionId) {
-      // Load specific workspace
-      const workspaceDoc = await db.findOne<WorkspaceDocument>("workspaces", {
-        sessionId,
-      });
+      // Load specific workspace for this user
+      filter.sessionId = sessionId;
+      const workspaceDoc = await db.findOne<WorkspaceDocument>("workspaces", filter);
       workspaceDocs = workspaceDoc ? [workspaceDoc] : [];
     } else {
-      // Load all workspaces (for admin/migration purposes)
-      workspaceDocs = await db.find<WorkspaceDocument>("workspaces", {});
+      // Load all workspaces for this user only
+      workspaceDocs = await db.find<WorkspaceDocument>("workspaces", filter);
     }
 
     const companies: CompanyWithDashboards[] = [];
@@ -69,9 +81,10 @@ export async function loadCompaniesWithDashboardsFromMongo(
         updatedAt: workspaceDoc.updatedAt.toISOString(),
       };
 
-      // Load dashboards for this company
+      // Load dashboards for this company (scoped by userId for security)
       const dashboardDocs = await db.find<DashboardDocument>("dashboards", {
         companyId: workspaceDoc.sessionId,
+        userId: workspaceDoc.userId || userId, // Ensure userId filter
       });
 
       company.dashboards = dashboardDocs.map(dashboardDocumentToDashboard);
@@ -88,16 +101,25 @@ export async function loadCompaniesWithDashboardsFromMongo(
 
 /**
  * Save company to MongoDB
+ * Security: Only saves if userId is provided (members only, not guests)
+ * Returns false if userId is null (guests should not save to MongoDB)
  */
 export async function saveCompanyToMongo(
-  company: CompanyWithDashboards
+  company: CompanyWithDashboards,
+  userId: string | null
 ): Promise<boolean> {
+  // Security: Guests (userId === null) should never save to MongoDB
+  if (!userId) {
+    console.log("[MongoDB Store] ⚠️ Tentativa de salvar company sem userId (guest), ignorando MongoDB");
+    return false;
+  }
+
   if (!(await isMongoAvailable())) {
     return false;
   }
 
   try {
-    // Save or update workspace
+    // Save or update workspace with userId
     const workspaceDoc = workspaceSnapshotToDocument({
       sessionId: company.id,
       company: {
@@ -112,12 +134,18 @@ export async function saveCompanyToMongo(
       tilesToGenerate: 0,
     });
 
+    // Ensure userId is set in the document
+    const workspaceDocWithUserId: WorkspaceDocument = {
+      ...workspaceDoc,
+      userId,
+    } as WorkspaceDocument;
+
     await db.findOneAndUpdate<WorkspaceDocument>(
       "workspaces",
-      { sessionId: company.id },
+      { sessionId: company.id, userId }, // Security: Filter by userId
       {
         $set: {
-          ...workspaceDoc,
+          ...workspaceDocWithUserId,
           updatedAt: new Date(),
         },
         $setOnInsert: {
@@ -127,15 +155,21 @@ export async function saveCompanyToMongo(
       { upsert: true }
     );
 
-    // Save/update all dashboards
+    // Save/update all dashboards with userId
     for (const dashboard of company.dashboards) {
       const dashboardDoc = dashboardToDocument(dashboard);
+      // Ensure userId is set in dashboard document
+      const dashboardDocWithUserId: DashboardDocument = {
+        ...dashboardDoc,
+        userId,
+      } as DashboardDocument;
+
       await db.findOneAndUpdate<DashboardDocument>(
         "dashboards",
-        { id: dashboard.id },
+        { id: dashboard.id, userId }, // Security: Filter by userId
         {
           $set: {
-            ...dashboardDoc,
+            ...dashboardDocWithUserId,
             updatedAt: new Date(),
           },
           $setOnInsert: {
@@ -156,12 +190,21 @@ export async function saveCompanyToMongo(
 
 /**
  * Create dashboard in MongoDB
+ * Security: Only creates if userId is provided (members only, not guests)
+ * Returns null if userId is null (guests should not create in MongoDB)
  */
 export async function createDashboardInMongo(
   companyId: string,
   dashboardName: string,
+  userId: string | null,
   templateId?: string
 ): Promise<Dashboard | null> {
+  // Security: Guests (userId === null) should never create in MongoDB
+  if (!userId) {
+    console.log("[MongoDB Store] ⚠️ Tentativa de criar dashboard sem userId (guest), ignorando MongoDB");
+    return null;
+  }
+
   if (!(await isMongoAvailable())) {
     return null;
   }
@@ -186,19 +229,25 @@ export async function createDashboardInMongo(
     };
 
     const dashboardDoc = dashboardToDocument(dashboard);
-    await db.insertOne<DashboardDocument>("dashboards", dashboardDoc);
+    // Ensure userId is set in dashboard document
+    const dashboardDocWithUserId: DashboardDocument = {
+      ...dashboardDoc,
+      userId,
+    } as DashboardDocument;
 
-    // Set all other dashboards as inactive
+    await db.insertOne<DashboardDocument>("dashboards", dashboardDocWithUserId);
+
+    // Set all other dashboards as inactive (scoped by userId for security)
     await db.updateMany<DashboardDocument>(
       "dashboards",
-      { companyId, id: { $ne: dashboardId } },
+      { companyId, userId, id: { $ne: dashboardId } }, // Security: Filter by userId
       { $set: { isActive: false } }
     );
 
-    // Set new dashboard as active
+    // Set new dashboard as active (scoped by userId for security)
     await db.updateOne<DashboardDocument>(
       "dashboards",
-      { id: dashboardId },
+      { id: dashboardId, userId }, // Security: Filter by userId
       { $set: { isActive: true } }
     );
 
@@ -213,12 +262,20 @@ export async function createDashboardInMongo(
 
 /**
  * Update dashboard in MongoDB
+ * Security: Requires userId to ensure ownership verification
  */
 export async function updateDashboardInMongo(
   companyId: string,
   dashboardId: string,
+  userId: string | null,
   updates: Partial<Dashboard>
 ): Promise<boolean> {
+  // Security: Guests (userId === null) should never update in MongoDB
+  if (!userId) {
+    console.log("[MongoDB Store] ⚠️ Tentativa de atualizar dashboard sem userId (guest), ignorando MongoDB");
+    return false;
+  }
+
   if (!(await isMongoAvailable())) {
     return false;
   }
@@ -255,9 +312,10 @@ export async function updateDashboardInMongo(
       })) as DashboardDocument["contacts"];
     }
 
+    // Security: Filter by userId to ensure ownership
     await db.updateOne<DashboardDocument>(
       "dashboards",
-      { id: dashboardId, companyId },
+      { id: dashboardId, companyId, userId }, // Security: Filter by userId
       { $set: updateDoc }
     );
 
@@ -271,19 +329,29 @@ export async function updateDashboardInMongo(
 
 /**
  * Delete dashboard from MongoDB
+ * Security: Requires userId to ensure ownership verification
  */
 export async function deleteDashboardFromMongo(
   companyId: string,
-  dashboardId: string
+  dashboardId: string,
+  userId: string | null
 ): Promise<boolean> {
+  // Security: Guests (userId === null) should never delete from MongoDB
+  if (!userId) {
+    console.log("[MongoDB Store] ⚠️ Tentativa de deletar dashboard sem userId (guest), ignorando MongoDB");
+    return false;
+  }
+
   if (!(await isMongoAvailable())) {
     return false;
   }
 
   try {
+    // Security: Filter by userId to ensure ownership
     await db.deleteOne<DashboardDocument>("dashboards", {
       id: dashboardId,
       companyId,
+      userId, // Security: Filter by userId
     });
     return true;
   } catch (error) {
@@ -295,24 +363,34 @@ export async function deleteDashboardFromMongo(
 
 /**
  * Get active dashboard for a company
+ * Security: Requires userId to ensure data isolation
  */
 export async function getActiveDashboardFromMongo(
-  companyId: string
+  companyId: string,
+  userId: string | null
 ): Promise<Dashboard | null> {
+  // Security: Guests (userId === null) should never access MongoDB
+  if (!userId) {
+    return null;
+  }
+
   if (!(await isMongoAvailable())) {
     return null;
   }
 
   try {
+    // Security: Filter by userId to ensure data isolation
     const dashboardDoc = await db.findOne<DashboardDocument>("dashboards", {
       companyId,
+      userId, // Security: Filter by userId
       isActive: true,
     });
 
     if (!dashboardDoc) {
-      // Fallback to first dashboard
+      // Fallback to first dashboard for this user
       const firstDashboard = await db.findOne<DashboardDocument>("dashboards", {
         companyId,
+        userId, // Security: Filter by userId
       });
       if (!firstDashboard) return null;
       return dashboardDocumentToDashboard(firstDashboard);
@@ -328,27 +406,35 @@ export async function getActiveDashboardFromMongo(
 
 /**
  * Set active dashboard
+ * Security: Requires userId to ensure ownership verification
  */
 export async function setActiveDashboardInMongo(
   companyId: string,
-  dashboardId: string
+  dashboardId: string,
+  userId: string | null
 ): Promise<boolean> {
+  // Security: Guests (userId === null) should never update in MongoDB
+  if (!userId) {
+    console.log("[MongoDB Store] ⚠️ Tentativa de definir active dashboard sem userId (guest), ignorando MongoDB");
+    return false;
+  }
+
   if (!(await isMongoAvailable())) {
     return false;
   }
 
   try {
-    // Set all dashboards as inactive
+    // Set all dashboards as inactive (scoped by userId for security)
     await db.updateMany<DashboardDocument>(
       "dashboards",
-      { companyId },
+      { companyId, userId }, // Security: Filter by userId
       { $set: { isActive: false } }
     );
 
-    // Set target dashboard as active
+    // Set target dashboard as active (scoped by userId for security)
     await db.updateOne<DashboardDocument>(
       "dashboards",
-      { id: dashboardId, companyId },
+      { id: dashboardId, companyId, userId }, // Security: Filter by userId
       { $set: { isActive: true } }
     );
 
@@ -363,26 +449,36 @@ export async function setActiveDashboardInMongo(
 /**
  * Sync workspace tiles to active dashboard in MongoDB
  * This is used when workspace.company.tiles is updated
+ * Security: Requires userId to ensure ownership verification
  */
 export async function syncWorkspaceTilesToMongo(
   sessionId: string,
+  userId: string | null,
   tiles: unknown[] // Will be typed as Tile[]
 ): Promise<boolean> {
+  // Security: Guests (userId === null) should never sync to MongoDB
+  if (!userId) {
+    console.log("[MongoDB Store] ⚠️ Tentativa de sincronizar tiles sem userId (guest), ignorando MongoDB");
+    return false;
+  }
+
   if (!(await isMongoAvailable())) {
     return false;
   }
 
   try {
-    // Find active dashboard for this company
+    // Find active dashboard for this company (scoped by userId for security)
     const dashboardDoc = await db.findOne<DashboardDocument>("dashboards", {
       companyId: sessionId,
+      userId, // Security: Filter by userId
       isActive: true,
     });
 
     if (!dashboardDoc) {
-      // Try to find any dashboard, or create default
+      // Try to find any dashboard for this user, or create default
       const anyDashboard = await db.findOne<DashboardDocument>("dashboards", {
         companyId: sessionId,
+        userId, // Security: Filter by userId
       });
       
       if (!anyDashboard) {
@@ -390,10 +486,10 @@ export async function syncWorkspaceTilesToMongo(
         return false;
       }
 
-      // Update the found dashboard
+      // Update the found dashboard (scoped by userId for security)
       await db.updateOne<DashboardDocument>(
         "dashboards",
-        { id: anyDashboard.id },
+        { id: anyDashboard.id, userId }, // Security: Filter by userId
         {
           $set: {
             tiles: tiles.map((tile: Tile) => ({
@@ -408,10 +504,10 @@ export async function syncWorkspaceTilesToMongo(
       return true;
     }
 
-    // Update active dashboard tiles
+    // Update active dashboard tiles (scoped by userId for security)
     await db.updateOne<DashboardDocument>(
       "dashboards",
-      { id: dashboardDoc.id },
+      { id: dashboardDoc.id, userId }, // Security: Filter by userId
       {
         $set: {
           tiles: tiles.map((tile: any) => ({
@@ -434,21 +530,32 @@ export async function syncWorkspaceTilesToMongo(
 
 /**
  * Sync workspace contacts to active dashboard in MongoDB
+ * Security: Requires userId to ensure ownership verification
  */
 export async function syncWorkspaceContactsToMongo(
   sessionId: string,
+  userId: string | null,
   contacts: unknown[] // Will be typed as Contact[]
 ): Promise<boolean> {
+  // Security: Guests (userId === null) should never sync to MongoDB
+  if (!userId) {
+    console.log("[MongoDB Store] ⚠️ Tentativa de sincronizar contacts sem userId (guest), ignorando MongoDB");
+    return false;
+  }
+
   if (!(await isMongoAvailable())) {
     return false;
   }
 
   try {
+    // Security: Filter by userId to ensure data isolation
     const dashboardDoc = await db.findOne<DashboardDocument>("dashboards", {
       companyId: sessionId,
+      userId, // Security: Filter by userId
       isActive: true,
     }) || await db.findOne<DashboardDocument>("dashboards", {
       companyId: sessionId,
+      userId, // Security: Filter by userId
     });
 
     if (!dashboardDoc) {
@@ -456,9 +563,10 @@ export async function syncWorkspaceContactsToMongo(
       return false;
     }
 
+    // Security: Filter by userId to ensure ownership
     await db.updateOne<DashboardDocument>(
       "dashboards",
-      { id: dashboardDoc.id },
+      { id: dashboardDoc.id, userId }, // Security: Filter by userId
       {
         $set: {
           contacts: contacts.map((contact: Contact) => ({
@@ -480,21 +588,32 @@ export async function syncWorkspaceContactsToMongo(
 
 /**
  * Sync workspace notes to active dashboard in MongoDB
+ * Security: Requires userId to ensure ownership verification
  */
 export async function syncWorkspaceNotesToMongo(
   sessionId: string,
+  userId: string | null,
   notes: unknown[] // Will be typed as Note[]
 ): Promise<boolean> {
+  // Security: Guests (userId === null) should never sync to MongoDB
+  if (!userId) {
+    console.log("[MongoDB Store] ⚠️ Tentativa de sincronizar notes sem userId (guest), ignorando MongoDB");
+    return false;
+  }
+
   if (!(await isMongoAvailable())) {
     return false;
   }
 
   try {
+    // Security: Filter by userId to ensure data isolation
     const dashboardDoc = await db.findOne<DashboardDocument>("dashboards", {
       companyId: sessionId,
+      userId, // Security: Filter by userId
       isActive: true,
     }) || await db.findOne<DashboardDocument>("dashboards", {
       companyId: sessionId,
+      userId, // Security: Filter by userId
     });
 
     if (!dashboardDoc) {
@@ -502,9 +621,10 @@ export async function syncWorkspaceNotesToMongo(
       return false;
     }
 
+    // Security: Filter by userId to ensure ownership
     await db.updateOne<DashboardDocument>(
       "dashboards",
-      { id: dashboardDoc.id },
+      { id: dashboardDoc.id, userId }, // Security: Filter by userId
       {
         $set: {
           notes: notes.map((note: Note) => ({

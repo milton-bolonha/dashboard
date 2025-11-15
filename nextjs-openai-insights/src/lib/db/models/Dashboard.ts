@@ -12,6 +12,7 @@ export interface DashboardDocument extends Document {
   id: string; // Dashboard ID (same as in Dashboard interface)
   name: string;
   companyId: string; // Reference to company/workspace
+  userId: string; // Clerk user ID (required for security isolation)
   templateId?: string;
   tiles: TileDocument[];
   notes: NoteDocument[];

@@ -409,14 +409,24 @@ export async function POST(request: Request) {
       generatedAt: workspace.generatedAt,
     });
 
-    // Dual-write: Save to MongoDB if available (non-blocking)
-    try {
-      await migrateWorkspaceToMongo(workspace);
-      console.log("[api/generate] ✅ Workspace também salvo no MongoDB");
-    } catch (mongoError) {
-      // Log but don't fail the request if MongoDB is unavailable
-      const errorMessage = mongoError instanceof Error ? mongoError.message : String(mongoError);
-      console.warn("[api/generate] ⚠️ Falha ao salvar no MongoDB (não crítico):", errorMessage);
+    // Security: Only save to MongoDB if user is authenticated (member, not guest)
+    const { getAuth } = await import("@/lib/auth/get-auth");
+    const { userId } = await getAuth();
+    
+    if (userId) {
+      // Member: Save to MongoDB (non-blocking)
+      try {
+        const { migrateWorkspaceToMongo } = await import("@/lib/db/migration-helpers");
+        await migrateWorkspaceToMongo(workspace, userId);
+        console.log("[api/generate] ✅ Workspace também salvo no MongoDB (member)");
+      } catch (mongoError) {
+        // Log but don't fail the request if MongoDB is unavailable
+        const errorMessage = mongoError instanceof Error ? mongoError.message : String(mongoError);
+        console.warn("[api/generate] ⚠️ Falha ao salvar no MongoDB (não crítico):", errorMessage);
+      }
+    } else {
+      // Guest: Only localStorage, never MongoDB
+      console.log("[api/generate] ℹ️ Guest mode: Workspace salvo apenas em localStorage (não MongoDB)");
     }
 
     return NextResponse.json({

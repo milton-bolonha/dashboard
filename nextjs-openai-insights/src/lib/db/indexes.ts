@@ -14,16 +14,16 @@ export async function createIndexes(): Promise<void> {
     // Workspaces collection indexes
     const workspacesCollection = db.collection("workspaces");
     indexPromises.push(
-      workspacesCollection.createIndex({ sessionId: 1 }, { unique: true }),
-      workspacesCollection.createIndex({ userId: 1 }) // For future Clerk integration
+      workspacesCollection.createIndex({ userId: 1, sessionId: 1 }, { unique: true }), // Compound unique for security isolation
+      workspacesCollection.createIndex({ userId: 1, createdAt: -1 }) // For user workspace queries (recent first)
     );
 
     // Dashboards collection indexes
     const dashboardsCollection = db.collection("dashboards");
     indexPromises.push(
-      dashboardsCollection.createIndex({ companyId: 1 }),
-      dashboardsCollection.createIndex({ id: 1 }, { unique: true }),
-      dashboardsCollection.createIndex({ companyId: 1, isActive: 1 }) // Compound for active dashboard lookup
+      dashboardsCollection.createIndex({ userId: 1, companyId: 1 }), // Compound for security isolation
+      dashboardsCollection.createIndex({ userId: 1, id: 1 }, { unique: true }), // Compound unique for security
+      dashboardsCollection.createIndex({ userId: 1, companyId: 1, isActive: 1 }) // Compound for active dashboard lookup (scoped by userId)
     );
 
     // Tiles collection indexes (if stored separately)

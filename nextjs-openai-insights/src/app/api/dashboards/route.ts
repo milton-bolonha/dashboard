@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentSession } from "@/lib/cookies-store";
+import { getAuth } from "@/lib/auth/get-auth";
 import {
   loadCompaniesWithDashboardsFromMongo,
   saveCompanyToMongo,
@@ -9,30 +10,32 @@ import type { CompanyWithDashboards } from "@/lib/types/dashboard";
 
 /**
  * GET /api/dashboards
- * Load companies with dashboards (MongoDB first, fallback localStorage)
+ * Load companies with dashboards
+ * Security: Members load from MongoDB (scoped by userId), Guests load from localStorage only
  */
 export async function GET() {
   try {
+    const { userId } = await getAuth();
     const { sessionId } = await getCurrentSession();
     
-    // Try MongoDB first
-    try {
-      if (sessionId) {
-        const companies = await loadCompaniesWithDashboardsFromMongo(sessionId);
+    // Members: Load from MongoDB (scoped by userId for security)
+    if (userId) {
+      try {
+        const companies = await loadCompaniesWithDashboardsFromMongo(sessionId, userId);
         if (companies.length > 0) {
           return NextResponse.json({ companies });
         }
-      }
-    } catch (mongoError) {
-      const errorCode = (mongoError as Error & { code?: string }).code;
-      if (errorCode === "MONGODB_CIRCUIT_OPEN") {
-        console.log("[API] /api/dashboards - MongoDB circuit breaker aberto, usando fallback localStorage");
-      } else {
-        console.warn("[API] /api/dashboards - Erro ao ler do MongoDB, usando fallback localStorage:", mongoError);
+      } catch (mongoError) {
+        const errorCode = (mongoError as Error & { code?: string }).code;
+        if (errorCode === "MONGODB_CIRCUIT_OPEN") {
+          console.log("[API] /api/dashboards - MongoDB circuit breaker aberto, usando fallback localStorage");
+        } else {
+          console.warn("[API] /api/dashboards - Erro ao ler do MongoDB, usando fallback localStorage:", mongoError);
+        }
       }
     }
 
-    // Fallback to localStorage (server-side read)
+    // Guests: Load from localStorage only (never MongoDB)
     const companies = loadCompaniesWithDashboards();
     return NextResponse.json({ companies });
   } catch (error) {
@@ -47,7 +50,8 @@ export async function GET() {
 
 /**
  * POST /api/dashboards
- * Save company (dual-write: MongoDB + localStorage)
+ * Save company
+ * Security: Members save to MongoDB (scoped by userId), Guests save to localStorage only
  */
 export async function POST(request: Request) {
   try {
@@ -61,7 +65,9 @@ export async function POST(request: Request) {
       );
     }
 
-    // Save to localStorage (server-side write)
+    const { userId } = await getAuth();
+
+    // Always save to localStorage (for guests and as cache for members)
     const companies = loadCompaniesWithDashboards();
     const existingIndex = companies.findIndex((c) => c.id === company.id);
     if (existingIndex >= 0) {
@@ -71,13 +77,19 @@ export async function POST(request: Request) {
     }
     saveCompaniesWithDashboards(companies);
 
-    // Dual-write: Save to MongoDB if available (non-blocking)
-    try {
-      await saveCompanyToMongo(company);
-      console.log("[API] /api/dashboards - ✅ Company também salva no MongoDB");
-    } catch (mongoError) {
-      const errorMessage = mongoError instanceof Error ? mongoError.message : String(mongoError);
-      console.warn("[API] /api/dashboards - ⚠️ Falha ao salvar no MongoDB (não crítico):", errorMessage);
+    // Security: Only save to MongoDB if user is authenticated (member, not guest)
+    if (userId) {
+      // Member: Save to MongoDB (non-blocking)
+      try {
+        await saveCompanyToMongo(company, userId);
+        console.log("[API] /api/dashboards - ✅ Company também salva no MongoDB (member)");
+      } catch (mongoError) {
+        const errorMessage = mongoError instanceof Error ? mongoError.message : String(mongoError);
+        console.warn("[API] /api/dashboards - ⚠️ Falha ao salvar no MongoDB (não crítico):", errorMessage);
+      }
+    } else {
+      // Guest: Only localStorage, never MongoDB
+      console.log("[API] /api/dashboards - ℹ️ Guest mode: Company salva apenas em localStorage (não MongoDB)");
     }
 
     return NextResponse.json({ success: true, company });

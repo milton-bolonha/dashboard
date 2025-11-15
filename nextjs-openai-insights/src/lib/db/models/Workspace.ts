@@ -16,7 +16,7 @@ import type {
 export interface WorkspaceDocument extends Document {
   _id?: string;
   sessionId: string; // Unique session identifier
-  userId?: string; // Clerk user ID (when integrated, FASE 2)
+  userId: string; // Clerk user ID (required for security isolation)
   company: {
     id: string;
     name: string;
