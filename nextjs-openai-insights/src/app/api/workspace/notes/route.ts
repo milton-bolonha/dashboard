@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 
 import { readWorkspace, updateWorkspace, getCurrentSession } from "@/lib/cookies-store";
+import { getAuth } from "@/lib/auth/get-auth";
 import { syncWorkspaceNotesToMongo } from "@/lib/storage/mongodb-store";
 
 export async function GET() {
@@ -43,9 +44,10 @@ export async function POST(request: Request) {
 
     // Dual-write: Sync notes to MongoDB if available (non-blocking)
     try {
+      const { userId } = await getAuth();
       const { sessionId } = await getCurrentSession();
-      if (sessionId) {
-        await syncWorkspaceNotesToMongo(sessionId, updated.company.notes);
+      if (sessionId && userId) {
+        await syncWorkspaceNotesToMongo(sessionId, userId, updated.company.notes);
         console.log("[API] /api/workspace/notes - ✅ Notes também sincronizados no MongoDB");
       }
     } catch (mongoError) {

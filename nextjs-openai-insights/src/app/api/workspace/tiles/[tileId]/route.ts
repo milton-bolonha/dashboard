@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { updateWorkspace, getCurrentSession } from "@/lib/cookies-store";
+import { getAuth } from "@/lib/auth/get-auth";
 import { syncWorkspaceTilesToMongo } from "@/lib/storage/mongodb-store";
 
 type RouteContext = { params: Promise<{ tileId: string }> };
@@ -23,9 +24,10 @@ export async function DELETE(_request: Request, context: RouteContext) {
 
     // Dual-write: Sync tiles to MongoDB if available (non-blocking)
     try {
+      const { userId } = await getAuth();
       const { sessionId } = await getCurrentSession();
-      if (sessionId) {
-        await syncWorkspaceTilesToMongo(sessionId, updated.company.tiles);
+      if (sessionId && userId) {
+        await syncWorkspaceTilesToMongo(sessionId, userId, updated.company.tiles);
         console.log("[API] /api/workspace/tiles/[tileId] - ✅ Tiles também sincronizados no MongoDB");
       }
     } catch (mongoError) {

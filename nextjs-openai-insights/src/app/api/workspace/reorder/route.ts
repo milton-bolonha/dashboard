@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { readWorkspace, updateWorkspace, getCurrentSession } from "@/lib/cookies-store";
+import { getAuth } from "@/lib/auth/get-auth";
 import { syncWorkspaceTilesToMongo } from "@/lib/storage/mongodb-store";
 
 const reorderSchema = z.object({
@@ -64,9 +65,10 @@ export async function POST(request: Request) {
 
     // Dual-write: Sync tiles to MongoDB if available (non-blocking)
     try {
+      const { userId } = await getAuth();
       const { sessionId } = await getCurrentSession();
-      if (sessionId) {
-        await syncWorkspaceTilesToMongo(sessionId, updatedWorkspace.company.tiles);
+      if (sessionId && userId) {
+        await syncWorkspaceTilesToMongo(sessionId, userId, updatedWorkspace.company.tiles);
         console.log("[API] /api/workspace/reorder - ✅ Tiles também sincronizados no MongoDB");
       }
     } catch (mongoError) {

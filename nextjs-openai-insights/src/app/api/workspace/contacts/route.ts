@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 
 import { readWorkspace, updateWorkspace, getCurrentSession } from "@/lib/cookies-store";
+import { getAuth } from "@/lib/auth/get-auth";
 import { generateContactOutreach } from "@/lib/ai/contact-outreach";
 import { syncWorkspaceContactsToMongo } from "@/lib/storage/mongodb-store";
 
@@ -79,9 +80,10 @@ export async function POST(request: Request) {
 
     // Dual-write: Sync contacts to MongoDB if available (non-blocking)
     try {
+      const { userId } = await getAuth();
       const { sessionId } = await getCurrentSession();
-      if (sessionId) {
-        await syncWorkspaceContactsToMongo(sessionId, updated.company.contacts);
+      if (sessionId && userId) {
+        await syncWorkspaceContactsToMongo(sessionId, userId, updated.company.contacts);
         console.log("[API] /api/workspace/contacts - ✅ Contacts também sincronizados no MongoDB");
       }
     } catch (mongoError) {

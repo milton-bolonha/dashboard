@@ -3,6 +3,7 @@ import { z } from "zod";
 import { randomUUID } from "crypto";
 
 import { readWorkspace, updateWorkspace, getCurrentSession } from "@/lib/cookies-store";
+import { getAuth } from "@/lib/auth/get-auth";
 import { resolveModel } from "@/lib/ai/settings";
 import type { Tile } from "@/lib/types";
 import { generateTileContent } from "@/lib/ai/tile-generation";
@@ -131,9 +132,10 @@ export async function POST(request: Request) {
 
     // Dual-write: Sync tiles to MongoDB if available (non-blocking)
     try {
+      const { userId } = await getAuth();
       const { sessionId } = await getCurrentSession();
-      if (sessionId) {
-        await syncWorkspaceTilesToMongo(sessionId, updatedWorkspace.company.tiles);
+      if (sessionId && userId) {
+        await syncWorkspaceTilesToMongo(sessionId, userId, updatedWorkspace.company.tiles);
         console.log("[API] /api/workspace/tiles - ✅ Tiles também sincronizados no MongoDB");
       }
     } catch (mongoError) {
