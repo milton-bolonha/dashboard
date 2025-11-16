@@ -161,6 +161,8 @@ export function resolveTemplateTiles(
         preferredLength: runtimeLength,
         runtimeVariables,
         bulkGroup: "csv_upload",
+        useMaxMode: templateUseMaxMode,
+        requestSize: templateRequestSize,
       };
     }) ?? [];
 

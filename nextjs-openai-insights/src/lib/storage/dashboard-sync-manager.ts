@@ -102,6 +102,8 @@ export function safeSyncWorkspaceToCompany(
           companyId: workspace.sessionId,
           templateId: workspace.promptSettings?.templateId,
           tiles: workspace.company.tiles ?? [],
+          notes: workspace.company.notes ?? [],
+          contacts: workspace.company.contacts ?? [],
           appearance: workspace.appearance?.baseColor && workspace.appearance.baseColor.trim() 
             ? workspace.appearance 
             : undefined,
@@ -110,8 +112,6 @@ export function safeSyncWorkspaceToCompany(
           isActive: true,
         },
       ],
-      notes: workspace.company.notes ?? [],
-      contacts: workspace.company.contacts ?? [],
       createdAt: workspace.generatedAt ?? new Date().toISOString(),
       updatedAt: workspace.generatedAt ?? new Date().toISOString(),
     };
@@ -170,9 +170,12 @@ export function safeSyncWorkspaceToCompany(
       });
     }
     
-    // Sempre sincronizar notes e contacts (são compartilhados)
-    company.notes = workspace.company.notes ?? [];
-    company.contacts = workspace.company.contacts ?? [];
+    // Sempre sincronizar notes e contacts no dashboard ativo (são compartilhados)
+    if (activeDashboard) {
+      activeDashboard.notes = workspace.company.notes ?? [];
+      activeDashboard.contacts = workspace.company.contacts ?? [];
+      activeDashboard.updatedAt = new Date().toISOString();
+    }
     company.updatedAt = new Date().toISOString();
     
     // IMPORTANTE: Preservar TODOS os dashboards

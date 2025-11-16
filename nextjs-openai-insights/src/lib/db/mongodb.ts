@@ -1,6 +1,15 @@
-import { MongoClient, type Db, type Collection, type MongoClientOptions, type Document } from "mongodb";
+import {
+  MongoClient,
+  type Db,
+  type Collection,
+  type MongoClientOptions,
+  type Document,
+  type Filter,
+  type UpdateFilter,
+} from "mongodb";
 
-const uri = process.env.MONGODB_URI || "mongodb://localhost:27017/dashboard-engine";
+const uri =
+  process.env.MONGODB_URI || "mongodb://localhost:27017/dashboard-engine";
 
 function sanitizeMongoUri(value: string): string {
   if (!value) return "<empty>";
@@ -41,7 +50,9 @@ export const DEFAULT_MONGODB_BATCH_SIZE = parseInt(
   10
 );
 
-const globalStateKey = Symbol.for("nextjs-openai-insights.mongoConnectionState");
+const globalStateKey = Symbol.for(
+  "nextjs-openai-insights.mongoConnectionState"
+);
 
 interface MongoConnectionState {
   client: MongoClient | null;
@@ -108,7 +119,7 @@ async function createMongoClient(): Promise<MongoClient> {
 
       const startedAt = Date.now();
       const newClient = new MongoClient(uri, options);
-      
+
       // Connect with timeout handling
       await Promise.race([
         newClient.connect(),
@@ -154,10 +165,11 @@ async function createMongoClient(): Promise<MongoClient> {
 
       return newClient;
     } catch (error) {
-      const errorObj = error instanceof Error ? error : new Error(String(error));
+      const errorObj =
+        error instanceof Error ? error : new Error(String(error));
       lastError = errorObj;
       const errorMessage = errorObj.message;
-      
+
       console.error(
         "[MongoDB] ❌ Falha na tentativa de conexão",
         JSON.stringify({ attempt: attemptLabel, message: errorMessage })
@@ -180,7 +192,7 @@ async function createMongoClient(): Promise<MongoClient> {
 
 async function getMongoClientInternal(): Promise<MongoClient> {
   const state = getMongoState();
-  
+
   // Return existing client if available and connected
   if (state.client) {
     try {
@@ -201,7 +213,9 @@ async function getMongoClientInternal(): Promise<MongoClient> {
 
   // Check circuit breaker
   if (isCircuitOpen()) {
-    const error = new Error("MongoDB circuit breaker aberto") as Error & { code?: string };
+    const error = new Error("MongoDB circuit breaker aberto") as Error & {
+      code?: string;
+    };
     error.code = "MONGODB_CIRCUIT_OPEN";
     throw error;
   }
@@ -230,7 +244,7 @@ async function getMongoClientInternal(): Promise<MongoClient> {
 
 export async function closeMongoClient(reason = "manual-close"): Promise<void> {
   const state = getMongoState();
-  
+
   if (!state.client || state.closing) {
     return;
   }
@@ -260,7 +274,7 @@ async function invalidateMongoConnection(error: Error): Promise<void> {
   const state = getMongoState();
   console.warn(
     "[MongoDB] ⚠️ Invalidando conexão atual",
-    JSON.stringify({ 
+    JSON.stringify({
       message: error?.message,
       failureCount: state.failureCount,
     })
@@ -274,7 +288,9 @@ export function getMongoClient(): Promise<MongoClient> {
 
 const clientPromise = {
   then: <TResult1 = MongoClient, TResult2 = never>(
-    onFulfilled?: ((value: MongoClient) => TResult1 | PromiseLike<TResult1>) | null,
+    onFulfilled?:
+      | ((value: MongoClient) => TResult1 | PromiseLike<TResult1>)
+      | null,
     onRejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null
   ): Promise<TResult1 | TResult2> => {
     return getMongoClient().then(onFulfilled, onRejected);
@@ -310,7 +326,8 @@ export async function withRetry<T>(
     try {
       return await operation();
     } catch (error) {
-      const errorObj = error instanceof Error ? error : new Error(String(error));
+      const errorObj =
+        error instanceof Error ? error : new Error(String(error));
       console.error(
         `❌ MongoDB operation failed (attempt ${attempt}/${maxRetries}):`,
         errorObj.message
@@ -407,9 +424,11 @@ export async function withMongoConnection<T>(
   } = options;
 
   const startedAt = Date.now();
-  const { stage = declaredStage, ...metadataWithoutStage } = {
-    ...metadata,
-  };
+  // Extract stage from metadata if present, ensuring it's a string
+  const stageFromMetadata = metadata.stage;
+  const finalStage: string | undefined =
+    typeof stageFromMetadata === "string" ? stageFromMetadata : declaredStage;
+  const { stage: _, ...metadataWithoutStage } = metadata;
 
   const runner = async (): Promise<T> => {
     const client = await getMongoClient();
@@ -423,7 +442,7 @@ export async function withMongoConnection<T>(
         onRetry: ({ attempt, error }) => {
           logMongoMetrics({
             operation: `${label}:retry`,
-            stage,
+            stage: finalStage,
             durationMs: Date.now() - startedAt,
             metadata: {
               attempt,
@@ -440,7 +459,7 @@ export async function withMongoConnection<T>(
     const errorObj = error instanceof Error ? error : new Error(String(error));
     console.error(
       "[MongoDB] ❌ Erro durante operação",
-      JSON.stringify({ label, stage, message: errorObj.message })
+      JSON.stringify({ label, stage: finalStage, message: errorObj.message })
     );
 
     if (resetOnFailure !== false) {
@@ -455,7 +474,7 @@ export async function withMongoConnection<T>(
   } finally {
     logMongoMetrics({
       operation: label,
-      stage,
+      stage: finalStage,
       durationMs: Date.now() - startedAt,
       metadata: metadataWithoutStage,
     });
@@ -466,7 +485,11 @@ export async function withMongoConnection<T>(
   }
 }
 
-import type { BulkWriteOptions, BulkWriteResult, AnyBulkWriteOperation } from "mongodb";
+import type {
+  BulkWriteOptions,
+  BulkWriteResult,
+  AnyBulkWriteOperation,
+} from "mongodb";
 
 /**
  * Aplica bulkWrite com logging estruturado + métricas.
@@ -481,11 +504,15 @@ export async function bulkWriteWithMetrics<T extends Document>(
   const coll = await getCollection<T>(collection);
   const result = await coll.bulkWrite(operations, options);
 
-  const { stage = "general", ...metadataWithoutStage } = metadata ?? {};
+  // Extract stage from metadata if present, ensuring it's a string
+  const stageFromMetadata = metadata?.stage;
+  const finalStage: string | undefined =
+    typeof stageFromMetadata === "string" ? stageFromMetadata : "general";
+  const { stage: _, ...metadataWithoutStage } = metadata ?? {};
 
   logMongoMetrics({
     operation: "bulkWrite",
-    stage,
+    stage: finalStage,
     durationMs: Date.now() - startedAt,
     documents: operations.length,
     ordered: options?.ordered !== false,
@@ -502,7 +529,10 @@ export async function bulkUpsert<T extends Document>(
   collection: string,
   items: T[],
   keyFields: (keyof T)[],
-  options: BulkWriteOptions & { stage?: string; metadata?: Record<string, unknown> } = {}
+  options: BulkWriteOptions & {
+    stage?: string;
+    metadata?: Record<string, unknown>;
+  } = {}
 ): Promise<BulkWriteResult> {
   if (!Array.isArray(items) || items.length === 0) {
     return {
@@ -520,28 +550,36 @@ export async function bulkUpsert<T extends Document>(
     throw new Error("bulkUpsert requer keyFields para construir os filtros");
   }
 
-  const { stage, metadata = {}, ...bulkOptions } = options;
+  const { stage: stageFromOptions, metadata = {}, ...bulkOptions } = options;
+
+  // Ensure stage is string | undefined, not unknown
+  const finalStage: string | undefined =
+    typeof stageFromOptions === "string" ? stageFromOptions : undefined;
 
   const operations: AnyBulkWriteOperation<T>[] = items.map((item) => ({
     updateOne: {
       filter: Object.fromEntries(
         keyFields.map((field) => [field, item[field]])
-      ) as Partial<T>,
+      ) as Filter<T>,
       update: {
         $set: { ...item, updatedAt: new Date() } as T,
-        $setOnInsert: { createdAt: new Date() } as Partial<T>,
-      },
+        $setOnInsert: { createdAt: new Date() } as unknown as Partial<T>,
+      } as unknown as UpdateFilter<T>,
       upsert: true,
     },
   }));
 
   return await bulkWriteWithMetrics(collection, operations, bulkOptions, {
-    stage,
+    stage: finalStage,
     ...metadata,
   });
 }
 
-import type { Filter, UpdateFilter, FindOptions, UpdateOptions } from "mongodb";
+import type {
+  FindOptions,
+  UpdateOptions,
+  FindOneAndUpdateOptions,
+} from "mongodb";
 
 /**
  * Helper para operações CRUD tipadas
@@ -551,10 +589,10 @@ export const db = {
   async find<T extends Document>(
     collection: string,
     filter: Filter<T> = {},
-    options: FindOptions<T> = {}
+    options: FindOptions = {}
   ): Promise<T[]> {
     const coll = await getCollection<T>(collection);
-    return await coll.find(filter, options).toArray();
+    return (await coll.find(filter, options).toArray()) as T[];
   },
 
   async findOne<T extends Document>(
@@ -562,7 +600,7 @@ export const db = {
     filter: Filter<T>
   ): Promise<T | null> {
     const coll = await getCollection<T>(collection);
-    return await coll.findOne(filter);
+    return (await coll.findOne(filter)) as T | null;
   },
 
   async insertOne<T extends Document & { createdAt?: Date; updatedAt?: Date }>(
@@ -574,7 +612,7 @@ export const db = {
       ...doc,
       createdAt: new Date(),
       updatedAt: new Date(),
-    } as T);
+    } as any);
     return result;
   },
 
@@ -587,8 +625,8 @@ export const db = {
       ...doc,
       createdAt: new Date(),
       updatedAt: new Date(),
-    })) as T[];
-    const result = await coll.insertMany(docsWithTimestamps);
+    })) as unknown as T[];
+    const result = await coll.insertMany(docsWithTimestamps as any);
     return result;
   },
 
@@ -599,7 +637,11 @@ export const db = {
   ) {
     const coll = await getCollection<T>(collection);
     // Adicionar updatedAt automaticamente se for update com $set
-    if (update.$set && typeof update.$set === "object" && !("updatedAt" in update.$set)) {
+    if (
+      update.$set &&
+      typeof update.$set === "object" &&
+      !("updatedAt" in update.$set)
+    ) {
       (update.$set as Record<string, unknown>).updatedAt = new Date();
     }
     const result = await coll.updateOne(filter, update);
@@ -616,8 +658,8 @@ export const db = {
       $set: {
         ...(update.$set as Record<string, unknown>),
         updatedAt: new Date(),
-      } as Partial<T>,
-    } as UpdateFilter<T>;
+      } as unknown as Partial<T>,
+    } as unknown as UpdateFilter<T>;
     const result = await coll.updateMany(filter, updateWithTimestamp);
     return result;
   },
@@ -626,11 +668,15 @@ export const db = {
     collection: string,
     filter: Filter<T>,
     update: UpdateFilter<T>,
-    options: UpdateOptions<T> = {}
+    options: FindOneAndUpdateOptions = {}
   ) {
     const coll = await getCollection<T>(collection);
     // Adicionar updatedAt automaticamente se for update com $set
-    if (update.$set && typeof update.$set === "object" && !("updatedAt" in update.$set)) {
+    if (
+      update.$set &&
+      typeof update.$set === "object" &&
+      !("updatedAt" in update.$set)
+    ) {
       (update.$set as Record<string, unknown>).updatedAt = new Date();
     }
     const result = await coll.findOneAndUpdate(filter, update, options);
@@ -643,7 +689,12 @@ export const db = {
     options: BulkWriteOptions = {},
     metadata: Record<string, unknown> = {}
   ) {
-    return await bulkWriteWithMetrics(collection, operations, options, metadata);
+    return await bulkWriteWithMetrics(
+      collection,
+      operations,
+      options,
+      metadata
+    );
   },
 
   async deleteMany<T extends Document>(collection: string, filter: Filter<T>) {
@@ -658,7 +709,10 @@ export const db = {
     return result;
   },
 
-  async count<T extends Document>(collection: string, filter: Filter<T> = {}): Promise<number> {
+  async count<T extends Document>(
+    collection: string,
+    filter: Filter<T> = {}
+  ): Promise<number> {
     const coll = await getCollection<T>(collection);
     return await coll.countDocuments(filter);
   },
@@ -672,4 +726,3 @@ export const db = {
     return await coll.distinct(field, filter);
   },
 };
-

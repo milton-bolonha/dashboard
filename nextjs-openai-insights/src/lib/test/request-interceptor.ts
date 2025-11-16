@@ -39,6 +39,7 @@ function getIconFromUrl(url: string): string {
 }
 
 function createSpans(duration: number, hasError: boolean, service: string) {
+  const status2: "error" | "ok" = hasError ? "error" : "ok";
   return [
     {
       id: "span-1",
@@ -50,7 +51,7 @@ function createSpans(duration: number, hasError: boolean, service: string) {
       id: "span-2",
       service,
       duration: Math.floor(duration * 0.7),
-      status: (hasError ? "error" : "ok") as const,
+      status: status2,
     },
     {
       id: "span-3",
@@ -83,7 +84,7 @@ export function interceptRequests() {
 
     // Ignorar requisições de observabilidade para evitar loop
     if (url.includes("/api/test/")) {
-      return originalFetch(input, init);
+      return originalFetch!(input, init);
     }
 
     // Sanitizar dados sensíveis ANTES de qualquer processamento
@@ -111,7 +112,7 @@ export function interceptRequests() {
     let statusCode: number | undefined;
 
     try {
-      const response = await originalFetch(input, init);
+      const response = await originalFetch!(input, init);
       statusCode = response.status;
       hasError = !response.ok;
       

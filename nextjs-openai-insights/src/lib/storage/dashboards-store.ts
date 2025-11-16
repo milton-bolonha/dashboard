@@ -370,6 +370,10 @@ export function deleteDashboard(companyId: string, dashboardId: string) {
  * Convert workspace snapshot to company with dashboards (for migration)
  */
 export function workspaceToCompany(workspace: WorkspaceSnapshot): CompanyWithDashboards {
-  return getOrCreateCompanyFromWorkspace(workspace);
+  const company = getOrCreateCompanyFromWorkspace(workspace);
+  if (!company) {
+    throw new Error(`Failed to create company from workspace: ${workspace.sessionId}`);
+  }
+  return company;
 }
 

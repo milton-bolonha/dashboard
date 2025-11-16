@@ -492,7 +492,7 @@ export async function syncWorkspaceTilesToMongo(
         { id: anyDashboard.id, userId }, // Security: Filter by userId
         {
           $set: {
-            tiles: tiles.map((tile: Tile) => ({
+            tiles: tiles.map((tile: any) => ({
               ...tile,
               createdAt: new Date(tile.createdAt),
               updatedAt: new Date(tile.updatedAt),
@@ -569,7 +569,7 @@ export async function syncWorkspaceContactsToMongo(
       { id: dashboardDoc.id, userId }, // Security: Filter by userId
       {
         $set: {
-          contacts: contacts.map((contact: Contact) => ({
+          contacts: contacts.map((contact: any) => ({
             ...contact,
             createdAt: new Date(contact.createdAt),
           })) as DashboardDocument["contacts"],
@@ -627,7 +627,7 @@ export async function syncWorkspaceNotesToMongo(
       { id: dashboardDoc.id, userId }, // Security: Filter by userId
       {
         $set: {
-          notes: notes.map((note: Note) => ({
+          notes: notes.map((note: any) => ({
             ...note,
             createdAt: new Date(note.createdAt),
             updatedAt: new Date(note.updatedAt),
