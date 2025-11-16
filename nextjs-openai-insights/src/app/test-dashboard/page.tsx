@@ -113,11 +113,27 @@ const RequestDot = ({
   request: RequestData;
   onClick: () => void;
 }) => {
-  const [color, icon] = {
-    pending: ["bg-gray-500", request.icon],
-    running: ["bg-blue-500", <Loader className="w-3 h-3 text-white animate-spin" />],
-    done: ["bg-green-500", <CheckCircle className="w-3 h-3 text-white" />],
-    failed: ["bg-red-500", <XCircle className="w-3 h-3 text-white" />],
+  const statusConfig = {
+    pending: {
+      bgColor: "bg-gray-500",
+      borderColor: "border-gray-400",
+      icon: request.icon,
+    },
+    running: {
+      bgColor: "bg-blue-500",
+      borderColor: "border-blue-400",
+      icon: <Loader className="w-3 h-3 text-white animate-spin" />,
+    },
+    done: {
+      bgColor: "bg-green-500",
+      borderColor: "border-green-400",
+      icon: <CheckCircle className="w-3 h-3 text-white" />,
+    },
+    failed: {
+      bgColor: "bg-red-500",
+      borderColor: "border-red-400",
+      icon: <XCircle className="w-3 h-3 text-white" />,
+    },
   }[request.status];
 
   return (
@@ -128,14 +144,11 @@ const RequestDot = ({
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.5 }}
       transition={{ type: "spring", stiffness: 300, damping: 20 }}
-      className={`w-full p-2 rounded-lg flex items-center shadow-md ${color} border ${color.replace(
-        "bg",
-        "border"
-      )}-400 cursor-pointer hover:shadow-lg hover:scale-105 transition-all`}
+      className={`w-full p-2 rounded-lg flex items-center shadow-md ${statusConfig.bgColor} border ${statusConfig.borderColor} cursor-pointer hover:shadow-lg hover:scale-105 transition-all`}
     >
-      {icon && (
+      {statusConfig.icon && (
         <div className="flex-shrink-0 w-4 h-4 mr-2 flex items-center justify-center text-white text-base">
-          {typeof icon === "string" ? icon : icon}
+          {typeof statusConfig.icon === "string" ? statusConfig.icon : statusConfig.icon}
         </div>
       )}
       <span className="text-xs font-medium text-white truncate">{request.label}</span>
