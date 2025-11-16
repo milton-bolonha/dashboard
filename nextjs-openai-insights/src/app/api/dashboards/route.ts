@@ -21,7 +21,8 @@ export async function GET() {
     // Members: Load from MongoDB (scoped by userId for security)
     if (userId) {
       try {
-        const companies = await loadCompaniesWithDashboardsFromMongo(sessionId, userId);
+        // Convert null to undefined for TypeScript compatibility
+        const companies = await loadCompaniesWithDashboardsFromMongo(sessionId || undefined, userId);
         if (companies.length > 0) {
           return NextResponse.json({ companies });
         }
