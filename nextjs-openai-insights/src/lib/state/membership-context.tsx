@@ -196,7 +196,8 @@ export function MembershipProvider({ children }: PropsWithChildren) {
       }
       const usage = ensureFreshUsage(usageRef.current);
       usageRef.current = usage;
-      setUsageSnapshot(buildUsageSnapshot(usage));
+      // Não atualizar estado durante avaliação - apenas ler
+      // setUsageSnapshot(buildUsageSnapshot(usage)); // Removido para evitar loop infinito
       const used = usage.counts[action] ?? 0;
       const limit = DEFAULT_LIMITS[action];
       const remaining = Math.max(limit - used, 0);

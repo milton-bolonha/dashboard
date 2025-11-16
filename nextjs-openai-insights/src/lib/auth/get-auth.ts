@@ -1,5 +1,3 @@
-"use server";
-
 /**
  * Authentication helper for API routes
  * Returns userId and authentication status
@@ -9,6 +7,8 @@
  * 
  * Security: This function should be called in all API routes to determine
  * if the user is a guest (userId === null) or a member (userId !== null)
+ * 
+ * Note: Removed "use server" directive as this is used in API routes which are already server-side
  */
 export async function getAuth(): Promise<{
   userId: string | null;
