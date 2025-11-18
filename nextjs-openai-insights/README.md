@@ -154,12 +154,25 @@ Todas retornam o snapshot atualizado para reidratar o cliente via SWR/localStora
 
 ---
 
-## Referências
+## 📚 Documentação
 
-- `full-report-10-11.md` — changelog completo das entregas mais recentes.
-- `README-admin.md` — foco em arquitetura e temas do Admin.
-- `novo-fluxo.md` — diagrama e detalhamento do fluxo operacional após o refresh de novembro.
-- `fluxo-resumido.md` (histórico) — versão anterior do pipeline de geração.
+Toda a documentação está organizada em `docs/` por domínios. Veja [`docs/README.md`](docs/README.md) para o índice completo.
+
+**📖 Comece Aqui**:
+
+- [`docs/01-arquitetura/arquitetura-consolidada.md`](docs/01-arquitetura/arquitetura-consolidada.md) — **LEIA PRIMEIRO** — Arquitetura completa
+- [`docs/01-arquitetura/status-implementacao.md`](docs/01-arquitetura/status-implementacao.md) — Status real das implementações
+
+**Guias Operacionais**:
+
+- [`docs/02-guias-operacionais/fluxo-operacional.md`](docs/02-guias-operacionais/fluxo-operacional.md) — Fluxo completo (Nov/2025)
+- [`docs/02-guias-operacionais/guia-admin.md`](docs/02-guias-operacionais/guia-admin.md) — Guia do Admin Dashboard
+- [`docs/02-guias-operacionais/fluxo-tiles.md`](docs/02-guias-operacionais/fluxo-tiles.md) — Fluxo de tiles e prompts
+
+**Referências Históricas**:
+
+- [`docs/05-relatorios/relatorio-nov-2025.md`](docs/05-relatorios/relatorio-nov-2025.md) — Changelog completo (Nov 2025)
+- [`docs/historico/`](docs/historico/) — Documentação histórica
 
 ---
 

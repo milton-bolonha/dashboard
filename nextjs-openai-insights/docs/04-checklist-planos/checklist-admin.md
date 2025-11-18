@@ -1,5 +1,7 @@
 # 📋 Checklist Admin - O que falta, testes e próximos passos
 
+> 📊 **Status atual**: Veja [`../01-arquitetura/status-implementacao.md`](../01-arquitetura/status-implementacao.md) para o status real das implementações.
+
 ## ✅ O que já está funcionando
 
 - ✅ Dashboard switcher (trocar entre dashboards)
