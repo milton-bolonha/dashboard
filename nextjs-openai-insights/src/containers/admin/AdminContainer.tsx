@@ -126,6 +126,16 @@ export function AdminContainer() {
 
         // Poll every 2 seconds if no tiles yet (generation in progress)
         const hasTiles = data?.company?.tiles && data.company.tiles.length > 0;
+        console.log("[AdminContainer] 🔍 Polling check:", {
+          hasData: !!data,
+          hasCompany: !!data?.company,
+          hasTiles: !!data?.company?.tiles,
+          tilesCount: data?.company?.tiles?.length || 0,
+          hasCurrentDashboard: !!currentDashboard,
+          currentDashboardTiles: currentDashboard?.tiles?.length || 0,
+          lastGenerationTime: typeof window !== "undefined" ? window.localStorage.getItem("last-generation-time") : null
+        });
+
         if (hasTiles) {
           console.log("[AdminContainer] ✅ Tiles found via polling!", {
             tilesCount: data.company.tiles.length,
@@ -135,10 +145,17 @@ export function AdminContainer() {
 
           // If we have tiles but current dashboard doesn't, sync them
           if (currentCompany && currentDashboard && currentDashboard.tiles.length === 0) {
-            console.log("[AdminContainer] 🔄 Syncing tiles to current dashboard");
+            console.log("[AdminContainer] 🔄 Syncing tiles to current dashboard", {
+              tilesCount: data.company.tiles.length,
+              companyId: currentCompany.id,
+              dashboardId: currentDashboard.id
+            });
             updateDashboard(currentCompany.id, currentDashboard.id, {
               tiles: data.company.tiles
             });
+
+            // Force refresh companies/dashboards to trigger UI update
+            refreshStoredWorkspaces();
           }
 
           // Clear generation timestamp when tiles are detected
@@ -2823,8 +2840,23 @@ export function AdminContainer() {
               return true;
             }
 
-            // PRIORITY 1: Check if it's a blank dashboard FIRST (before checking timestamps)
-            // Blank dashboards are created without templateId and should never show "Generating"
+            // PRIORITY 1: Check if there's a recent generation timestamp FIRST
+            // If there's recent generation activity, show generating state regardless of dashboard type
+            if (typeof window !== "undefined") {
+              const lastGenerationTime = window.localStorage.getItem("last-generation-time");
+              if (lastGenerationTime) {
+                const genTime = parseInt(lastGenerationTime, 10);
+                const now = Date.now();
+                const fiveMinutesAgo = now - 5 * 60 * 1000;
+                if (genTime > fiveMinutesAgo) {
+                  console.log("[EmptyState] ⚡ Recent generation detected, showing generating state");
+                  return true;
+                }
+              }
+            }
+
+            // PRIORITY 2: Check if it's a blank dashboard
+            // But only if there's no recent generation activity
             const isBlankDashboard = !currentDashboard.templateId && currentDashboard.name !== "Default Dashboard";
 
             if (isBlankDashboard) {
@@ -2832,13 +2864,15 @@ export function AdminContainer() {
               return false; // Blank dashboard, never generating
             }
             
-            // PRIORITY 2: If dashboard has no tiles and no templateId, it's definitely blank
+            // PRIORITY 3: If dashboard has no tiles and no templateId, it's definitely blank
+            // But skip this check if there's recent generation activity (already checked above)
             if (currentDashboard.tiles.length === 0 && !currentDashboard.templateId) {
               console.log("[EmptyState] 🆕 Blank dashboard detected (no templateId, no tiles)");
               return false;
             }
-            
-            // PRIORITY 3: Check if dashboard was created very recently (within 2 minutes) - might be blank dashboard
+
+            // PRIORITY 4: Check if dashboard was created very recently (within 2 minutes) - might be blank dashboard
+            // But skip this check if there's recent generation activity
             const dashboardCreatedAt = currentDashboard.createdAt;
             if (dashboardCreatedAt) {
               const createdTime = new Date(dashboardCreatedAt).getTime();
