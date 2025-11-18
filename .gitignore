@@ -11,6 +11,8 @@
 /gatsby-landing/public/
 /gatsby-landing/node_modules/
 /gatsby-landing/build/
+/nextjs-openai-insights/node_modules/
+/nextjs-openai-insights/.next/
 # dependencies
 /node_modules
 /.pnp
