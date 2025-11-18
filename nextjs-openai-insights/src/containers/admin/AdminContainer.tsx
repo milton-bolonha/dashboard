@@ -109,7 +109,7 @@ export function AdminContainer() {
   // Polling state com backoff exponencial (usando apenas refs para evitar re-renders)
   const pollingAttemptsRef = useRef(0);
   const lastPollingIntervalRef = useRef(2000); // Começa com 2s
-  
+
   // Ref para prevenir sincronização durante atualizações (evita race conditions)
   const isUpdatingDashboardRef = useRef(false);
 
@@ -120,7 +120,9 @@ export function AdminContainer() {
       refreshInterval: (data) => {
         // Disable polling when using streaming (streaming handles state updates)
         if (shouldUseStreaming) {
-          console.log("[AdminContainer] 📺 Streaming active, disabling polling");
+          console.log(
+            "[AdminContainer] 📺 Streaming active, disabling polling"
+          );
           return 0;
         }
 
@@ -133,25 +135,35 @@ export function AdminContainer() {
           tilesCount: data?.company?.tiles?.length || 0,
           hasCurrentDashboard: !!currentDashboard,
           currentDashboardTiles: currentDashboard?.tiles?.length || 0,
-          lastGenerationTime: typeof window !== "undefined" ? window.localStorage.getItem("last-generation-time") : null
+          lastGenerationTime:
+            typeof window !== "undefined"
+              ? window.localStorage.getItem("last-generation-time")
+              : null,
         });
 
         if (hasTiles) {
           console.log("[AdminContainer] ✅ Tiles found via polling!", {
             tilesCount: data.company.tiles.length,
             hasCurrentCompany: !!currentCompany,
-            hasCurrentDashboard: !!currentDashboard
+            hasCurrentDashboard: !!currentDashboard,
           });
 
           // If we have tiles but current dashboard doesn't, sync them
-          if (currentCompany && currentDashboard && currentDashboard.tiles.length === 0) {
-            console.log("[AdminContainer] 🔄 Syncing tiles to current dashboard", {
-              tilesCount: data.company.tiles.length,
-              companyId: currentCompany.id,
-              dashboardId: currentDashboard.id
-            });
+          if (
+            currentCompany &&
+            currentDashboard &&
+            currentDashboard.tiles.length === 0
+          ) {
+            console.log(
+              "[AdminContainer] 🔄 Syncing tiles to current dashboard",
+              {
+                tilesCount: data.company.tiles.length,
+                companyId: currentCompany.id,
+                dashboardId: currentDashboard.id,
+              }
+            );
             updateDashboard(currentCompany.id, currentDashboard.id, {
-              tiles: data.company.tiles
+              tiles: data.company.tiles,
             });
 
             // Force refresh companies/dashboards to trigger UI update
@@ -194,14 +206,19 @@ export function AdminContainer() {
             const fiveMinutesAgo = now - 5 * 60 * 1000;
             if (genTime > fiveMinutesAgo) {
               shouldPoll = true;
-              console.log("[AdminContainer] 🔄 Polling: generation timestamp detected", {
-                genTime: new Date(genTime).toISOString(),
-                timeAgo: Math.round((now - genTime) / 1000) + "s ago"
-              });
+              console.log(
+                "[AdminContainer] 🔄 Polling: generation timestamp detected",
+                {
+                  genTime: new Date(genTime).toISOString(),
+                  timeAgo: Math.round((now - genTime) / 1000) + "s ago",
+                }
+              );
             } else {
               // Clear old timestamp
               window.localStorage.removeItem("last-generation-time");
-              console.log("[AdminContainer] 🧹 Cleared old generation timestamp");
+              console.log(
+                "[AdminContainer] 🧹 Cleared old generation timestamp"
+              );
             }
           }
         }
@@ -214,7 +231,9 @@ export function AdminContainer() {
           const twoMinutesAgo = now - 2 * 60 * 1000;
           if (generatedTime > twoMinutesAgo) {
             shouldPoll = true;
-            console.log("[AdminContainer] 🔄 Polling: fresh workspace detected (no tiles yet)");
+            console.log(
+              "[AdminContainer] 🔄 Polling: fresh workspace detected (no tiles yet)"
+            );
           }
         }
 
@@ -259,49 +278,6 @@ export function AdminContainer() {
 
   // TEMPORARILY DISABLED: Streaming needs more work, focus on polling first
   const shouldUseStreaming = useMemo(() => false, []);
-
-  // Tile streaming hook - only active when coming from home page
-  const {
-    tiles: streamingTiles,
-    isStreaming,
-    isCompleted: streamingCompleted,
-    error: streamingError,
-    totalTiles: streamingTotalTiles,
-    completedTiles: streamingCompletedTiles,
-    startStreaming,
-    stopStreaming,
-  } = useTileStreaming({
-    salesRepCompany: "", // Will be filled from workspace data
-    salesRepWebsite: "",
-    solution: "",
-    targetCompany: "",
-    targetWebsite: "",
-    templateId: "",
-    onTileGenerated: (tile, index) => {
-      console.log(`[AdminContainer] 🎯 Tile ${index + 1} streamed:`, tile.title);
-      // Update dashboard with new tile
-      if (currentCompany && currentDashboard) {
-        const updatedTiles = [...currentDashboard.tiles];
-        updatedTiles[index] = tile;
-        updateDashboard(currentCompany.id, currentDashboard.id, { tiles: updatedTiles });
-      }
-    },
-    onCompleted: (workspace, sessionId) => {
-      console.log("[AdminContainer] ✅ Streaming completed, workspace ready");
-      // Update workspace in localStorage and refresh
-      writeWorkspace(workspace);
-      refreshStoredWorkspaces();
-      mutate();
-    },
-    onError: (error) => {
-      console.error("[AdminContainer] ❌ Streaming error:", error);
-      push({
-        type: "error",
-        title: "Generation Failed",
-        description: `Error generating insights: ${error}`,
-      });
-    },
-  });
   const [baseColor, setBaseColor] = useState(() => {
     // Use default on server, will be updated on client
     if (typeof window === "undefined") {
@@ -392,51 +368,70 @@ export function AdminContainer() {
   const [upgradeReason, setUpgradeReason] = useState<GuestAction | null>(null);
   const [isAddPromptModalOpen, setAddPromptModalOpen] = useState(false);
   const [isBulkUploadModalOpen, setBulkUploadModalOpen] = useState(false);
-  const [isCreateBlankDashboardModalOpen, setCreateBlankDashboardModalOpen] = useState(false);
-  const [isCreatingBlankDashboard, setIsCreatingBlankDashboard] = useState(false);
-  const [currentCompany, setCurrentCompany] = useState<CompanyWithDashboards | null>(null);
-  const [currentDashboard, setCurrentDashboard] = useState<DashboardType | null>(null);
-  
+  const [isCreateBlankDashboardModalOpen, setCreateBlankDashboardModalOpen] =
+    useState(false);
+  const [isCreatingBlankDashboard, setIsCreatingBlankDashboard] =
+    useState(false);
+  const [currentCompany, setCurrentCompany] =
+    useState<CompanyWithDashboards | null>(null);
+  const [currentDashboard, setCurrentDashboard] =
+    useState<DashboardType | null>(null);
+
   // Calculate appearance tokens AFTER currentDashboard is declared
-  const appearanceTokens = useMemo<AdeAppearanceTokens>(
-    () => {
-      console.log("[AdminContainer] 🔄 Computing appearanceTokens - START", {
-        baseColor,
-        hasCurrentDashboard: !!currentDashboard,
-        currentDashboardId: currentDashboard?.id,
-        currentDashboardAppearance: currentDashboard?.appearance,
-      });
-      
-      // Ensure baseColor is never empty
-      const safeBaseColor = baseColor && baseColor.trim() ? baseColor : DEFAULT_BASE_COLOR;
-      
-      // PRIORITY 1: Try to load from localStorage first (for immediate access after F5)
-      // This ensures appearance is available before currentDashboard is loaded
-      // IMPORTANT: Try to load even if baseColor is empty (might be loading from localStorage)
-      if (typeof window !== "undefined") {
-        try {
-          const storedAppearance = window.localStorage.getItem(APPEARANCE_STORAGE_KEY);
-          if (storedAppearance) {
-            const parsed = JSON.parse(storedAppearance) as Partial<AdeAppearanceTokens>;
-            // Normalize both colors for comparison (handle case differences, whitespace, etc.)
-            const parsedBaseColorNormalized = parsed.baseColor ? normalizeColorValueSync(parsed.baseColor) : null;
-            const safeBaseColorNormalized = safeBaseColor && safeBaseColor !== DEFAULT_BASE_COLOR 
-              ? normalizeColorValueSync(safeBaseColor) 
+  const appearanceTokens = useMemo<AdeAppearanceTokens>(() => {
+    console.log("[AdminContainer] 🔄 Computing appearanceTokens - START", {
+      baseColor,
+      hasCurrentDashboard: !!currentDashboard,
+      currentDashboardId: currentDashboard?.id,
+      currentDashboardAppearance: currentDashboard?.appearance,
+    });
+
+    // Ensure baseColor is never empty
+    const safeBaseColor =
+      baseColor && baseColor.trim() ? baseColor : DEFAULT_BASE_COLOR;
+
+    // PRIORITY 1: Try to load from localStorage first (for immediate access after F5)
+    // This ensures appearance is available before currentDashboard is loaded
+    // IMPORTANT: Try to load even if baseColor is empty (might be loading from localStorage)
+    if (typeof window !== "undefined") {
+      try {
+        const storedAppearance = window.localStorage.getItem(
+          APPEARANCE_STORAGE_KEY
+        );
+        if (storedAppearance) {
+          const parsed = JSON.parse(
+            storedAppearance
+          ) as Partial<AdeAppearanceTokens>;
+          // Normalize both colors for comparison (handle case differences, whitespace, etc.)
+          const parsedBaseColorNormalized = parsed.baseColor
+            ? normalizeColorValueSync(parsed.baseColor)
+            : null;
+          const safeBaseColorNormalized =
+            safeBaseColor && safeBaseColor !== DEFAULT_BASE_COLOR
+              ? normalizeColorValueSync(safeBaseColor)
               : null;
-            
-            // Use stored appearance if:
-            // 1. baseColor matches (normalized) OR
-            // 2. baseColor is empty/default but we have stored appearance (use it!) OR
-            // 3. baseColor is not set but we have sidebarColor and textColor (use anyway)
-            const baseColorMatches = safeBaseColorNormalized && parsedBaseColorNormalized 
-              ? parsedBaseColorNormalized === safeBaseColorNormalized 
+
+          // Use stored appearance if:
+          // 1. baseColor matches (normalized) OR
+          // 2. baseColor is empty/default but we have stored appearance (use it!) OR
+          // 3. baseColor is not set but we have sidebarColor and textColor (use anyway)
+          const baseColorMatches =
+            safeBaseColorNormalized && parsedBaseColorNormalized
+              ? parsedBaseColorNormalized === safeBaseColorNormalized
               : false;
-            const baseColorIsEmpty = !safeBaseColorNormalized || safeBaseColor === DEFAULT_BASE_COLOR;
-            const hasRequiredColors = parsed.sidebarColor && parsed.textColor;
-            
-            // Use stored appearance if colors match OR if baseColor is empty (still loading) and we have stored appearance
-            if ((baseColorMatches || (baseColorIsEmpty && parsedBaseColorNormalized)) && hasRequiredColors) {
-              console.log("[AdminContainer] 🎨 Loading appearance from localStorage (before dashboard load):", {
+          const baseColorIsEmpty =
+            !safeBaseColorNormalized || safeBaseColor === DEFAULT_BASE_COLOR;
+          const hasRequiredColors = parsed.sidebarColor && parsed.textColor;
+
+          // Use stored appearance if colors match OR if baseColor is empty (still loading) and we have stored appearance
+          if (
+            (baseColorMatches ||
+              (baseColorIsEmpty && parsedBaseColorNormalized)) &&
+            hasRequiredColors
+          ) {
+            console.log(
+              "[AdminContainer] 🎨 Loading appearance from localStorage (before dashboard load):",
+              {
                 storedBaseColor: parsed.baseColor,
                 storedBaseColorNormalized: parsedBaseColorNormalized,
                 currentBaseColor: safeBaseColor,
@@ -446,66 +441,118 @@ export function AdminContainer() {
                 sidebarColor: parsed.sidebarColor,
                 textColor: parsed.textColor,
                 headingColor: parsed.headingColor,
-              });
-              // Use saved values directly from localStorage (don't recalculate!)
-              // This ensures we use the exact colors that were saved
-              const finalTokens: AdeAppearanceTokens = {
-                baseColor: parsedBaseColorNormalized || safeBaseColor,
-                surfaceColor: parsed.surfaceColor || computeAdeAppearanceTokens(parsedBaseColorNormalized || safeBaseColor).surfaceColor,
-                sidebarColor: parsed.sidebarColor || computeAdeAppearanceTokens(parsedBaseColorNormalized || safeBaseColor).sidebarColor,
-                sidebarBorderColor: parsed.sidebarBorderColor || computeAdeAppearanceTokens(parsedBaseColorNormalized || safeBaseColor).sidebarBorderColor,
-                cardBorderColor: parsed.cardBorderColor || computeAdeAppearanceTokens(parsedBaseColorNormalized || safeBaseColor).cardBorderColor,
-                headingColor: parsed.headingColor || parsed.textColor || computeAdeAppearanceTokens(parsedBaseColorNormalized || safeBaseColor).headingColor,
-                textColor: parsed.textColor || computeAdeAppearanceTokens(parsedBaseColorNormalized || safeBaseColor).textColor,
-                mutedTextColor: parsed.mutedTextColor || computeAdeAppearanceTokens(parsedBaseColorNormalized || safeBaseColor).mutedTextColor,
-                actionColor: parsed.actionColor || computeAdeAppearanceTokens(parsedBaseColorNormalized || safeBaseColor).actionColor,
-                overlayColor: parsed.overlayColor || computeAdeAppearanceTokens(parsedBaseColorNormalized || safeBaseColor).overlayColor,
-              };
-              console.log("[AdminContainer] ✅ appearanceTokens FINAL (from localStorage):", {
+              }
+            );
+            // Use saved values directly from localStorage (don't recalculate!)
+            // This ensures we use the exact colors that were saved
+            const finalTokens: AdeAppearanceTokens = {
+              baseColor: parsedBaseColorNormalized || safeBaseColor,
+              surfaceColor:
+                parsed.surfaceColor ||
+                computeAdeAppearanceTokens(
+                  parsedBaseColorNormalized || safeBaseColor
+                ).surfaceColor,
+              sidebarColor:
+                parsed.sidebarColor ||
+                computeAdeAppearanceTokens(
+                  parsedBaseColorNormalized || safeBaseColor
+                ).sidebarColor,
+              sidebarBorderColor:
+                parsed.sidebarBorderColor ||
+                computeAdeAppearanceTokens(
+                  parsedBaseColorNormalized || safeBaseColor
+                ).sidebarBorderColor,
+              cardBorderColor:
+                parsed.cardBorderColor ||
+                computeAdeAppearanceTokens(
+                  parsedBaseColorNormalized || safeBaseColor
+                ).cardBorderColor,
+              headingColor:
+                parsed.headingColor ||
+                parsed.textColor ||
+                computeAdeAppearanceTokens(
+                  parsedBaseColorNormalized || safeBaseColor
+                ).headingColor,
+              textColor:
+                parsed.textColor ||
+                computeAdeAppearanceTokens(
+                  parsedBaseColorNormalized || safeBaseColor
+                ).textColor,
+              mutedTextColor:
+                parsed.mutedTextColor ||
+                computeAdeAppearanceTokens(
+                  parsedBaseColorNormalized || safeBaseColor
+                ).mutedTextColor,
+              actionColor:
+                parsed.actionColor ||
+                computeAdeAppearanceTokens(
+                  parsedBaseColorNormalized || safeBaseColor
+                ).actionColor,
+              overlayColor:
+                parsed.overlayColor ||
+                computeAdeAppearanceTokens(
+                  parsedBaseColorNormalized || safeBaseColor
+                ).overlayColor,
+            };
+            console.log(
+              "[AdminContainer] ✅ appearanceTokens FINAL (from localStorage):",
+              {
                 baseColor: finalTokens.baseColor,
                 sidebarColor: finalTokens.sidebarColor,
                 textColor: finalTokens.textColor,
                 headingColor: finalTokens.headingColor,
                 mutedTextColor: finalTokens.mutedTextColor,
-              });
-              return finalTokens;
-            } else {
-              console.log("[AdminContainer] ⚠️ Stored appearance doesn't match current baseColor:", {
+              }
+            );
+            return finalTokens;
+          } else {
+            console.log(
+              "[AdminContainer] ⚠️ Stored appearance doesn't match current baseColor:",
+              {
                 storedBaseColor: parsed.baseColor,
                 storedBaseColorNormalized: parsedBaseColorNormalized,
                 currentBaseColor: safeBaseColor,
                 currentBaseColorNormalized: safeBaseColorNormalized,
                 hasRequiredColors,
-              });
-            }
-          } else {
-            console.log("[AdminContainer] ⚠️ No stored appearance found in localStorage");
+              }
+            );
           }
-        } catch (e) {
-          console.warn("[AdminContainer] ⚠️ Failed to parse stored appearance:", e);
+        } else {
+          console.log(
+            "[AdminContainer] ⚠️ No stored appearance found in localStorage"
+          );
         }
+      } catch (e) {
+        console.warn(
+          "[AdminContainer] ⚠️ Failed to parse stored appearance:",
+          e
+        );
       }
-      
-      // PRIORITY 2: Use saved appearance values from dashboard if available (calculated once when color was saved)
-      // Check if dashboard has saved appearance values (even if baseColor doesn't match exactly, use saved values if they exist)
-      // FALLBACK: Calculate if not saved (backward compatibility or new dashboards)
-      if (currentDashboard?.appearance && currentDashboard.appearance.baseColor) {
-        const saved = currentDashboard.appearance;
-        // Use saved values first, fallback to calculated only if not saved
-        const fallbackTokens = computeAdeAppearanceTokens(safeBaseColor);
-        const tokens: AdeAppearanceTokens = {
-          baseColor: saved.baseColor || safeBaseColor,
-          surfaceColor: saved.surfaceColor || fallbackTokens.surfaceColor,
-          sidebarColor: saved.sidebarColor || fallbackTokens.sidebarColor,
-          sidebarBorderColor: fallbackTokens.sidebarBorderColor,
-          cardBorderColor: fallbackTokens.cardBorderColor,
-          headingColor: saved.headingColor || saved.textColor || fallbackTokens.headingColor, // Use saved headingColor first, fallback to textColor, then calculated
-          textColor: saved.textColor || fallbackTokens.textColor,
-          mutedTextColor: saved.mutedTextColor || fallbackTokens.mutedTextColor,
-          actionColor: fallbackTokens.actionColor,
-          overlayColor: fallbackTokens.overlayColor,
-        };
-        console.log("[AdminContainer] 🎨 Using saved appearance tokens from dashboard:", {
+    }
+
+    // PRIORITY 2: Use saved appearance values from dashboard if available (calculated once when color was saved)
+    // Check if dashboard has saved appearance values (even if baseColor doesn't match exactly, use saved values if they exist)
+    // FALLBACK: Calculate if not saved (backward compatibility or new dashboards)
+    if (currentDashboard?.appearance && currentDashboard.appearance.baseColor) {
+      const saved = currentDashboard.appearance;
+      // Use saved values first, fallback to calculated only if not saved
+      const fallbackTokens = computeAdeAppearanceTokens(safeBaseColor);
+      const tokens: AdeAppearanceTokens = {
+        baseColor: saved.baseColor || safeBaseColor,
+        surfaceColor: saved.surfaceColor || fallbackTokens.surfaceColor,
+        sidebarColor: saved.sidebarColor || fallbackTokens.sidebarColor,
+        sidebarBorderColor: fallbackTokens.sidebarBorderColor,
+        cardBorderColor: fallbackTokens.cardBorderColor,
+        headingColor:
+          saved.headingColor || saved.textColor || fallbackTokens.headingColor, // Use saved headingColor first, fallback to textColor, then calculated
+        textColor: saved.textColor || fallbackTokens.textColor,
+        mutedTextColor: saved.mutedTextColor || fallbackTokens.mutedTextColor,
+        actionColor: fallbackTokens.actionColor,
+        overlayColor: fallbackTokens.overlayColor,
+      };
+      console.log(
+        "[AdminContainer] 🎨 Using saved appearance tokens from dashboard:",
+        {
           baseColor: saved.baseColor,
           sidebarColor: tokens.sidebarColor,
           textColor: tokens.textColor,
@@ -514,56 +561,71 @@ export function AdminContainer() {
           savedHeadingColor: saved.headingColor,
           savedTextColor: saved.textColor,
           dashboardId: currentDashboard.id,
-        });
-        console.log("[AdminContainer] ✅ appearanceTokens FINAL (from dashboard):", {
+        }
+      );
+      console.log(
+        "[AdminContainer] ✅ appearanceTokens FINAL (from dashboard):",
+        {
           baseColor: tokens.baseColor,
           sidebarColor: tokens.sidebarColor,
           textColor: tokens.textColor,
           headingColor: tokens.headingColor,
           mutedTextColor: tokens.mutedTextColor,
-        });
-        return tokens;
-      }
-      
-      // Calculate tokens if not saved (backward compatibility)
-      const tokens = computeAdeAppearanceTokens(safeBaseColor);
-      console.log("[AdminContainer] 🎨 Appearance tokens computed (not saved):", {
-        baseColor: safeBaseColor,
-        sidebarColor: tokens.sidebarColor,
-        textColor: tokens.textColor,
-        headingColor: tokens.headingColor,
-        mutedTextColor: tokens.mutedTextColor,
-      });
-      
-      const finalTokens = tokens;
-      console.log("[AdminContainer] ✅ appearanceTokens FINAL:", {
-        baseColor: finalTokens.baseColor,
-        sidebarColor: finalTokens.sidebarColor,
-        textColor: finalTokens.textColor,
-        headingColor: finalTokens.headingColor,
-        mutedTextColor: finalTokens.mutedTextColor,
-      });
-      
-      // CRITICAL: Save appearance to localStorage whenever it's calculated
-      // This ensures it's available immediately after F5, even before dashboard loads
-      // Save even if baseColor is default, as long as we have sidebarColor and textColor
-      if (typeof window !== "undefined" && finalTokens.sidebarColor && finalTokens.textColor) {
-        try {
-          window.localStorage.setItem(APPEARANCE_STORAGE_KEY, JSON.stringify(finalTokens));
-          console.log("[AdminContainer] 💾 Auto-saved appearance to localStorage:", {
+        }
+      );
+      return tokens;
+    }
+
+    // Calculate tokens if not saved (backward compatibility)
+    const tokens = computeAdeAppearanceTokens(safeBaseColor);
+    console.log("[AdminContainer] 🎨 Appearance tokens computed (not saved):", {
+      baseColor: safeBaseColor,
+      sidebarColor: tokens.sidebarColor,
+      textColor: tokens.textColor,
+      headingColor: tokens.headingColor,
+      mutedTextColor: tokens.mutedTextColor,
+    });
+
+    const finalTokens = tokens;
+    console.log("[AdminContainer] ✅ appearanceTokens FINAL:", {
+      baseColor: finalTokens.baseColor,
+      sidebarColor: finalTokens.sidebarColor,
+      textColor: finalTokens.textColor,
+      headingColor: finalTokens.headingColor,
+      mutedTextColor: finalTokens.mutedTextColor,
+    });
+
+    // CRITICAL: Save appearance to localStorage whenever it's calculated
+    // This ensures it's available immediately after F5, even before dashboard loads
+    // Save even if baseColor is default, as long as we have sidebarColor and textColor
+    if (
+      typeof window !== "undefined" &&
+      finalTokens.sidebarColor &&
+      finalTokens.textColor
+    ) {
+      try {
+        window.localStorage.setItem(
+          APPEARANCE_STORAGE_KEY,
+          JSON.stringify(finalTokens)
+        );
+        console.log(
+          "[AdminContainer] 💾 Auto-saved appearance to localStorage:",
+          {
             baseColor: finalTokens.baseColor,
             sidebarColor: finalTokens.sidebarColor,
             textColor: finalTokens.textColor,
-          });
-        } catch (e) {
-          console.warn("[AdminContainer] ⚠️ Failed to auto-save appearance to localStorage:", e);
-        }
+          }
+        );
+      } catch (e) {
+        console.warn(
+          "[AdminContainer] ⚠️ Failed to auto-save appearance to localStorage:",
+          e
+        );
       }
-      
-      return finalTokens;
-    },
-    [baseColor, currentDashboard?.appearance, currentDashboard?.id]
-  );
+    }
+
+    return finalTokens;
+  }, [baseColor, currentDashboard?.appearance, currentDashboard?.id]);
   const normalizeColorValue = useCallback((value: string) => {
     const trimmed = value?.trim() ?? "";
     const candidate = trimmed.startsWith("#") ? trimmed : `#${trimmed}`;
@@ -702,28 +764,38 @@ export function AdminContainer() {
       viewingSessionId,
       userSelectedSession: userSelectedSessionRef.current,
     });
-    
+
     // Se a sessão do servidor é diferente da que estamos visualizando, sempre trocar
     // Isso garante que após reset, usamos a nova sessão do servidor
-    const isNewSession = viewingSessionId && viewingSessionId !== data.sessionId;
-    
+    const isNewSession =
+      viewingSessionId && viewingSessionId !== data.sessionId;
+
     // Don't auto-switch if user manually selected a different session
-    const isUserSelectedSession = userSelectedSessionRef.current !== null && 
-                                   userSelectedSessionRef.current !== data.sessionId;
-    
+    const isUserSelectedSession =
+      userSelectedSessionRef.current !== null &&
+      userSelectedSessionRef.current !== data.sessionId;
+
     // If we're viewing a different session than the server, preserve local workspace
     // Don't overwrite if user selected a different session or if local workspace has more recent chat history
-    const shouldPreserveLocal = viewingSessionId && 
-                                viewingSessionId !== data.sessionId && 
-                                (isUserSelectedSession || localWorkspace?.sessionId === viewingSessionId);
-    
+    const shouldPreserveLocal =
+      viewingSessionId &&
+      viewingSessionId !== data.sessionId &&
+      (isUserSelectedSession || localWorkspace?.sessionId === viewingSessionId);
+
     if (isNewSession && !isUserSelectedSession && !shouldPreserveLocal) {
-      console.log(`[AdminContainer] 🔄 New session detected from server: ${data.sessionId} (was viewing: ${viewingSessionId})`);
+      console.log(
+        `[AdminContainer] 🔄 New session detected from server: ${data.sessionId} (was viewing: ${viewingSessionId})`
+      );
       // Limpar workspace local antigo se a sessão mudou
       if (viewingSessionId && typeof window !== "undefined") {
         const oldCached = loadCachedWorkspace(viewingSessionId);
-        if (oldCached && (!oldCached.company?.tiles || oldCached.company.tiles.length === 0)) {
-          console.log(`[AdminContainer] 🗑️ Clearing old empty session from localStorage: ${viewingSessionId}`);
+        if (
+          oldCached &&
+          (!oldCached.company?.tiles || oldCached.company.tiles.length === 0)
+        ) {
+          console.log(
+            `[AdminContainer] 🗑️ Clearing old empty session from localStorage: ${viewingSessionId}`
+          );
           deleteCachedWorkspace(viewingSessionId);
         }
       }
@@ -732,31 +804,41 @@ export function AdminContainer() {
       if (typeof window !== "undefined") {
         try {
           window.localStorage.removeItem(APPEARANCE_STORAGE_KEY);
-          console.log(`[AdminContainer] 🗑️ Cleared appearance tokens from localStorage (new session: ${data.sessionId})`);
+          console.log(
+            `[AdminContainer] 🗑️ Cleared appearance tokens from localStorage (new session: ${data.sessionId})`
+          );
         } catch (e) {
-          console.warn("[AdminContainer] ⚠️ Failed to clear appearance tokens:", e);
+          console.warn(
+            "[AdminContainer] ⚠️ Failed to clear appearance tokens:",
+            e
+          );
         }
       }
     }
-    
+
     // Only update if we're not preserving local workspace
     if (!shouldPreserveLocal) {
       setSessionId(data.sessionId);
       setLocalWorkspace(data);
       saveCachedWorkspace(data.sessionId, data);
     } else {
-      console.log(`[AdminContainer] 🔒 Preserving local workspace (session: ${viewingSessionId}) to prevent overwriting chat history`);
+      console.log(
+        `[AdminContainer] 🔒 Preserving local workspace (session: ${viewingSessionId}) to prevent overwriting chat history`
+      );
     }
     refreshStoredWorkspaces();
-    
+
     // Se a nova sessão tem tiles, sempre trocar para ela (é a mais recente)
     // MAS só se o usuário não selecionou manualmente outra sessão
     const hasTiles = data.company?.tiles && data.company.tiles.length > 0;
-    
+
     if (hasTiles) {
       // Se tem tiles e não é uma seleção manual do usuário, usar esta sessão (é a mais recente com dados)
       if (viewingSessionId !== data.sessionId && !isUserSelectedSession) {
-        console.log("[AdminContainer] 🔄 Switching to session with tiles:", data.sessionId);
+        console.log(
+          "[AdminContainer] 🔄 Switching to session with tiles:",
+          data.sessionId
+        );
         setViewingSessionId(data.sessionId);
         // Clear user selection flag since we're auto-switching
         userSelectedSessionRef.current = null;
@@ -770,14 +852,20 @@ export function AdminContainer() {
     } else {
       // Sempre usar a sessão do servidor, mesmo sem tiles (pode estar gerando)
       // MAS só se o usuário não selecionou manualmente outra sessão
-      if ((viewingSessionId !== data.sessionId || isNewSession) && !isUserSelectedSession) {
-        console.log("[AdminContainer] 🔄 Switching to server session:", data.sessionId);
+      if (
+        (viewingSessionId !== data.sessionId || isNewSession) &&
+        !isUserSelectedSession
+      ) {
+        console.log(
+          "[AdminContainer] 🔄 Switching to server session:",
+          data.sessionId
+        );
         setViewingSessionId(data.sessionId);
         // Clear user selection flag since we're auto-switching
         userSelectedSessionRef.current = null;
       }
     }
-    
+
     cacheWarningShownRef.current = false;
   }, [data, refreshStoredWorkspaces, viewingSessionId]);
 
@@ -830,54 +918,110 @@ export function AdminContainer() {
 
   const workspace = workspaceState.data;
 
+  // Tile streaming hook - only active when coming from home page
+  const {
+    tiles: streamingTiles,
+    isStreaming,
+    isCompleted: streamingCompleted,
+    error: streamingError,
+    totalTiles: streamingTotalTiles,
+    completedTiles: streamingCompletedTiles,
+    startStreaming,
+    stopStreaming,
+  } = useTileStreaming({
+    salesRepCompany: workspace?.company?.name || "",
+    salesRepWebsite: workspace?.company?.website || "",
+    solution: workspace?.promptSettings?.sellingSolutionsFor || "",
+    targetCompany: workspace?.promptSettings?.target || "",
+    targetWebsite: workspace?.promptSettings?.targetWebsite || "",
+    templateId: workspace?.promptSettings?.templateId || "",
+    model: workspace?.promptSettings?.model,
+    promptAgent: workspace?.promptSettings?.promptAgent,
+    responseLength: workspace?.promptSettings?.responseLength,
+    promptVariables: workspace?.promptSettings?.promptVariables,
+    bulkPrompts: workspace?.promptSettings?.bulkPrompts,
+    onTileGenerated: (tile, index) => {
+      console.log(
+        `[AdminContainer] 🎯 Tile ${index + 1} streamed:`,
+        tile.title
+      );
+      // Update dashboard with new tile
+      if (currentCompany && currentDashboard) {
+        const updatedTiles = [...currentDashboard.tiles];
+        updatedTiles[index] = tile;
+        updateDashboard(currentCompany.id, currentDashboard.id, {
+          tiles: updatedTiles,
+        });
+      }
+    },
+    onCompleted: (workspace, sessionId) => {
+      console.log("[AdminContainer] ✅ Streaming completed, workspace ready");
+      // Refresh the SWR cache to get updated workspace data
+      refreshStoredWorkspaces();
+      mutate();
+    },
+    onError: (error) => {
+      console.error("[AdminContainer] ❌ Streaming error:", error);
+      push({
+        variant: "destructive",
+        title: "Generation Failed",
+        description: `Error generating insights: ${error}`,
+      });
+    },
+  });
+
   // Start streaming when coming from home page with recent generation
   useEffect(() => {
-    if (shouldUseStreaming && !isStreaming && !streamingCompleted && workspace) {
+    if (
+      shouldUseStreaming &&
+      !isStreaming &&
+      !streamingCompleted &&
+      workspace
+    ) {
       console.log("[AdminContainer] 🚀 Starting tile streaming from home page");
       console.log("[AdminContainer] 📋 Workspace data:", {
         hasPromptSettings: !!workspace.promptSettings,
-        promptSettings: workspace.promptSettings
+        promptSettings: workspace.promptSettings,
       });
 
       // Extract generation parameters from workspace
       const promptSettings = workspace.promptSettings;
       if (promptSettings) {
         // Check if we have the minimum required data for streaming
-        const hasRequiredData = promptSettings.target &&
-                                promptSettings.sellingSolutionsFor &&
-                                promptSettings.targetWebsite &&
-                                promptSettings.templateId;
+        const hasRequiredData =
+          promptSettings.target &&
+          promptSettings.sellingSolutionsFor &&
+          promptSettings.targetWebsite &&
+          promptSettings.templateId;
 
         if (hasRequiredData) {
           console.log("[AdminContainer] ✅ Starting streaming with valid data");
 
-          startStreaming({
-            salesRepCompany: "Demo Company", // Fallback for now
-            salesRepWebsite: "https://demo.com",
-            solution: promptSettings.sellingSolutionsFor,
-            targetCompany: promptSettings.target,
-            targetWebsite: promptSettings.targetWebsite,
-            templateId: promptSettings.templateId,
-            model: promptSettings.model,
-            promptAgent: promptSettings.promptAgent,
-            responseLength: promptSettings.responseLength,
-            promptVariables: promptSettings.promptVariables,
-            bulkPrompts: promptSettings.bulkPrompts,
-          });
+          startStreaming();
         } else {
-          console.warn("[AdminContainer] ⚠️ Missing required data in promptSettings, falling back to polling");
+          console.warn(
+            "[AdminContainer] ⚠️ Missing required data in promptSettings, falling back to polling"
+          );
           console.warn("[AdminContainer] 📋 Required data check:", {
             target: promptSettings.target,
             sellingSolutionsFor: promptSettings.sellingSolutionsFor,
             targetWebsite: promptSettings.targetWebsite,
-            templateId: promptSettings.templateId
+            templateId: promptSettings.templateId,
           });
         }
       } else {
-        console.warn("[AdminContainer] ⚠️ No prompt settings found in workspace, skipping streaming");
+        console.warn(
+          "[AdminContainer] ⚠️ No prompt settings found in workspace, skipping streaming"
+        );
       }
     }
-  }, [shouldUseStreaming, isStreaming, streamingCompleted, workspace, startStreaming]);
+  }, [
+    shouldUseStreaming,
+    isStreaming,
+    streamingCompleted,
+    workspace,
+    startStreaming,
+  ]);
 
   // Migrate workspace to company structure and load current dashboard
   useEffect(() => {
@@ -887,41 +1031,52 @@ export function AdminContainer() {
       setCurrentDashboard(null);
       return;
     }
-    
+
     // ⚠️ IMPORTANTE: Pular sincronização se estivermos atualizando dashboard
     // Isso previne race conditions onde mutate() dispara sync que sobrescreve dados recém-salvos
     if (isUpdatingDashboardRef.current) {
-      console.log("[DataSync] ⏸️ Dashboard update in progress, skipping sync to prevent race condition");
+      console.log(
+        "[DataSync] ⏸️ Dashboard update in progress, skipping sync to prevent race condition"
+      );
       return;
     }
-    
+
     console.log("[DataSync] 🔄 Starting workspace → company sync", {
       workspaceSessionId: workspace.sessionId,
       workspaceTilesCount: workspace.company?.tiles?.length ?? 0,
       workspaceContactsCount: workspace.company?.contacts?.length ?? 0,
       workspaceNotesCount: workspace.company?.notes?.length ?? 0,
     });
-    
+
     // Migrate workspace to company structure
     const company = getOrCreateCompanyFromWorkspace(workspace);
     if (!company) {
-      console.log("[DataSync] ❌ Failed to get or create company from workspace");
+      console.log(
+        "[DataSync] ❌ Failed to get or create company from workspace"
+      );
       return;
     }
-    
+
     console.log("[DataSync] ✅ Company loaded/created", {
       companyId: company.id,
       companyName: company.name,
       dashboardsCount: company.dashboards.length,
-      companyContactsCount: company.dashboards.reduce((sum, d) => sum + (d.contacts?.length ?? 0), 0),
-      companyNotesCount: company.dashboards.reduce((sum, d) => sum + (d.notes?.length ?? 0), 0),
+      companyContactsCount: company.dashboards.reduce(
+        (sum, d) => sum + (d.contacts?.length ?? 0),
+        0
+      ),
+      companyNotesCount: company.dashboards.reduce(
+        (sum, d) => sum + (d.notes?.length ?? 0),
+        0
+      ),
     });
-    
+
     setCurrentCompany(company);
-    
+
     // Get active dashboard
-    const activeDashboard = getActiveDashboard(company.id) ?? company.dashboards[0] ?? null;
-    
+    const activeDashboard =
+      getActiveDashboard(company.id) ?? company.dashboards[0] ?? null;
+
     if (activeDashboard) {
       console.log("[DataSync] 📊 Active dashboard found", {
         dashboardId: activeDashboard.id,
@@ -929,7 +1084,7 @@ export function AdminContainer() {
         dashboardTilesCount: activeDashboard.tiles?.length ?? 0,
         isActive: activeDashboard.isActive,
       });
-      
+
       // Load dashboard's background color (PRIORITY 1: Dashboard color)
       const dashboardColor = activeDashboard.appearance?.baseColor;
       if (dashboardColor && dashboardColor.trim()) {
@@ -946,10 +1101,19 @@ export function AdminContainer() {
       } else {
         // PRIORITY 2: Check localStorage for user's custom color
         if (typeof window !== "undefined") {
-          const storedColor = window.localStorage.getItem(BASE_COLOR_STORAGE_KEY);
-          if (storedColor && storedColor.trim() && /^#[0-9A-Fa-f]{6}$/.test(storedColor.trim())) {
+          const storedColor = window.localStorage.getItem(
+            BASE_COLOR_STORAGE_KEY
+          );
+          if (
+            storedColor &&
+            storedColor.trim() &&
+            /^#[0-9A-Fa-f]{6}$/.test(storedColor.trim())
+          ) {
             const normalized = normalizeColorValueSync(storedColor);
-            console.log("[DataSync] 🎨 Dashboard has no color, using localStorage color:", normalized);
+            console.log(
+              "[DataSync] 🎨 Dashboard has no color, using localStorage color:",
+              normalized
+            );
             setBaseColor(normalized);
             if (document.body) {
               document.body.style.backgroundColor = normalized;
@@ -957,12 +1121,15 @@ export function AdminContainer() {
             return; // Don't check workspace if we have localStorage color
           }
         }
-        
+
         // PRIORITY 3: Use workspace color (backward compatibility)
         const workspaceColor = workspace.appearance?.baseColor;
         if (workspaceColor && workspaceColor.trim()) {
           const normalized = normalizeColorValueSync(workspaceColor);
-          console.log("[DataSync] 🎨 Dashboard has no color, using workspace color:", normalized);
+          console.log(
+            "[DataSync] 🎨 Dashboard has no color, using workspace color:",
+            normalized
+          );
           setBaseColor(normalized);
           if (document.body) {
             document.body.style.backgroundColor = normalized;
@@ -980,17 +1147,22 @@ export function AdminContainer() {
           }
           // Persist default to localStorage for consistency
           if (typeof window !== "undefined") {
-            window.localStorage.setItem(BASE_COLOR_STORAGE_KEY, DEFAULT_BASE_COLOR);
+            window.localStorage.setItem(
+              BASE_COLOR_STORAGE_KEY,
+              DEFAULT_BASE_COLOR
+            );
           }
         }
       }
     } else {
       console.log("[DataSync] ⚠️ No active dashboard found");
     }
-    
+
     setCurrentDashboard(activeDashboard);
-    
-    console.log(`[AdminContainer] 🏢 Company: ${company.name}, Dashboards: ${company.dashboards.length}, Active: ${activeDashboard?.name}`);
+
+    console.log(
+      `[AdminContainer] 🏢 Company: ${company.name}, Dashboards: ${company.dashboards.length}, Active: ${activeDashboard?.name}`
+    );
   }, [workspace]);
 
   // Log workspace source para debug (apenas quando muda)
@@ -1014,15 +1186,20 @@ export function AdminContainer() {
       });
       return dashboardTiles.sort((a, b) => a.orderIndex - b.orderIndex);
     }
-    
+
     // Only fallback to workspace if no dashboard exists (backward compatibility)
-    console.log("[TilesSource] ⚠️ No currentDashboard, falling back to workspace", {
-      hasWorkspace: !!workspace,
-      workspaceSource: workspaceState.source,
-    });
-    
+    console.log(
+      "[TilesSource] ⚠️ No currentDashboard, falling back to workspace",
+      {
+        hasWorkspace: !!workspace,
+        workspaceSource: workspaceState.source,
+      }
+    );
+
     if (!workspace) {
-      console.log("[TilesSource] 🚫 No workspace available, returning empty tiles");
+      console.log(
+        "[TilesSource] 🚫 No workspace available, returning empty tiles"
+      );
       return [];
     }
     const tilesArray = workspace.company?.tiles ?? [];
@@ -1108,15 +1285,18 @@ export function AdminContainer() {
       });
       return dashboardNotes;
     }
-    
+
     // Fallback to workspace for backward compatibility
     const notesFromWorkspace = workspace?.company.notes ?? [];
-    console.log("[NotesSource] ⚠️ No dashboard, falling back to workspace notes", {
-      notesCount: notesFromWorkspace.length,
-    });
+    console.log(
+      "[NotesSource] ⚠️ No dashboard, falling back to workspace notes",
+      {
+        notesCount: notesFromWorkspace.length,
+      }
+    );
     return notesFromWorkspace;
   }, [currentDashboard?.notes, currentDashboard?.id, workspace?.company.notes]);
-  
+
   const contacts: Contact[] = useMemo(() => {
     // Use contacts from current dashboard (isolated per dashboard)
     if (currentDashboard) {
@@ -1128,15 +1308,22 @@ export function AdminContainer() {
       });
       return dashboardContacts;
     }
-    
+
     // Fallback to workspace for backward compatibility
     const contactsFromWorkspace = workspace?.company.contacts ?? [];
-    console.log("[ContactsSource] ⚠️ No dashboard, falling back to workspace contacts", {
-      contactsCount: contactsFromWorkspace.length,
-    });
+    console.log(
+      "[ContactsSource] ⚠️ No dashboard, falling back to workspace contacts",
+      {
+        contactsCount: contactsFromWorkspace.length,
+      }
+    );
     return contactsFromWorkspace;
-  }, [currentDashboard?.contacts, currentDashboard?.id, workspace?.company.contacts]);
-  
+  }, [
+    currentDashboard?.contacts,
+    currentDashboard?.id,
+    workspace?.company.contacts,
+  ]);
+
   const activeContact = useMemo(
     () => contacts.find((contact) => contact.id === selectedContactId) ?? null,
     [contacts, selectedContactId]
@@ -1174,7 +1361,7 @@ export function AdminContainer() {
         const companies = loadCompaniesWithDashboards();
         const company = companies.find((c) => c.id === session);
         const dashboardsCount = company?.dashboards?.length ?? 0;
-        
+
         return {
           sessionId: session,
           name: snapshot.company.name || "Workspace",
@@ -1275,7 +1462,6 @@ export function AdminContainer() {
     }
   }, [workspace, baseColor, normalizeColorValue]);
 
-
   const handleCustomizeBackground = useCallback(
     (event: React.MouseEvent<HTMLButtonElement>) => {
       // Get button position
@@ -1303,7 +1489,7 @@ export function AdminContainer() {
 
         // Calculate all appearance tokens once and save them to avoid recalculation
         const computedTokens = computeAdeAppearanceTokens(normalized);
-        
+
         // Calculate contrast mode (true if background is dark, false if light)
         const contrastMode = getContrastingTextColor(normalized) === "#ffffff";
 
@@ -1318,12 +1504,12 @@ export function AdminContainer() {
             mutedTextColor: computedTokens.mutedTextColor,
             ...currentDashboard.appearance,
           };
-          
+
           updateDashboard(currentCompany.id, currentDashboard.id, {
             appearance: updatedAppearance,
             contrastMode: contrastMode,
           });
-          
+
           // CRITICAL: Also save appearance to localStorage for immediate access after F5
           // This ensures appearance is available before currentDashboard is loaded
           if (typeof window !== "undefined") {
@@ -1341,19 +1527,28 @@ export function AdminContainer() {
                 actionColor: computedTokens.actionColor,
                 overlayColor: computedTokens.overlayColor,
               };
-              window.localStorage.setItem(APPEARANCE_STORAGE_KEY, JSON.stringify(tokensToStore));
-              console.log("[AdminContainer] 💾 Saved appearance to localStorage for F5 persistence:", {
-                baseColor: tokensToStore.baseColor,
-                sidebarColor: tokensToStore.sidebarColor,
-                textColor: tokensToStore.textColor,
-                headingColor: tokensToStore.headingColor,
-                mutedTextColor: tokensToStore.mutedTextColor,
-              });
+              window.localStorage.setItem(
+                APPEARANCE_STORAGE_KEY,
+                JSON.stringify(tokensToStore)
+              );
+              console.log(
+                "[AdminContainer] 💾 Saved appearance to localStorage for F5 persistence:",
+                {
+                  baseColor: tokensToStore.baseColor,
+                  sidebarColor: tokensToStore.sidebarColor,
+                  textColor: tokensToStore.textColor,
+                  headingColor: tokensToStore.headingColor,
+                  mutedTextColor: tokensToStore.mutedTextColor,
+                }
+              );
             } catch (e) {
-              console.warn("[AdminContainer] ⚠️ Failed to save appearance to localStorage:", e);
+              console.warn(
+                "[AdminContainer] ⚠️ Failed to save appearance to localStorage:",
+                e
+              );
             }
           }
-          
+
           console.log(
             "[AdminContainer] 💾 Color and contrast saved to dashboard:",
             {
@@ -1366,11 +1561,13 @@ export function AdminContainer() {
               contrastMode: contrastMode,
             }
           );
-          
+
           // Reload company to get updated dashboard
           const updatedCompany = getCompanyById(currentCompany.id);
           if (updatedCompany) {
-            const updatedDashboard = updatedCompany.dashboards.find((d) => d.id === currentDashboard.id);
+            const updatedDashboard = updatedCompany.dashboards.find(
+              (d) => d.id === currentDashboard.id
+            );
             if (updatedDashboard) {
               setCurrentDashboard(updatedDashboard);
             }
@@ -1378,11 +1575,14 @@ export function AdminContainer() {
         }
 
         setBaseColor(normalized);
-        
+
         // Persist to localStorage immediately for F5 persistence
         if (typeof window !== "undefined") {
           window.localStorage.setItem(BASE_COLOR_STORAGE_KEY, normalized);
-          console.log("[AdminContainer] 💾 Color saved to localStorage:", normalized);
+          console.log(
+            "[AdminContainer] 💾 Color saved to localStorage:",
+            normalized
+          );
         }
 
         push({
@@ -1419,368 +1619,474 @@ export function AdminContainer() {
     });
   }, [push]);
 
-  const handleCreateBlankDashboard = useCallback(async (payload: { dashboardName: string }) => {
-    if (isCreatingBlankDashboard) return;
-    
-    // CRITICAL: Se não há currentCompany, precisamos criar uma primeiro
-    // Isso pode acontecer se o usuário cria um blank dashboard antes de ter um workspace
-    let companyToUse = currentCompany;
-    
-    if (!companyToUse) {
-      // Tentar criar company a partir do workspace se existir
-      if (workspace) {
-        console.log("[CreateBlankDashboard] ⚠️ No currentCompany, creating from workspace", {
-          workspaceSessionId: workspace.sessionId,
-        });
-        const createdCompany = getOrCreateCompanyFromWorkspace(workspace);
-        if (createdCompany) {
-          companyToUse = createdCompany;
-          setCurrentCompany(createdCompany);
-          // Set active dashboard from created company
-          const activeDashboard = getActiveDashboard(createdCompany.id) ?? createdCompany.dashboards[0] ?? null;
-          if (activeDashboard) {
-            setCurrentDashboard(activeDashboard);
+  const handleCreateBlankDashboard = useCallback(
+    async (payload: { dashboardName: string }) => {
+      if (isCreatingBlankDashboard) return;
+
+      // CRITICAL: Se não há currentCompany, precisamos criar uma primeiro
+      // Isso pode acontecer se o usuário cria um blank dashboard antes de ter um workspace
+      let companyToUse = currentCompany;
+
+      if (!companyToUse) {
+        // Tentar criar company a partir do workspace se existir
+        if (workspace) {
+          console.log(
+            "[CreateBlankDashboard] ⚠️ No currentCompany, creating from workspace",
+            {
+              workspaceSessionId: workspace.sessionId,
+            }
+          );
+          const createdCompany = getOrCreateCompanyFromWorkspace(workspace);
+          if (createdCompany) {
+            companyToUse = createdCompany;
+            setCurrentCompany(createdCompany);
+            // Set active dashboard from created company
+            const activeDashboard =
+              getActiveDashboard(createdCompany.id) ??
+              createdCompany.dashboards[0] ??
+              null;
+            if (activeDashboard) {
+              setCurrentDashboard(activeDashboard);
+            }
           }
         }
+
+        // Se ainda não temos company, não podemos criar dashboard
+        if (!companyToUse) {
+          push({
+            title: "Cannot create dashboard",
+            description:
+              "Please create a workspace first by selecting a template.",
+            variant: "destructive",
+          });
+          return;
+        }
       }
-      
-      // Se ainda não temos company, não podemos criar dashboard
-      if (!companyToUse) {
+
+      setIsCreatingBlankDashboard(true);
+
+      try {
+        console.log("[CreateBlankDashboard] 🆕 Creating blank dashboard", {
+          companyId: companyToUse.id,
+          dashboardName: payload.dashboardName,
+          hasCurrentCompany: !!currentCompany,
+        });
+
+        // Create new dashboard in current company (blank dashboard = no templateId)
+        const newDashboard = createDashboard(
+          companyToUse.id,
+          payload.dashboardName,
+          undefined
+        );
+
+        console.log("[CreateBlankDashboard] ✅ Dashboard created", {
+          dashboardId: newDashboard.id,
+          dashboardName: newDashboard.name,
+          tilesCount: newDashboard.tiles?.length ?? 0,
+        });
+
+        // Reload company directly from storage (don't sync from workspace)
+        // This ensures the blank dashboard stays empty
+        const updatedCompany = getCompanyById(companyToUse.id);
+        if (!updatedCompany) {
+          throw new Error("Failed to reload company after creating dashboard");
+        }
+
+        console.log(
+          "[CreateBlankDashboard] 🔄 Reloading company from storage",
+          {
+            companyId: updatedCompany.id,
+            dashboardsCount: updatedCompany.dashboards.length,
+          }
+        );
+
+        // CRITICAL: Atualizar estado de forma síncrona e garantir que está atualizado
+        setCurrentCompany(updatedCompany);
+
+        const updatedDashboard = updatedCompany.dashboards.find(
+          (d) => d.id === newDashboard.id
+        );
+        if (!updatedDashboard) {
+          throw new Error(
+            `Dashboard ${newDashboard.id} not found after reload`
+          );
+        }
+
+        console.log("[CreateBlankDashboard] 📊 Setting active dashboard", {
+          dashboardId: updatedDashboard.id,
+          dashboardName: updatedDashboard.name,
+          tilesCount: updatedDashboard.tiles?.length ?? 0,
+          templateId: updatedDashboard.templateId,
+          isBlank: !updatedDashboard.templateId,
+        });
+
+        // CRITICAL: Criar nova referência do objeto para garantir que React detecta a mudança
+        setCurrentDashboard({ ...updatedDashboard });
+
+        // Set default background color for new blank dashboard
+        // Don't inherit color from previous dashboard
+        console.log(
+          "[CreateBlankDashboard] 🎨 Setting default color for new dashboard"
+        );
+        setBaseColor(DEFAULT_BASE_COLOR);
+        if (document.body) {
+          document.body.style.backgroundColor = DEFAULT_BASE_COLOR;
+        }
+        // CRITICAL: Clear appearance tokens from localStorage to force recalculation with default colors
+        // This ensures sidebar, text, and all other colors are reset to default, not inherited from previous dashboard
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(
+            BASE_COLOR_STORAGE_KEY,
+            DEFAULT_BASE_COLOR
+          );
+          // Clear appearance tokens so they are recalculated with default colors
+          window.localStorage.removeItem(APPEARANCE_STORAGE_KEY);
+          console.log(
+            "[CreateBlankDashboard] 🗑️ Cleared appearance tokens to force default colors"
+          );
+        }
+
+        // CRITICAL: Aguardar um tick para garantir que estado foi atualizado antes de fechar modal
+        // Isso previne race conditions onde usuário tenta criar prompt antes do estado estar pronto
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
         push({
-          title: "Cannot create dashboard",
-          description: "Please create a workspace first by selecting a template.",
+          title: "Dashboard created",
+          description: `"${payload.dashboardName}" has been created. You can now add custom prompts.`,
+          variant: "success",
+        });
+
+        setCreateBlankDashboardModalOpen(false);
+      } catch (error) {
+        console.error(
+          "[CreateBlankDashboard] ❌ Error creating dashboard",
+          error
+        );
+        push({
+          title: "Failed to create dashboard",
+          description:
+            error instanceof Error
+              ? error.message
+              : "Please try again in a few moments.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsCreatingBlankDashboard(false);
+      }
+    },
+    [isCreatingBlankDashboard, currentCompany, workspace, push]
+  );
+
+  const handleSelectDashboard = useCallback(
+    (dashboardId: string) => {
+      if (!currentCompany) {
+        console.log("[DashboardSwitch] ❌ No currentCompany available");
+        return;
+      }
+
+      console.log("[DashboardSwitch] 🔄 Starting dashboard switch", {
+        companyId: currentCompany.id,
+        companyName: currentCompany.name,
+        fromDashboardId: currentDashboard?.id,
+        fromDashboardName: currentDashboard?.name,
+        toDashboardId: dashboardId,
+        currentTilesCount: currentDashboard?.tiles?.length ?? 0,
+        currentContactsCount: currentCompany.dashboards.reduce(
+          (sum, d) => sum + (d.contacts?.length ?? 0),
+          0
+        ),
+        currentNotesCount: currentCompany.dashboards.reduce(
+          (sum, d) => sum + (d.notes?.length ?? 0),
+          0
+        ),
+      });
+
+      setActiveDashboard(currentCompany.id, dashboardId);
+
+      // Reload company from storage to get updated dashboard states
+      const updatedCompany = getCompanyById(currentCompany.id);
+      if (updatedCompany) {
+        setCurrentCompany(updatedCompany);
+        const dashboard = updatedCompany.dashboards.find(
+          (d) => d.id === dashboardId
+        );
+        if (dashboard) {
+          console.log("[DashboardSwitch] ✅ Dashboard found and switched", {
+            dashboardId: dashboard.id,
+            dashboardName: dashboard.name,
+            tilesCount: dashboard.tiles?.length ?? 0,
+            isActive: dashboard.isActive,
+            contactsCount: updatedCompany.dashboards.reduce(
+              (sum, d) => sum + (d.contacts?.length ?? 0),
+              0
+            ),
+            notesCount: updatedCompany.dashboards.reduce(
+              (sum, d) => sum + (d.notes?.length ?? 0),
+              0
+            ),
+          });
+          setCurrentDashboard(dashboard);
+
+          // Load dashboard's background color
+          const dashboardColor = dashboard.appearance?.baseColor;
+          if (dashboardColor && dashboardColor.trim()) {
+            const normalized = normalizeColorValueSync(dashboardColor);
+            console.log(
+              "[DashboardSwitch] 🎨 Loading dashboard color:",
+              normalized
+            );
+            setBaseColor(normalized);
+            if (document.body) {
+              document.body.style.backgroundColor = normalized;
+            }
+            // CRITICAL: Save dashboard's appearance tokens to localStorage for F5 persistence
+            // This ensures the dashboard's custom colors are restored after refresh
+            if (typeof window !== "undefined") {
+              window.localStorage.setItem(BASE_COLOR_STORAGE_KEY, normalized);
+              // If dashboard has saved appearance, restore it to localStorage
+              if (
+                dashboard.appearance &&
+                dashboard.appearance.sidebarColor &&
+                dashboard.appearance.textColor
+              ) {
+                const computed = computeAdeAppearanceTokens(normalized);
+                const appearanceTokens: AdeAppearanceTokens = {
+                  baseColor: normalized,
+                  surfaceColor:
+                    dashboard.appearance.surfaceColor || computed.surfaceColor,
+                  sidebarColor: dashboard.appearance.sidebarColor,
+                  sidebarBorderColor: computed.sidebarBorderColor,
+                  cardBorderColor: computed.cardBorderColor,
+                  headingColor:
+                    dashboard.appearance.headingColor ||
+                    dashboard.appearance.textColor ||
+                    computed.headingColor,
+                  textColor: dashboard.appearance.textColor,
+                  mutedTextColor:
+                    dashboard.appearance.mutedTextColor ||
+                    computed.mutedTextColor,
+                  actionColor: computed.actionColor,
+                  overlayColor: computed.overlayColor,
+                };
+                window.localStorage.setItem(
+                  APPEARANCE_STORAGE_KEY,
+                  JSON.stringify(appearanceTokens)
+                );
+                console.log(
+                  "[DashboardSwitch] 💾 Saved dashboard appearance to localStorage:",
+                  {
+                    baseColor: appearanceTokens.baseColor,
+                    sidebarColor: appearanceTokens.sidebarColor,
+                    textColor: appearanceTokens.textColor,
+                  }
+                );
+              }
+            }
+          } else {
+            // Check localStorage first, then default
+            if (typeof window !== "undefined") {
+              const storedColor = window.localStorage.getItem(
+                BASE_COLOR_STORAGE_KEY
+              );
+              if (
+                storedColor &&
+                storedColor.trim() &&
+                /^#[0-9A-Fa-f]{6}$/.test(storedColor.trim())
+              ) {
+                const normalized = normalizeColorValueSync(storedColor);
+                console.log(
+                  "[DashboardSwitch] 🎨 Dashboard has no color, using localStorage color:",
+                  normalized
+                );
+                setBaseColor(normalized);
+                if (document.body) {
+                  document.body.style.backgroundColor = normalized;
+                }
+                return; // Don't set default if we have localStorage color
+              }
+            }
+            // Use default if dashboard has no color
+            console.log(
+              "[DashboardSwitch] 🎨 Dashboard has no color, using default"
+            );
+            setBaseColor(DEFAULT_BASE_COLOR);
+            if (document.body) {
+              document.body.style.backgroundColor = DEFAULT_BASE_COLOR;
+            }
+            // Clear appearance tokens to force default colors for dashboards without custom colors
+            if (typeof window !== "undefined") {
+              window.localStorage.setItem(
+                BASE_COLOR_STORAGE_KEY,
+                DEFAULT_BASE_COLOR
+              );
+              window.localStorage.removeItem(APPEARANCE_STORAGE_KEY);
+              console.log(
+                "[DashboardSwitch] 🗑️ Cleared appearance tokens (dashboard has no custom colors)"
+              );
+            }
+          }
+
+          push({
+            title: "Dashboard switched",
+            description: `Switched to "${dashboard.name}"`,
+            variant: "success",
+          });
+        } else {
+          console.log("[DashboardSwitch] ❌ Dashboard not found", {
+            dashboardId,
+            availableDashboards: updatedCompany.dashboards.map((d) => ({
+              id: d.id,
+              name: d.name,
+            })),
+          });
+        }
+      } else {
+        console.log("[DashboardSwitch] ❌ Failed to reload company", {
+          companyId: currentCompany.id,
+        });
+      }
+    },
+    [currentCompany, currentDashboard, push]
+  );
+
+  const handleDeleteDashboard = useCallback(
+    (dashboardId: string) => {
+      if (!currentCompany) return;
+
+      // Don't allow deleting the last dashboard
+      if (currentCompany.dashboards.length <= 1) {
+        push({
+          title: "Cannot delete dashboard",
+          description: "You must have at least one dashboard.",
           variant: "destructive",
         });
         return;
       }
-    }
-    
-    setIsCreatingBlankDashboard(true);
 
-    try {
-      console.log("[CreateBlankDashboard] 🆕 Creating blank dashboard", {
-        companyId: companyToUse.id,
-        dashboardName: payload.dashboardName,
-        hasCurrentCompany: !!currentCompany,
-      });
-      
-      // Create new dashboard in current company (blank dashboard = no templateId)
-      const newDashboard = createDashboard(companyToUse.id, payload.dashboardName, undefined);
-      
-      console.log("[CreateBlankDashboard] ✅ Dashboard created", {
-        dashboardId: newDashboard.id,
-        dashboardName: newDashboard.name,
-        tilesCount: newDashboard.tiles?.length ?? 0,
-      });
-      
-      // Reload company directly from storage (don't sync from workspace)
-      // This ensures the blank dashboard stays empty
-      const updatedCompany = getCompanyById(companyToUse.id);
-      if (!updatedCompany) {
-        throw new Error("Failed to reload company after creating dashboard");
-      }
-      
-      console.log("[CreateBlankDashboard] 🔄 Reloading company from storage", {
-        companyId: updatedCompany.id,
-        dashboardsCount: updatedCompany.dashboards.length,
-      });
-      
-      // CRITICAL: Atualizar estado de forma síncrona e garantir que está atualizado
-      setCurrentCompany(updatedCompany);
-      
-      const updatedDashboard = updatedCompany.dashboards.find((d) => d.id === newDashboard.id);
-      if (!updatedDashboard) {
-        throw new Error(`Dashboard ${newDashboard.id} not found after reload`);
-      }
-      
-      console.log("[CreateBlankDashboard] 📊 Setting active dashboard", {
-        dashboardId: updatedDashboard.id,
-        dashboardName: updatedDashboard.name,
-        tilesCount: updatedDashboard.tiles?.length ?? 0,
-        templateId: updatedDashboard.templateId,
-        isBlank: !updatedDashboard.templateId,
-      });
-      
-      // CRITICAL: Criar nova referência do objeto para garantir que React detecta a mudança
-      setCurrentDashboard({ ...updatedDashboard });
-      
-      // Set default background color for new blank dashboard
-      // Don't inherit color from previous dashboard
-      console.log("[CreateBlankDashboard] 🎨 Setting default color for new dashboard");
-      setBaseColor(DEFAULT_BASE_COLOR);
-      if (document.body) {
-        document.body.style.backgroundColor = DEFAULT_BASE_COLOR;
-      }
-      // CRITICAL: Clear appearance tokens from localStorage to force recalculation with default colors
-      // This ensures sidebar, text, and all other colors are reset to default, not inherited from previous dashboard
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(BASE_COLOR_STORAGE_KEY, DEFAULT_BASE_COLOR);
-        // Clear appearance tokens so they are recalculated with default colors
-        window.localStorage.removeItem(APPEARANCE_STORAGE_KEY);
-        console.log("[CreateBlankDashboard] 🗑️ Cleared appearance tokens to force default colors");
-      }
-      
-      // CRITICAL: Aguardar um tick para garantir que estado foi atualizado antes de fechar modal
-      // Isso previne race conditions onde usuário tenta criar prompt antes do estado estar pronto
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      push({
-        title: "Dashboard created",
-        description: `"${payload.dashboardName}" has been created. You can now add custom prompts.`,
-        variant: "success",
+      console.log("[DeleteDashboard] 🗑️ Deleting dashboard", {
+        companyId: currentCompany.id,
+        dashboardId,
+        dashboardName: currentCompany.dashboards.find(
+          (d) => d.id === dashboardId
+        )?.name,
       });
 
-      setCreateBlankDashboardModalOpen(false);
-    } catch (error) {
-      console.error("[CreateBlankDashboard] ❌ Error creating dashboard", error);
-      push({
-        title: "Failed to create dashboard",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Please try again in a few moments.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsCreatingBlankDashboard(false);
-    }
-  }, [isCreatingBlankDashboard, currentCompany, workspace, push]);
+      deleteDashboard(currentCompany.id, dashboardId);
 
-  const handleSelectDashboard = useCallback((dashboardId: string) => {
-    if (!currentCompany) {
-      console.log("[DashboardSwitch] ❌ No currentCompany available");
-      return;
-    }
-    
-    console.log("[DashboardSwitch] 🔄 Starting dashboard switch", {
-      companyId: currentCompany.id,
-      companyName: currentCompany.name,
-      fromDashboardId: currentDashboard?.id,
-      fromDashboardName: currentDashboard?.name,
-      toDashboardId: dashboardId,
-      currentTilesCount: currentDashboard?.tiles?.length ?? 0,
-      currentContactsCount: currentCompany.dashboards.reduce((sum, d) => sum + (d.contacts?.length ?? 0), 0),
-      currentNotesCount: currentCompany.dashboards.reduce((sum, d) => sum + (d.notes?.length ?? 0), 0),
-    });
-    
-    setActiveDashboard(currentCompany.id, dashboardId);
-    
-    // Reload company from storage to get updated dashboard states
-    const updatedCompany = getCompanyById(currentCompany.id);
-    if (updatedCompany) {
-      setCurrentCompany(updatedCompany);
-      const dashboard = updatedCompany.dashboards.find((d) => d.id === dashboardId);
-      if (dashboard) {
-        console.log("[DashboardSwitch] ✅ Dashboard found and switched", {
-          dashboardId: dashboard.id,
-          dashboardName: dashboard.name,
-          tilesCount: dashboard.tiles?.length ?? 0,
-          isActive: dashboard.isActive,
-          contactsCount: updatedCompany.dashboards.reduce((sum, d) => sum + (d.contacts?.length ?? 0), 0),
-          notesCount: updatedCompany.dashboards.reduce((sum, d) => sum + (d.notes?.length ?? 0), 0),
-        });
-        setCurrentDashboard(dashboard);
-        
-        // Load dashboard's background color
-        const dashboardColor = dashboard.appearance?.baseColor;
-        if (dashboardColor && dashboardColor.trim()) {
-          const normalized = normalizeColorValueSync(dashboardColor);
-          console.log("[DashboardSwitch] 🎨 Loading dashboard color:", normalized);
-          setBaseColor(normalized);
-          if (document.body) {
-            document.body.style.backgroundColor = normalized;
-          }
-          // CRITICAL: Save dashboard's appearance tokens to localStorage for F5 persistence
-          // This ensures the dashboard's custom colors are restored after refresh
-          if (typeof window !== "undefined") {
-            window.localStorage.setItem(BASE_COLOR_STORAGE_KEY, normalized);
-            // If dashboard has saved appearance, restore it to localStorage
-            if (dashboard.appearance && dashboard.appearance.sidebarColor && dashboard.appearance.textColor) {
-              const computed = computeAdeAppearanceTokens(normalized);
-              const appearanceTokens: AdeAppearanceTokens = {
-                baseColor: normalized,
-                surfaceColor: dashboard.appearance.surfaceColor || computed.surfaceColor,
-                sidebarColor: dashboard.appearance.sidebarColor,
-                sidebarBorderColor: computed.sidebarBorderColor,
-                cardBorderColor: computed.cardBorderColor,
-                headingColor: dashboard.appearance.headingColor || dashboard.appearance.textColor || computed.headingColor,
-                textColor: dashboard.appearance.textColor,
-                mutedTextColor: dashboard.appearance.mutedTextColor || computed.mutedTextColor,
-                actionColor: computed.actionColor,
-                overlayColor: computed.overlayColor,
-              };
-              window.localStorage.setItem(APPEARANCE_STORAGE_KEY, JSON.stringify(appearanceTokens));
-              console.log("[DashboardSwitch] 💾 Saved dashboard appearance to localStorage:", {
-                baseColor: appearanceTokens.baseColor,
-                sidebarColor: appearanceTokens.sidebarColor,
-                textColor: appearanceTokens.textColor,
-              });
-            }
-          }
-        } else {
-          // Check localStorage first, then default
-          if (typeof window !== "undefined") {
-            const storedColor = window.localStorage.getItem(BASE_COLOR_STORAGE_KEY);
-            if (storedColor && storedColor.trim() && /^#[0-9A-Fa-f]{6}$/.test(storedColor.trim())) {
-              const normalized = normalizeColorValueSync(storedColor);
-              console.log("[DashboardSwitch] 🎨 Dashboard has no color, using localStorage color:", normalized);
-              setBaseColor(normalized);
-              if (document.body) {
-                document.body.style.backgroundColor = normalized;
-              }
-              return; // Don't set default if we have localStorage color
-            }
-          }
-          // Use default if dashboard has no color
-          console.log("[DashboardSwitch] 🎨 Dashboard has no color, using default");
-          setBaseColor(DEFAULT_BASE_COLOR);
-          if (document.body) {
-            document.body.style.backgroundColor = DEFAULT_BASE_COLOR;
-          }
-          // Clear appearance tokens to force default colors for dashboards without custom colors
-          if (typeof window !== "undefined") {
-            window.localStorage.setItem(BASE_COLOR_STORAGE_KEY, DEFAULT_BASE_COLOR);
-            window.localStorage.removeItem(APPEARANCE_STORAGE_KEY);
-            console.log("[DashboardSwitch] 🗑️ Cleared appearance tokens (dashboard has no custom colors)");
-          }
-        }
-        
+      // Reload company from storage
+      const updatedCompany = getCompanyById(currentCompany.id);
+      if (updatedCompany) {
+        setCurrentCompany(updatedCompany);
+        const activeDashboard =
+          updatedCompany.dashboards.find((d) => d.isActive) ??
+          updatedCompany.dashboards[0] ??
+          null;
+        setCurrentDashboard(activeDashboard);
+
         push({
-          title: "Dashboard switched",
-          description: `Switched to "${dashboard.name}"`,
+          title: "Dashboard deleted",
+          description: "Dashboard has been deleted successfully.",
           variant: "success",
         });
-      } else {
-        console.log("[DashboardSwitch] ❌ Dashboard not found", {
-          dashboardId,
-          availableDashboards: updatedCompany.dashboards.map((d) => ({ id: d.id, name: d.name })),
+      }
+    },
+    [currentCompany, push]
+  );
+
+  const handleApplyTemplate = useCallback(
+    async (templateId: string) => {
+      if (!currentCompany || !workspace) return;
+
+      const template =
+        GUEST_DASHBOARD_TEMPLATES[
+          templateId as keyof typeof GUEST_DASHBOARD_TEMPLATES
+        ];
+      if (!template) {
+        push({
+          title: "Template not found",
+          variant: "destructive",
         });
-      }
-    } else {
-      console.log("[DashboardSwitch] ❌ Failed to reload company", {
-        companyId: currentCompany.id,
-      });
-    }
-  }, [currentCompany, currentDashboard, push]);
-
-  const handleDeleteDashboard = useCallback((dashboardId: string) => {
-    if (!currentCompany) return;
-    
-    // Don't allow deleting the last dashboard
-    if (currentCompany.dashboards.length <= 1) {
-      push({
-        title: "Cannot delete dashboard",
-        description: "You must have at least one dashboard.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    console.log("[DeleteDashboard] 🗑️ Deleting dashboard", {
-      companyId: currentCompany.id,
-      dashboardId,
-      dashboardName: currentCompany.dashboards.find((d) => d.id === dashboardId)?.name,
-    });
-    
-    deleteDashboard(currentCompany.id, dashboardId);
-    
-    // Reload company from storage
-    const updatedCompany = getCompanyById(currentCompany.id);
-    if (updatedCompany) {
-      setCurrentCompany(updatedCompany);
-      const activeDashboard = updatedCompany.dashboards.find((d) => d.isActive) ?? updatedCompany.dashboards[0] ?? null;
-      setCurrentDashboard(activeDashboard);
-      
-      push({
-        title: "Dashboard deleted",
-        description: "Dashboard has been deleted successfully.",
-        variant: "success",
-      });
-    }
-  }, [currentCompany, push]);
-
-  const handleApplyTemplate = useCallback(async (templateId: string) => {
-    if (!currentCompany || !workspace) return;
-    
-    const template = GUEST_DASHBOARD_TEMPLATES[templateId as keyof typeof GUEST_DASHBOARD_TEMPLATES];
-    if (!template) {
-      push({
-        title: "Template not found",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      push({
-        title: "Creating dashboard from template",
-        description: `Generating "${template.name}"...`,
-      });
-
-      // Create dashboard with template
-      const dashboardName = `${template.name} Dashboard`;
-      const newDashboard = createDashboard(currentCompany.id, dashboardName, templateId);
-
-      // Generate tiles from template
-      const response = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          salesRepCompany: workspace.company.name,
-          salesRepWebsite: workspace.company.website || "",
-          solution: "Research platform",
-          targetCompany: workspace.company.name,
-          targetWebsite: workspace.company.website || "",
-          templateId,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to generate tiles from template");
+        return;
       }
 
-      const data = await response.json();
-      
-      // Update dashboard with generated tiles
-      if (data.workspace?.company?.tiles) {
-        updateDashboard(currentCompany.id, newDashboard.id, {
-          tiles: data.workspace.company.tiles,
+      try {
+        push({
+          title: "Creating dashboard from template",
+          description: `Generating "${template.name}"...`,
         });
-      }
 
-      // Refresh company and dashboard
-      if (workspace) {
-        const updatedCompany = getOrCreateCompanyFromWorkspace(workspace);
-        if (updatedCompany) {
-          setCurrentCompany(updatedCompany);
-          const updatedDashboard = updatedCompany.dashboards.find((d) => d.id === newDashboard.id);
-          if (updatedDashboard) {
-            setCurrentDashboard(updatedDashboard);
-            // Also update workspace to sync
-            if (data.workspace) {
-              setLocalWorkspace(data.workspace);
-              saveCachedWorkspace(workspace.sessionId, data.workspace);
+        // Create dashboard with template
+        const dashboardName = `${template.name} Dashboard`;
+        const newDashboard = createDashboard(
+          currentCompany.id,
+          dashboardName,
+          templateId
+        );
+
+        // Generate tiles from template
+        const response = await fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            salesRepCompany: workspace.company.name,
+            salesRepWebsite: workspace.company.website || "",
+            solution: "Research platform",
+            targetCompany: workspace.company.name,
+            targetWebsite: workspace.company.website || "",
+            templateId,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to generate tiles from template");
+        }
+
+        const data = await response.json();
+
+        // Update dashboard with generated tiles
+        if (data.workspace?.company?.tiles) {
+          updateDashboard(currentCompany.id, newDashboard.id, {
+            tiles: data.workspace.company.tiles,
+          });
+        }
+
+        // Refresh company and dashboard
+        if (workspace) {
+          const updatedCompany = getOrCreateCompanyFromWorkspace(workspace);
+          if (updatedCompany) {
+            setCurrentCompany(updatedCompany);
+            const updatedDashboard = updatedCompany.dashboards.find(
+              (d) => d.id === newDashboard.id
+            );
+            if (updatedDashboard) {
+              setCurrentDashboard(updatedDashboard);
+              // Also update workspace to sync
+              if (data.workspace) {
+                setLocalWorkspace(data.workspace);
+                saveCachedWorkspace(workspace.sessionId, data.workspace);
+              }
             }
           }
         }
-      }
 
-      push({
-        title: "Dashboard created",
-        description: `"${dashboardName}" has been created from template.`,
-        variant: "success",
-      });
-    } catch (error) {
-      push({
-        title: "Failed to create dashboard",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Please try again in a few moments.",
-        variant: "destructive",
-      });
-    }
-  }, [currentCompany, workspace, push]);
+        push({
+          title: "Dashboard created",
+          description: `"${dashboardName}" has been created from template.`,
+          variant: "success",
+        });
+      } catch (error) {
+        push({
+          title: "Failed to create dashboard",
+          description:
+            error instanceof Error
+              ? error.message
+              : "Please try again in a few moments.",
+          variant: "destructive",
+        });
+      }
+    },
+    [currentCompany, workspace, push]
+  );
 
   const handleAddPrompt = useCallback(() => {
     setAddPromptModalOpen(true);
@@ -1800,49 +2106,61 @@ export function AdminContainer() {
       // CRITICAL: Tentar recarregar do storage se não temos no estado (pode ser race condition)
       let companyToUse = currentCompany;
       let dashboardToUse = currentDashboard;
-      
+
       if (!companyToUse || !dashboardToUse) {
-        console.warn("[AddPrompt] ⚠️ Missing currentCompany or currentDashboard, attempting reload", {
-          hasCurrentCompany: !!currentCompany,
-          hasCurrentDashboard: !!currentDashboard,
-        });
-        
+        console.warn(
+          "[AddPrompt] ⚠️ Missing currentCompany or currentDashboard, attempting reload",
+          {
+            hasCurrentCompany: !!currentCompany,
+            hasCurrentDashboard: !!currentDashboard,
+          }
+        );
+
         // Tentar recarregar do workspace se existir
         if (workspace) {
           const reloadedCompany = getOrCreateCompanyFromWorkspace(workspace);
           if (reloadedCompany) {
             companyToUse = reloadedCompany;
             setCurrentCompany(reloadedCompany);
-            
-            const activeDashboard = getActiveDashboard(reloadedCompany.id) ?? reloadedCompany.dashboards[0] ?? null;
+
+            const activeDashboard =
+              getActiveDashboard(reloadedCompany.id) ??
+              reloadedCompany.dashboards[0] ??
+              null;
             if (activeDashboard) {
               dashboardToUse = activeDashboard;
               setCurrentDashboard(activeDashboard);
             }
           }
         }
-        
+
         // Se ainda não temos, tentar carregar do storage diretamente
         if (!companyToUse) {
           const companies = loadCompaniesWithDashboards();
           if (companies.length > 0) {
             companyToUse = companies[0];
             setCurrentCompany(companyToUse);
-            
-            const activeDashboard = getActiveDashboard(companyToUse.id) ?? companyToUse.dashboards[0] ?? null;
+
+            const activeDashboard =
+              getActiveDashboard(companyToUse.id) ??
+              companyToUse.dashboards[0] ??
+              null;
             if (activeDashboard) {
               dashboardToUse = activeDashboard;
               setCurrentDashboard(activeDashboard);
             }
           }
         }
-        
+
         // Se ainda não temos, não podemos continuar
         if (!companyToUse || !dashboardToUse) {
-          console.error("[AddPrompt] ❌ Still missing currentCompany or currentDashboard after reload", {
-            hasCurrentCompany: !!companyToUse,
-            hasCurrentDashboard: !!dashboardToUse,
-          });
+          console.error(
+            "[AddPrompt] ❌ Still missing currentCompany or currentDashboard after reload",
+            {
+              hasCurrentCompany: !!companyToUse,
+              hasCurrentDashboard: !!dashboardToUse,
+            }
+          );
           push({
             title: "Cannot add prompts",
             description:
@@ -1851,7 +2169,7 @@ export function AdminContainer() {
           });
           return;
         }
-        
+
         console.log("[AddPrompt] ✅ Reloaded company and dashboard", {
           companyId: companyToUse.id,
           dashboardId: dashboardToUse.id,
@@ -1891,7 +2209,7 @@ export function AdminContainer() {
         }
 
         const tileData = await response.json();
-        
+
         console.log("[AddPrompt] 📥 Tile data received from API", {
           hasTile: !!tileData.tile,
           tileId: tileData.tile?.id,
@@ -1904,18 +2222,22 @@ export function AdminContainer() {
         if (companyToUse && dashboardToUse && tileData.tile) {
           // Marcar que estamos atualizando para prevenir sync durante a operação
           isUpdatingDashboardRef.current = true;
-          
+
           try {
             // IMPORTANTE: Para Default Dashboard, precisamos mesclar tiles do workspace com o novo tile
             // Porque workspace já foi atualizado pela API com todos os tiles (incluindo o novo)
-            const isDefaultDashboard = dashboardToUse.name === "Default Dashboard";
-            
+            const isDefaultDashboard =
+              dashboardToUse.name === "Default Dashboard";
+
             // Reload dashboard from storage first to get the most up-to-date tiles
             const freshCompany = getCompanyById(companyToUse.id);
-            const freshDashboard = freshCompany?.dashboards.find((d) => d.id === dashboardToUse.id);
-            
-            let currentTiles = freshDashboard?.tiles || dashboardToUse.tiles || [];
-            
+            const freshDashboard = freshCompany?.dashboards.find(
+              (d) => d.id === dashboardToUse.id
+            );
+
+            let currentTiles =
+              freshDashboard?.tiles || dashboardToUse.tiles || [];
+
             console.log("[AddPrompt] 📊 Adding tile to dashboard", {
               companyId: companyToUse.id,
               companyName: companyToUse.name,
@@ -1925,30 +2247,38 @@ export function AdminContainer() {
               tileId: tileData.tile.id,
               tileTitle: tileData.tile.title,
               currentTilesCount: currentTiles.length,
-              currentTileIds: currentTiles.map(t => t.id),
+              currentTileIds: currentTiles.map((t) => t.id),
               workspaceTilesCount: workspace?.company?.tiles?.length ?? 0,
               usingFreshData: !!freshDashboard,
             });
-            
+
             // Para Default Dashboard: mesclar tiles existentes com o novo tile
             // IMPORTANTE: Não confiar no workspace aqui porque pode não estar atualizado ainda
             // Usar o tileData.tile diretamente que vem da API
             if (isDefaultDashboard) {
-              console.log("[AddPrompt] 🔄 Default Dashboard detected - adding new tile to existing tiles", {
-                existingTilesCount: currentTiles.length,
-                newTileId: tileData.tile.id,
-                newTileTitle: tileData.tile.title,
-                newTileOrderIndex: tileData.tile.orderIndex,
-              });
-              
+              console.log(
+                "[AddPrompt] 🔄 Default Dashboard detected - adding new tile to existing tiles",
+                {
+                  existingTilesCount: currentTiles.length,
+                  newTileId: tileData.tile.id,
+                  newTileTitle: tileData.tile.title,
+                  newTileOrderIndex: tileData.tile.orderIndex,
+                }
+              );
+
               // Verificar se o tile já existe (prevent duplicates)
-              const tileExists = currentTiles.some(t => t.id === tileData.tile.id);
+              const tileExists = currentTiles.some(
+                (t) => t.id === tileData.tile.id
+              );
               if (tileExists) {
-                console.warn("[AddPrompt] ⚠️ Tile already exists in dashboard, skipping", {
-                  tileId: tileData.tile.id,
-                });
+                console.warn(
+                  "[AddPrompt] ⚠️ Tile already exists in dashboard, skipping",
+                  {
+                    tileId: tileData.tile.id,
+                  }
+                );
                 // Mas ainda atualizar o tile existente com dados mais recentes
-                currentTiles = currentTiles.map(t => 
+                currentTiles = currentTiles.map((t) =>
                   t.id === tileData.tile.id ? tileData.tile : t
                 );
               } else {
@@ -1957,7 +2287,7 @@ export function AdminContainer() {
                 // Mas vamos garantir que ele fique primeiro mesmo assim
                 currentTiles = [tileData.tile, ...currentTiles];
               }
-              
+
               // Ordenar por orderIndex (negativos primeiro, depois positivos)
               // Isso garante que tiles novos (negativos) apareçam antes dos templates (positivos)
               currentTiles = currentTiles.sort((a, b) => {
@@ -1965,49 +2295,56 @@ export function AdminContainer() {
                 const bIndex = b.orderIndex ?? 0;
                 return aIndex - bIndex; // Negativos primeiro (ex: -1, -2), depois positivos (0, 1, 2...)
               });
-              
+
               console.log("[AddPrompt] ✅ Added new tile and sorted", {
                 finalTilesCount: currentTiles.length,
-                finalTileIds: currentTiles.map(t => ({ id: t.id, title: t.title, orderIndex: t.orderIndex })),
-                hasNewTile: currentTiles.some(t => t.id === tileData.tile.id),
+                finalTileIds: currentTiles.map((t) => ({
+                  id: t.id,
+                  title: t.title,
+                  orderIndex: t.orderIndex,
+                })),
+                hasNewTile: currentTiles.some((t) => t.id === tileData.tile.id),
               });
             } else {
               // Para blank dashboards: apenas adicionar o novo tile
               // Check if tile already exists (prevent duplicates)
-              const tileExists = currentTiles.some(t => t.id === tileData.tile.id);
+              const tileExists = currentTiles.some(
+                (t) => t.id === tileData.tile.id
+              );
               if (tileExists) {
                 console.warn("[AddPrompt] ⚠️ Tile already exists, skipping", {
                   tileId: tileData.tile.id,
                 });
                 return;
               }
-              
+
               // Para blank dashboards: adicionar o novo tile no início
               // Usar orderIndex negativo para aparecer primeiro
-              const minOrderIndex = currentTiles.length > 0 
-                ? Math.min(...currentTiles.map(t => t.orderIndex ?? 0))
-                : 0;
+              const minOrderIndex =
+                currentTiles.length > 0
+                  ? Math.min(...currentTiles.map((t) => t.orderIndex ?? 0))
+                  : 0;
               const newOrderIndex = minOrderIndex < 0 ? minOrderIndex - 1 : -1;
-              
+
               const newTileWithOrder = {
                 ...tileData.tile,
                 orderIndex: newOrderIndex,
               };
-              
+
               // Adicionar no início do array para aparecer primeiro
               currentTiles = [newTileWithOrder, ...currentTiles];
             }
-            
+
             console.log("[AddPrompt] 💾 Updating dashboard with tiles", {
               dashboardId: dashboardToUse.id,
               finalTilesCount: currentTiles.length,
-              finalTileIds: currentTiles.map(t => t.id),
+              finalTileIds: currentTiles.map((t) => t.id),
             });
-            
+
             updateDashboard(companyToUse.id, dashboardToUse.id, {
               tiles: currentTiles,
             });
-            
+
             // Reload company directly from storage (don't sync from workspace)
             // This ensures blank dashboards get the tile immediately
             const reloadedCompany = getCompanyById(companyToUse.id);
@@ -2015,24 +2352,39 @@ export function AdminContainer() {
               console.log("[AddPrompt] 🔄 Reloading company from storage", {
                 companyId: reloadedCompany.id,
                 dashboardsCount: reloadedCompany.dashboards.length,
-                dashboardIds: reloadedCompany.dashboards.map(d => ({ id: d.id, name: d.name, tilesCount: d.tiles?.length ?? 0 })),
+                dashboardIds: reloadedCompany.dashboards.map((d) => ({
+                  id: d.id,
+                  name: d.name,
+                  tilesCount: d.tiles?.length ?? 0,
+                })),
               });
               setCurrentCompany(reloadedCompany);
-              const reloadedDashboard = reloadedCompany.dashboards.find((d) => d.id === dashboardToUse.id);
+              const reloadedDashboard = reloadedCompany.dashboards.find(
+                (d) => d.id === dashboardToUse.id
+              );
               if (reloadedDashboard) {
                 console.log("[AddPrompt] ✅ Dashboard reloaded", {
                   dashboardId: reloadedDashboard.id,
                   dashboardName: reloadedDashboard.name,
                   tilesCount: reloadedDashboard.tiles?.length ?? 0,
-                  tileIds: reloadedDashboard.tiles?.map(t => ({ id: t.id, title: t.title })) ?? [],
+                  tileIds:
+                    reloadedDashboard.tiles?.map((t) => ({
+                      id: t.id,
+                      title: t.title,
+                    })) ?? [],
                 });
                 // Force update by creating a new object reference to trigger useMemo recalculation
                 setCurrentDashboard({ ...reloadedDashboard });
               } else {
-                console.error("[AddPrompt] ❌ Dashboard not found after reload", {
-                  expectedDashboardId: dashboardToUse.id,
-                  availableDashboards: reloadedCompany.dashboards.map(d => ({ id: d.id, name: d.name })),
-                });
+                console.error(
+                  "[AddPrompt] ❌ Dashboard not found after reload",
+                  {
+                    expectedDashboardId: dashboardToUse.id,
+                    availableDashboards: reloadedCompany.dashboards.map(
+                      (d) => ({ id: d.id, name: d.name })
+                    ),
+                  }
+                );
               }
             } else {
               console.error("[AddPrompt] ❌ Company not found after reload", {
@@ -2083,9 +2435,11 @@ export function AdminContainer() {
   const handleSelectWorkspace = useCallback(
     (nextSessionId: string) => {
       if (nextSessionId === viewingSessionId) return;
-      
-      console.log(`[AdminContainer] 👤 User manually selected workspace: ${nextSessionId} (was: ${viewingSessionId})`);
-      
+
+      console.log(
+        `[AdminContainer] 👤 User manually selected workspace: ${nextSessionId} (was: ${viewingSessionId})`
+      );
+
       // If user selects the server session, clear the flag to allow auto-switching again
       if (data && data.sessionId === nextSessionId) {
         userSelectedSessionRef.current = null;
@@ -2094,11 +2448,11 @@ export function AdminContainer() {
         rememberSessionId(nextSessionId);
         return;
       }
-      
+
       // Mark this as a user selection to prevent auto-switching
       // This prevents the system from switching back to server session automatically
       userSelectedSessionRef.current = nextSessionId;
-      
+
       const cached = loadCachedWorkspace(nextSessionId);
       if (cached) {
         setLocalWorkspace(cached);
@@ -2146,12 +2500,14 @@ export function AdminContainer() {
         }
         throw new Error("Failed to remove tile");
       }
-      
+
       // Update dashboard if we have one
       if (currentCompany && currentDashboard) {
         isUpdatingDashboardRef.current = true;
         try {
-          const updatedTiles = currentDashboard.tiles.filter((t) => t.id !== tileId);
+          const updatedTiles = currentDashboard.tiles.filter(
+            (t) => t.id !== tileId
+          );
           updateDashboard(currentCompany.id, currentDashboard.id, {
             tiles: updatedTiles,
           });
@@ -2159,7 +2515,9 @@ export function AdminContainer() {
           const reloadedCompany = getCompanyById(currentCompany.id);
           if (reloadedCompany) {
             setCurrentCompany(reloadedCompany);
-            const reloadedDashboard = reloadedCompany.dashboards.find((d) => d.id === currentDashboard.id);
+            const reloadedDashboard = reloadedCompany.dashboards.find(
+              (d) => d.id === currentDashboard.id
+            );
             if (reloadedDashboard) {
               setCurrentDashboard({ ...reloadedDashboard });
             }
@@ -2170,7 +2528,7 @@ export function AdminContainer() {
           }, 200);
         }
       }
-      
+
       // Não chamar mutate() aqui - pode causar sync que sobrescreve dados
       // await mutate();
       refreshStoredWorkspaces();
@@ -2224,42 +2582,44 @@ export function AdminContainer() {
         const data = await response.json().catch(() => ({}));
         throw new Error(data.error ?? "Failed to persist tile order");
       }
-      
+
       // Update dashboard if we have one
       if (currentCompany && currentDashboard) {
         isUpdatingDashboardRef.current = true;
         try {
           // Reorder tiles based on new order
           const tileMap = new Map(currentDashboard.tiles.map((t) => [t.id, t]));
-        const reorderedTiles = order
-          .map((id, index) => {
-            const tile = tileMap.get(id);
-            if (tile) {
-              return { ...tile, orderIndex: index };
+          const reorderedTiles = order
+            .map((id, index) => {
+              const tile = tileMap.get(id);
+              if (tile) {
+                return { ...tile, orderIndex: index };
+              }
+              return null;
+            })
+            .filter((t): t is Tile => t !== null);
+
+          updateDashboard(currentCompany.id, currentDashboard.id, {
+            tiles: reorderedTiles,
+          });
+          // Reload company directly from storage (don't sync from workspace)
+          const reloadedCompany = getCompanyById(currentCompany.id);
+          if (reloadedCompany) {
+            setCurrentCompany(reloadedCompany);
+            const reloadedDashboard = reloadedCompany.dashboards.find(
+              (d) => d.id === currentDashboard.id
+            );
+            if (reloadedDashboard) {
+              setCurrentDashboard({ ...reloadedDashboard });
             }
-            return null;
-          })
-          .filter((t): t is Tile => t !== null);
-        
-        updateDashboard(currentCompany.id, currentDashboard.id, {
-          tiles: reorderedTiles,
-        });
-        // Reload company directly from storage (don't sync from workspace)
-        const reloadedCompany = getCompanyById(currentCompany.id);
-        if (reloadedCompany) {
-          setCurrentCompany(reloadedCompany);
-          const reloadedDashboard = reloadedCompany.dashboards.find((d) => d.id === currentDashboard.id);
-          if (reloadedDashboard) {
-            setCurrentDashboard({ ...reloadedDashboard });
           }
-        }
         } finally {
           setTimeout(() => {
             isUpdatingDashboardRef.current = false;
           }, 200);
         }
       }
-      
+
       // Não chamar mutate() aqui - pode causar sync que sobrescreve dados
       // await mutate();
       refreshStoredWorkspaces();
@@ -2611,36 +2971,45 @@ export function AdminContainer() {
           return;
         }
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error ?? "Failed to generate follow-up insight");
+        throw new Error(
+          errorData.error ?? "Failed to generate follow-up insight"
+        );
       }
-      
+
       // Get the updated tile from the response
       const responseData = await response.json().catch(() => null);
-      
+
       if (isGuest) {
         commitUsage("tileChat");
       }
-      
+
       if (responseData?.tile) {
         // Update local workspace immediately with the new tile data
         const updatedTile = responseData.tile;
-        console.log(`[AdminContainer] 💬 Chat response received for tile ${tileId}:`, {
-          historyLength: updatedTile.history?.length ?? 0,
-          lastMessage: updatedTile.history?.[updatedTile.history.length - 1]?.content?.substring(0, 50),
-        });
-        
+        console.log(
+          `[AdminContainer] 💬 Chat response received for tile ${tileId}:`,
+          {
+            historyLength: updatedTile.history?.length ?? 0,
+            lastMessage: updatedTile.history?.[
+              updatedTile.history.length - 1
+            ]?.content?.substring(0, 50),
+          }
+        );
+
         setLocalWorkspace((prev) => {
           if (!prev) return prev;
           const currentTiles = prev.company.tiles || [];
           const tileIndex = currentTiles.findIndex((t) => t.id === tileId);
           if (tileIndex === -1) {
-            console.warn(`[AdminContainer] ⚠️ Tile ${tileId} not found in local workspace`);
+            console.warn(
+              `[AdminContainer] ⚠️ Tile ${tileId} not found in local workspace`
+            );
             return prev;
           }
-          
+
           const nextTiles = [...currentTiles];
           nextTiles[tileIndex] = updatedTile;
-          
+
           const updated = {
             ...prev,
             company: {
@@ -2648,17 +3017,21 @@ export function AdminContainer() {
               tiles: nextTiles,
             },
           };
-          
+
           // Save to cache immediately to ensure persistence
           saveCachedWorkspace(prev.sessionId, updated);
-          console.log(`[AdminContainer] 💾 Saved chat history to cache for tile ${tileId} (session: ${prev.sessionId})`);
-          
+          console.log(
+            `[AdminContainer] 💾 Saved chat history to cache for tile ${tileId} (session: ${prev.sessionId})`
+          );
+
           return updated;
         });
       } else {
-        console.warn(`[AdminContainer] ⚠️ No tile data in chat response for ${tileId}`);
+        console.warn(
+          `[AdminContainer] ⚠️ No tile data in chat response for ${tileId}`
+        );
       }
-      
+
       // Refresh from server to ensure consistency
       await mutate();
       refreshStoredWorkspaces();
@@ -2784,13 +3157,16 @@ export function AdminContainer() {
         sidebar={
           <AdminSidebarAde
             appearance={(() => {
-              console.log("[AdminContainer] 📤 Passing appearanceTokens to AdminSidebarAde:", {
-                baseColor: appearanceTokens.baseColor,
-                sidebarColor: appearanceTokens.sidebarColor,
-                textColor: appearanceTokens.textColor,
-                headingColor: appearanceTokens.headingColor,
-                mutedTextColor: appearanceTokens.mutedTextColor,
-              });
+              console.log(
+                "[AdminContainer] 📤 Passing appearanceTokens to AdminSidebarAde:",
+                {
+                  baseColor: appearanceTokens.baseColor,
+                  sidebarColor: appearanceTokens.sidebarColor,
+                  textColor: appearanceTokens.textColor,
+                  headingColor: appearanceTokens.headingColor,
+                  mutedTextColor: appearanceTokens.mutedTextColor,
+                }
+              );
               return appearanceTokens;
             })()}
             workspaceName={workspaceLabel}
@@ -2816,7 +3192,9 @@ export function AdminContainer() {
             onSaveTemplate={handleSaveTemplate}
             onLogin={handleHeaderLogin}
             onSignUp={handleStartCheckout}
-            onCreateBlankDashboard={() => setCreateBlankDashboardModalOpen(true)}
+            onCreateBlankDashboard={() =>
+              setCreateBlankDashboardModalOpen(true)
+            }
             onSelectDashboard={handleSelectDashboard}
             onDeleteDashboard={handleDeleteDashboard}
             onApplyTemplate={handleApplyTemplate}
@@ -2829,145 +3207,181 @@ export function AdminContainer() {
             description="Rehydrating workspace data from the local cache."
             isLoading={true}
           />
-        ) : tiles.length === 0 ? (() => {
-          // Check if we're actually generating or if it's just an empty blank dashboard
-          const isActuallyGenerating = (() => {
-            if (!workspace || !currentDashboard) return false;
+        ) : tiles.length === 0 ? (
+          (() => {
+            // Check if we're actually generating or if it's just an empty blank dashboard
+            const isActuallyGenerating = (() => {
+              if (!workspace || !currentDashboard) return false;
 
-            // PRIORITY 0: Check if streaming is active (highest priority)
-            if (shouldUseStreaming && isStreaming && !streamingCompleted) {
-              console.log("[EmptyState] 📺 Streaming active, showing generating state");
-              return true;
-            }
-
-            // PRIORITY 1: Check if there's a recent generation timestamp FIRST
-            // If there's recent generation activity, show generating state regardless of dashboard type
-            if (typeof window !== "undefined") {
-              const lastGenerationTime = window.localStorage.getItem("last-generation-time");
-              if (lastGenerationTime) {
-                const genTime = parseInt(lastGenerationTime, 10);
-                const now = Date.now();
-                const fiveMinutesAgo = now - 5 * 60 * 1000;
-                if (genTime > fiveMinutesAgo) {
-                  console.log("[EmptyState] ⚡ Recent generation detected, showing generating state");
-                  return true;
-                }
-              }
-            }
-
-            // PRIORITY 2: Check if it's a blank dashboard
-            // But only if there's no recent generation activity
-            const isBlankDashboard = !currentDashboard.templateId && currentDashboard.name !== "Default Dashboard";
-
-            if (isBlankDashboard) {
-              console.log("[EmptyState] 🆕 Blank dashboard detected (no templateId, name:", currentDashboard.name, ")");
-              return false; // Blank dashboard, never generating
-            }
-            
-            // PRIORITY 3: If dashboard has no tiles and no templateId, it's definitely blank
-            // But skip this check if there's recent generation activity (already checked above)
-            if (currentDashboard.tiles.length === 0 && !currentDashboard.templateId) {
-              console.log("[EmptyState] 🆕 Blank dashboard detected (no templateId, no tiles)");
-              return false;
-            }
-
-            // PRIORITY 4: Check if dashboard was created very recently (within 2 minutes) - might be blank dashboard
-            // But skip this check if there's recent generation activity
-            const dashboardCreatedAt = currentDashboard.createdAt;
-            if (dashboardCreatedAt) {
-              const createdTime = new Date(dashboardCreatedAt).getTime();
-              const now = Date.now();
-              const twoMinutesAgo = now - 2 * 60 * 1000;
-              // If dashboard was just created and has no tiles, it's likely a blank dashboard
-              if (createdTime > twoMinutesAgo && currentDashboard.tiles.length === 0 && !currentDashboard.templateId) {
-                console.log("[EmptyState] 🆕 Blank dashboard detected (recently created, no tiles, no templateId)");
-                return false; // Blank dashboard, not generating
-              }
-            }
-            
-            // PRIORITY 4: Only check workspace timestamps if it's NOT a blank dashboard
-            // Check if workspace was created recently (within 5 minutes)
-            const generatedAt = workspace.generatedAt;
-            if (generatedAt) {
-              const generatedTime = new Date(generatedAt).getTime();
-              const now = Date.now();
-              const fiveMinutesAgo = now - 5 * 60 * 1000;
-              if (generatedTime > fiveMinutesAgo) {
-                // Workspace was created recently, likely generating
-                console.log("[EmptyState] ⚡ Workspace was created recently, likely generating");
+              // PRIORITY 0: Check if streaming is active (highest priority)
+              if (shouldUseStreaming && isStreaming && !streamingCompleted) {
+                console.log(
+                  "[EmptyState] 📺 Streaming active, showing generating state"
+                );
                 return true;
               }
-            }
-            
-            // PRIORITY 5: Check if there's a generation timestamp in localStorage
-            if (typeof window !== "undefined") {
-              const lastGenerationTime = window.localStorage.getItem("last-generation-time");
-              if (lastGenerationTime) {
-                const genTime = parseInt(lastGenerationTime, 10);
+
+              // PRIORITY 1: Check if there's a recent generation timestamp FIRST
+              // If there's recent generation activity, show generating state regardless of dashboard type
+              if (typeof window !== "undefined") {
+                const lastGenerationTime = window.localStorage.getItem(
+                  "last-generation-time"
+                );
+                if (lastGenerationTime) {
+                  const genTime = parseInt(lastGenerationTime, 10);
+                  const now = Date.now();
+                  const fiveMinutesAgo = now - 5 * 60 * 1000;
+                  if (genTime > fiveMinutesAgo) {
+                    console.log(
+                      "[EmptyState] ⚡ Recent generation detected, showing generating state"
+                    );
+                    return true;
+                  }
+                }
+              }
+
+              // PRIORITY 2: Check if it's a blank dashboard
+              // But only if there's no recent generation activity
+              const isBlankDashboard =
+                !currentDashboard.templateId &&
+                currentDashboard.name !== "Default Dashboard";
+
+              if (isBlankDashboard) {
+                console.log(
+                  "[EmptyState] 🆕 Blank dashboard detected (no templateId, name:",
+                  currentDashboard.name,
+                  ")"
+                );
+                return false; // Blank dashboard, never generating
+              }
+
+              // PRIORITY 3: If dashboard has no tiles and no templateId, it's definitely blank
+              // But skip this check if there's recent generation activity (already checked above)
+              if (
+                currentDashboard.tiles.length === 0 &&
+                !currentDashboard.templateId
+              ) {
+                console.log(
+                  "[EmptyState] 🆕 Blank dashboard detected (no templateId, no tiles)"
+                );
+                return false;
+              }
+
+              // PRIORITY 4: Check if dashboard was created very recently (within 2 minutes) - might be blank dashboard
+              // But skip this check if there's recent generation activity
+              const dashboardCreatedAt = currentDashboard.createdAt;
+              if (dashboardCreatedAt) {
+                const createdTime = new Date(dashboardCreatedAt).getTime();
+                const now = Date.now();
+                const twoMinutesAgo = now - 2 * 60 * 1000;
+                // If dashboard was just created and has no tiles, it's likely a blank dashboard
+                if (
+                  createdTime > twoMinutesAgo &&
+                  currentDashboard.tiles.length === 0 &&
+                  !currentDashboard.templateId
+                ) {
+                  console.log(
+                    "[EmptyState] 🆕 Blank dashboard detected (recently created, no tiles, no templateId)"
+                  );
+                  return false; // Blank dashboard, not generating
+                }
+              }
+
+              // PRIORITY 4: Only check workspace timestamps if it's NOT a blank dashboard
+              // Check if workspace was created recently (within 5 minutes)
+              const generatedAt = workspace.generatedAt;
+              if (generatedAt) {
+                const generatedTime = new Date(generatedAt).getTime();
                 const now = Date.now();
                 const fiveMinutesAgo = now - 5 * 60 * 1000;
-                if (genTime > fiveMinutesAgo) {
-                  console.log("[EmptyState] ⚡ Last generation time is recent, likely generating");
+                if (generatedTime > fiveMinutesAgo) {
+                  // Workspace was created recently, likely generating
+                  console.log(
+                    "[EmptyState] ⚡ Workspace was created recently, likely generating"
+                  );
                   return true;
                 }
               }
-            }
-            
-            // Default: not generating
-            console.log("[EmptyState] ✅ No generation detected, showing empty state");
-            return false;
-          })();
-          
-          const isBlankDashboard = currentDashboard && !currentDashboard.templateId && currentDashboard.name !== "Default Dashboard";
-          
-          if (isActuallyGenerating) {
-            // Estado: Gerando insights (vindo do onboarding)
-            return (
-              <EmptyStateAde
-                title="Generating insights..."
-                description="AI is creating insights for your research."
-                isLoading={false}
-                isGenerating={true} // Diferencia de loading normal
-                streamingProgress={
-                  shouldUseStreaming && isStreaming
-                    ? {
-                        completed: streamingCompletedTiles,
-                        total: streamingTotalTiles,
-                      }
-                    : undefined
+
+              // PRIORITY 5: Check if there's a generation timestamp in localStorage
+              if (typeof window !== "undefined") {
+                const lastGenerationTime = window.localStorage.getItem(
+                  "last-generation-time"
+                );
+                if (lastGenerationTime) {
+                  const genTime = parseInt(lastGenerationTime, 10);
+                  const now = Date.now();
+                  const fiveMinutesAgo = now - 5 * 60 * 1000;
+                  if (genTime > fiveMinutesAgo) {
+                    console.log(
+                      "[EmptyState] ⚡ Last generation time is recent, likely generating"
+                    );
+                    return true;
+                  }
                 }
-              />
-            );
-          } else if (isBlankDashboard) {
-            // Estado: Dashboard vazio criado pelo usuário (não está gerando)
-            return (
-              <EmptyStateAde
-                title="No insights yet"
-                description="This dashboard is empty. Create your first insight to get started."
-                isLoading={false}
-                isGenerating={false}
-                action={{
-                  label: "Add Prompt",
-                  onClick: handleAddPrompt,
-                }}
-              />
-            );
-          } else {
-            // Estado: Default Dashboard vazio (pode ser vazio ou carregando)
-            return (
-              <EmptyStateAde
-                title="No insights yet"
-                description="This dashboard is empty. Create your first insight to get started."
-                isLoading={false}
-                isGenerating={false}
-                action={{
-                  label: "Add Prompt",
-                  onClick: handleAddPrompt,
-                }}
-              />
-            );
-          }
-        })() : (
+              }
+
+              // Default: not generating
+              console.log(
+                "[EmptyState] ✅ No generation detected, showing empty state"
+              );
+              return false;
+            })();
+
+            const isBlankDashboard =
+              currentDashboard &&
+              !currentDashboard.templateId &&
+              currentDashboard.name !== "Default Dashboard";
+
+            if (isActuallyGenerating) {
+              // Estado: Gerando insights (vindo do onboarding)
+              return (
+                <EmptyStateAde
+                  title="Generating insights..."
+                  description="AI is creating insights for your research."
+                  isLoading={false}
+                  isGenerating={true} // Diferencia de loading normal
+                  streamingProgress={
+                    shouldUseStreaming && isStreaming
+                      ? {
+                          completed: streamingCompletedTiles,
+                          total: streamingTotalTiles,
+                        }
+                      : undefined
+                  }
+                />
+              );
+            } else if (isBlankDashboard) {
+              // Estado: Dashboard vazio criado pelo usuário (não está gerando)
+              return (
+                <EmptyStateAde
+                  title="No insights yet"
+                  description="This dashboard is empty. Create your first insight to get started."
+                  isLoading={false}
+                  isGenerating={false}
+                  action={{
+                    label: "Add Prompt",
+                    onClick: handleAddPrompt,
+                  }}
+                />
+              );
+            } else {
+              // Estado: Default Dashboard vazio (pode ser vazio ou carregando)
+              return (
+                <EmptyStateAde
+                  title="No insights yet"
+                  description="This dashboard is empty. Create your first insight to get started."
+                  isLoading={false}
+                  isGenerating={false}
+                  action={{
+                    label: "Add Prompt",
+                    onClick: handleAddPrompt,
+                  }}
+                />
+              );
+            }
+          })()
+        ) : (
           <TileGridAde
             appearance={appearanceTokens}
             tiles={tiles}
@@ -2990,7 +3404,9 @@ export function AdminContainer() {
             onContactsChanged={async () => {
               // CRITICAL: Update dashboard contacts from workspace after API call
               if (currentCompany && currentDashboard) {
-                const updatedWorkspace = await fetch("/api/workspace").then(r => r.json()).catch(() => null);
+                const updatedWorkspace = await fetch("/api/workspace")
+                  .then((r) => r.json())
+                  .catch(() => null);
                 if (updatedWorkspace?.company?.contacts) {
                   updateDashboard(currentCompany.id, currentDashboard.id, {
                     contacts: updatedWorkspace.company.contacts,
@@ -2999,7 +3415,9 @@ export function AdminContainer() {
                   const reloadedCompany = getCompanyById(currentCompany.id);
                   if (reloadedCompany) {
                     setCurrentCompany(reloadedCompany);
-                    const reloadedDashboard = reloadedCompany.dashboards.find((d) => d.id === currentDashboard.id);
+                    const reloadedDashboard = reloadedCompany.dashboards.find(
+                      (d) => d.id === currentDashboard.id
+                    );
                     if (reloadedDashboard) {
                       setCurrentDashboard(reloadedDashboard);
                     }
@@ -3020,7 +3438,9 @@ export function AdminContainer() {
             onNotesChanged={async () => {
               // CRITICAL: Update dashboard notes from workspace after API call
               if (currentCompany && currentDashboard) {
-                const updatedWorkspace = await fetch("/api/workspace").then(r => r.json()).catch(() => null);
+                const updatedWorkspace = await fetch("/api/workspace")
+                  .then((r) => r.json())
+                  .catch(() => null);
                 if (updatedWorkspace?.company?.notes) {
                   updateDashboard(currentCompany.id, currentDashboard.id, {
                     notes: updatedWorkspace.company.notes,
@@ -3029,7 +3449,9 @@ export function AdminContainer() {
                   const reloadedCompany = getCompanyById(currentCompany.id);
                   if (reloadedCompany) {
                     setCurrentCompany(reloadedCompany);
-                    const reloadedDashboard = reloadedCompany.dashboards.find((d) => d.id === currentDashboard.id);
+                    const reloadedDashboard = reloadedCompany.dashboards.find(
+                      (d) => d.id === currentDashboard.id
+                    );
                     if (reloadedDashboard) {
                       setCurrentDashboard(reloadedDashboard);
                     }

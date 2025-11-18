@@ -94,6 +94,9 @@ export interface WorkspacePromptSettings {
   responseLength?: "short" | "medium" | "long";
   promptVariables?: string[];
   bulkPrompts?: string[];
+  target?: string;
+  sellingSolutionsFor?: string;
+  targetWebsite?: string;
 }
 
 export interface WorkspaceSnapshot {
