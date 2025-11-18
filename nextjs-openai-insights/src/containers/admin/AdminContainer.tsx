@@ -5,6 +5,7 @@ import useSWR from "swr";
 import { useRouter } from "next/navigation";
 
 import { useToast } from "@/lib/state/toast-context";
+import { useTileStreaming } from "@/lib/hooks/useTileStreaming";
 import type {
   Contact,
   Note,
@@ -117,9 +118,29 @@ export function AdminContainer() {
     fetchWorkspace,
     {
       refreshInterval: (data) => {
+        // Disable polling when using streaming (streaming handles state updates)
+        if (shouldUseStreaming) {
+          console.log("[AdminContainer] 📺 Streaming active, disabling polling");
+          return 0;
+        }
+
         // Poll every 2 seconds if no tiles yet (generation in progress)
         const hasTiles = data?.company?.tiles && data.company.tiles.length > 0;
         if (hasTiles) {
+          console.log("[AdminContainer] ✅ Tiles found via polling!", {
+            tilesCount: data.company.tiles.length,
+            hasCurrentCompany: !!currentCompany,
+            hasCurrentDashboard: !!currentDashboard
+          });
+
+          // If we have tiles but current dashboard doesn't, sync them
+          if (currentCompany && currentDashboard && currentDashboard.tiles.length === 0) {
+            console.log("[AdminContainer] 🔄 Syncing tiles to current dashboard");
+            updateDashboard(currentCompany.id, currentDashboard.id, {
+              tiles: data.company.tiles
+            });
+          }
+
           // Clear generation timestamp when tiles are detected
           if (typeof window !== "undefined") {
             window.localStorage.removeItem("last-generation-time");
@@ -127,7 +148,7 @@ export function AdminContainer() {
           // Reset polling state
           pollingAttemptsRef.current = 0;
           lastPollingIntervalRef.current = 2000;
-          console.log("[AdminContainer] ✅ Tiles found, stopping polling");
+          console.log("[AdminContainer] ✅ Polling stopped, tiles synced");
           return 0; // Stop polling once we have tiles
         }
 
@@ -156,10 +177,14 @@ export function AdminContainer() {
             const fiveMinutesAgo = now - 5 * 60 * 1000;
             if (genTime > fiveMinutesAgo) {
               shouldPoll = true;
-              console.log("[AdminContainer] 🔄 Polling: generation timestamp detected");
+              console.log("[AdminContainer] 🔄 Polling: generation timestamp detected", {
+                genTime: new Date(genTime).toISOString(),
+                timeAgo: Math.round((now - genTime) / 1000) + "s ago"
+              });
             } else {
               // Clear old timestamp
               window.localStorage.removeItem("last-generation-time");
+              console.log("[AdminContainer] 🧹 Cleared old generation timestamp");
             }
           }
         }
@@ -214,6 +239,52 @@ export function AdminContainer() {
   const { push } = useToast();
   const router = useRouter();
   const { theme } = useAdminTheme();
+
+  // TEMPORARILY DISABLED: Streaming needs more work, focus on polling first
+  const shouldUseStreaming = useMemo(() => false, []);
+
+  // Tile streaming hook - only active when coming from home page
+  const {
+    tiles: streamingTiles,
+    isStreaming,
+    isCompleted: streamingCompleted,
+    error: streamingError,
+    totalTiles: streamingTotalTiles,
+    completedTiles: streamingCompletedTiles,
+    startStreaming,
+    stopStreaming,
+  } = useTileStreaming({
+    salesRepCompany: "", // Will be filled from workspace data
+    salesRepWebsite: "",
+    solution: "",
+    targetCompany: "",
+    targetWebsite: "",
+    templateId: "",
+    onTileGenerated: (tile, index) => {
+      console.log(`[AdminContainer] 🎯 Tile ${index + 1} streamed:`, tile.title);
+      // Update dashboard with new tile
+      if (currentCompany && currentDashboard) {
+        const updatedTiles = [...currentDashboard.tiles];
+        updatedTiles[index] = tile;
+        updateDashboard(currentCompany.id, currentDashboard.id, { tiles: updatedTiles });
+      }
+    },
+    onCompleted: (workspace, sessionId) => {
+      console.log("[AdminContainer] ✅ Streaming completed, workspace ready");
+      // Update workspace in localStorage and refresh
+      writeWorkspace(workspace);
+      refreshStoredWorkspaces();
+      mutate();
+    },
+    onError: (error) => {
+      console.error("[AdminContainer] ❌ Streaming error:", error);
+      push({
+        type: "error",
+        title: "Generation Failed",
+        description: `Error generating insights: ${error}`,
+      });
+    },
+  });
   const [baseColor, setBaseColor] = useState(() => {
     // Use default on server, will be updated on client
     if (typeof window === "undefined") {
@@ -288,6 +359,7 @@ export function AdminContainer() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
   const {
     isMember,
     isGuest,
@@ -740,6 +812,55 @@ export function AdminContainer() {
   }, [data, localWorkspace, storedWorkspaces, viewingSessionId]);
 
   const workspace = workspaceState.data;
+
+  // Start streaming when coming from home page with recent generation
+  useEffect(() => {
+    if (shouldUseStreaming && !isStreaming && !streamingCompleted && workspace) {
+      console.log("[AdminContainer] 🚀 Starting tile streaming from home page");
+      console.log("[AdminContainer] 📋 Workspace data:", {
+        hasPromptSettings: !!workspace.promptSettings,
+        promptSettings: workspace.promptSettings
+      });
+
+      // Extract generation parameters from workspace
+      const promptSettings = workspace.promptSettings;
+      if (promptSettings) {
+        // Check if we have the minimum required data for streaming
+        const hasRequiredData = promptSettings.target &&
+                                promptSettings.sellingSolutionsFor &&
+                                promptSettings.targetWebsite &&
+                                promptSettings.templateId;
+
+        if (hasRequiredData) {
+          console.log("[AdminContainer] ✅ Starting streaming with valid data");
+
+          startStreaming({
+            salesRepCompany: "Demo Company", // Fallback for now
+            salesRepWebsite: "https://demo.com",
+            solution: promptSettings.sellingSolutionsFor,
+            targetCompany: promptSettings.target,
+            targetWebsite: promptSettings.targetWebsite,
+            templateId: promptSettings.templateId,
+            model: promptSettings.model,
+            promptAgent: promptSettings.promptAgent,
+            responseLength: promptSettings.responseLength,
+            promptVariables: promptSettings.promptVariables,
+            bulkPrompts: promptSettings.bulkPrompts,
+          });
+        } else {
+          console.warn("[AdminContainer] ⚠️ Missing required data in promptSettings, falling back to polling");
+          console.warn("[AdminContainer] 📋 Required data check:", {
+            target: promptSettings.target,
+            sellingSolutionsFor: promptSettings.sellingSolutionsFor,
+            targetWebsite: promptSettings.targetWebsite,
+            templateId: promptSettings.templateId
+          });
+        }
+      } else {
+        console.warn("[AdminContainer] ⚠️ No prompt settings found in workspace, skipping streaming");
+      }
+    }
+  }, [shouldUseStreaming, isStreaming, streamingCompleted, workspace, startStreaming]);
 
   // Migrate workspace to company structure and load current dashboard
   useEffect(() => {
@@ -2695,11 +2816,17 @@ export function AdminContainer() {
           // Check if we're actually generating or if it's just an empty blank dashboard
           const isActuallyGenerating = (() => {
             if (!workspace || !currentDashboard) return false;
-            
+
+            // PRIORITY 0: Check if streaming is active (highest priority)
+            if (shouldUseStreaming && isStreaming && !streamingCompleted) {
+              console.log("[EmptyState] 📺 Streaming active, showing generating state");
+              return true;
+            }
+
             // PRIORITY 1: Check if it's a blank dashboard FIRST (before checking timestamps)
             // Blank dashboards are created without templateId and should never show "Generating"
             const isBlankDashboard = !currentDashboard.templateId && currentDashboard.name !== "Default Dashboard";
-            
+
             if (isBlankDashboard) {
               console.log("[EmptyState] 🆕 Blank dashboard detected (no templateId, name:", currentDashboard.name, ")");
               return false; // Blank dashboard, never generating
@@ -2767,6 +2894,14 @@ export function AdminContainer() {
                 description="AI is creating insights for your research."
                 isLoading={false}
                 isGenerating={true} // Diferencia de loading normal
+                streamingProgress={
+                  shouldUseStreaming && isStreaming
+                    ? {
+                        completed: streamingCompletedTiles,
+                        total: streamingTotalTiles,
+                      }
+                    : undefined
+                }
               />
             );
           } else if (isBlankDashboard) {
@@ -2810,6 +2945,7 @@ export function AdminContainer() {
             regeneratingTileIds={Array.from(regeneratingTileIds)}
             onAddPrompt={handleAddPrompt}
             onBulkUploadPrompts={handleBulkUploadPrompts}
+            animateEntrance={shouldUseStreaming && streamingCompleted}
           />
         )}
 

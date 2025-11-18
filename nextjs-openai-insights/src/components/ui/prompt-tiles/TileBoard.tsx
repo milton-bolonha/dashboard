@@ -45,6 +45,7 @@ interface TileBoardProps {
   appearance?: AdeAppearanceTokens;
   onAddPrompt?: () => void;
   onBulkUploadPrompts?: () => void;
+  animateEntrance?: boolean; // New prop for progressive entrance animation
 }
 
 interface SortableTileCardProps {
@@ -54,6 +55,7 @@ interface SortableTileCardProps {
   onOpenTile: (tile: Tile) => void;
   onRegenerateTile?: (tileId: string) => void;
   isRegenerating?: boolean;
+  isVisible?: boolean; // New prop for entrance animation
   attributes: DraggableAttributes;
   listeners: DraggableSyntheticListeners | undefined;
   setNodeRef: (element: HTMLElement | null) => void;
@@ -123,6 +125,7 @@ function SortableTileCard({
   onOpenTile,
   onRegenerateTile,
   isRegenerating,
+  isVisible = true,
   attributes,
   listeners,
   setNodeRef,
@@ -231,7 +234,9 @@ function SortableTileCard({
         cursor: isDragging ? "grabbing" : "default",
       }}
       data-testid="tile-card"
-      className={`group relative flex flex-col gap-4 rounded-3xl border ${tokens.border} ${tokens.background} p-6 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg`}
+      className={`group relative flex flex-col gap-4 rounded-3xl border ${tokens.border} ${tokens.background} p-6 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg ${
+        isVisible ? 'animate-in fade-in slide-in-from-bottom-4 duration-300' : 'opacity-0'
+      }`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
@@ -318,6 +323,7 @@ export function TileBoard({
   appearance,
   onAddPrompt,
   onBulkUploadPrompts,
+  animateEntrance = false,
 }: TileBoardProps) {
   const handleAddPrompt = useCallback(() => {
     if (onAddPrompt) {
@@ -340,6 +346,26 @@ export function TileBoard({
 
   const sortedTiles = useMemo(() => sortTilesByOrder(tiles), [tiles]);
   const [items, setItems] = useState(sortedTiles);
+
+  // Progressive entrance animation state
+  const [visibleTileIds, setVisibleTileIds] = useState<Set<string>>(new Set());
+
+  // Animate tiles appearing one by one
+  useEffect(() => {
+    if (animateEntrance && sortedTiles.length > 0) {
+      setVisibleTileIds(new Set()); // Reset visibility
+
+      // Show tiles with stagger delay
+      sortedTiles.forEach((tile, index) => {
+        setTimeout(() => {
+          setVisibleTileIds(prev => new Set([...prev, tile.id]));
+        }, index * 150); // 150ms delay between each tile
+      });
+    } else {
+      // Show all tiles immediately if not animating
+      setVisibleTileIds(new Set(sortedTiles.map(tile => tile.id)));
+    }
+  }, [sortedTiles, animateEntrance]);
   const [isReordering, setIsReordering] = useState(false);
   const regeneratingSet = useMemo(() => {
     return new Set(regeneratingTileIds ?? []);
@@ -502,6 +528,7 @@ export function TileBoard({
                 onOpenTile={onOpenTile}
                 onRegenerateTile={onRegenerateTile}
                 isRegenerating={regeneratingSet.has(tile.id)}
+                isVisible={animateEntrance ? visibleTileIds.has(tile.id) : true}
               />
             ))}
           </div>
@@ -518,6 +545,7 @@ function SortableTile({
   onOpenTile,
   onRegenerateTile,
   isRegenerating,
+  isVisible = true,
 }: {
   tile: Tile;
   variant: TileBoardVariant;
@@ -525,6 +553,7 @@ function SortableTile({
   onOpenTile: (tile: Tile) => void;
   onRegenerateTile?: (tileId: string) => void;
   isRegenerating?: boolean;
+  isVisible?: boolean;
 }) {
   const sortable = useSortable({ id: tile.id });
   const style = {
@@ -540,6 +569,7 @@ function SortableTile({
       onOpenTile={onOpenTile}
       onRegenerateTile={onRegenerateTile}
       isRegenerating={isRegenerating}
+      isVisible={isVisible}
       attributes={sortable.attributes}
       listeners={sortable.listeners ?? {}}
       setNodeRef={sortable.setNodeRef}

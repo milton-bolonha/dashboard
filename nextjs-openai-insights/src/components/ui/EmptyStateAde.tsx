@@ -5,18 +5,23 @@ interface EmptyStateAdeProps {
   description: string;
   isLoading?: boolean;
   isGenerating?: boolean; // Novo: para diferenciar loading de geração
+  streamingProgress?: {
+    completed: number;
+    total: number;
+  };
   action?: {
     label: string;
     onClick: () => void;
   };
 }
 
-export function EmptyStateAde({ 
-  title, 
-  description, 
-  isLoading = false, 
+export function EmptyStateAde({
+  title,
+  description,
+  isLoading = false,
   isGenerating = false,
-  action 
+  streamingProgress,
+  action
 }: EmptyStateAdeProps) {
   // Se está gerando, sempre mostrar loading (não mostrar action)
   // Se está apenas carregando (reidratação), mostrar loading mas pode ter action
@@ -31,6 +36,24 @@ export function EmptyStateAde({
       )}
       <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
       <p className="max-w-md text-sm text-gray-600">{description}</p>
+
+      {/* Streaming Progress */}
+      {streamingProgress && (
+        <div className="flex flex-col items-center gap-2">
+          <div className="text-sm text-gray-500">
+            {streamingProgress.completed} of {streamingProgress.total} insights generated
+          </div>
+          <div className="w-48 h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-amber-400 to-rose-400 transition-all duration-300 ease-out"
+              style={{
+                width: `${(streamingProgress.completed / streamingProgress.total) * 100}%`
+              }}
+            />
+          </div>
+        </div>
+      )}
+
       {showAction && (
         <button
           type="button"

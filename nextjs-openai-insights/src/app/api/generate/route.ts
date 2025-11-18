@@ -398,6 +398,9 @@ export async function POST(request: Request) {
         responseLength,
         promptVariables: normalizedPromptVariables,
         bulkPrompts,
+        target: targetCompany,
+        sellingSolutionsFor: solution,
+        targetWebsite: targetWebsite.trim(),
       },
     };
 

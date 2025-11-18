@@ -13,6 +13,7 @@ interface TileGridAdeProps {
   regeneratingTileIds?: string[];
   onAddPrompt?: () => void;
   onBulkUploadPrompts?: () => void;
+  animateEntrance?: boolean;
 }
 
 export function TileGridAde({
@@ -26,6 +27,7 @@ export function TileGridAde({
   regeneratingTileIds,
   onAddPrompt,
   onBulkUploadPrompts,
+  animateEntrance = false,
 }: TileGridAdeProps) {
   return (
     <TileBoard
@@ -40,6 +42,7 @@ export function TileGridAde({
       regeneratingTileIds={regeneratingTileIds}
       onAddPrompt={onAddPrompt}
       onBulkUploadPrompts={onBulkUploadPrompts}
+      animateEntrance={animateEntrance}
     />
   );
 }
