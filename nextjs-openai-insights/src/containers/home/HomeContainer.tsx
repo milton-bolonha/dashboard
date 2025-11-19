@@ -27,6 +27,7 @@ export function HomeContainer() {
     evaluateUsage,
     consumeUsage,
     startCheckout,
+    resetGuestUsage,
   } = useMembership();
   const [isSubmitting] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
@@ -39,9 +40,9 @@ export function HomeContainer() {
     const opened = startCheckout();
     if (!opened) {
       push({
-        title: "Configure o checkout",
+        title: "Configure checkout",
         description:
-          "Defina NEXT_PUBLIC_STRIPE_CHECKOUT_URL para habilitar a compra do plano.",
+          "Set NEXT_PUBLIC_STRIPE_CHECKOUT_URL to enable plan purchase.",
         variant: "destructive",
       });
     }
@@ -66,8 +67,8 @@ export function HomeContainer() {
       const preview = evaluateUsage("createWorkspace");
       if (!preview.allowed) {
         push({
-          title: "Limite de visitante atingido",
-          description: `Plano gratuito permite gerar até ${limits.createWorkspace} workspaces por dia. Faça upgrade para continuar.`,
+          title: "Visitor limit reached",
+          description: `Free plan allows generating up to ${limits.createWorkspace} workspaces per day. Upgrade to continue.`,
           variant: "destructive",
         });
         handleStartCheckout();
@@ -77,7 +78,10 @@ export function HomeContainer() {
 
     // Mark generation start time for polling detection
     if (typeof window !== "undefined") {
-      window.localStorage.setItem("last-generation-time", Date.now().toString());
+      window.localStorage.setItem(
+        "last-generation-time",
+        Date.now().toString()
+      );
     }
 
     // Redirect immediately to admin
@@ -147,10 +151,10 @@ export function HomeContainer() {
         // Update with success message
         push({
           title: "Insights generated!",
-          description: "Your workspace is ready. Check the tiles for new insights.",
+          description:
+            "Your workspace is ready. Check the tiles for new insights.",
           variant: "success",
         });
-
       } catch (error) {
         console.error("[HomeContainer] 🚨 Generation request threw", error);
         push({
@@ -169,29 +173,26 @@ export function HomeContainer() {
   };
 
   const handleResetWorkspace = async () => {
-    // Clear appearance tokens from localStorage when resetting
-    if (typeof window !== "undefined") {
-      try {
-        window.localStorage.removeItem("ade-appearance-tokens");
-        console.log("[HomeContainer] 🗑️ Cleared appearance tokens from localStorage (reset)");
-      } catch (e) {
-        console.warn("[HomeContainer] ⚠️ Failed to clear appearance tokens:", e);
-      }
-    }
     try {
       const response = await fetch("/api/workspace", { method: "DELETE" });
       if (!response.ok) {
         throw new Error("Could not reset the workspace");
       }
       clearAllWorkspaces();
-      
+
+      // Reset guest usage limits (workspaces count, etc.)
+      resetGuestUsage();
+
       // Clear custom color preference when resetting workspace
       if (typeof window !== "undefined") {
         window.localStorage.removeItem("ade-base-color");
+        window.localStorage.removeItem("ade-appearance-tokens");
         window.localStorage.removeItem("last-generation-time");
-        console.log("[HomeContainer] 🗑️ Cleared custom color and generation timestamp");
+        console.log(
+          "[HomeContainer] 🗑️ Cleared all appearance settings and generation timestamp"
+        );
       }
-      
+
       push({
         title: "Workspace cleared",
         description: "Submit the form again to generate a fresh workspace.",
@@ -211,8 +212,9 @@ export function HomeContainer() {
 
   const requestVisitorUpgrade = () => {
     push({
-      title: "Desbloqueie recursos ilimitados",
-      description: "Assine o plano Pro para continuar usando sem limites.",
+      title: "Unlock unlimited resources",
+      description:
+        "Subscribe to the Pro plan to continue using without limits.",
     });
     handleStartCheckout();
   };
@@ -220,8 +222,8 @@ export function HomeContainer() {
   const handleLogin = () => {
     if (isMember) {
       push({
-        title: "Bem-vindo de volta",
-        description: "Carregando seu dashboard Pro.",
+        title: "Welcome back",
+        description: "Loading your Pro dashboard.",
         variant: "success",
       });
       router.push("/admin");
@@ -272,11 +274,11 @@ export function HomeContainer() {
                   id="home-help-heading"
                   className="text-lg font-semibold text-slate-900"
                 >
-                  Precisa de um empurrão? 🚀
+                  Need a push? 🚀
                 </h2>
                 <p className="mt-1 text-sm text-slate-600">
-                  Explore a documentação, revise os templates ou fale com a IA
-                  para refinar seus prompts em massa.
+                  Explore the documentation, review templates, or chat with AI
+                  to refine your bulk prompts.
                 </p>
               </div>
               <button
@@ -284,20 +286,21 @@ export function HomeContainer() {
                 onClick={closeHelp}
                 className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 transition hover:bg-slate-100"
               >
-                Fechar
+                Close
               </button>
             </div>
             <ul className="mt-4 space-y-3 text-sm text-slate-600">
               <li>
-                • Leia o novo fluxo completo no arquivo <strong>novo-fluxo.md</strong> para entender cada etapa.
+                • Read the complete new flow in <strong>novo-fluxo.md</strong>{" "}
+                file to understand each step.
               </li>
               <li>
-                • Quer hands-on? Gere um CSV modelo com o botão “Upload CSV” e
-                reutilize no dashboard.
+                • Want hands-on? Generate a template CSV with the "Upload CSV"
+                button and reuse it in the dashboard.
               </li>
               <li>
-                • Configure agentes e variáveis para personalizar os prompts
-                antes de mandar para o GPT-5.
+                • Configure agents and variables to customize prompts before
+                sending to GPT-5.
               </li>
             </ul>
           </section>

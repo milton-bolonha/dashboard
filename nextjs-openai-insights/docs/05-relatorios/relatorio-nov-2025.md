@@ -28,6 +28,13 @@
 - **Problema:** Cliente usava EventSource GET em endpoint POST-only
 - **Solução:** Consumo direto de ReadableStream + parsing SSE correto
 
+### **19/11/2025 - [FUNCIONAL] Reset Completo Corrigido**
+- **Arquivo:** [`11-25/relatorio-reset-correcao-19-nov-2025.md`](./11-25/relatorio-reset-correcao-19-nov-2025.md)
+- **Status:** ✅ **CORRIGIDO**
+- **Impacto:** Crítico - Usuários ficavam bloqueados após limite
+- **Problema:** Reset só limpava workspace, não limites de uso
+- **Solução:** Integração com membership context + limpeza completa
+
 ### **10/11/2025 - Tema Ade Completo**
 - **Status:** ✅ **CONCLUÍDO**
 - **Impacto:** Alto - UI/UX consistente no admin
@@ -93,6 +100,8 @@ Com isso, o tema Ade ficou alinhado ao visual legado e ganhou paridade funcional
 - ✅ **Experiência Fluida:** Sem travamentos ou reloads forçados
 - ✅ **SSE Implementado:** Streaming em tempo real funcionando
 - ✅ **Arquitetura Correta:** Consumo direto de ReadableStream
+- ✅ **Reset Completo:** Limites de uso corretamente resetados
+- ✅ **Experiência Completa:** Do onboarding ao uso sem barreiras
 
 ### **Problemas Críticos Resolvidos:**
 - 🔧 Streaming temporariamente desabilitado → **Reabilitado**
@@ -103,6 +112,7 @@ Com isso, o tema Ade ficou alinhado ao visual legado e ganhou paridade funcional
 - 🔧 Callbacks instáveis causando re-renders → **useCallback aplicado**
 - 🔧 **CRÍTICO:** EventSource quebrado → **ReadableStream direto**
 - 🔧 **CRÍTICO:** SSE não funcionava → **Parsing correto implementado**
+- 🔧 **CRÍTICO:** Reset incompleto → **Limpeza total implementada**
 
 ---
 
