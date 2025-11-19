@@ -121,12 +121,12 @@ export function AdminContainer() {
     fetchWorkspace,
     {
       refreshInterval: (data) => {
-        // Disable polling when using streaming (streaming handles state updates)
-        if (shouldUseStreaming) {
+        // Disable polling when using streaming OR when generation is in progress
+        if (shouldUseStreaming || generationState.isGenerating || generationInProgressRef.current) {
           console.log(
-            "[AdminContainer] 📺 Streaming active, disabling polling"
+            "[AdminContainer] 📺 Streaming/generation active, disabling polling completely"
           );
-          return 0;
+          return 0; // Disable polling completely
         }
 
         // Poll every 2 seconds if no tiles yet (generation in progress)
@@ -297,6 +297,39 @@ export function AdminContainer() {
     tilesGenerated: 0,
     totalTiles: 0,
   });
+
+  // Reset generation state on page load to prevent stale states
+  useEffect(() => {
+    console.log("[AdminContainer] 🔄 Page loaded, resetting generation flags");
+    generationInProgressRef.current = false;
+    setGenerationState(prev => ({
+      ...prev,
+      isGenerating: false,
+    }));
+  }, []); // Empty dependency array - só executa na montagem
+
+  // Safety timeout - reset generation state after 10 minutes to prevent infinite loading
+  useEffect(() => {
+    if (generationState.isGenerating && generationState.startedAt) {
+      const timeSinceStart = Date.now() - generationState.startedAt;
+      const tenMinutes = 10 * 60 * 1000;
+
+      if (timeSinceStart > tenMinutes) {
+        console.warn("[AdminContainer] ⏰ Generation timeout reached, resetting state");
+        generationInProgressRef.current = false;
+        setGenerationState(prev => ({
+          ...prev,
+          isGenerating: false,
+        }));
+
+        push({
+          variant: "destructive",
+          title: "Generation Timeout",
+          description: "Generation took too long and was cancelled. Please try again.",
+        });
+      }
+    }
+  }, [generationState.isGenerating, generationState.startedAt, push]);
   const [baseColor, setBaseColor] = useState(() => {
     // Use default on server, will be updated on client
     if (typeof window === "undefined") {
@@ -959,7 +992,7 @@ export function AdminContainer() {
     responseLength: workspace?.promptSettings?.responseLength,
     promptVariables: workspace?.promptSettings?.promptVariables,
     bulkPrompts: workspace?.promptSettings?.bulkPrompts,
-    onTileGenerated: (tile, index) => {
+    onTileGenerated: useCallback((tile: Tile, index: number) => {
       console.log(
         `[AdminContainer] 🎯 Tile ${index + 1} streamed:`,
         tile.title
@@ -979,8 +1012,8 @@ export function AdminContainer() {
           tiles: updatedTiles,
         });
       }
-    },
-    onCompleted: (workspace, sessionId) => {
+    }, [currentCompany, currentDashboard, updateDashboard]),
+    onCompleted: useCallback((workspace: WorkspaceSnapshot, sessionId: string) => {
       console.log("[AdminContainer] ✅ Streaming completed, workspace ready");
 
       // Update local generation state
@@ -988,16 +1021,30 @@ export function AdminContainer() {
         ...prev,
         isGenerating: false,
         sessionId,
+        tilesGenerated: prev.totalTiles, // Mark as complete
       }));
 
       // Reset generation flag
       generationInProgressRef.current = false;
 
+      // Clear localStorage generation timestamp to prevent future polling
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem("last-generation-time");
+        console.log("[AdminContainer] 🧹 Cleared generation timestamp");
+      }
+
       // Refresh the SWR cache to get updated workspace data
       refreshStoredWorkspaces();
       mutate();
-    },
-    onError: (error) => {
+
+      // Success notification
+      push({
+        variant: "success",
+        title: "Insights Generated!",
+        description: `Successfully generated ${workspace.company?.tiles?.length || 0} insights.`,
+      });
+    }, [refreshStoredWorkspaces, mutate, push]),
+    onError: useCallback((error: string) => {
       console.error("[AdminContainer] ❌ Streaming error:", error);
 
       // Update local generation state on error
@@ -1014,77 +1061,63 @@ export function AdminContainer() {
         title: "Generation Failed",
         description: `Error generating insights: ${error}`,
       });
-    },
+    }, [push]),
   });
 
   // Start streaming when coming from home page with recent generation
+  // Refatorado para evitar loops - só executa quando workspace muda
   useEffect(() => {
     if (
       shouldUseStreaming &&
-      !isStreaming &&
-      !streamingCompleted &&
-      !generationState.isGenerating &&
       !generationInProgressRef.current &&
-      workspace
+      !generationState.isGenerating &&
+      workspace &&
+      workspace.promptSettings
     ) {
-      console.log("[AdminContainer] 🚀 Starting tile streaming from home page");
-      console.log("[AdminContainer] 📋 Workspace data:", {
-        hasPromptSettings: !!workspace.promptSettings,
-        promptSettings: workspace.promptSettings,
-      });
+      console.log("[AdminContainer] 🚀 Checking if we should start streaming...");
 
-      // Extract generation parameters from workspace
-      const promptSettings = workspace.promptSettings;
-      if (promptSettings) {
-        // Check if we have the minimum required data for streaming
-        const hasRequiredData =
-          promptSettings.target &&
-          promptSettings.sellingSolutionsFor &&
-          promptSettings.targetWebsite &&
-          promptSettings.templateId;
+      // Check if we have the minimum required data for streaming
+      const hasRequiredData =
+        workspace.promptSettings.target &&
+        workspace.promptSettings.sellingSolutionsFor &&
+        workspace.promptSettings.targetWebsite &&
+        workspace.promptSettings.templateId;
 
-        if (hasRequiredData) {
-          console.log("[AdminContainer] ✅ Starting streaming with valid data");
+      // Check if workspace was recently generated (within last 10 minutes)
+      const shouldStartGeneration = (() => {
+        if (!workspace.generatedAt) return true; // No generation yet
 
-          // Mark generation as in progress
-          generationInProgressRef.current = true;
+        const generatedTime = new Date(workspace.generatedAt).getTime();
+        const now = Date.now();
+        const tenMinutesAgo = now - 10 * 60 * 1000;
+        return generatedTime > tenMinutesAgo; // Recent generation
+      })();
 
-          // Update local generation state
-          setGenerationState(prev => ({
-            ...prev,
-            isGenerating: true,
-            startedAt: Date.now(),
-            totalTiles: streamingTotalTiles || 8, // fallback to 8
-            tilesGenerated: streamingCompletedTiles || 0,
-          }));
+      if (hasRequiredData && shouldStartGeneration) {
+        console.log("[AdminContainer] ✅ Starting streaming with valid recent data");
 
-          startStreaming();
-        } else {
-          console.warn(
-            "[AdminContainer] ⚠️ Missing required data in promptSettings, falling back to polling"
-          );
-          console.warn("[AdminContainer] 📋 Required data check:", {
-            target: promptSettings.target,
-            sellingSolutionsFor: promptSettings.sellingSolutionsFor,
-            targetWebsite: promptSettings.targetWebsite,
-            templateId: promptSettings.templateId,
-          });
-        }
+        // Mark generation as in progress
+        generationInProgressRef.current = true;
+
+        // Update local generation state
+        setGenerationState(prev => ({
+          ...prev,
+          isGenerating: true,
+          startedAt: Date.now(),
+          totalTiles: 8, // fallback
+          tilesGenerated: 0,
+          sessionId: null,
+        }));
+
+        startStreaming();
       } else {
-        console.warn(
-          "[AdminContainer] ⚠️ No prompt settings found in workspace, skipping streaming"
-        );
+        console.log("[AdminContainer] ⏸️ Skipping streaming - no recent generation needed");
       }
     }
   }, [
     shouldUseStreaming,
-    isStreaming,
-    streamingCompleted,
-    generationState.isGenerating,
-    workspace,
+    workspace, // Só workspace como dependência - evita loops
     startStreaming,
-    streamingTotalTiles,
-    streamingCompletedTiles,
   ]);
 
   // Migrate workspace to company structure and load current dashboard

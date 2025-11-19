@@ -82,7 +82,7 @@ export function useTileStreaming(options: UseTileStreamingOptions): UseTileStrea
   }, []);
 
   const startStreaming = useCallback(async () => {
-    if (isStreaming) return;
+    if (isStreaming || isCompleted) return;
 
     // Reset state
     setTiles([]);
@@ -207,11 +207,7 @@ export function useTileStreaming(options: UseTileStreamingOptions): UseTileStrea
     responseLength,
     promptVariables,
     bulkPrompts,
-    isStreaming,
-    stopStreaming,
-    onTileGenerated,
-    onCompleted,
-    onError,
+    // Removidas: isStreaming (causa loops), stopStreaming (estável), callbacks (devem ser estáveis)
   ]);
 
   // Cleanup on unmount

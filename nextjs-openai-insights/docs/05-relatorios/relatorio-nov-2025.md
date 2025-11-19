@@ -14,6 +14,13 @@
 - **Problema:** Streaming desabilitado + dependências frágeis
 - **Solução:** Streaming reabilitado + estado independente
 
+### **19/11/2025 - [EMERGÊNCIA] Loops Infinitos + Rate Limiting**
+- **Arquivo:** [`11-25/relatorio-emergencia-19-nov-2025.md`](./11-25/relatorio-emergencia-19-nov-2025.md)
+- **Status:** ✅ **CORRIGIDO**
+- **Impacto:** Crítico - Sistema travava completamente
+- **Problema:** useEffect loops + polling cascata + callbacks instáveis
+- **Solução:** Dependências estabilizadas + polling desabilitado + timeouts de segurança
+
 ### **10/11/2025 - Tema Ade Completo**
 - **Status:** ✅ **CONCLUÍDO**
 - **Impacto:** Alto - UI/UX consistente no admin
@@ -75,11 +82,16 @@ Com isso, o tema Ade ficou alinhado ao visual legado e ganhou paridade funcional
 - ✅ **Streaming Funcional:** Problema crítico mobile resolvido
 - ✅ **Arquitetura Robusta:** Estado independente implementado
 - ✅ **Build Estável:** Zero erros de compilação
+- ✅ **Sistema Estável:** Loops infinitos e rate limiting corrigidos
+- ✅ **Experiência Fluida:** Sem travamentos ou reloads forçados
 
 ### **Problemas Críticos Resolvidos:**
 - 🔧 Streaming temporariamente desabilitado → **Reabilitado**
 - 🔧 Dependência crítica de cookies → **Estado independente**
 - 🔧 Lógica de estados complexa → **Simplificada**
+- 🔧 **NOVO:** Loops infinitos no useEffect → **Dependências estabilizadas**
+- 🔧 **NOVO:** Polling em cascata + rate limits → **Desabilitação completa**
+- 🔧 **NOVO:** Callbacks instáveis causando re-renders → **useCallback aplicado**
 
 ---
 
