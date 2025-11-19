@@ -1011,9 +1011,22 @@ export function AdminContainer() {
         updateDashboard(currentCompany.id, currentDashboard.id, {
           tiles: updatedTiles,
         });
+
+        // Immediately update UI state for real-time feedback
+        const updatedDashboard = {
+          ...currentDashboard,
+          tiles: updatedTiles,
+          updatedAt: new Date().toISOString(),
+        };
+        setCurrentDashboard(updatedDashboard);
+
+        console.log(`[AdminContainer] 🔄 UI updated with tile ${index + 1}:`, {
+          tileTitle: tile.title,
+          totalTiles: updatedTiles.length,
+        });
       }
     }, [currentCompany, currentDashboard, updateDashboard]),
-    onCompleted: useCallback((workspace: WorkspaceSnapshot, sessionId: string) => {
+    onCompleted: useCallback(async (workspace: WorkspaceSnapshot, sessionId: string) => {
       console.log("[AdminContainer] ✅ Streaming completed, workspace ready");
 
       // Update local generation state
@@ -1033,6 +1046,30 @@ export function AdminContainer() {
         console.log("[AdminContainer] 🧹 Cleared generation timestamp");
       }
 
+      // Force reload of current dashboard from localStorage
+      console.log("[AdminContainer] 🔄 Reloading dashboard after streaming");
+      try {
+        if (currentCompany) {
+          const freshCompanies = loadCompaniesWithDashboards();
+          const freshCurrentCompany = freshCompanies.find(c => c.id === currentCompany.id);
+
+          if (freshCurrentCompany) {
+            const freshCurrentDashboard = getActiveDashboard(freshCurrentCompany.id);
+            if (freshCurrentDashboard) {
+              setCurrentDashboard(freshCurrentDashboard);
+              setCurrentCompany(freshCurrentCompany);
+
+              console.log("[AdminContainer] ✅ UI state updated with fresh data", {
+                tilesCount: freshCurrentDashboard.tiles?.length ?? 0,
+                dashboardId: freshCurrentDashboard.id,
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error("[AdminContainer] ❌ Failed to reload dashboard:", error);
+      }
+
       // Refresh the SWR cache to get updated workspace data
       refreshStoredWorkspaces();
       mutate();
@@ -1043,7 +1080,7 @@ export function AdminContainer() {
         title: "Insights Generated!",
         description: `Successfully generated ${workspace.company?.tiles?.length || 0} insights.`,
       });
-    }, [refreshStoredWorkspaces, mutate, push]),
+    }, [refreshStoredWorkspaces, mutate, push, currentCompany, currentDashboard]),
     onError: useCallback((error: string) => {
       console.error("[AdminContainer] ❌ Streaming error:", error);
 
