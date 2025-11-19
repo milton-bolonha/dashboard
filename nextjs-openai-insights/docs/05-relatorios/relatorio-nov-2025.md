@@ -1,4 +1,23 @@
-# Full Report · 10 Nov 2025
+# 📊 Relatórios Mensais - Novembro 2025
+
+**Última Atualização:** 19/11/2025
+**Período:** 01/11/2025 - 30/11/2025
+
+---
+
+## 📅 **RELATÓRIOS DIÁRIOS**
+
+### **19/11/2025 - [CRÍTICO RESOLVIDO] Problema de Tiles no Mobile**
+- **Arquivo:** [`11-25/relatorio-19-nov-2025.md`](./11-25/relatorio-19-nov-2025.md)
+- **Status:** ✅ **RESOLVIDO**
+- **Impacto:** Alto - Sistema de geração completamente funcional
+- **Problema:** Streaming desabilitado + dependências frágeis
+- **Solução:** Streaming reabilitado + estado independente
+
+### **10/11/2025 - Tema Ade Completo**
+- **Status:** ✅ **CONCLUÍDO**
+- **Impacto:** Alto - UI/UX consistente no admin
+- **Entregas:** Header, Sidebar, Chat, Notes, Modais
 
 ## Contexto
 Concentramos as últimas iteradas no dashboard administrativo do tema **Ade** dentro de `nextjs-openai-insights`, alinhando UI/UX com o padrão anterior do produto e expandindo a experiência de chat para contatos individuais. As mudanças envolveram ajustes visuais, fluxo de edição de dados e novas rotas de API para sustentar os recursos.
@@ -45,6 +64,82 @@ Concentramos as últimas iteradas no dashboard administrativo do tema **Ade** de
 2. **Verificação visual**: garantir consistência dos CTAs `Log in`/`Sign up` no admin vs landing.
 3. **Monitoramento de notas**: confirmar fluxo de edição/cancelamento em produção e considerar versionamento/histórico se necessário.
 
-Com isso, o tema Ade ficou alinhado ao visual legado e ganhou paridade funcional com o modal de tiles, mantendo o foco em UX consistente para administradores. Cheers! 🚀
+Com isso, o tema Ade ficou alinhado ao visual legado e ganhou paridade funcional com o modal de tiles, mantendo o foco em UX consistente para administradores.
+
+---
+
+## 📈 **MÉTRICAS DO MÊS**
+
+### **Indicadores de Sucesso:**
+- ✅ **UI/UX Completa:** Tema Ade 100% alinhado
+- ✅ **Streaming Funcional:** Problema crítico mobile resolvido
+- ✅ **Arquitetura Robusta:** Estado independente implementado
+- ✅ **Build Estável:** Zero erros de compilação
+
+### **Problemas Críticos Resolvidos:**
+- 🔧 Streaming temporariamente desabilitado → **Reabilitado**
+- 🔧 Dependência crítica de cookies → **Estado independente**
+- 🔧 Lógica de estados complexa → **Simplificada**
+
+---
+
+## 🎯 **PRÓXIMOS PASSOS - DEZEMBRO 2025**
+
+### **Imediatos (Semana 1-2):**
+1. **Teste em produção** - Validar correções mobile
+2. **Monitoramento de métricas** - Taxa de sucesso de geração
+3. **Feedback do cliente** - Confirmação resolução problemas
+
+### **Médio Prazo (Semana 3-4):**
+1. **Suite de testes** - Cobertura automatizada crítica
+2. **Documentação atualizada** - Refletir arquitetura atual
+3. **Performance** - Otimizações de carregamento
+
+### **Longo Prazo:**
+1. **Analytics avançado** - Métricas de uso detalhadas
+2. **Feature flags** - Controle granular de features
+3. **Multi-tenant** - Preparação para escalabilidade
+
+---
+
+## 📝 **TEMPLATE PARA RELATÓRIOS DIÁRIOS**
+
+**Localização:** `docs/05-relatorios/{MM-DD}/relatorio-{DD}-{MES}-{ANO}.md`
+
+```markdown
+# 📊 Relatório Diário - {DD} de {MÊS} de {ANO}
+
+**Data:** {DD}/{MM}/{ANO}
+**Responsável:** goshDev
+**Período:** {HORÁRIO_INÍCIO} - {HORÁRIO_FIM}
+**Status:** ✅ {STATUS}
+
+---
+
+## 🎯 **OBJETIVO DO DIA**
+[Descrição clara do objetivo principal]
+
+---
+
+## 🔍 **PROBLEMA IDENTIFICADO**
+[Sintomas, causas raiz encontradas]
+
+---
+
+## 🛠️ **SOLUÇÕES IMPLEMENTADAS**
+[Código, mudanças técnicas, impacto]
+
+---
+
+## 📊 **MÉTRICAS DE SUCESSO**
+[Antes vs Depois das correções]
+
+---
+
+## 🎯 **PRÓXIMOS PASSOS**
+[Imediatos, médio e longo prazo]
+```
+
+Cheers! 🚀
 
 

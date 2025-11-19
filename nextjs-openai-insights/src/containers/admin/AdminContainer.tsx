@@ -113,6 +113,9 @@ export function AdminContainer() {
   // Ref para prevenir sincronização durante atualizações (evita race conditions)
   const isUpdatingDashboardRef = useRef(false);
 
+  // Ref para controlar geração (evita múltiplas inicializações)
+  const generationInProgressRef = useRef(false);
+
   const { data, error, isLoading, mutate } = useSWR<WorkspaceResponse>(
     "/api/workspace",
     fetchWorkspace,
@@ -276,8 +279,24 @@ export function AdminContainer() {
   const router = useRouter();
   const { theme } = useAdminTheme();
 
-  // TEMPORARILY DISABLED: Streaming needs more work, focus on polling first
-  const shouldUseStreaming = useMemo(() => false, []);
+  // Reabilitado: Streaming é fundamental para experiência em tempo real
+  // Arquitetura documentada prevê streaming + polling inteligente
+  const shouldUseStreaming = useMemo(() => true, []);
+
+  // Estado de geração independente de cookies (mais resiliente)
+  const [generationState, setGenerationState] = useState<{
+    isGenerating: boolean;
+    sessionId: string | null;
+    startedAt: number | null;
+    tilesGenerated: number;
+    totalTiles: number;
+  }>({
+    isGenerating: false,
+    sessionId: null,
+    startedAt: null,
+    tilesGenerated: 0,
+    totalTiles: 0,
+  });
   const [baseColor, setBaseColor] = useState(() => {
     // Use default on server, will be updated on client
     if (typeof window === "undefined") {
@@ -945,6 +964,13 @@ export function AdminContainer() {
         `[AdminContainer] 🎯 Tile ${index + 1} streamed:`,
         tile.title
       );
+
+      // Update local generation state (independente de cookies)
+      setGenerationState(prev => ({
+        ...prev,
+        tilesGenerated: prev.tilesGenerated + 1,
+      }));
+
       // Update dashboard with new tile
       if (currentCompany && currentDashboard) {
         const updatedTiles = [...currentDashboard.tiles];
@@ -956,12 +982,33 @@ export function AdminContainer() {
     },
     onCompleted: (workspace, sessionId) => {
       console.log("[AdminContainer] ✅ Streaming completed, workspace ready");
+
+      // Update local generation state
+      setGenerationState(prev => ({
+        ...prev,
+        isGenerating: false,
+        sessionId,
+      }));
+
+      // Reset generation flag
+      generationInProgressRef.current = false;
+
       // Refresh the SWR cache to get updated workspace data
       refreshStoredWorkspaces();
       mutate();
     },
     onError: (error) => {
       console.error("[AdminContainer] ❌ Streaming error:", error);
+
+      // Update local generation state on error
+      setGenerationState(prev => ({
+        ...prev,
+        isGenerating: false,
+      }));
+
+      // Reset generation flag on error
+      generationInProgressRef.current = false;
+
       push({
         variant: "destructive",
         title: "Generation Failed",
@@ -976,6 +1023,8 @@ export function AdminContainer() {
       shouldUseStreaming &&
       !isStreaming &&
       !streamingCompleted &&
+      !generationState.isGenerating &&
+      !generationInProgressRef.current &&
       workspace
     ) {
       console.log("[AdminContainer] 🚀 Starting tile streaming from home page");
@@ -996,6 +1045,18 @@ export function AdminContainer() {
 
         if (hasRequiredData) {
           console.log("[AdminContainer] ✅ Starting streaming with valid data");
+
+          // Mark generation as in progress
+          generationInProgressRef.current = true;
+
+          // Update local generation state
+          setGenerationState(prev => ({
+            ...prev,
+            isGenerating: true,
+            startedAt: Date.now(),
+            totalTiles: streamingTotalTiles || 8, // fallback to 8
+            tilesGenerated: streamingCompletedTiles || 0,
+          }));
 
           startStreaming();
         } else {
@@ -1019,8 +1080,11 @@ export function AdminContainer() {
     shouldUseStreaming,
     isStreaming,
     streamingCompleted,
+    generationState.isGenerating,
     workspace,
     startStreaming,
+    streamingTotalTiles,
+    streamingCompletedTiles,
   ]);
 
   // Migrate workspace to company structure and load current dashboard
@@ -3210,121 +3274,56 @@ export function AdminContainer() {
         ) : tiles.length === 0 ? (
           (() => {
             // Check if we're actually generating or if it's just an empty blank dashboard
+            // Simplified generation detection using local state + fallbacks
             const isActuallyGenerating = (() => {
-              if (!workspace || !currentDashboard) return false;
-
-              // PRIORITY 0: Check if streaming is active (highest priority)
-              if (shouldUseStreaming && isStreaming && !streamingCompleted) {
-                console.log(
-                  "[EmptyState] 📺 Streaming active, showing generating state"
-                );
+              // PRIORITY 0: Use local generation state (mais confiável)
+              if (generationState.isGenerating) {
+                console.log("[EmptyState] 🚀 Local generation state active");
                 return true;
               }
 
-              // PRIORITY 1: Check if there's a recent generation timestamp FIRST
-              // If there's recent generation activity, show generating state regardless of dashboard type
-              if (typeof window !== "undefined") {
-                const lastGenerationTime = window.localStorage.getItem(
-                  "last-generation-time"
-                );
-                if (lastGenerationTime) {
-                  const genTime = parseInt(lastGenerationTime, 10);
-                  const now = Date.now();
-                  const fiveMinutesAgo = now - 5 * 60 * 1000;
-                  if (genTime > fiveMinutesAgo) {
-                    console.log(
-                      "[EmptyState] ⚡ Recent generation detected, showing generating state"
-                    );
-                    return true;
-                  }
-                }
+              // PRIORITY 1: Check streaming state
+              if (shouldUseStreaming && isStreaming && !streamingCompleted) {
+                console.log("[EmptyState] 📺 Streaming active");
+                return true;
               }
 
-              // PRIORITY 2: Check if it's a blank dashboard
-              // But only if there's no recent generation activity
-              const isBlankDashboard =
-                !currentDashboard.templateId &&
-                currentDashboard.name !== "Default Dashboard";
-
-              if (isBlankDashboard) {
-                console.log(
-                  "[EmptyState] 🆕 Blank dashboard detected (no templateId, name:",
-                  currentDashboard.name,
-                  ")"
-                );
-                return false; // Blank dashboard, never generating
-              }
-
-              // PRIORITY 3: If dashboard has no tiles and no templateId, it's definitely blank
-              // But skip this check if there's recent generation activity (already checked above)
-              if (
-                currentDashboard.tiles.length === 0 &&
-                !currentDashboard.templateId
-              ) {
-                console.log(
-                  "[EmptyState] 🆕 Blank dashboard detected (no templateId, no tiles)"
-                );
-                return false;
-              }
-
-              // PRIORITY 4: Check if dashboard was created very recently (within 2 minutes) - might be blank dashboard
-              // But skip this check if there's recent generation activity
-              const dashboardCreatedAt = currentDashboard.createdAt;
-              if (dashboardCreatedAt) {
-                const createdTime = new Date(dashboardCreatedAt).getTime();
-                const now = Date.now();
-                const twoMinutesAgo = now - 2 * 60 * 1000;
-                // If dashboard was just created and has no tiles, it's likely a blank dashboard
-                if (
-                  createdTime > twoMinutesAgo &&
-                  currentDashboard.tiles.length === 0 &&
-                  !currentDashboard.templateId
-                ) {
-                  console.log(
-                    "[EmptyState] 🆕 Blank dashboard detected (recently created, no tiles, no templateId)"
-                  );
-                  return false; // Blank dashboard, not generating
-                }
-              }
-
-              // PRIORITY 4: Only check workspace timestamps if it's NOT a blank dashboard
-              // Check if workspace was created recently (within 5 minutes)
-              const generatedAt = workspace.generatedAt;
-              if (generatedAt) {
-                const generatedTime = new Date(generatedAt).getTime();
+              // PRIORITY 2: Fallback to workspace timestamps (menos confiável)
+              if (workspace?.generatedAt) {
+                const generatedTime = new Date(workspace.generatedAt).getTime();
                 const now = Date.now();
                 const fiveMinutesAgo = now - 5 * 60 * 1000;
                 if (generatedTime > fiveMinutesAgo) {
-                  // Workspace was created recently, likely generating
-                  console.log(
-                    "[EmptyState] ⚡ Workspace was created recently, likely generating"
-                  );
+                  console.log("[EmptyState] ⚡ Workspace recently generated");
                   return true;
                 }
               }
 
-              // PRIORITY 5: Check if there's a generation timestamp in localStorage
+              // PRIORITY 3: Check localStorage as last resort
               if (typeof window !== "undefined") {
-                const lastGenerationTime = window.localStorage.getItem(
-                  "last-generation-time"
-                );
+                const lastGenerationTime = window.localStorage.getItem("last-generation-time");
                 if (lastGenerationTime) {
                   const genTime = parseInt(lastGenerationTime, 10);
                   const now = Date.now();
                   const fiveMinutesAgo = now - 5 * 60 * 1000;
                   if (genTime > fiveMinutesAgo) {
-                    console.log(
-                      "[EmptyState] ⚡ Last generation time is recent, likely generating"
-                    );
+                    console.log("[EmptyState] 📱 localStorage generation timestamp");
                     return true;
                   }
                 }
               }
 
-              // Default: not generating
-              console.log(
-                "[EmptyState] ✅ No generation detected, showing empty state"
-              );
+              // PRIORITY 4: Check if dashboard is intentionally blank
+              const isBlankDashboard = currentDashboard &&
+                !currentDashboard.templateId &&
+                currentDashboard.name !== "Default Dashboard";
+
+              if (isBlankDashboard) {
+                console.log("[EmptyState] 🆕 Blank dashboard (user created)");
+                return false;
+              }
+
+              console.log("[EmptyState] ✅ No generation detected");
               return false;
             })();
 
@@ -3342,10 +3341,10 @@ export function AdminContainer() {
                   isLoading={false}
                   isGenerating={true} // Diferencia de loading normal
                   streamingProgress={
-                    shouldUseStreaming && isStreaming
+                    (shouldUseStreaming && isStreaming) || generationState.isGenerating
                       ? {
-                          completed: streamingCompletedTiles,
-                          total: streamingTotalTiles,
+                          completed: generationState.tilesGenerated || streamingCompletedTiles,
+                          total: generationState.totalTiles || streamingTotalTiles,
                         }
                       : undefined
                   }

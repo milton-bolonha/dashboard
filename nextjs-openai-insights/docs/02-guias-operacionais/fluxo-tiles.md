@@ -31,8 +31,8 @@
 │                    API Routes                            │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
 │  │ /api/        │  │ /api/        │  │ /api/        │  │
-│  │ generate     │  │ workspace/   │  │ workspace/   │  │
-│  │              │  │ tiles        │  │ tiles/[id]   │  │
+│  │ generate/    │  │ workspace/   │  │ workspace/   │  │
+│  │ stream       │  │ tiles        │  │ tiles/[id]   │  │
 │  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘  │
 └─────────┼──────────────────┼──────────────────┼──────────┘
           │                  │                  │
@@ -41,11 +41,10 @@
 │              Tile Generation Engine                      │
 │  ┌──────────────────────────────────────────────────┐  │
 │  │  generateTileContent()                            │  │
-│  │  - Resolve model                                  │  │
-│  │  - Build prompt                                   │  │
-│  │  - Call OpenAI API                                │  │
-│  │  - Process response                              │  │
-│  │  - Retry logic                                   │  │
+│  │  - Concurrent processing (3 tiles simultâneos)   │  │
+│  │  - Streaming via Server-Sent Events (SSE)        │  │
+│  │  - Estado local independente                      │  │
+│  │  - Polling fallback inteligente                   │  │
 │  └──────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────┘
           │

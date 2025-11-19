@@ -361,9 +361,10 @@ A camada de Plataforma é o coração técnico do sistema. Aqui vivem o backend,
 
 ### Data Fetching
 
-- **SWR**: `/api/workspace` com polling inteligente
-- **Polling Inteligente**: Backoff exponencial (2s → 10s) até aparecer primeiro tile
-- **Fallback**: Reidrata do `localStorage` quando sessão expira
+- **Streaming Primário**: `/api/generate/stream` com Server-Sent Events (SSE)
+- **Estado Local**: Controle independente de geração (resiliente a falhas de cookies)
+- **Polling Fallback**: SWR `/api/workspace` com backoff exponencial (2s → 10s)
+- **Fallback Hierárquico**: Server → localStorage → Estado local → Polling
 
 ### Características Técnicas Críticas
 
