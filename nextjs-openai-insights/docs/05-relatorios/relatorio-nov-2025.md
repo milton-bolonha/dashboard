@@ -21,6 +21,13 @@
 - **Problema:** useEffect loops + polling cascata + callbacks instáveis
 - **Solução:** Dependências estabilizadas + polling desabilitado + timeouts de segurança
 
+### **19/11/2025 - [ARQUITETURAL] Streaming SSE Corrigido**
+- **Arquivo:** [`11-25/relatorio-correcao-streaming-19-nov-2025.md`](./11-25/relatorio-correcao-streaming-19-nov-2025.md)
+- **Status:** ✅ **IMPLEMENTADO**
+- **Impacto:** Crítico - Experiência de usuário completamente quebrada
+- **Problema:** Cliente usava EventSource GET em endpoint POST-only
+- **Solução:** Consumo direto de ReadableStream + parsing SSE correto
+
 ### **10/11/2025 - Tema Ade Completo**
 - **Status:** ✅ **CONCLUÍDO**
 - **Impacto:** Alto - UI/UX consistente no admin
@@ -84,14 +91,18 @@ Com isso, o tema Ade ficou alinhado ao visual legado e ganhou paridade funcional
 - ✅ **Build Estável:** Zero erros de compilação
 - ✅ **Sistema Estável:** Loops infinitos e rate limiting corrigidos
 - ✅ **Experiência Fluida:** Sem travamentos ou reloads forçados
+- ✅ **SSE Implementado:** Streaming em tempo real funcionando
+- ✅ **Arquitetura Correta:** Consumo direto de ReadableStream
 
 ### **Problemas Críticos Resolvidos:**
 - 🔧 Streaming temporariamente desabilitado → **Reabilitado**
 - 🔧 Dependência crítica de cookies → **Estado independente**
 - 🔧 Lógica de estados complexa → **Simplificada**
-- 🔧 **NOVO:** Loops infinitos no useEffect → **Dependências estabilizadas**
-- 🔧 **NOVO:** Polling em cascata + rate limits → **Desabilitação completa**
-- 🔧 **NOVO:** Callbacks instáveis causando re-renders → **useCallback aplicado**
+- 🔧 Loops infinitos no useEffect → **Dependências estabilizadas**
+- 🔧 Polling em cascata + rate limits → **Desabilitação completa**
+- 🔧 Callbacks instáveis causando re-renders → **useCallback aplicado**
+- 🔧 **CRÍTICO:** EventSource quebrado → **ReadableStream direto**
+- 🔧 **CRÍTICO:** SSE não funcionava → **Parsing correto implementado**
 
 ---
 

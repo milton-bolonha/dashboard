@@ -66,13 +66,13 @@ export function useTileStreaming(options: UseTileStreamingOptions): UseTileStrea
   const [totalTiles, setTotalTiles] = useState(0);
   const [completedTiles, setCompletedTiles] = useState(0);
 
-  const eventSourceRef = useRef<EventSource | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const readerRef = useRef<ReadableStreamDefaultReader | null>(null);
 
   const stopStreaming = useCallback(() => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
+    if (readerRef.current) {
+      readerRef.current.cancel();
+      readerRef.current = null;
     }
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -111,12 +111,16 @@ export function useTileStreaming(options: UseTileStreamingOptions): UseTileStrea
         bulkPrompts,
       };
 
+      // Create abort controller for this request
+      abortControllerRef.current = new AbortController();
+
       const response = await fetch('/api/generate/stream', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload),
+        signal: abortControllerRef.current.signal,
       });
 
       if (!response.ok) {
@@ -124,71 +128,103 @@ export function useTileStreaming(options: UseTileStreamingOptions): UseTileStrea
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
 
-      // Handle Server-Sent Events
-      const eventSource = new EventSource('/api/generate/stream');
+      // Check if response is a readable stream
+      if (!response.body) {
+        throw new Error('Response body is not a readable stream');
+      }
 
-      eventSource.onmessage = (event) => {
-        try {
-          const streamingEvent: StreamingEvent = JSON.parse(event.data);
+      // Get the reader from the response stream
+      const reader = response.body.getReader();
+      readerRef.current = reader;
 
-          switch (streamingEvent.type) {
-            case 'connected':
-              console.log('[useTileStreaming] 🔗 Connected, expecting', streamingEvent.totalTiles, 'tiles');
-              setTotalTiles(streamingEvent.totalTiles || 0);
-              break;
+      const decoder = new TextDecoder();
+      let buffer = '';
 
-            case 'tile_generated':
-              if (streamingEvent.tile && streamingEvent.tileIndex !== undefined) {
-                console.log('[useTileStreaming] 🆕 Tile generated:', streamingEvent.tile.title, `(${streamingEvent.completedTiles}/${streamingEvent.totalTiles})`);
+      console.log('[useTileStreaming] 🔗 Connected to stream, reading events...');
 
-                setTiles(prevTiles => {
-                  const newTiles = [...prevTiles];
-                  newTiles[streamingEvent.tileIndex!] = streamingEvent.tile!;
-                  return newTiles;
-                });
+      while (true) {
+        const { done, value } = await reader.read();
 
-                setCompletedTiles(streamingEvent.completedTiles || 0);
-                onTileGenerated?.(streamingEvent.tile, streamingEvent.tileIndex);
-              }
-              break;
-
-            case 'completed':
-              if (streamingEvent.workspace && streamingEvent.sessionId) {
-                console.log('[useTileStreaming] ✅ Generation completed');
-                setIsCompleted(true);
-                setIsStreaming(false);
-                onCompleted?.(streamingEvent.workspace, streamingEvent.sessionId);
-              }
-              eventSource.close();
-              break;
-
-            case 'error':
-              console.error('[useTileStreaming] ❌ Stream error:', streamingEvent.error);
-              setError(streamingEvent.error || 'Unknown streaming error');
-              setIsStreaming(false);
-              onError?.(streamingEvent.error || 'Unknown streaming error');
-              eventSource.close();
-              break;
-          }
-        } catch (parseError) {
-          console.error('[useTileStreaming] ❌ Parse error:', parseError);
-          setError('Failed to parse streaming data');
-          setIsStreaming(false);
-          onError?.('Failed to parse streaming data');
-          eventSource.close();
+        if (done) {
+          console.log('[useTileStreaming] 📡 Stream ended');
+          break;
         }
-      };
 
-      eventSource.onerror = (event) => {
-        console.error('[useTileStreaming] ❌ EventSource error:', event);
-        setError('Connection lost');
-        setIsStreaming(false);
-        onError?.('Connection lost');
-      };
+        // Decode the chunk and add to buffer
+        buffer += decoder.decode(value, { stream: true });
 
-      eventSourceRef.current = eventSource;
+        // Process complete lines (SSE format: "data: {...}\n\n")
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = line.slice(6); // Remove 'data: ' prefix
+              if (data.trim()) {
+                const streamingEvent: StreamingEvent = JSON.parse(data);
+
+                switch (streamingEvent.type) {
+                  case 'connected':
+                    console.log('[useTileStreaming] 🔗 Connected, expecting', streamingEvent.totalTiles, 'tiles');
+                    setTotalTiles(streamingEvent.totalTiles || 0);
+                    break;
+
+                  case 'tile_generated':
+                    if (streamingEvent.tile && streamingEvent.tileIndex !== undefined) {
+                      console.log('[useTileStreaming] 🆕 Tile generated:', streamingEvent.tile.title, `(${streamingEvent.completedTiles}/${streamingEvent.totalTiles})`);
+
+                      setTiles(prevTiles => {
+                        const newTiles = [...prevTiles];
+                        newTiles[streamingEvent.tileIndex!] = streamingEvent.tile!;
+                        return newTiles;
+                      });
+
+                      setCompletedTiles(streamingEvent.completedTiles || 0);
+                      onTileGenerated?.(streamingEvent.tile, streamingEvent.tileIndex);
+                    }
+                    break;
+
+                  case 'completed':
+                    if (streamingEvent.workspace && streamingEvent.sessionId) {
+                      console.log('[useTileStreaming] ✅ Generation completed');
+                      setIsCompleted(true);
+                      setIsStreaming(false);
+                      onCompleted?.(streamingEvent.workspace, streamingEvent.sessionId);
+                      return; // Exit the loop
+                    }
+                    break;
+
+                  case 'error':
+                    console.error('[useTileStreaming] ❌ Stream error:', streamingEvent.error);
+                    setError(streamingEvent.error || 'Unknown streaming error');
+                    setIsStreaming(false);
+                    onError?.(streamingEvent.error || 'Unknown streaming error');
+                    return; // Exit the loop
+                }
+              }
+            } catch (parseError) {
+              console.error('[useTileStreaming] ❌ Parse error:', parseError, 'Line:', line);
+              setError('Failed to parse streaming data');
+              setIsStreaming(false);
+              onError?.('Failed to parse streaming data');
+              return; // Exit the loop
+            }
+          }
+        }
+      }
+
+      // If we reach here, stream ended without completion
+      console.log('[useTileStreaming] 📡 Stream ended without completion event');
+      setIsCompleted(true);
+      setIsStreaming(false);
 
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log('[useTileStreaming] 🛑 Streaming aborted');
+        return;
+      }
+
       console.error('[useTileStreaming] ❌ Setup error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to start streaming';
       setError(errorMessage);
@@ -207,7 +243,9 @@ export function useTileStreaming(options: UseTileStreamingOptions): UseTileStrea
     responseLength,
     promptVariables,
     bulkPrompts,
-    // Removidas: isStreaming (causa loops), stopStreaming (estável), callbacks (devem ser estáveis)
+    onTileGenerated,
+    onCompleted,
+    onError,
   ]);
 
   // Cleanup on unmount
