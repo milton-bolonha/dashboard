@@ -11,6 +11,7 @@ import { getAuth } from "@/lib/auth/get-auth";
  * Load workspace
  * Security: Members load from MongoDB (scoped by userId), Guests load from localStorage only
  */
+// Placeholder - I will check generate route first
 export async function GET() {
   const { userId } = await getAuth();
   const { sessionId } = await getCurrentSession();

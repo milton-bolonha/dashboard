@@ -39,13 +39,36 @@ export async function POST(request: Request) {
   
   // Check usage limits (simplified check - in production use proper middleware)
   // For now, we'll rely on client-side tracking and add server-side checks later
-
+  
+  // We need to parse body first to get requestSize
   const parseResult = createTileSchema.safeParse(body);
   if (!parseResult.success) {
     console.error("[API] /api/workspace/tiles - Invalid payload:", parseResult.error.flatten());
     return NextResponse.json(
       { error: "Invalid payload", details: parseResult.error.flatten() },
       { status: 400 }
+    );
+  }
+
+  const { requestSize = "small" } = parseResult.data;
+  const maxTokens = getMaxTokensForSize(requestSize);
+  // Estimate tiles to generate as 1 (since we are creating 1 tile)
+  // But wait, the middleware expects "tilesToGenerate" to calculate tokens?
+  // In middleware: const tokensCost = tilesToGenerate * 100;
+  // Here we know the maxTokens.
+  // We should probably update middleware to accept "tokens" directly or just use the "tiles" abstraction.
+  // If 1 tile = 100 tokens in middleware, and here we might use up to 1600 tokens...
+  // The middleware logic "1 tile = 100 tokens" is a bit arbitrary if we have variable sizes.
+  // Let's stick to the "tiles" abstraction for now as per plan "Monthly Token Allowance ... (~30 actions/ tiles)".
+  // So 1 action = 1 tile.
+  
+  const { checkUsageMiddleware } = await import("@/lib/server/usage-middleware");
+  const usageCheck = await checkUsageMiddleware(body, request.headers, 1);
+  
+  if (!usageCheck.allowed) {
+    return usageCheck.response || NextResponse.json(
+      { error: "Usage limit exceeded", code: "USAGE_LIMIT_EXCEEDED" },
+      { status: 429 }
     );
   }
 
@@ -60,14 +83,14 @@ export async function POST(request: Request) {
 
   console.log("[API] /api/workspace/tiles - Workspace found:", workspace.sessionId);
 
-  const { title, prompt, model, useMaxPrompt, requestSize = "small" } = parseResult.data;
+  const { title, prompt, model, useMaxPrompt } = parseResult.data;
   
   // Determine model: useMaxPrompt = true -> gpt-5, false -> gpt-5-nano
   const selectedModel = model || (useMaxPrompt ? "gpt-5" : "gpt-5-nano");
   const resolvedModel = resolveModel(selectedModel);
   
-  // Get max tokens based on request size
-  const maxTokens = getMaxTokensForSize(requestSize);
+  // Get max tokens based on request size (already calculated above)
+  // const maxTokens = getMaxTokensForSize(requestSize);
 
   // Add company context to prompt (internal context, not visible to user)
   // This helps the AI understand which company is being researched
@@ -136,6 +159,20 @@ export async function POST(request: Request) {
       const { sessionId } = await getCurrentSession();
       if (sessionId && userId) {
         await syncWorkspaceTilesToMongo(sessionId, userId, updatedWorkspace.company.tiles);
+        
+        // Increment token usage
+        // We use maxTokens as an estimate or the actual tokens if available?
+        // The middleware check used "1 tile" which maps to 100 tokens in the simple model.
+        // But here we have `generationResult.totalTokens`. We should use that if possible.
+        // Or stick to the plan "Monthly Token Allowance ... (~30 actions/ tiles)".
+        // If we track "tokensUsed", we should probably use the actual tokens used.
+        // But the plan says "3000 tokens (~30 actions)". This implies 1 action = 100 tokens.
+        // If we use actual tokens, a single GPT-4 call can be 1000+ tokens.
+        // So "3000 tokens" in the plan description might be "App Tokens" (credits), not LLM tokens.
+        // Let's assume 1 tile = 100 "App Tokens".
+        const { incrementUsage } = await import("@/lib/saas/usage-service");
+        await incrementUsage(userId, "tokensUsed", 100);
+
         console.log("[API] /api/workspace/tiles - ✅ Tiles também sincronizados no MongoDB");
       }
     } catch (mongoError) {

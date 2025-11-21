@@ -111,6 +111,14 @@ export function HomeContainer() {
       };
 
       try {
+        console.log("🎯 [GENERATION-TRACKING] HomeContainer calling /api/generate", {
+          source: "HomeContainer.handleSubmit",
+          timestamp: new Date().toISOString(),
+          targetCompany: payload.targetCompany,
+          templateId: payload.templateId,
+          generationTimeFlag: window.localStorage.getItem("last-generation-time"),
+        });
+
         const response = await fetch(targetUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },

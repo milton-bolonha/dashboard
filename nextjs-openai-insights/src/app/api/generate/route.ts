@@ -219,6 +219,22 @@ export async function POST(request: Request) {
       { status: 429 }
     );
   }
+
+  // Check Company Limit if user is logged in
+  if (usageCheck.userId) {
+    const { checkLimit } = await import("@/lib/saas/usage-service");
+    const companyCheck = await checkLimit(usageCheck.userId, "companies");
+    if (!companyCheck.allowed) {
+       return NextResponse.json(
+        { 
+          error: "Company limit exceeded", 
+          reason: companyCheck.reason,
+          code: "COMPANY_LIMIT_EXCEEDED" 
+        },
+        { status: 429 }
+      );
+    }
+  }
   
   try {
     console.log("[api/generate] 📤 Payload:", {
@@ -315,56 +331,105 @@ export async function POST(request: Request) {
 
       const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
       const generatedTiles: Tile[] = new Array(prompts.length);
+      
+      // Create initial workspace with empty tiles
+      const sessionId = `session_${randomUUID()}`;
+      const companyId = `company_${randomUUID()}`;
+      
+      const initialWorkspace: WorkspaceSnapshot = {
+        sessionId,
+        generatedAt: new Date().toISOString(),
+        tilesToGenerate: prompts.length,
+        company: {
+          id: companyId,
+          name: targetCompany,
+          website: targetWebsite,
+          tiles: [],
+          notes: [],
+          contacts: [],
+        },
+        appearance: {
+          baseColor: process.env.NEXT_PUBLIC_ADE_BASE_COLOR ?? "#f5f5f0",
+        },
+        promptSettings: {
+          templateId,
+          model,
+          promptAgent: agentId,
+          responseLength,
+          promptVariables: normalizedPromptVariables,
+          bulkPrompts,
+          target: targetCompany,
+          sellingSolutionsFor: solution,
+          targetWebsite: targetWebsite.trim(),
+        },
+      };
+      
+      // Save initial workspace immediately
+      await writeWorkspace(initialWorkspace);
+      console.log("[api/generate] 💾 Initial workspace saved", { sessionId, tiles: 0 });
 
-      for (let start = 0; start < prompts.length; start += TILE_BATCH_SIZE) {
-        const end = Math.min(start + TILE_BATCH_SIZE, prompts.length);
-        const batch = prompts.slice(start, end);
+      // Process ALL tiles in parallel (no batching)
+      const tilePromises = prompts.map(async (item, orderIndex) => {
+        try {
+          const requestSize = item.requestSize ?? "small";
+          const maxTokens = item.requestSize 
+            ? getMaxTokensForRequestSize(requestSize)
+            : getMaxTokensForTile(item.templateTileId ?? item.id);
+          
+          const tileModel = item.useMaxMode ? "gpt-5" : (model || "gpt-5-nano");
+          
+          const generation = await generateTileContent({
+            client: openai,
+            prompt: item.prompt,
+            title: item.title,
+            orderIndex,
+            model: tileModel,
+            templateId,
+            templateTileId: item.templateTileId ?? item.id,
+            category: item.category,
+            maxTokens,
+          });
+          
+          const tile = composeTileFromGeneration(generation, {
+            title: item.title,
+            prompt: item.prompt,
+            templateId,
+            templateTileId: item.templateTileId ?? item.id,
+            category: item.category,
+            model,
+            orderIndex,
+            agentId: item.agentId,
+            responseLength: item.preferredLength,
+            promptVariables: item.runtimeVariables,
+          });
+          
+          generatedTiles[orderIndex] = tile;
+          
+          // Update workspace progressively as each tile completes
+          const updatedWorkspace: WorkspaceSnapshot = {
+            ...initialWorkspace,
+            company: {
+              ...initialWorkspace.company,
+              tiles: generatedTiles.filter(t => t !== undefined),
+            },
+          };
+          
+          await writeWorkspace(updatedWorkspace);
+          console.log(`[api/generate] 💾 Tile ${orderIndex + 1}/${prompts.length} saved`, {
+            sessionId,
+            tileTitle: tile.title,
+            totalTiles: generatedTiles.filter(t => t !== undefined).length,
+          });
+          
+          return tile;
+        } catch (error) {
+          console.error(`[api/generate] ❌ Failed to generate tile ${orderIndex}`, error);
+          throw error;
+        }
+      });
 
-        const batchResults = await Promise.all(
-          batch.map(async (item, offset) => {
-            const orderIndex = start + offset;
-            
-            // Use requestSize from template tile if available, otherwise fallback to getMaxTokensForTile
-            const requestSize = item.requestSize ?? "small";
-            const maxTokens = item.requestSize 
-              ? getMaxTokensForRequestSize(requestSize)
-              : getMaxTokensForTile(item.templateTileId ?? item.id);
-            
-            // Determine model: use template's useMaxMode if available, otherwise use provided model
-            const tileModel = item.useMaxMode ? "gpt-5" : (model || "gpt-5-nano");
-            
-            const generation = await generateTileContent({
-              client: openai,
-              prompt: item.prompt,
-              title: item.title,
-              orderIndex,
-              model: tileModel,
-              templateId,
-              templateTileId: item.templateTileId ?? item.id,
-              category: item.category,
-              maxTokens,
-            });
-            return composeTileFromGeneration(generation, {
-              title: item.title,
-              prompt: item.prompt,
-              templateId,
-              templateTileId: item.templateTileId ?? item.id,
-              category: item.category,
-              model,
-              orderIndex,
-              agentId: item.agentId,
-              responseLength: item.preferredLength,
-              promptVariables: item.runtimeVariables,
-            });
-          }),
-        );
-
-        batchResults.forEach((tile, idx) => {
-          generatedTiles[start + idx] = tile;
-        });
-      }
-
-      tiles = generatedTiles;
+      // Wait for all tiles to complete
+      tiles = await Promise.all(tilePromises);
     }
 
     console.log("[api/generate] ✅ Tiles gerados/com fallback", {
@@ -421,6 +486,11 @@ export async function POST(request: Request) {
       try {
         const { migrateWorkspaceToMongo } = await import("@/lib/db/migration-helpers");
         await migrateWorkspaceToMongo(workspace, userId);
+        
+        // Increment company count
+        const { incrementUsage } = await import("@/lib/saas/usage-service");
+        await incrementUsage(userId, "companiesCount", 1);
+        
         console.log("[api/generate] ✅ Workspace também salvo no MongoDB (member)");
       } catch (mongoError) {
         // Log but don't fail the request if MongoDB is unavailable

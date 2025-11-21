@@ -116,17 +116,24 @@ export function AdminContainer() {
   // Ref para controlar geração (evita múltiplas inicializações)
   const generationInProgressRef = useRef(false);
 
+  // Ref para rastrear qual workspace já teve streaming iniciado
+  const streamingStartedForSessionRef = useRef<string | null>(null);
+
+  // Ref para rastrear se tiles já foram sincronizados (evita múltiplas sincronizações)
+  const tilesSyncedForSessionRef = useRef<string | null>(null);
+
   const { data, error, isLoading, mutate } = useSWR<WorkspaceResponse>(
     "/api/workspace",
     fetchWorkspace,
     {
       refreshInterval: (data) => {
-        // Disable polling when using streaming OR when generation is in progress
-        if (shouldUseStreaming || generationState.isGenerating || generationInProgressRef.current) {
+        // Disable polling ONLY when generation is actively in progress
+        // Streaming can coexist with polling for fallback
+        if (generationInProgressRef.current) {
           console.log(
-            "[AdminContainer] 📺 Streaming/generation active, disabling polling completely"
+            "[AdminContainer] 🚧 Generation in progress, disabling polling temporarily"
           );
-          return 0; // Disable polling completely
+          return 0; // Disable polling while actively generating
         }
 
         // Poll every 2 seconds if no tiles yet (generation in progress)
@@ -152,10 +159,12 @@ export function AdminContainer() {
           });
 
           // If we have tiles but current dashboard doesn't, sync them
+          // CRITICAL: Only sync once per session to avoid multiple re-renders
           if (
             currentCompany &&
             currentDashboard &&
-            currentDashboard.tiles.length === 0
+            currentDashboard.tiles.length === 0 &&
+            tilesSyncedForSessionRef.current !== data.sessionId
           ) {
             console.log(
               "[AdminContainer] 🔄 Syncing tiles to current dashboard",
@@ -163,8 +172,13 @@ export function AdminContainer() {
                 tilesCount: data.company.tiles.length,
                 companyId: currentCompany.id,
                 dashboardId: currentDashboard.id,
+                sessionId: data.sessionId,
               }
             );
+
+            // Mark this session as synced BEFORE updating
+            tilesSyncedForSessionRef.current = data.sessionId;
+
             updateDashboard(currentCompany.id, currentDashboard.id, {
               tiles: data.company.tiles,
             });
@@ -895,10 +909,34 @@ export function AdminContainer() {
         // Clear user selection flag since we're auto-switching
         userSelectedSessionRef.current = null;
       }
+      
+      // CRITICAL: Force state update when tiles arrive to ensure UI re-renders
+      // This fixes the issue where tiles are fetched but UI doesn't update until F5
+      if (localWorkspace?.sessionId === data.sessionId) {
+        const currentTileCount = localWorkspace?.company?.tiles?.length || 0;
+        const newTileCount = data.company?.tiles?.length || 0;
+        
+        if (newTileCount > currentTileCount) {
+          console.log(
+            `[AdminContainer] 🎨 New tiles detected (${currentTileCount} → ${newTileCount}), forcing UI update`
+          );
+          // Force re-render by creating a new object reference
+          setLocalWorkspace({ ...data });
+          saveCachedWorkspace(data.sessionId, data);
+        }
+      }
+      
+      // Clear generation flags when tiles arrive
+      generationInProgressRef.current = false;
+      setGenerationState(prev => ({
+        ...prev,
+        isGenerating: false,
+      }));
+      
       if (typeof window !== "undefined") {
         window.localStorage.removeItem("last-generation-time");
         console.log(
-          "[AdminContainer] ✅ Tiles detected, cleared generation timestamp"
+          "[AdminContainer] ✅ Tiles detected, cleared generation timestamp and flags"
         );
       }
     } else {
@@ -1104,6 +1142,12 @@ export function AdminContainer() {
   // Start streaming when coming from home page with recent generation
   // Refatorado para evitar loops - só executa quando workspace muda
   useEffect(() => {
+    // CRITICAL FIX: Disable streaming completely to prevent overwriting batch tiles
+    // Batch mode (/api/generate) already generates all tiles at once
+    // Streaming would overwrite them one by one, causing the bug
+    console.log("[AdminContainer] ⏸️ Streaming DISABLED - using batch mode only");
+    return;
+
     if (
       shouldUseStreaming &&
       !generationInProgressRef.current &&
@@ -1130,8 +1174,30 @@ export function AdminContainer() {
         return generatedTime > tenMinutesAgo; // Recent generation
       })();
 
+      // CRITICAL: Don't start streaming if tiles already exist (from batch generation)
+      const hasTilesAlready = currentDashboard?.tiles && currentDashboard.tiles.length > 0;
+
+      if (hasTilesAlready) {
+        console.log("[AdminContainer] ⏸️ Skipping streaming - tiles already exist from batch generation", {
+          tilesCount: currentDashboard.tiles.length,
+          dashboardId: currentDashboard.id,
+        });
+        return;
+      }
+
+      // CRITICAL: Don't start streaming if we already started it for this workspace
+      if (streamingStartedForSessionRef.current === workspace.sessionId) {
+        console.log("[AdminContainer] ⏸️ Skipping streaming - already started for this session", {
+          sessionId: workspace.sessionId,
+        });
+        return;
+      }
+
       if (hasRequiredData && shouldStartGeneration) {
         console.log("[AdminContainer] ✅ Starting streaming with valid recent data");
+
+        // Mark that we've started streaming for this session
+        streamingStartedForSessionRef.current = workspace.sessionId;
 
         // Mark generation as in progress
         generationInProgressRef.current = true;
@@ -1318,7 +1384,9 @@ export function AdminContainer() {
         tilesCount: dashboardTiles.length,
         source: "currentDashboard",
       });
-      return dashboardTiles.sort((a, b) => a.orderIndex - b.orderIndex);
+      return dashboardTiles
+        .filter(tile => tile && typeof tile.orderIndex === 'number')
+        .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
     }
 
     // Only fallback to workspace if no dashboard exists (backward compatibility)
@@ -1400,11 +1468,12 @@ export function AdminContainer() {
           content: tile.content ?? "",
         };
       })
-      .sort((a, b) => a.orderIndex - b.orderIndex);
+      .filter(tile => tile && typeof tile.orderIndex === 'number')
+      .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
   }, [workspace, workspaceState.source, currentDashboard]);
 
   const activeTile = useMemo(
-    () => tiles.find((tile) => tile.id === selectedTileId) ?? null,
+    () => tiles.find((tile) => tile?.id === selectedTileId) ?? null,
     [tiles, selectedTileId]
   );
 
@@ -2158,6 +2227,14 @@ export function AdminContainer() {
         );
 
         // Generate tiles from template
+        console.log("🎯 [GENERATION-TRACKING] AdminContainer calling /api/generate", {
+          source: "AdminContainer.handleCreateFromTemplate",
+          timestamp: new Date().toISOString(),
+          templateId,
+          dashboardName,
+          generationTimeFlag: typeof window !== "undefined" ? window.localStorage.getItem("last-generation-time") : null,
+        });
+
         const response = await fetch("/api/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -2640,7 +2717,7 @@ export function AdminContainer() {
         isUpdatingDashboardRef.current = true;
         try {
           const updatedTiles = currentDashboard.tiles.filter(
-            (t) => t.id !== tileId
+            (t) => t?.id && t.id !== tileId
           );
           updateDashboard(currentCompany.id, currentDashboard.id, {
             tiles: updatedTiles,
@@ -2663,8 +2740,9 @@ export function AdminContainer() {
         }
       }
 
-      // Não chamar mutate() aqui - pode causar sync que sobrescreve dados
-      // await mutate();
+      // Reload workspace from server to ensure cookie is updated
+      await mutate();
+      
       refreshStoredWorkspaces();
       push({
         title: "Tile removed",
@@ -2722,7 +2800,7 @@ export function AdminContainer() {
         isUpdatingDashboardRef.current = true;
         try {
           // Reorder tiles based on new order
-          const tileMap = new Map(currentDashboard.tiles.map((t) => [t.id, t]));
+          const tileMap = new Map(currentDashboard.tiles.filter(t => t?.id).map((t) => [t.id, t]));
           const reorderedTiles = order
             .map((id, index) => {
               const tile = tileMap.get(id);
@@ -2922,6 +3000,14 @@ export function AdminContainer() {
         title: "Generating insights",
         description: `Starting AI generation for ${payload.targetCompany}.`,
       });
+
+      console.log("🎯 [GENERATION-TRACKING] AdminContainer calling /api/generate", {
+        source: "AdminContainer.handleGenerateWorkspace (Add Company modal)",
+        timestamp: new Date().toISOString(),
+        targetCompany: payload.targetCompany,
+        generationTimeFlag: typeof window !== "undefined" ? window.localStorage.getItem("last-generation-time") : null,
+      });
+
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

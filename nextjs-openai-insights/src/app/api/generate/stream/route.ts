@@ -409,16 +409,21 @@ export async function POST(request: NextRequest) {
                 generatedTiles[orderIndex] = tile;
 
                 // Send tile event immediately when ready
-                controller.enqueue(
-                  encoder.encode(`data: ${JSON.stringify({
-                    type: 'tile_generated',
-                    tile,
-                    tileIndex: orderIndex,
-                    completedTiles: ++completedTiles,
-                    totalTiles: prompts.length,
-                    timestamp: new Date().toISOString()
-                  })}\n\n`)
-                );
+                try {
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({
+                      type: 'tile_generated',
+                      tile,
+                      tileIndex: orderIndex,
+                      completedTiles: ++completedTiles,
+                      totalTiles: prompts.length,
+                      timestamp: new Date().toISOString()
+                    })}\n\n`)
+                  );
+                } catch (enqueueError) {
+                  // Controller may be closed if client disconnected
+                  console.warn('[api/generate/stream] ⚠️ Failed to enqueue tile event (controller may be closed):', enqueueError);
+                }
 
                 return tile;
               } finally {

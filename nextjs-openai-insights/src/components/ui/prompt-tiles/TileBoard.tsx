@@ -196,19 +196,6 @@ function SortableTileCard({
           </button>
           <button
             type="button"
-            onClick={() => onRegenerateTile?.(tile.id)}
-            disabled={isRegenerating}
-            className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-[#1f1f1f] ring-1 ring-black/5 transition hover:text-black disabled:cursor-not-allowed disabled:text-gray-400 cursor-pointer"
-            aria-label="Regenerate insight"
-          >
-            {isRegenerating ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <RotateCw className="h-4 w-4" />
-            )}
-          </button>
-          <button
-            type="button"
             onClick={() => onDeleteTile(tile.id)}
             className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-[#8a8a8a] ring-1 ring-black/5 transition hover:text-red-500 cursor-pointer"
             aria-label="Remove tile"
@@ -308,7 +295,9 @@ function SortableTileCard({
 }
 
 function sortTilesByOrder(tiles: Tile[]): Tile[] {
-  return [...tiles].sort((a, b) => a.orderIndex - b.orderIndex);
+  return [...tiles]
+    .filter(tile => tile && typeof tile.orderIndex === 'number')
+    .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
 }
 
 export function TileBoard({
@@ -357,13 +346,15 @@ export function TileBoard({
 
       // Show tiles with stagger delay
       sortedTiles.forEach((tile, index) => {
-        setTimeout(() => {
-          setVisibleTileIds(prev => new Set([...prev, tile.id]));
-        }, index * 150); // 150ms delay between each tile
+        if (tile?.id) {
+          setTimeout(() => {
+            setVisibleTileIds(prev => new Set([...prev, tile.id]));
+          }, index * 150); // 150ms delay between each tile
+        }
       });
     } else {
       // Show all tiles immediately if not animating
-      setVisibleTileIds(new Set(sortedTiles.map(tile => tile.id)));
+      setVisibleTileIds(new Set(sortedTiles.filter(tile => tile?.id).map(tile => tile.id)));
     }
   }, [sortedTiles, animateEntrance]);
   const [isReordering, setIsReordering] = useState(false);
@@ -380,7 +371,7 @@ export function TileBoard({
       if (!order.length) return;
       try {
         setIsReordering(true);
-        await onReorderTiles(order.map((tile) => tile.id));
+        await onReorderTiles(order.filter(tile => tile?.id).map((tile) => tile.id));
       } catch (error) {
         console.error("[TileBoard] Failed to persist reorder", error);
         setItems(sortTilesByOrder(tiles));
@@ -400,9 +391,9 @@ export function TileBoard({
 
       setItems((currentItems) => {
         const oldIndex = currentItems.findIndex(
-          (item) => item.id === active.id
+          (item) => item?.id === active.id
         );
-        const newIndex = currentItems.findIndex((item) => item.id === over.id);
+        const newIndex = currentItems.findIndex((item) => item?.id === over.id);
         if (oldIndex === -1 || newIndex === -1) {
           return currentItems;
         }
@@ -483,7 +474,7 @@ export function TileBoard({
         onDragEnd={handleDragEnd}
       >
         <SortableContext
-          items={items.map((item) => item.id)}
+          items={items.filter(item => item?.id).map((item) => item.id)}
           strategy={sortingStrategy}
         >
           <div className={containerClassName}>
@@ -519,7 +510,7 @@ export function TileBoard({
             </button>
 
             {/* Then show existing tiles */}
-            {items.map((tile) => (
+            {items.filter(tile => tile?.id).map((tile) => (
               <SortableTile
                 key={tile.id}
                 tile={tile}

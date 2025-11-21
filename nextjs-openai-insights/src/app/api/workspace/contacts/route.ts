@@ -44,6 +44,23 @@ export async function POST(request: Request) {
     createdAt: now,
   };
 
+  // Check Contact Limit
+  const { userId } = await getAuth();
+  if (userId) {
+    const { checkLimit } = await import("@/lib/saas/usage-service");
+    const contactCheck = await checkLimit(userId, "contacts");
+    if (!contactCheck.allowed) {
+       return NextResponse.json(
+        { 
+          error: "Contact limit exceeded", 
+          reason: contactCheck.reason,
+          code: "CONTACT_LIMIT_EXCEEDED" 
+        },
+        { status: 429 }
+      );
+    }
+  }
+
   let outreach = undefined;
 
   try {
@@ -84,6 +101,11 @@ export async function POST(request: Request) {
       const { sessionId } = await getCurrentSession();
       if (sessionId && userId) {
         await syncWorkspaceContactsToMongo(sessionId, userId, updated.company.contacts);
+        
+        // Increment contact count
+        const { incrementUsage } = await import("@/lib/saas/usage-service");
+        await incrementUsage(userId, "contactsCount", 1);
+
         console.log("[API] /api/workspace/contacts - ✅ Contacts também sincronizados no MongoDB");
       }
     } catch (mongoError) {

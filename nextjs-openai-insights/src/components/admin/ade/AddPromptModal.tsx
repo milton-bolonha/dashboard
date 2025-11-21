@@ -113,11 +113,32 @@ export function AddPromptModal({
               />
             </div>
 
-            {/* Request Size */}
+            {/* Request Size + Max Mode (inline) */}
             <div className="space-y-2">
-              <label className="block text-sm font-semibold text-[#1f1f1f]">
-                Request Size
-              </label>
+              <div className="flex items-center justify-between gap-4">
+                <label className="block text-sm font-semibold text-[#1f1f1f]">
+                  Request Size
+                </label>
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={useMaxPrompt}
+                    onChange={(e) => {
+                      setUseMaxPrompt(e.target.checked);
+                      if (!e.target.checked && requestSize === "large") {
+                        setRequestSize("medium");
+                      }
+                    }}
+                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                  />
+                  <div className="flex items-center space-x-1.5">
+                    <Zap className="w-3.5 h-3.5 text-amber-500" />
+                    <span className="text-sm font-semibold text-[#1f1f1f]">
+                      MAX MODE
+                    </span>
+                  </div>
+                </label>
+              </div>
               <div className="grid grid-cols-3 gap-3">
                 <button
                   type="button"
@@ -164,34 +185,7 @@ export function AddPromptModal({
                 {requestSize === "medium" &&
                   "Medium responses (~600-800 tokens)"}
                 {requestSize === "large" &&
-                  "Long responses (~1200-1600 tokens, requires Max Mode)"}
-              </p>
-            </div>
-
-            {/* MAX PROMPT Checkbox */}
-            <div className="space-y-3">
-              <label className="flex items-center space-x-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={useMaxPrompt}
-                  onChange={(e) => {
-                    setUseMaxPrompt(e.target.checked);
-                    if (!e.target.checked && requestSize === "large") {
-                      setRequestSize("medium");
-                    }
-                  }}
-                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
-                />
-                <div className="flex items-center space-x-2">
-                  <Zap className="w-4 h-4 text-amber-500" />
-                  <span className="text-sm font-semibold text-[#1f1f1f]">
-                    Use MAX MODE
-                  </span>
-                </div>
-              </label>
-              <p className="text-xs text-[#6f6f6f] ml-7">
-                Enable advanced AI with greater capabilities using GPT-5 instead
-                of GPT-5-nano. Large request size requires Max Mode.
+                  "Long responses (~1200-1600 tokens)"}
               </p>
             </div>
           </div>

@@ -2,6 +2,7 @@
 
 import type { PropsWithChildren } from "react";
 import { SWRConfig } from "swr";
+import { ClerkProvider } from "@clerk/nextjs";
 
 import { ToastProvider } from "@/lib/state/toast-context";
 import { MembershipProvider } from "@/lib/state/membership-context";
@@ -39,11 +40,13 @@ const swrConfig = {
 
 export function Providers({ children }: PropsWithChildren) {
   return (
-    <SWRConfig value={swrConfig}>
-      <MembershipProvider>
-        <ToastProvider>{children}</ToastProvider>
-      </MembershipProvider>
-    </SWRConfig>
+    <ClerkProvider>
+      <SWRConfig value={swrConfig}>
+        <MembershipProvider>
+          <ToastProvider>{children}</ToastProvider>
+        </MembershipProvider>
+      </SWRConfig>
+    </ClerkProvider>
   );
 }
 
