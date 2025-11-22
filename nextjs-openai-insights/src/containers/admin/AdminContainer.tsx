@@ -116,9 +116,6 @@ export function AdminContainer() {
   // Ref para controlar geração (evita múltiplas inicializações)
   const generationInProgressRef = useRef(false);
 
-  // Ref para rastrear qual workspace já teve streaming iniciado
-  const streamingStartedForSessionRef = useRef<string | null>(null);
-
   // Ref para rastrear se tiles já foram sincronizados (evita múltiplas sincronizações)
   const tilesSyncedForSessionRef = useRef<string | null>(null);
 
@@ -1146,80 +1143,10 @@ export function AdminContainer() {
     // Batch mode (/api/generate) already generates all tiles at once
     // Streaming would overwrite them one by one, causing the bug
     console.log("[AdminContainer] ⏸️ Streaming DISABLED - using batch mode only");
-    return;
-
-    if (
-      shouldUseStreaming &&
-      !generationInProgressRef.current &&
-      !generationState.isGenerating &&
-      workspace &&
-      workspace.promptSettings
-    ) {
-      console.log("[AdminContainer] 🚀 Checking if we should start streaming...");
-
-      // Check if we have the minimum required data for streaming
-      const hasRequiredData =
-        workspace.promptSettings.target &&
-        workspace.promptSettings.sellingSolutionsFor &&
-        workspace.promptSettings.targetWebsite &&
-        workspace.promptSettings.templateId;
-
-      // Check if workspace was recently generated (within last 10 minutes)
-      const shouldStartGeneration = (() => {
-        if (!workspace.generatedAt) return true; // No generation yet
-
-        const generatedTime = new Date(workspace.generatedAt).getTime();
-        const now = Date.now();
-        const tenMinutesAgo = now - 10 * 60 * 1000;
-        return generatedTime > tenMinutesAgo; // Recent generation
-      })();
-
-      // CRITICAL: Don't start streaming if tiles already exist (from batch generation)
-      const hasTilesAlready = currentDashboard?.tiles && currentDashboard.tiles.length > 0;
-
-      if (hasTilesAlready) {
-        console.log("[AdminContainer] ⏸️ Skipping streaming - tiles already exist from batch generation", {
-          tilesCount: currentDashboard.tiles.length,
-          dashboardId: currentDashboard.id,
-        });
-        return;
-      }
-
-      // CRITICAL: Don't start streaming if we already started it for this workspace
-      if (streamingStartedForSessionRef.current === workspace.sessionId) {
-        console.log("[AdminContainer] ⏸️ Skipping streaming - already started for this session", {
-          sessionId: workspace.sessionId,
-        });
-        return;
-      }
-
-      if (hasRequiredData && shouldStartGeneration) {
-        console.log("[AdminContainer] ✅ Starting streaming with valid recent data");
-
-        // Mark that we've started streaming for this session
-        streamingStartedForSessionRef.current = workspace.sessionId;
-
-        // Mark generation as in progress
-        generationInProgressRef.current = true;
-
-        // Update local generation state
-        setGenerationState(prev => ({
-          ...prev,
-          isGenerating: true,
-          startedAt: Date.now(),
-          totalTiles: 8, // fallback
-          tilesGenerated: 0,
-          sessionId: null,
-        }));
-
-        startStreaming();
-      } else {
-        console.log("[AdminContainer] ⏸️ Skipping streaming - no recent generation needed");
-      }
-    }
+    // All streaming code removed to prevent unreachable code errors
   }, [
     shouldUseStreaming,
-    workspace, // Só workspace como dependência - evita loops
+    workspace,
     startStreaming,
   ]);
 

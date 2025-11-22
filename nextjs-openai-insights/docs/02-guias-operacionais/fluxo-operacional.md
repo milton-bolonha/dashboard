@@ -311,7 +311,7 @@ Arquivo: `src/lib/ade-theme.ts`, `src/lib/color.ts`, `src/containers/admin/Admin
 
 ---
 
-**Última atualização**: Novembro/2025  
+**Última atualização**: 21 de Novembro/2025  
 **Principais mudanças desde 10/11**:
 - ✅ Suporte completo para modelos GPT-5 com API `responses.create()`
 - ✅ Sistema de cores dinâmicas com contraste automático
@@ -322,6 +322,75 @@ Arquivo: `src/lib/ade-theme.ts`, `src/lib/color.ts`, `src/containers/admin/Admin
 - ✅ Histórico de chat persistido imediatamente após envio
 - ✅ Dropdowns brancos no header com texto preto fixo
 - ✅ Sidebar com contraste automático baseado em `sidebarColor`
+
+**Correções críticas (21/11/2025)**:
+- ✅ **Geração duplicada de tiles corrigida**: Streaming desabilitado completamente, polling com controle de sessão
+- ✅ **Persistência de deleção corrigida**: `mutate()` descomentado para reload do workspace
+- ✅ **Modal "Add Prompt" redesenhado**: Layout compacto com Max Mode inline
+- ✅ **Botão retry removido**: Removida funcionalidade não-implementada
+
+Ver [Relatório Completo de Correções](../05-relatorios/relatorio-nov-21-2025.md) para detalhes técnicos.
+
+---
+
+## 13. Correções Críticas de Novembro 2025
+
+### Problema de Geração Duplicada de Tiles (RESOLVIDO)
+
+**Sintoma**: Tiles eram gerados duas vezes, segunda geração sobrescrevia a primeira, resultando em apenas 1 tile visível.
+
+**Root Cause Identificado**:
+1. Sistema de **streaming** (`useTileStreaming`) iniciava mesmo após batch generation completa
+2. **Polling** sincronizava tiles múltiplas vezes (3+), causando flickering
+
+**Solução Implementada**:
+```typescript
+// AdminContainer.tsx linha 1138
+useEffect(() => {
+  // CRITICAL FIX: Disable streaming completely
+  console.log("[AdminContainer] ⏸️ Streaming DISABLED - using batch mode only");
+  return; // Early return previne streaming
+}, [/* dependencies */]);
+
+// AdminContainer.tsx linha 122 + 167
+const tilesSyncedForSessionRef = useRef<string | null>(null);
+
+if (tilesSyncedForSessionRef.current !== data.sessionId) {
+  tilesSyncedForSessionRef.current = data.sessionId;
+  updateDashboard(/* ... */); // Sync apenas UMA VEZ por sessão
+}
+```
+
+**Resultado**: ✅ Todos os 8 tiles carregam corretamente, sem duplicação ou flickering.
+
+### Problema de Persistência de Deleção (RESOLVIDO)
+
+**Sintoma**: Tiles deletados retornavam após F5.
+
+**Root Cause**: `mutate()` estava comentado em `handleDeleteTile`, impedindo reload do workspace.
+
+**Solução**:
+```typescript
+// AdminContainer.tsx linha 2744
+await mutate(); // Recarrega workspace do servidor após deleção
+```
+
+**Fluxo Corrigido**:
+1. DELETE `/api/workspace/tiles/[tileId]` → atualiza cookie + MongoDB
+2. `mutate()` → recarrega do servidor
+3. `refreshStoredWorkspaces()` → atualiza localStorage
+4. ✅ Tile permanece deletado após F5
+
+### Melhorias de UI
+
+**Modal "Add New Prompt"**:
+- Max Mode agora inline com Request Size (layout 30% mais compacto)
+- Texto explicativo removido
+- Melhor hierarquia visual
+
+**TileBoard**:
+- Botão retry não-funcional removido
+- Apenas ações funcionais visíveis (Drag, Delete)
 
 Pronto! Esse é o fluxo vigente depois das últimas melhorias no tema Ade. Qualquer evolução futura deve atualizar este documento e o README para manter a visão alinhada. 🚀
 

@@ -81,6 +81,7 @@ Relatórios de mudanças e entregas.
 
 | Arquivo | Descrição |
 |---------|-----------|
+| [`relatorio-nov-21-2025.md`](./05-relatorios/relatorio-nov-21-2025.md) | **NOVO** - Correções críticas: geração duplicada, persistência, UI (21 Nov 2025) |
 | [`relatorio-nov-2025.md`](./05-relatorios/relatorio-nov-2025.md) | Relatório completo das entregas (10 Nov 2025) |
 
 ---
@@ -163,7 +164,8 @@ docs/
 
 1. [`01-arquitetura/arquitetura-consolidada.md`](./01-arquitetura/arquitetura-consolidada.md) — Visão geral
 2. [`01-arquitetura/status-implementacao.md`](./01-arquitetura/status-implementacao.md) — Status de implementação
-3. [`05-relatorios/relatorio-nov-2025.md`](./05-relatorios/relatorio-nov-2025.md) — Mudanças recentes
+3. [`05-relatorios/relatorio-nov-21-2025.md`](./05-relatorios/relatorio-nov-21-2025.md) — **NOVO** - Correções críticas (21 Nov)
+4. [`05-relatorios/relatorio-nov-2025.md`](./05-relatorios/relatorio-nov-2025.md) — Mudanças anteriores (10 Nov)
 
 ---
 
