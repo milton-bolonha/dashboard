@@ -40,7 +40,9 @@ const swrConfig = {
 
 export function Providers({ children }: PropsWithChildren) {
   return (
-    <ClerkProvider>
+    <ClerkProvider
+      publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || ""}
+    >
       <SWRConfig value={swrConfig}>
         <MembershipProvider>
           <ToastProvider>{children}</ToastProvider>
