@@ -5,6 +5,44 @@ import { db } from "@/lib/db/mongodb";
 import type { UserDocument } from "@/lib/db/models/User";
 
 /**
+ * DEVELOPMENT HELPER: Create mock Stripe event for testing
+ */
+function createMockStripeEvent(eventType: string, mockData?: any) {
+  const baseEvent = {
+    id: `evt_mock_${Date.now()}`,
+    object: "event",
+    api_version: "2020-08-27",
+    created: Math.floor(Date.now() / 1000),
+    data: {
+      object: mockData || {},
+    },
+    livemode: false,
+    pending_webhooks: 1,
+    request: {
+      id: `req_mock_${Date.now()}`,
+      idempotency_key: null,
+    },
+    type: eventType,
+  };
+
+  // Customize based on event type
+  if (eventType === "checkout.session.completed") {
+    baseEvent.data.object = {
+      id: "cs_test_mock_session",
+      object: "checkout.session",
+      customer_email: mockData?.customerEmail || "test@example.com",
+      metadata: {
+        userId: mockData?.userId || `mock_user_${Date.now()}`,
+        sessionId: mockData?.sessionId || "session_mock",
+      },
+      ...mockData,
+    };
+  }
+
+  return baseEvent;
+}
+
+/**
  * Stripe Webhook Handler
  * Processes payment confirmation events and migrates guest data to MongoDB
  * 
@@ -30,23 +68,51 @@ export async function POST(request: Request) {
       );
     }
 
-    // Validate Stripe webhook signature
+    // Initialize Stripe
     const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
     let event;
-    
-    try {
-      event = stripe.webhooks.constructEvent(
-        body,
-        signature,
-        process.env.STRIPE_WEBHOOK_SECRET
-      );
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      console.error("[Stripe Webhook] ❌ Signature verification failed:", errorMessage);
-      return NextResponse.json(
-        { error: "Invalid signature" },
-        { status: 400 }
-      );
+
+    // DEVELOPMENT MODE: Skip signature validation if webhook secret is not configured
+    const isDevelopment = process.env.NODE_ENV !== "production";
+    const hasWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET && process.env.STRIPE_WEBHOOK_SECRET.length > 10;
+
+    if (isDevelopment && !hasWebhookSecret) {
+      console.warn("[Stripe Webhook] ⚠️ DEVELOPMENT MODE: Skipping signature validation (STRIPE_WEBHOOK_SECRET not configured)");
+      try {
+        // In development, try to parse the event directly (less secure but allows testing)
+        event = JSON.parse(body);
+        console.log("[Stripe Webhook] 🔧 DEV MODE: Event parsed without signature validation:", event.type);
+      } catch (parseErr) {
+        console.error("[Stripe Webhook] ❌ Failed to parse webhook body in dev mode:", parseErr);
+        return NextResponse.json(
+          { error: "Invalid JSON in development mode" },
+          { status: 400 }
+        );
+      }
+    } else {
+      // PRODUCTION MODE: Always validate signature
+      if (!signature) {
+        console.error("[Stripe Webhook] ❌ Missing stripe-signature header");
+        return NextResponse.json(
+          { error: "Missing signature" },
+          { status: 400 }
+        );
+      }
+
+      try {
+        event = stripe.webhooks.constructEvent(
+          body,
+          signature,
+          process.env.STRIPE_WEBHOOK_SECRET
+        );
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        console.error("[Stripe Webhook] ❌ Signature verification failed:", errorMessage);
+        return NextResponse.json(
+          { error: "Invalid signature" },
+          { status: 400 }
+        );
+      }
     }
 
     console.log("[Stripe Webhook] 📥 Received event:", event.type);
