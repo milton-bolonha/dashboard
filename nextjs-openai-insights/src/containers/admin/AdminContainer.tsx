@@ -2610,10 +2610,10 @@ export function AdminContainer() {
   );
 
   const handleDeleteTile = async (tileId: string) => {
-    if (!isViewingServerWorkspace) {
+    if (!data || !data.company) {
       push({
-        title: "Switch to latest workspace",
-        description: "Delete tiles on the most recently generated workspace.",
+        title: "No workspace loaded",
+        description: "Please load a workspace before deleting tiles.",
         variant: "destructive",
       });
       return;
@@ -2689,10 +2689,10 @@ export function AdminContainer() {
 
   const handleReorderTiles = async (order: string[]) => {
     if (!order.length) return;
-    if (!isViewingServerWorkspace) {
+    if (!data || !data.company) {
       push({
-        title: "Switch to latest workspace",
-        description: "Reorder tiles on the most recently generated workspace.",
+        title: "No workspace loaded",
+        description: "Please load a workspace before reordering tiles.",
         variant: "destructive",
       });
       return;
@@ -2775,11 +2775,10 @@ export function AdminContainer() {
   };
 
   const handleRegenerateTile = async (tileId: string) => {
-    if (!isViewingServerWorkspace) {
+    if (!data || !data.company) {
       push({
-        title: "Switch to latest workspace",
-        description:
-          "Regenerate insights on the most recently generated workspace.",
+        title: "No workspace loaded",
+        description: "Please load a workspace before regenerating tiles.",
         variant: "destructive",
       });
       return;
@@ -2833,10 +2832,11 @@ export function AdminContainer() {
     linkedinUrl: string;
   }) => {
     if (isSavingContact) return;
-    if (!isViewingServerWorkspace) {
+    // Allow creating contacts if we have a valid workspace loaded
+    if (!data || !data.company) {
       push({
-        title: "Switch to latest workspace",
-        description: "Add contacts on the most recently generated workspace.",
+        title: "No workspace loaded",
+        description: "Please generate a workspace first before adding contacts.",
         variant: "destructive",
       });
       return;
@@ -3008,11 +3008,10 @@ export function AdminContainer() {
     contactId: string,
     message: string
   ) => {
-    if (!isViewingServerWorkspace) {
+    if (!data || !data.company) {
       push({
-        title: "Switch to latest workspace",
-        description:
-          "Continue the AI conversation on the most recent workspace.",
+        title: "No workspace loaded",
+        description: "Please load a workspace before chatting with contacts.",
         variant: "destructive",
       });
       return;
@@ -3078,11 +3077,10 @@ export function AdminContainer() {
     tileId: string,
     payload: TileChatPayload
   ) => {
-    if (!isViewingServerWorkspace) {
+    if (!data || !data.company) {
       push({
-        title: "Switch to latest workspace",
-        description:
-          "Continue the AI conversation on the most recent workspace.",
+        title: "No workspace loaded",
+        description: "Please load a workspace before chatting with tiles.",
         variant: "destructive",
       });
       return;
@@ -3201,10 +3199,10 @@ export function AdminContainer() {
   };
 
   const handleRegenerateContact = async (contactId: string) => {
-    if (!isViewingServerWorkspace) {
+    if (!data || !data.company) {
       push({
-        title: "Switch to latest workspace",
-        description: "Regenerate contacts on the most recent workspace.",
+        title: "No workspace loaded",
+        description: "Please load a workspace before regenerating contacts.",
         variant: "destructive",
       });
       return;
@@ -3273,6 +3271,18 @@ export function AdminContainer() {
     />
   ) : null;
 
+  // Check if this is just a default empty workspace (user hasn't generated anything yet)
+  const isDefaultEmptyWorkspace = useMemo(() => {
+    return (
+      workspace &&
+      workspace.company.name === "New Company" &&
+      workspace.generatedAt === null &&
+      (!workspace.company.tiles || workspace.company.tiles.length === 0) &&
+      (!workspace.company.contacts || workspace.company.contacts.length === 0) &&
+      (!workspace.company.notes || workspace.company.notes.length === 0)
+    );
+  }, [workspace]);
+
   if (workspaceError && !workspace) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f7f7f8] text-[#3a3a41]">
@@ -3280,6 +3290,28 @@ export function AdminContainer() {
           {workspaceError.status === 404
             ? "Your workspace cache expired. Return to the homepage to generate a new set of insights."
             : "We couldn&apos;t load the workspace. Refresh the page and try again."}
+        </div>
+      </div>
+    );
+  }
+
+  // If this is just a default empty workspace, show onboarding instead
+  if (isDefaultEmptyWorkspace && !isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f7f7f8] text-[#3a3a41]">
+        <div className="rounded-3xl border border-slate-200 bg-white px-8 py-6 text-center shadow-sm max-w-md">
+          <h2 className="text-xl font-semibold text-[#1f1f1f] mb-4">
+            Welcome to your workspace
+          </h2>
+          <p className="text-[#6f6f6f] mb-6">
+            Generate insights for your first company to get started with AI-powered research and outreach.
+          </p>
+          <button
+            onClick={() => router.push('/')}
+            className="inline-flex items-center justify-center rounded-full bg-black px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#1a1a1a]"
+          >
+            Generate Insights
+          </button>
         </div>
       </div>
     );
@@ -3544,7 +3576,7 @@ export function AdminContainer() {
               refreshStoredWorkspaces();
             }}
           />
-          <FilesPlaceholderAde appearance={appearanceTokens} />
+          <FilesPlaceholderAde appearance={appearanceTokens} isLoggedIn={isMember} />
         </div>
         {tileDetailModal}
         {activeContact ? (

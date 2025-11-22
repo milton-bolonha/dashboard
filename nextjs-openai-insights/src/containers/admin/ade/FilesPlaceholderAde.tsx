@@ -3,9 +3,10 @@ import { hexToRgbString } from "@/lib/color";
 
 interface FilesPlaceholderAdeProps {
   appearance: AdeAppearanceTokens;
+  isLoggedIn?: boolean;
 }
 
-export function FilesPlaceholderAde({ appearance }: FilesPlaceholderAdeProps) {
+export function FilesPlaceholderAde({ appearance, isLoggedIn = false }: FilesPlaceholderAdeProps) {
   // Use saved values from appearance directly (like AI Insight Tiles does)
   // Fallback to defaults if not available (backward compatibility)
   // Convert to RGB format for consistency (React converts some hex to RGB automatically)
@@ -52,7 +53,10 @@ export function FilesPlaceholderAde({ appearance }: FilesPlaceholderAdeProps) {
           backgroundColor: surfaceColor,
         }}
       >
-        Drag & drop to upload (10 MB max). Cloudinary integration coming soon.
+        {isLoggedIn
+          ? "File uploads available on Pro plan. Upgrade to store and manage your documents."
+          : "Sign in to upload and manage files. File storage requires an account."
+        }
       </div>
     </section>
   );
