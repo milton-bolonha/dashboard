@@ -4,6 +4,7 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 const isPublicRoute = createRouteMatcher([
   '/',
   '/admin', // Allow guests to use admin panel with localStorage
+  '/test-limits', // Allow testing limits without authentication
   '/sign-in(.*)',
   '/sign-up(.*)',
   '/api/webhooks/stripe(.*)',
