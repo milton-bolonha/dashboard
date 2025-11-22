@@ -39,10 +39,25 @@ const swrConfig = {
 } satisfies Parameters<typeof SWRConfig>[0]["value"];
 
 export function Providers({ children }: PropsWithChildren) {
+  const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+
+  // If Clerk key is not available, render without ClerkProvider
+  // This allows the app to build and run without Clerk (guest mode only)
+  if (!clerkPublishableKey) {
+    console.warn(
+      "[Providers] NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY not found. Running without Clerk authentication."
+    );
+    return (
+      <SWRConfig value={swrConfig}>
+        <MembershipProvider>
+          <ToastProvider>{children}</ToastProvider>
+        </MembershipProvider>
+      </SWRConfig>
+    );
+  }
+
   return (
-    <ClerkProvider
-      publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || ""}
-    >
+    <ClerkProvider publishableKey={clerkPublishableKey}>
       <SWRConfig value={swrConfig}>
         <MembershipProvider>
           <ToastProvider>{children}</ToastProvider>
