@@ -16,6 +16,7 @@ import {
   type ClassicHeroFormSubmission,
 } from "@/components/landing/ClassicHeroForm";
 import { useMembership } from "@/lib/state/membership-context";
+import { UpgradeModal } from "@/components/ui/UpgradeModal";
 import "@/components/landing/landing.css";
 
 export function HomeContainer() {
@@ -31,6 +32,7 @@ export function HomeContainer() {
   } = useMembership();
   const [isSubmitting] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [isUpgradeModalOpen, setUpgradeModalOpen] = useState(false);
 
   useEffect(() => {
     router.prefetch("/admin");
@@ -63,15 +65,12 @@ export function HomeContainer() {
   }: ClassicHeroFormSubmission) => {
     if (isSubmitting) return;
 
+    // ✅ Check limits for guests
     if (!isMember) {
       const preview = evaluateUsage("createWorkspace");
       if (!preview.allowed) {
-        push({
-          title: "Visitor limit reached",
-          description: `Free plan allows generating up to ${limits.createWorkspace} workspaces per day. Upgrade to continue.`,
-          variant: "destructive",
-        });
-        handleStartCheckout();
+        // ✅ Show modal instead of redirecting directly to Stripe
+        setUpgradeModalOpen(true);
         return;
       }
     }
@@ -247,6 +246,20 @@ export function HomeContainer() {
   const openHelp = () => setIsHelpOpen(true);
   const closeHelp = () => setIsHelpOpen(false);
 
+  const handleUpgradeCheckout = () => {
+    setUpgradeModalOpen(false);
+    handleStartCheckout();
+  };
+
+  const handleMarkMember = () => {
+    setUpgradeModalOpen(false);
+    push({
+      title: "Welcome!",
+      description: "Enjoy unlimited access to all features.",
+      variant: "success",
+    });
+  };
+
   return (
     <div className="home-page">
       <LandingHeader
@@ -262,6 +275,24 @@ export function HomeContainer() {
         />
       </main>
       <LandingFooter onHelpClick={openHelp} />
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        open={isUpgradeModalOpen}
+        onClose={() => setUpgradeModalOpen(false)}
+        onCheckout={handleUpgradeCheckout}
+        onMarkMember={handleMarkMember}
+        stripeCheckoutUrl={process.env.NEXT_PUBLIC_STRIPE_CHECKOUT_URL}
+        usage={{
+          tileChat: 0,
+          contactChat: 0,
+          regenerate: 0,
+          createContact: 0,
+          createWorkspace: 0,
+        }}
+        limits={limits}
+        lastAction="createWorkspace"
+      />
 
       {isHelpOpen ? (
         <Fragment>
