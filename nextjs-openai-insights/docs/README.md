@@ -1,32 +1,3 @@
-# 📚 Documentação Completa · nextjs-openai-insights
-
-**Versão**: Novembro/2025
-**Estrutura**: Organizada por domínios conceituais (Arquitetura, Guias, Configuração, Checklists, Relatórios, Especificações)
-
----
-
-## 🆕 **ATUALIZAÇÃO CRÍTICA - NOVEMBRO/2025**
-
-### 🚀 **Estado Unificado Implementado no AdminContainer**
-
-**Mudança Arquitetural:** Refatoração completa do gerenciamento de estado no AdminContainer, substituindo múltiplas variáveis fragmentadas por um estado unificado robusto.
-
-**Impacto:**
-- ✅ **Race Conditions Eliminadas** - Estado único previne bugs de sincronização
-- ✅ **Robustez Aprimorada** - Sistema mais confiável para múltiplos workspaces
-- ✅ **Manutenibilidade** - Código mais limpo e previsível
-- ✅ **Performance** - Menos re-renders desnecessários
-
-**Documentos Atualizados:**
-- [`01-arquitetura/status-implementacao.md`](./01-arquitetura/status-implementacao.md) - Nova seção "Phase 0.5"
-- [`analise-fluxo-dados-admin.md`](./analise-fluxo-dados-admin.md) - Correções implementadas
-- [`01-arquitetura/arquitetura-consolidada.md`](./01-arquitetura/arquitetura-consolidada.md) - Mantido atualizado
-
-**Status:** Sistema fortalecido e **pronto para produção**.
-
----
-
-## 🎯 Índice Rápido
 
 ### 📖 Comece Aqui
 
@@ -98,12 +69,15 @@ Checklists e planos de desenvolvimento.
 
 ### 05. Relatórios
 
-Relatórios de mudanças e entregas.
+Relatórios de mudanças e entregas (ordem cronológica reversa).
 
 | Arquivo | Descrição |
 |---------|-----------|
-| [`relatorio-nov-21-2025.md`](./05-relatorios/relatorio-nov-21-2025.md) | **NOVO** - Correções críticas: geração duplicada, persistência, UI (21 Nov 2025) |
+| [`relatorio-nov-23-2025.md`](./05-relatorios/relatorio-nov-23-2025.md) | **NOVO** - Melhorias de segurança, escalabilidade e UX (23 Nov 2025) |
+| [`relatorio-nov-21-2025.md`](./05-relatorios/relatorio-nov-21-2025.md) | Correções críticas: geração duplicada, persistência, UI (21 Nov 2025) |
 | [`relatorio-nov-2025.md`](./05-relatorios/relatorio-nov-2025.md) | Relatório completo das entregas (10 Nov 2025) |
+| [`report-update.md`](./05-relatorios/report-update.md) | Análise de streaming, polling e Stripe security |
+| [`rebatendo-analise-vulnerabilidades.md`](./05-relatorios/rebatendo-analise-vulnerabilidades.md) | Rebuttal técnico de análise externa |
 
 ---
 
