@@ -24,6 +24,7 @@ interface AdminHeaderAdeProps {
   onDeleteDashboard?: (dashboardId: string) => void;
   onApplyTemplate?: (templateId: string) => void;
   actionSlot?: ReactNode;
+  onToggleSidebar?: () => void; // Add sidebar toggle prop
 }
 
 export function AdminHeaderAde({
@@ -40,14 +41,13 @@ export function AdminHeaderAde({
   onDeleteDashboard,
   onApplyTemplate,
   actionSlot,
+  onToggleSidebar,
 }: AdminHeaderAdeProps) {
   const [showDashboards, setShowDashboards] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showDashboardConfig, setShowDashboardConfig] = useState(false);
-  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const dashboardsRef = useRef<HTMLDivElement>(null);
   const templatesRef = useRef<HTMLDivElement>(null);
-  const mobileMenuRef = useRef<HTMLDivElement>(null);
 
   // Fechar dropdowns ao clicar fora
   useEffect(() => {
@@ -72,18 +72,10 @@ export function AdminHeaderAde({
         setShowTemplates(false);
       }
 
-      // Check if click is outside mobile menu
-      if (
-        showMobileMenu &&
-        mobileMenuRef.current &&
-        !mobileMenuRef.current.contains(target)
-      ) {
-        setShowMobileMenu(false);
-      }
     };
 
     // Only add listener if at least one dropdown is open
-    if (showDashboards || showTemplates || showMobileMenu) {
+    if (showDashboards || showTemplates) {
       // Use capture phase to catch clicks before they bubble
       document.addEventListener("mousedown", handleClickOutside, true);
     }
@@ -91,7 +83,7 @@ export function AdminHeaderAde({
     return () => {
       document.removeEventListener("mousedown", handleClickOutside, true);
     };
-  }, [showDashboards, showTemplates, showMobileMenu]);
+  }, [showDashboards, showTemplates]);
 
   const buttonBaseClass =
     "flex h-9 w-9 items-center justify-center rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-black/40";
@@ -105,130 +97,6 @@ export function AdminHeaderAde({
       className="flex h-full w-full items-center justify-end gap-4"
       suppressHydrationWarning
     >
-      {/* Mobile Hamburger Menu */}
-      <div className="md:hidden relative" ref={mobileMenuRef}>
-        <button
-          type="button"
-          onClick={() => setShowMobileMenu(!showMobileMenu)}
-          className={`${buttonBaseClass} cursor-pointer`}
-          style={{
-            backgroundColor: appearance.surfaceColor,
-            color: appearance.textColor,
-          }}
-          aria-label="Menu"
-          suppressHydrationWarning
-        >
-          {showMobileMenu ? (
-            <X className="h-5 w-5" />
-          ) : (
-            <Menu className="h-5 w-5" />
-          )}
-        </button>
-
-        {showMobileMenu && (
-          <div
-            className="absolute right-0 top-full mt-2 w-72 rounded-xl border p-4 shadow-lg z-50 bg-white"
-            suppressHydrationWarning
-            style={{
-              backgroundColor: "#ffffff",
-              borderColor: appearance.cardBorderColor,
-            }}
-          >
-            <div className="space-y-3">
-              {/* Login/Signup Buttons */}
-              <div className="flex flex-col gap-2 pb-3 border-b" style={{ borderColor: appearance.cardBorderColor }}>
-                <button
-                  onClick={() => {
-                    setShowMobileMenu(false);
-                    onLogin?.();
-                  }}
-                  className="w-full rounded-lg px-4 py-2 text-sm font-semibold cursor-pointer"
-                  style={{
-                    backgroundColor: "#101010",
-                    color: "#ffffff",
-                  }}
-                >
-                  {loginLabel}
-                </button>
-                <button
-                  onClick={() => {
-                    setShowMobileMenu(false);
-                    onSignUp?.();
-                  }}
-                  className="w-full rounded-lg border px-4 py-2 text-sm font-semibold cursor-pointer"
-                  suppressHydrationWarning
-                  style={{
-                    borderColor: appearance.cardBorderColor,
-                    color: "#000000",
-                    backgroundColor: "#ffffff",
-                  }}
-                >
-                  {signUpLabel}
-                </button>
-              </div>
-
-              {/* Customize Background */}
-              {onCustomizeBackground && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    setShowMobileMenu(false);
-                    onCustomizeBackground(e);
-                  }}
-                  className="flex w-full items-center justify-between rounded-lg border px-3 py-2 text-sm transition hover:border-black/30 cursor-pointer"
-                  suppressHydrationWarning
-                  style={{
-                    borderColor: appearance.cardBorderColor,
-                    color: "#000000",
-                    backgroundColor: "#ffffff",
-                  }}
-                >
-                  <span style={{ color: "#000000" }}>Customize Color</span>
-                  <Droplet className="h-4 w-4" style={{ color: "#000000" }} />
-                </button>
-              )}
-
-              {/* Dashboards */}
-              <button
-                type="button"
-                onClick={() => {
-                  setShowMobileMenu(false);
-                  setShowDashboards(true);
-                }}
-                className="flex w-full items-center justify-between rounded-lg border px-3 py-2 text-sm transition hover:border-black/30 cursor-pointer"
-                suppressHydrationWarning
-                style={{
-                  borderColor: appearance.cardBorderColor,
-                  color: "#000000",
-                  backgroundColor: "#ffffff",
-                }}
-              >
-                <span style={{ color: "#000000" }}>Dashboards</span>
-                <ChevronDown className="h-4 w-4" style={{ color: "#000000" }} />
-              </button>
-
-              {/* Templates */}
-              <button
-                type="button"
-                onClick={() => {
-                  setShowMobileMenu(false);
-                  setShowTemplates(true);
-                }}
-                className="flex w-full items-center justify-between rounded-lg border px-3 py-2 text-sm transition hover:border-black/30 cursor-pointer"
-                suppressHydrationWarning
-                style={{
-                  borderColor: appearance.cardBorderColor,
-                  color: "#000000",
-                  backgroundColor: "#ffffff",
-                }}
-              >
-                <span style={{ color: "#000000" }}>Templates</span>
-                <ChevronDown className="h-4 w-4" style={{ color: "#000000" }} />
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
 
       {/* Desktop Menu - Hidden on Mobile */}
       <div className="hidden md:flex items-center gap-3">

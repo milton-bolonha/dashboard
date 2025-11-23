@@ -26,6 +26,7 @@ interface TileDetailModalProps {
   }) => Promise<void>;
   isSubmitting: boolean;
   theme: AdminTheme;
+  isGuest?: boolean;
 }
 
 export function TileDetailModal({
@@ -34,6 +35,7 @@ export function TileDetailModal({
   onSubmit,
   isSubmitting,
   theme,
+  isGuest = false,
 }: TileDetailModalProps) {
   const [message, setMessage] = useState("");
   const [isVisible, setIsVisible] = useState(true);
@@ -294,14 +296,32 @@ export function TileDetailModal({
               </h2>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                title={infoSummary}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-600 transition hover:border-gray-300 hover:text-gray-900 cursor-pointer"
-                aria-label="Insight details"
-              >
-                <Info className="h-4 w-4" />
-              </button>
+              <div className="relative group">
+                <button
+                  type="button"
+                  onClick={() => {
+                    // For mobile: show tooltip on tap
+                    const tooltip = document.querySelector('[data-tooltip="info-summary"]');
+                    if (tooltip) {
+                      tooltip.classList.toggle('hidden');
+                      setTimeout(() => tooltip.classList.add('hidden'), 3000);
+                    }
+                  }}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-600 transition hover:border-gray-300 hover:text-gray-900 cursor-pointer"
+                  aria-label="Insight details"
+                >
+                  <Info className="h-4 w-4" />
+                </button>
+                {/* Tooltip */}
+                <div
+                  data-tooltip="info-summary"
+                  className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-64 p-3 bg-gray-900 text-white text-sm rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 hidden md:group-hover:block"
+                >
+                  <div className="text-xs font-medium mb-1">Prompt & Response Info</div>
+                  <div className="text-xs opacity-90">{infoSummary}</div>
+                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={handleRequestClose}
@@ -428,10 +448,22 @@ export function TileDetailModal({
                   <div className="absolute bottom-3 right-3 flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => setAttachmentPickerOpen(true)}
-                      className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E3E3E3] text-[#3c3c3c] transition hover:border-black/20 hover:text-black disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
-                      aria-label="Attach files"
+                      onClick={() => {
+                        if (isGuest) {
+                          // Show upgrade message for guests
+                          alert("File attachments are available for Pro users. Upgrade to unlock this feature.");
+                          return;
+                        }
+                        setAttachmentPickerOpen(true);
+                      }}
+                      className={`flex h-10 w-10 items-center justify-center rounded-full border transition cursor-pointer ${
+                        isGuest
+                          ? "border-gray-300 text-gray-400 opacity-60"
+                          : "border-[#E3E3E3] text-[#3c3c3c] hover:border-black/20 hover:text-black disabled:cursor-not-allowed disabled:opacity-60"
+                      }`}
+                      aria-label={isGuest ? "Attachments require Pro plan" : "Attach files"}
                       disabled={isSubmitting}
+                      title={isGuest ? "File attachments available on Pro plan" : "Attach files"}
                     >
                       <Paperclip className="h-4 w-4" />
                     </button>

@@ -4,6 +4,42 @@ Documento que reflete o **status real** das implementações, atualizado conform
 
 ---
 
+## ✅ Phase 0.5: State Management Improvements - **IMPLEMENTADO (Nov/2025)**
+
+### ✅ **Estado Unificado no AdminContainer**
+
+**Problema Resolvido:** O AdminContainer tinha múltiplos estados fragmentados que causavam race conditions, bugs de sincronização e dificuldades de manutenção.
+
+**Solução Implementada:**
+- **Estado Unificado**: Substituído múltiplas variáveis de estado por um único objeto `adminState`
+- **Estrutura Centralizada**:
+  ```typescript
+  interface AdminState {
+    currentWorkspace: WorkspaceSnapshot | null;
+    viewingWorkspaceId: string | null;
+    storedWorkspaces: Array<{ sessionId: string; snapshot: WorkspaceSnapshot }>;
+    selectedTileId: string | null;
+    selectedContactId: string | null;
+    modalState: ModalState;
+    pendingOperations: Set<string>;
+    isGeneratingWorkspace: boolean;
+  }
+  ```
+
+**Melhorias Implementadas:**
+- ✅ **Redução de Race Conditions**: Operações agora são coordenadas através de um estado único
+- ✅ **Melhor Sincronização**: Dados entre SWR, localStorage e MongoDB mais consistentes
+- ✅ **Manutenibilidade**: Código mais fácil de debugar e modificar
+- ✅ **Performance**: Menos re-renders desnecessários e melhor controle de estado
+
+**Arquivos Modificados:**
+- `src/containers/admin/AdminContainer.tsx` - Refatoração completa do estado
+- Removidas referências antigas a variáveis separadas (`selectedTileId`, `selectedContactId`, etc.)
+
+**Status:** ✅ **Implementado e testado** - Build passando, funcionalidade preservada.
+
+---
+
 ## ✅ Phase 1: Preparation - **CONCLUÍDO**
 
 - [x] Next.js 16 migration
@@ -164,6 +200,7 @@ Documento que reflete o **status real** das implementações, atualizado conform
 
 | Fase | Status | Progresso |
 |------|--------|-----------|
+| **Phase 0.5: State Management** | ✅ Implementado | 100% (refatoração crítica concluída) |
 | **Phase 1: Preparation** | ✅ Concluído | 100% |
 | **Phase 2: MongoDB** | 🔄 Parcial | ~80% (implementado, falta integração completa) |
 | **Phase 3: Clerk** | 🔄 Preparado | ~20% (estrutura pronta, falta implementação) |

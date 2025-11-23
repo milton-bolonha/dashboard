@@ -57,11 +57,11 @@ export function AddPromptModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4"
       onClick={handleClose}
     >
       <div
-        className="w-full max-w-2xl max-h-[80vh] overflow-hidden rounded-[28px] border border-[#e4e4e4] bg-white shadow-[0_32px_80px_rgba(15,23,42,0.2)]"
+        className="w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-[28px] border border-[#e4e4e4] bg-white shadow-[0_32px_80px_rgba(15,23,42,0.2)]"
         onClick={(event) => event.stopPropagation()}
       >
         <header className="flex items-start justify-between gap-4 px-8 py-6">
@@ -190,10 +190,7 @@ export function AddPromptModal({
             </div>
           </div>
 
-          <footer className="flex flex-col gap-3 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-xs text-slate-500">
-              Prompts will be added to your current dashboard
-            </div>
+          <footer className="flex flex-col gap-3 px-6 py-5 sm:flex-row sm:items-center sm:justify-end">
             <div className="flex flex-col gap-2 sm:flex-row">
               <button
                 type="button"

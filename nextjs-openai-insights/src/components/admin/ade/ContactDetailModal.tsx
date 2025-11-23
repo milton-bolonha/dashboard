@@ -7,7 +7,6 @@ import {
   Copy,
   Linkedin,
   Loader2,
-  RefreshCw,
   SendHorizontal,
   User,
 } from "lucide-react";
@@ -229,24 +228,6 @@ export function ContactDetailModal({
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={onRegenerate}
-                disabled={isRegenerating}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-[#e4e4e4] px-4 text-sm font-semibold text-[#1f1f1f] transition hover:bg-[#f5f5f5] disabled:cursor-not-allowed disabled:text-[#a1a1a1]"
-              >
-                {isRegenerating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Updating…
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="h-4 w-4" />
-                    Refresh outreach
-                  </>
-                )}
-              </button>
               <button
                 type="button"
                 onClick={handleClose}

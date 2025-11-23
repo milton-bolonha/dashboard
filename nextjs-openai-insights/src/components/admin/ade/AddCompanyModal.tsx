@@ -170,8 +170,8 @@ export function AddCompanyModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm" onClick={handleRequestClose}>
-      <div className="w-full max-w-4xl overflow-hidden rounded-[28px] border border-[#e4e4e4] bg-white shadow-[0_32px_80px_rgba(15,23,42,0.2)]" onClick={(event) => event.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4" onClick={handleRequestClose}>
+      <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-[28px] border border-[#e4e4e4] bg-white shadow-[0_32px_80px_rgba(15,23,42,0.2)]" onClick={(event) => event.stopPropagation()}>
         <header className="flex items-start justify-between gap-4 px-8 py-6">
           <div className="space-y-2">
             <p className="text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-[#9a9a9a]">Generate new workspace</p>

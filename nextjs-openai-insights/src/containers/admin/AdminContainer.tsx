@@ -313,7 +313,7 @@ export function AdminContainer() {
   useEffect(() => {
     console.log("[AdminContainer] 🔄 Page loaded, resetting generation flags");
     generationInProgressRef.current = false;
-    setGenerationState(prev => ({
+    setGenerationState((prev) => ({
       ...prev,
       isGenerating: false,
     }));
@@ -326,9 +326,11 @@ export function AdminContainer() {
       const tenMinutes = 10 * 60 * 1000;
 
       if (timeSinceStart > tenMinutes) {
-        console.warn("[AdminContainer] ⏰ Generation timeout reached, resetting state");
+        console.warn(
+          "[AdminContainer] ⏰ Generation timeout reached, resetting state"
+        );
         generationInProgressRef.current = false;
-        setGenerationState(prev => ({
+        setGenerationState((prev) => ({
           ...prev,
           isGenerating: false,
         }));
@@ -336,7 +338,8 @@ export function AdminContainer() {
         push({
           variant: "destructive",
           title: "Generation Timeout",
-          description: "Generation took too long and was cancelled. Please try again.",
+          description:
+            "Generation took too long and was cancelled. Please try again.",
         });
       }
     }
@@ -759,7 +762,73 @@ export function AdminContainer() {
     }
     requestUpgrade("createWorkspace");
   }, [isMember, push, requestUpgrade]);
-  const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
+  // ✅ UNIFIED STATE: Evita estado fragmentado
+  const [adminState, setAdminState] = useState({
+    // Workspace management
+    currentWorkspace: null as WorkspaceSnapshot | null,
+    viewingWorkspaceId: null as string | null,
+    storedWorkspaces: [] as Array<{
+      sessionId: string;
+      snapshot: WorkspaceSnapshot;
+    }>,
+
+    // UI state
+    selectedTileId: null as string | null,
+    selectedContactId: null as string | null,
+    modalState: { type: "none" } as
+      | { type: "none" }
+      | { type: "tile-detail"; tileId: string }
+      | { type: "contact-detail"; contactId: string }
+      | { type: "add-contact" }
+      | { type: "add-company" },
+
+    // Operation states
+    pendingOperations: new Set<string>(),
+    isGeneratingWorkspace: false,
+  });
+
+  // ✅ OPERATION QUEUE: Evita race conditions
+  const operationQueueRef = useRef<Promise<void>>(Promise.resolve());
+
+  // ✅ SAFE OPERATION WRAPPER
+  const enqueueOperation = useCallback(
+    (operation: () => Promise<void>, operationId: string) => {
+      const wrappedOperation = async () => {
+        // Check if workspace changed during queue wait
+        const startWorkspaceId = adminState.viewingWorkspaceId;
+
+        setAdminState((prev) => ({
+          ...prev,
+          pendingOperations: new Set([...prev.pendingOperations, operationId]),
+        }));
+
+        try {
+          await operation();
+
+          // Verify workspace didn't change during operation
+          if (adminState.viewingWorkspaceId !== startWorkspaceId) {
+            console.warn(
+              `[AdminContainer] ⚠️ Workspace changed during ${operationId}, operation may be stale`
+            );
+            await mutate(); // Refresh data
+          }
+        } finally {
+          setAdminState((prev) => {
+            const newOps = new Set(prev.pendingOperations);
+            newOps.delete(operationId);
+            return { ...prev, pendingOperations: newOps };
+          });
+        }
+      };
+
+      operationQueueRef.current =
+        operationQueueRef.current.then(wrappedOperation);
+      return operationQueueRef.current;
+    },
+    [adminState.viewingWorkspaceId, mutate]
+  );
+
+  // Legacy state for backward compatibility (gradually remove)
   const [isPersistingOrder, setIsPersistingOrder] = useState(false);
   const [isChatting, setIsChatting] = useState(false);
   const [localWorkspace, setLocalWorkspace] =
@@ -769,12 +838,10 @@ export function AdminContainer() {
   const [storedWorkspaces, setStoredWorkspaces] = useState<
     Array<{ sessionId: string; snapshot: WorkspaceSnapshot }>
   >([]);
-  // Track if user manually selected a workspace to prevent auto-switching
   const userSelectedSessionRef = useRef<string | null>(null);
   const [isAddContactModalOpen, setAddContactModalOpen] = useState(false);
   const [isAddCompanyModalOpen, setAddCompanyModalOpen] = useState(false);
   const [isSavingContact, setIsSavingContact] = useState(false);
-  const [isGeneratingWorkspace, setIsGeneratingWorkspace] = useState(false);
   const [regeneratingTileIds, setRegeneratingTileIds] = useState<Set<string>>(
     new Set()
   );
@@ -782,9 +849,6 @@ export function AdminContainer() {
     string | null
   >(null);
   const [isContactChatting, setIsContactChatting] = useState(false);
-  const [selectedContactId, setSelectedContactId] = useState<string | null>(
-    null
-  );
   const workspaceError = error as WorkspaceFetcherError | undefined;
   const cacheWarningShownRef = useRef(false);
 
@@ -906,13 +970,13 @@ export function AdminContainer() {
         // Clear user selection flag since we're auto-switching
         userSelectedSessionRef.current = null;
       }
-      
+
       // CRITICAL: Force state update when tiles arrive to ensure UI re-renders
       // This fixes the issue where tiles are fetched but UI doesn't update until F5
       if (localWorkspace?.sessionId === data.sessionId) {
         const currentTileCount = localWorkspace?.company?.tiles?.length || 0;
         const newTileCount = data.company?.tiles?.length || 0;
-        
+
         if (newTileCount > currentTileCount) {
           console.log(
             `[AdminContainer] 🎨 New tiles detected (${currentTileCount} → ${newTileCount}), forcing UI update`
@@ -922,14 +986,14 @@ export function AdminContainer() {
           saveCachedWorkspace(data.sessionId, data);
         }
       }
-      
+
       // Clear generation flags when tiles arrive
       generationInProgressRef.current = false;
-      setGenerationState(prev => ({
+      setGenerationState((prev) => ({
         ...prev,
         isGenerating: false,
       }));
-      
+
       if (typeof window !== "undefined") {
         window.localStorage.removeItem("last-generation-time");
         console.log(
@@ -1027,113 +1091,137 @@ export function AdminContainer() {
     responseLength: workspace?.promptSettings?.responseLength,
     promptVariables: workspace?.promptSettings?.promptVariables,
     bulkPrompts: workspace?.promptSettings?.bulkPrompts,
-    onTileGenerated: useCallback((tile: Tile, index: number) => {
-      console.log(
-        `[AdminContainer] 🎯 Tile ${index + 1} streamed:`,
-        tile.title
-      );
+    onTileGenerated: useCallback(
+      (tile: Tile, index: number) => {
+        console.log(
+          `[AdminContainer] 🎯 Tile ${index + 1} streamed:`,
+          tile.title
+        );
 
-      // Update local generation state (independente de cookies)
-      setGenerationState(prev => ({
-        ...prev,
-        tilesGenerated: prev.tilesGenerated + 1,
-      }));
+        // Update local generation state (independente de cookies)
+        setGenerationState((prev) => ({
+          ...prev,
+          tilesGenerated: prev.tilesGenerated + 1,
+        }));
 
-      // Update dashboard with new tile
-      if (currentCompany && currentDashboard) {
-        const updatedTiles = [...currentDashboard.tiles];
-        updatedTiles[index] = tile;
-        updateDashboard(currentCompany.id, currentDashboard.id, {
-          tiles: updatedTiles,
-        });
+        // Update dashboard with new tile
+        if (currentCompany && currentDashboard) {
+          const updatedTiles = [...currentDashboard.tiles];
+          updatedTiles[index] = tile;
+          updateDashboard(currentCompany.id, currentDashboard.id, {
+            tiles: updatedTiles,
+          });
 
-        // Immediately update UI state for real-time feedback
-        const updatedDashboard = {
-          ...currentDashboard,
-          tiles: updatedTiles,
-          updatedAt: new Date().toISOString(),
-        };
-        setCurrentDashboard(updatedDashboard);
+          // Immediately update UI state for real-time feedback
+          const updatedDashboard = {
+            ...currentDashboard,
+            tiles: updatedTiles,
+            updatedAt: new Date().toISOString(),
+          };
+          setCurrentDashboard(updatedDashboard);
 
-        console.log(`[AdminContainer] 🔄 UI updated with tile ${index + 1}:`, {
-          tileTitle: tile.title,
-          totalTiles: updatedTiles.length,
-        });
-      }
-    }, [currentCompany, currentDashboard, updateDashboard]),
-    onCompleted: useCallback(async (workspace: WorkspaceSnapshot, sessionId: string) => {
-      console.log("[AdminContainer] ✅ Streaming completed, workspace ready");
+          console.log(
+            `[AdminContainer] 🔄 UI updated with tile ${index + 1}:`,
+            {
+              tileTitle: tile.title,
+              totalTiles: updatedTiles.length,
+            }
+          );
+        }
+      },
+      [currentCompany, currentDashboard, updateDashboard]
+    ),
+    onCompleted: useCallback(
+      async (workspace: WorkspaceSnapshot, sessionId: string) => {
+        console.log("[AdminContainer] ✅ Streaming completed, workspace ready");
 
-      // Update local generation state
-      setGenerationState(prev => ({
-        ...prev,
-        isGenerating: false,
-        sessionId,
-        tilesGenerated: prev.totalTiles, // Mark as complete
-      }));
+        // Update local generation state
+        setGenerationState((prev) => ({
+          ...prev,
+          isGenerating: false,
+          sessionId,
+          tilesGenerated: prev.totalTiles, // Mark as complete
+        }));
 
-      // Reset generation flag
-      generationInProgressRef.current = false;
+        // Reset generation flag
+        generationInProgressRef.current = false;
 
-      // Clear localStorage generation timestamp to prevent future polling
-      if (typeof window !== "undefined") {
-        window.localStorage.removeItem("last-generation-time");
-        console.log("[AdminContainer] 🧹 Cleared generation timestamp");
-      }
+        // Clear localStorage generation timestamp to prevent future polling
+        if (typeof window !== "undefined") {
+          window.localStorage.removeItem("last-generation-time");
+          console.log("[AdminContainer] 🧹 Cleared generation timestamp");
+        }
 
-      // Force reload of current dashboard from localStorage
-      console.log("[AdminContainer] 🔄 Reloading dashboard after streaming");
-      try {
-        if (currentCompany) {
-          const freshCompanies = loadCompaniesWithDashboards();
-          const freshCurrentCompany = freshCompanies.find(c => c.id === currentCompany.id);
+        // Force reload of current dashboard from localStorage
+        console.log("[AdminContainer] 🔄 Reloading dashboard after streaming");
+        try {
+          if (currentCompany) {
+            const freshCompanies = loadCompaniesWithDashboards();
+            const freshCurrentCompany = freshCompanies.find(
+              (c) => c.id === currentCompany.id
+            );
 
-          if (freshCurrentCompany) {
-            const freshCurrentDashboard = getActiveDashboard(freshCurrentCompany.id);
-            if (freshCurrentDashboard) {
-              setCurrentDashboard(freshCurrentDashboard);
-              setCurrentCompany(freshCurrentCompany);
+            if (freshCurrentCompany) {
+              const freshCurrentDashboard = getActiveDashboard(
+                freshCurrentCompany.id
+              );
+              if (freshCurrentDashboard) {
+                setCurrentDashboard(freshCurrentDashboard);
+                setCurrentCompany(freshCurrentCompany);
 
-              console.log("[AdminContainer] ✅ UI state updated with fresh data", {
-                tilesCount: freshCurrentDashboard.tiles?.length ?? 0,
-                dashboardId: freshCurrentDashboard.id,
-              });
+                console.log(
+                  "[AdminContainer] ✅ UI state updated with fresh data",
+                  {
+                    tilesCount: freshCurrentDashboard.tiles?.length ?? 0,
+                    dashboardId: freshCurrentDashboard.id,
+                  }
+                );
+              }
             }
           }
+        } catch (error) {
+          console.error(
+            "[AdminContainer] ❌ Failed to reload dashboard:",
+            error
+          );
         }
-      } catch (error) {
-        console.error("[AdminContainer] ❌ Failed to reload dashboard:", error);
-      }
 
-      // Refresh the SWR cache to get updated workspace data
-      refreshStoredWorkspaces();
-      mutate();
+        // Refresh the SWR cache to get updated workspace data
+        refreshStoredWorkspaces();
+        mutate();
 
-      // Success notification
-      push({
-        variant: "success",
-        title: "Insights Generated!",
-        description: `Successfully generated ${workspace.company?.tiles?.length || 0} insights.`,
-      });
-    }, [refreshStoredWorkspaces, mutate, push, currentCompany, currentDashboard]),
-    onError: useCallback((error: string) => {
-      console.error("[AdminContainer] ❌ Streaming error:", error);
+        // Success notification
+        push({
+          variant: "success",
+          title: "Insights Generated!",
+          description: `Successfully generated ${
+            workspace.company?.tiles?.length || 0
+          } insights.`,
+        });
+      },
+      [refreshStoredWorkspaces, mutate, push, currentCompany, currentDashboard]
+    ),
+    onError: useCallback(
+      (error: string) => {
+        console.error("[AdminContainer] ❌ Streaming error:", error);
 
-      // Update local generation state on error
-      setGenerationState(prev => ({
-        ...prev,
-        isGenerating: false,
-      }));
+        // Update local generation state on error
+        setGenerationState((prev) => ({
+          ...prev,
+          isGenerating: false,
+        }));
 
-      // Reset generation flag on error
-      generationInProgressRef.current = false;
+        // Reset generation flag on error
+        generationInProgressRef.current = false;
 
-      push({
-        variant: "destructive",
-        title: "Generation Failed",
-        description: `Error generating insights: ${error}`,
-      });
-    }, [push]),
+        push({
+          variant: "destructive",
+          title: "Generation Failed",
+          description: `Error generating insights: ${error}`,
+        });
+      },
+      [push]
+    ),
   });
 
   // Start streaming when coming from home page with recent generation
@@ -1142,13 +1230,11 @@ export function AdminContainer() {
     // CRITICAL FIX: Disable streaming completely to prevent overwriting batch tiles
     // Batch mode (/api/generate) already generates all tiles at once
     // Streaming would overwrite them one by one, causing the bug
-    console.log("[AdminContainer] ⏸️ Streaming DISABLED - using batch mode only");
+    console.log(
+      "[AdminContainer] ⏸️ Streaming DISABLED - using batch mode only"
+    );
     // All streaming code removed to prevent unreachable code errors
-  }, [
-    shouldUseStreaming,
-    workspace,
-    startStreaming,
-  ]);
+  }, [shouldUseStreaming, workspace, startStreaming]);
 
   // Migrate workspace to company structure and load current dashboard
   useEffect(() => {
@@ -1312,7 +1398,7 @@ export function AdminContainer() {
         source: "currentDashboard",
       });
       return dashboardTiles
-        .filter(tile => tile && typeof tile.orderIndex === 'number')
+        .filter((tile) => tile && typeof tile.orderIndex === "number")
         .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
     }
 
@@ -1395,13 +1481,13 @@ export function AdminContainer() {
           content: tile.content ?? "",
         };
       })
-      .filter(tile => tile && typeof tile.orderIndex === 'number')
+      .filter((tile) => tile && typeof tile.orderIndex === "number")
       .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
   }, [workspace, workspaceState.source, currentDashboard]);
 
   const activeTile = useMemo(
-    () => tiles.find((tile) => tile?.id === selectedTileId) ?? null,
-    [tiles, selectedTileId]
+    () => tiles.find((tile) => tile?.id === adminState.selectedTileId) ?? null,
+    [tiles, adminState.selectedTileId]
   );
 
   const notes: Note[] = useMemo(() => {
@@ -1455,18 +1541,20 @@ export function AdminContainer() {
   ]);
 
   const activeContact = useMemo(
-    () => contacts.find((contact) => contact.id === selectedContactId) ?? null,
-    [contacts, selectedContactId]
+    () =>
+      contacts.find((contact) => contact.id === adminState.selectedContactId) ??
+      null,
+    [contacts, adminState.selectedContactId]
   );
 
   useEffect(() => {
     if (
-      selectedContactId &&
-      !contacts.some((contact) => contact.id === selectedContactId)
+      adminState.selectedContactId &&
+      !contacts.some((contact) => contact.id === adminState.selectedContactId)
     ) {
-      setSelectedContactId(null);
+      setAdminState((prev) => ({ ...prev, selectedContactId: null }));
     }
-  }, [contacts, selectedContactId]);
+  }, [contacts, adminState.selectedContactId]);
   const companyOptions = useMemo(() => {
     const map = new Map<string, WorkspaceSnapshot>();
     storedWorkspaces.forEach(({ sessionId, snapshot }) => {
@@ -2154,13 +2242,19 @@ export function AdminContainer() {
         );
 
         // Generate tiles from template
-        console.log("🎯 [GENERATION-TRACKING] AdminContainer calling /api/generate", {
-          source: "AdminContainer.handleCreateFromTemplate",
-          timestamp: new Date().toISOString(),
-          templateId,
-          dashboardName,
-          generationTimeFlag: typeof window !== "undefined" ? window.localStorage.getItem("last-generation-time") : null,
-        });
+        console.log(
+          "🎯 [GENERATION-TRACKING] AdminContainer calling /api/generate",
+          {
+            source: "AdminContainer.handleCreateFromTemplate",
+            timestamp: new Date().toISOString(),
+            templateId,
+            dashboardName,
+            generationTimeFlag:
+              typeof window !== "undefined"
+                ? window.localStorage.getItem("last-generation-time")
+                : null,
+          }
+        );
 
         const response = await fetch("/api/generate", {
           method: "POST",
@@ -2669,7 +2763,7 @@ export function AdminContainer() {
 
       // Reload workspace from server to ensure cookie is updated
       await mutate();
-      
+
       refreshStoredWorkspaces();
       push({
         title: "Tile removed",
@@ -2727,7 +2821,9 @@ export function AdminContainer() {
         isUpdatingDashboardRef.current = true;
         try {
           // Reorder tiles based on new order
-          const tileMap = new Map(currentDashboard.tiles.filter(t => t?.id).map((t) => [t.id, t]));
+          const tileMap = new Map(
+            currentDashboard.tiles.filter((t) => t?.id).map((t) => [t.id, t])
+          );
           const reorderedTiles = order
             .map((id, index) => {
               const tile = tileMap.get(id);
@@ -2831,12 +2927,18 @@ export function AdminContainer() {
     jobTitle: string;
     linkedinUrl: string;
   }) => {
-    if (isSavingContact) return;
-    // Allow creating contacts if we have a valid workspace loaded
-    if (!data || !data.company) {
+    if (adminState.pendingOperations.has("create-contact")) return;
+
+    // ✅ CONTEXT VALIDATION: Verifica workspace atual e evita race conditions
+    if (
+      !data ||
+      !data.company ||
+      adminState.viewingWorkspaceId !== data.sessionId
+    ) {
       push({
         title: "No workspace loaded",
-        description: "Please generate a workspace first before adding contacts.",
+        description:
+          "Please generate a workspace first before adding contacts.",
         variant: "destructive",
       });
       return;
@@ -2854,8 +2956,8 @@ export function AdminContainer() {
       return;
     }
 
-    setIsSavingContact(true);
-    try {
+    // ✅ QUEUED OPERATION: Evita race conditions
+    await enqueueOperation(async () => {
       const response = await fetch("/api/workspace/contacts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -2865,34 +2967,30 @@ export function AdminContainer() {
           linkedinUrl: payload.linkedinUrl.trim(),
         }),
       });
+
       if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(
-          (data.error as string) ?? "We couldn't save this contact right now."
+          (errorData.error as string) ??
+            "We couldn't save this contact right now."
         );
       }
+
       if (isGuest) {
         commitUsage("createContact");
       }
-      setAddContactModalOpen(false);
+
+      // ✅ ATOMIC UPDATE: SWR + localStorage juntos
       await mutate();
       refreshStoredWorkspaces();
+
       push({
         title: "Contact saved",
         variant: "success",
       });
-    } catch (err) {
-      push({
-        title: "Contact not saved",
-        description:
-          err instanceof Error
-            ? err.message
-            : "Please try again in a few moments.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSavingContact(false);
-    }
+    }, "create-contact");
+
+    setAddContactModalOpen(false);
   };
 
   const handleGenerateWorkspaceFromModal = async ({
@@ -2908,11 +3006,11 @@ export function AdminContainer() {
     researchTarget: string;
     researchWebsite: string;
   }) => {
-    if (isGeneratingWorkspace) return;
+    if (adminState.isGeneratingWorkspace) return;
     if (!ensureAllowance("createWorkspace")) {
       return;
     }
-    setIsGeneratingWorkspace(true);
+    setAdminState((prev) => ({ ...prev, isGeneratingWorkspace: true }));
 
     const payload = {
       salesRepCompany: company.trim(),
@@ -2928,12 +3026,18 @@ export function AdminContainer() {
         description: `Starting AI generation for ${payload.targetCompany}.`,
       });
 
-      console.log("🎯 [GENERATION-TRACKING] AdminContainer calling /api/generate", {
-        source: "AdminContainer.handleGenerateWorkspace (Add Company modal)",
-        timestamp: new Date().toISOString(),
-        targetCompany: payload.targetCompany,
-        generationTimeFlag: typeof window !== "undefined" ? window.localStorage.getItem("last-generation-time") : null,
-      });
+      console.log(
+        "🎯 [GENERATION-TRACKING] AdminContainer calling /api/generate",
+        {
+          source: "AdminContainer.handleGenerateWorkspace (Add Company modal)",
+          timestamp: new Date().toISOString(),
+          targetCompany: payload.targetCompany,
+          generationTimeFlag:
+            typeof window !== "undefined"
+              ? window.localStorage.getItem("last-generation-time")
+              : null,
+        }
+      );
 
       const response = await fetch("/api/generate", {
         method: "POST",
@@ -2984,24 +3088,24 @@ export function AdminContainer() {
       });
       throw new Error(message);
     } finally {
-      setIsGeneratingWorkspace(false);
+      setAdminState((prev) => ({ ...prev, isGeneratingWorkspace: false }));
     }
   };
 
   const handleOpenTile = (tile: Tile) => {
-    setSelectedTileId(tile.id);
+    setAdminState((prev) => ({ ...prev, selectedTileId: tile.id }));
   };
 
   const handleCloseTile = () => {
-    setSelectedTileId(null);
+    setAdminState((prev) => ({ ...prev, selectedTileId: null }));
   };
 
   const handleOpenContactCard = (contact: Contact) => {
-    setSelectedContactId(contact.id);
+    setAdminState((prev) => ({ ...prev, selectedContactId: contact.id }));
   };
 
   const handleCloseContactModal = () => {
-    setSelectedContactId(null);
+    setAdminState((prev) => ({ ...prev, selectedContactId: null }));
   };
 
   const handleSubmitContactChat = async (
@@ -3268,6 +3372,7 @@ export function AdminContainer() {
       onSubmit={(payload) => handleSubmitFollowUp(activeTile.id, payload)}
       isSubmitting={isChatting}
       theme={theme}
+      isGuest={isGuest}
     />
   ) : null;
 
@@ -3278,7 +3383,8 @@ export function AdminContainer() {
       workspace.company.name === "New Company" &&
       workspace.generatedAt === null &&
       (!workspace.company.tiles || workspace.company.tiles.length === 0) &&
-      (!workspace.company.contacts || workspace.company.contacts.length === 0) &&
+      (!workspace.company.contacts ||
+        workspace.company.contacts.length === 0) &&
       (!workspace.company.notes || workspace.company.notes.length === 0)
     );
   }, [workspace]);
@@ -3304,10 +3410,11 @@ export function AdminContainer() {
             Welcome to your workspace
           </h2>
           <p className="text-[#6f6f6f] mb-6">
-            Generate insights for your first company to get started with AI-powered research and outreach.
+            Generate insights for your first company to get started with
+            AI-powered research and outreach.
           </p>
           <button
-            onClick={() => router.push('/')}
+            onClick={() => router.push("/")}
             className="inline-flex items-center justify-center rounded-full bg-black px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#1a1a1a]"
           >
             Generate Insights
@@ -3377,6 +3484,10 @@ export function AdminContainer() {
             onSelectDashboard={handleSelectDashboard}
             onDeleteDashboard={handleDeleteDashboard}
             onApplyTemplate={handleApplyTemplate}
+            onToggleSidebar={() => {
+              // This will be handled by AdminShellAde's internal state
+              // We could pass this up if needed, but for now internal state is fine
+            }}
           />
         }
       >
@@ -3416,20 +3527,25 @@ export function AdminContainer() {
 
               // PRIORITY 3: Check localStorage as last resort
               if (typeof window !== "undefined") {
-                const lastGenerationTime = window.localStorage.getItem("last-generation-time");
+                const lastGenerationTime = window.localStorage.getItem(
+                  "last-generation-time"
+                );
                 if (lastGenerationTime) {
                   const genTime = parseInt(lastGenerationTime, 10);
                   const now = Date.now();
                   const fiveMinutesAgo = now - 5 * 60 * 1000;
                   if (genTime > fiveMinutesAgo) {
-                    console.log("[EmptyState] 📱 localStorage generation timestamp");
+                    console.log(
+                      "[EmptyState] 📱 localStorage generation timestamp"
+                    );
                     return true;
                   }
                 }
               }
 
               // PRIORITY 4: Check if dashboard is intentionally blank
-              const isBlankDashboard = currentDashboard &&
+              const isBlankDashboard =
+                currentDashboard &&
                 !currentDashboard.templateId &&
                 currentDashboard.name !== "Default Dashboard";
 
@@ -3456,10 +3572,14 @@ export function AdminContainer() {
                   isLoading={false}
                   isGenerating={true} // Diferencia de loading normal
                   streamingProgress={
-                    (shouldUseStreaming && isStreaming) || generationState.isGenerating
+                    (shouldUseStreaming && isStreaming) ||
+                    generationState.isGenerating
                       ? {
-                          completed: generationState.tilesGenerated || streamingCompletedTiles,
-                          total: generationState.totalTiles || streamingTotalTiles,
+                          completed:
+                            generationState.tilesGenerated ||
+                            streamingCompletedTiles,
+                          total:
+                            generationState.totalTiles || streamingTotalTiles,
                         }
                       : undefined
                   }
@@ -3576,7 +3696,10 @@ export function AdminContainer() {
               refreshStoredWorkspaces();
             }}
           />
-          <FilesPlaceholderAde appearance={appearanceTokens} isLoggedIn={isMember} />
+          <FilesPlaceholderAde
+            appearance={appearanceTokens}
+            isLoggedIn={isMember}
+          />
         </div>
         {tileDetailModal}
         {activeContact ? (
@@ -3617,7 +3740,7 @@ export function AdminContainer() {
         open={isAddCompanyModalOpen}
         onClose={() => setAddCompanyModalOpen(false)}
         onSubmit={handleGenerateWorkspaceFromModal}
-        isSubmitting={isGeneratingWorkspace}
+        isSubmitting={adminState.isGeneratingWorkspace}
       />
 
       <AddPromptModal
