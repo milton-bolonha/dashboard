@@ -72,30 +72,53 @@ export async function POST(request: Request) {
     const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
     let event;
 
-    // DEVELOPMENT MODE: Skip signature validation if webhook secret is not configured
+    // DEVELOPMENT MODE: Allow testing without webhook secret
+    // PRODUCTION MODE: ALWAYS validate signature
     const isDevelopment = process.env.NODE_ENV !== "production";
     const hasWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET && process.env.STRIPE_WEBHOOK_SECRET.length > 10;
 
+    // Security logging
+    console.log("[Stripe Webhook] 🔐 Security check", {
+      environment: process.env.NODE_ENV,
+      hasSecret: hasWebhookSecret,
+      hasSignature: !!signature,
+      timestamp: new Date().toISOString(),
+    });
+
     if (isDevelopment && !hasWebhookSecret) {
-      console.warn("[Stripe Webhook] ⚠️ DEVELOPMENT MODE: Skipping signature validation (STRIPE_WEBHOOK_SECRET not configured)");
+      // DEV MODE: Allow testing without secret (for local development only)
+      console.warn("[Stripe Webhook] ⚠️ DEVELOPMENT MODE: Skipping signature validation");
+      console.warn("[Stripe Webhook] ⚠️ This is INSECURE and should NEVER be used in production");
+      console.warn("[Stripe Webhook] ⚠️ Set STRIPE_WEBHOOK_SECRET before deploying to production");
+      
       try {
-        // In development, try to parse the event directly (less secure but allows testing)
         event = JSON.parse(body);
-        console.log("[Stripe Webhook] 🔧 DEV MODE: Event parsed without signature validation:", event.type);
+        console.log("[Stripe Webhook] 🔧 DEV MODE: Event parsed (unvalidated):", event.type);
+        
+        // Add dev-mode marker to event
+        (event as any).__DEV_MODE_UNVALIDATED__ = true;
       } catch (parseErr) {
-        console.error("[Stripe Webhook] ❌ Failed to parse webhook body in dev mode:", parseErr);
+        console.error("[Stripe Webhook] ❌ Failed to parse webhook body:", parseErr);
         return NextResponse.json(
           { error: "Invalid JSON in development mode" },
           { status: 400 }
         );
       }
     } else {
-      // PRODUCTION MODE: Always validate signature
+      // PRODUCTION MODE or DEV MODE WITH SECRET: Always validate signature
       if (!signature) {
         console.error("[Stripe Webhook] ❌ Missing stripe-signature header");
         return NextResponse.json(
           { error: "Missing signature" },
           { status: 400 }
+        );
+      }
+
+      if (!process.env.STRIPE_WEBHOOK_SECRET) {
+        console.error("[Stripe Webhook] ❌ STRIPE_WEBHOOK_SECRET not configured");
+        return NextResponse.json(
+          { error: "Webhook secret not configured" },
+          { status: 500 }
         );
       }
 
@@ -105,6 +128,7 @@ export async function POST(request: Request) {
           signature,
           process.env.STRIPE_WEBHOOK_SECRET
         );
+        console.log("[Stripe Webhook] ✅ Signature validated successfully");
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
         console.error("[Stripe Webhook] ❌ Signature verification failed:", errorMessage);
