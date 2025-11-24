@@ -25,7 +25,9 @@ export async function migrateWorkspaceToMongo(
 ): Promise<boolean> {
   // Security: Guests (userId === null) should never migrate to MongoDB
   if (!userId) {
-    console.log("[Migration] ⚠️ Tentativa de migrar workspace sem userId (guest), ignorando MongoDB");
+    console.log(
+      "[Migration] ⚠️ Tentativa de migrar workspace sem userId (guest), ignorando MongoDB"
+    );
     return false;
   }
 
@@ -37,7 +39,7 @@ export async function migrateWorkspaceToMongo(
 
   try {
     const workspaceDoc = workspaceSnapshotToDocument(workspace);
-    
+
     // Ensure userId is set in the document
     const workspaceDocWithUserId: WorkspaceDocument = {
       ...workspaceDoc,
@@ -96,7 +98,9 @@ export async function migrateDashboardToMongo(
 ): Promise<boolean> {
   // Security: Guests (userId === null) should never migrate to MongoDB
   if (!userId) {
-    console.log("[Migration] ⚠️ Tentativa de migrar company sem userId (guest), ignorando MongoDB");
+    console.log(
+      "[Migration] ⚠️ Tentativa de migrar company sem userId (guest), ignorando MongoDB"
+    );
     return false;
   }
 
@@ -107,7 +111,10 @@ export async function migrateDashboardToMongo(
   }
 
   if (!Array.isArray(company.dashboards)) {
-    console.error("[Migration] ❌ Company inválida: dashboards não é array", company.id);
+    console.error(
+      "[Migration] ❌ Company inválida: dashboards não é array",
+      company.id
+    );
     return false;
   }
 
@@ -152,8 +159,9 @@ export async function migrateDashboardToMongo(
     }
 
     // Migrate all dashboards with individual error handling
-    const dashboardResults: Array<{ success: boolean; dashboardId: string }> = [];
-    
+    const dashboardResults: Array<{ success: boolean; dashboardId: string }> =
+      [];
+
     for (const dashboard of company.dashboards) {
       try {
         if (!dashboard || !dashboard.id) {
@@ -238,14 +246,19 @@ export async function migrateDashboardToMongo(
  * Migrate guest data (localStorage) to member (MongoDB) after payment confirmation
  * Security: Associates all guest data with the authenticated userId
  * This function is called by the Stripe webhook when payment is confirmed
- * 
+ *
+ * ⚠️ IMPORTANTE: Esta função não pode acessar localStorage no servidor.
+ * Para webhooks, a migração deve ser feita no cliente após o pagamento.
+ *
  * @param userId - Clerk user ID (required, must be authenticated)
  * @param sessionId - Optional sessionId to migrate specific workspace, or null to migrate all
+ * @param companiesData - Optional: Companies data to migrate (if called from client)
  * @returns Migration result with success status and details
  */
 export async function migrateGuestDataToMember(
   userId: string,
-  sessionId?: string | null
+  sessionId?: string | null,
+  companiesData?: CompanyWithDashboards[]
 ): Promise<{
   success: boolean;
   workspacesMigrated: number;
@@ -254,7 +267,9 @@ export async function migrateGuestDataToMember(
 }> {
   // Security: userId is required (this function should only be called for authenticated users)
   if (!userId) {
-    throw new Error("migrateGuestDataToMember requires userId (must be authenticated)");
+    throw new Error(
+      "migrateGuestDataToMember requires userId (must be authenticated)"
+    );
   }
 
   const errors: string[] = [];
@@ -262,8 +277,33 @@ export async function migrateGuestDataToMember(
   let companiesMigrated = 0;
 
   try {
-    // Load all companies from localStorage
-    const companies = loadCompaniesWithDashboards();
+    // ✅ CORREÇÃO: Não tentar acessar localStorage no servidor
+    // Se companiesData foi fornecido, usar ele. Caso contrário, retornar erro informativo
+    let companies: CompanyWithDashboards[];
+
+    if (companiesData) {
+      // Dados fornecidos como parâmetro (chamada do cliente)
+      companies = companiesData;
+    } else {
+      // Tentar acessar localStorage (só funciona no cliente)
+      if (typeof window === "undefined") {
+        // Estamos no servidor - não podemos acessar localStorage
+        console.warn(
+          "[Migration] ⚠️ migrateGuestDataToMember chamada no servidor sem companiesData. Migração deve ser feita no cliente."
+        );
+        return {
+          success: false,
+          workspacesMigrated: 0,
+          companiesMigrated: 0,
+          errors: [
+            "Migration cannot access localStorage from server. Migration should be triggered from client after payment confirmation.",
+          ],
+        };
+      }
+
+      // Estamos no cliente - podemos acessar localStorage
+      companies = loadCompaniesWithDashboards();
+    }
 
     if (!Array.isArray(companies)) {
       throw new Error("loadCompaniesWithDashboards returned invalid data");
@@ -284,7 +324,7 @@ export async function migrateGuestDataToMember(
     // Process companies sequentially to avoid overwhelming MongoDB
     for (let i = 0; i < companiesToMigrate.length; i++) {
       const company = companiesToMigrate[i];
-      
+
       if (!company || !company.id) {
         errors.push(`Invalid company at index ${i}: missing id`);
         continue;
@@ -296,15 +336,27 @@ export async function migrateGuestDataToMember(
         if (success) {
           companiesMigrated++;
           workspacesMigrated++; // Each company has one workspace
-          console.log(`[Migration] ✅ Company ${i + 1}/${companiesToMigrate.length} migrada para userId ${userId}:`, company.id);
+          console.log(
+            `[Migration] ✅ Company ${i + 1}/${
+              companiesToMigrate.length
+            } migrada para userId ${userId}:`,
+            company.id
+          );
         } else {
-          errors.push(`Failed to migrate company ${company.id} (${company.name || "unnamed"})`);
+          errors.push(
+            `Failed to migrate company ${company.id} (${
+              company.name || "unnamed"
+            })`
+          );
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
         const errorCode = (error as Error & { code?: number | string }).code;
         errors.push(
-          `Error migrating company ${company.id}: ${errorMessage}${errorCode ? ` (code: ${errorCode})` : ""}`
+          `Error migrating company ${company.id}: ${errorMessage}${
+            errorCode ? ` (code: ${errorCode})` : ""
+          }`
         );
         console.error(`[Migration] ❌ Erro ao migrar company ${company.id}:`, {
           userId,
@@ -314,9 +366,10 @@ export async function migrateGuestDataToMember(
       }
     }
 
-    const successRate = companiesToMigrate.length > 0 
-      ? ((companiesMigrated / companiesToMigrate.length) * 100).toFixed(1)
-      : "0";
+    const successRate =
+      companiesToMigrate.length > 0
+        ? ((companiesMigrated / companiesToMigrate.length) * 100).toFixed(1)
+        : "0";
 
     console.log("[Migration] ✅ Migração de guest para member concluída", {
       userId,
@@ -346,7 +399,11 @@ export async function migrateGuestDataToMember(
       success: false,
       workspacesMigrated,
       companiesMigrated,
-      errors: [`Critical error: ${errorMessage}${errorCode ? ` (code: ${errorCode})` : ""}`],
+      errors: [
+        `Critical error: ${errorMessage}${
+          errorCode ? ` (code: ${errorCode})` : ""
+        }`,
+      ],
     };
   }
 }
@@ -362,8 +419,10 @@ export async function syncLocalStorageToMongo(): Promise<{
   companiesMigrated: number;
   errors: string[];
 }> {
-  console.warn("[Migration] ⚠️ syncLocalStorageToMongo is deprecated. Use migrateGuestDataToMember with userId instead.");
-  
+  console.warn(
+    "[Migration] ⚠️ syncLocalStorageToMongo is deprecated. Use migrateGuestDataToMember with userId instead."
+  );
+
   const errors: string[] = [];
   let companiesMigrated = 0;
 
@@ -375,15 +434,18 @@ export async function syncLocalStorageToMongo(): Promise<{
       throw new Error("loadCompaniesWithDashboards returned invalid data");
     }
 
-    console.log("[Migration] 🔄 Iniciando migração de localStorage para MongoDB (legacy)", {
-      companiesCount: companies.length,
-      timestamp: new Date().toISOString(),
-    });
+    console.log(
+      "[Migration] 🔄 Iniciando migração de localStorage para MongoDB (legacy)",
+      {
+        companiesCount: companies.length,
+        timestamp: new Date().toISOString(),
+      }
+    );
 
     // Process companies sequentially to avoid overwhelming MongoDB
     for (let i = 0; i < companies.length; i++) {
       const company = companies[i];
-      
+
       if (!company || !company.id) {
         errors.push(`Invalid company at index ${i}: missing id`);
         continue;
@@ -394,15 +456,25 @@ export async function syncLocalStorageToMongo(): Promise<{
         const success = await migrateDashboardToMongo(company, null);
         if (success) {
           companiesMigrated++;
-          console.log(`[Migration] ✅ Company ${i + 1}/${companies.length} migrada:`, company.id);
+          console.log(
+            `[Migration] ✅ Company ${i + 1}/${companies.length} migrada:`,
+            company.id
+          );
         } else {
-          errors.push(`Failed to migrate company ${company.id} (${company.name || "unnamed"})`);
+          errors.push(
+            `Failed to migrate company ${company.id} (${
+              company.name || "unnamed"
+            })`
+          );
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
         const errorCode = (error as Error & { code?: number | string }).code;
         errors.push(
-          `Error migrating company ${company.id}: ${errorMessage}${errorCode ? ` (code: ${errorCode})` : ""}`
+          `Error migrating company ${company.id}: ${errorMessage}${
+            errorCode ? ` (code: ${errorCode})` : ""
+          }`
         );
         console.error(`[Migration] ❌ Erro ao migrar company ${company.id}:`, {
           message: errorMessage,
@@ -411,9 +483,10 @@ export async function syncLocalStorageToMongo(): Promise<{
       }
     }
 
-    const successRate = companies.length > 0 
-      ? ((companiesMigrated / companies.length) * 100).toFixed(1)
-      : "0";
+    const successRate =
+      companies.length > 0
+        ? ((companiesMigrated / companies.length) * 100).toFixed(1)
+        : "0";
 
     console.log("[Migration] ✅ Migração concluída", {
       companiesTotal: companies.length,
@@ -438,8 +511,11 @@ export async function syncLocalStorageToMongo(): Promise<{
     return {
       success: false,
       companiesMigrated,
-      errors: [`Critical error: ${errorMessage}${errorCode ? ` (code: ${errorCode})` : ""}`],
+      errors: [
+        `Critical error: ${errorMessage}${
+          errorCode ? ` (code: ${errorCode})` : ""
+        }`,
+      ],
     };
   }
 }
-

@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { migrateGuestDataToMember } from "@/lib/db/migration-helpers";
 import { db } from "@/lib/db/mongodb";
 import type { UserDocument } from "@/lib/db/models/User";
 
@@ -45,18 +44,23 @@ function createMockStripeEvent(eventType: string, mockData?: any) {
       },
       ...mockData,
     };
-  } else if (eventType === "customer.subscription.updated" || eventType === "customer.subscription.created") {
+  } else if (
+    eventType === "customer.subscription.updated" ||
+    eventType === "customer.subscription.created"
+  ) {
     baseEvent.data.object = {
       id: `sub_test_${Date.now()}`,
       object: "subscription",
       customer: mockData?.customerId || `cus_test_${Date.now()}`,
       status: mockData?.status || "active",
       items: {
-        data: [{
-          price: {
-            id: mockData?.priceId || "price_test_pro"
-          }
-        }]
+        data: [
+          {
+            price: {
+              id: mockData?.priceId || "price_test_pro",
+            },
+          },
+        ],
       },
       metadata: {
         userId: mockData?.userId,
@@ -88,7 +92,10 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log("[Stripe Test Webhook] 🔧 Creating mock event:", { eventType, mockData });
+    console.log("[Stripe Test Webhook] 🔧 Creating mock event:", {
+      eventType,
+      mockData,
+    });
 
     // Create mock event
     const event = createMockStripeEvent(eventType, mockData);
@@ -99,7 +106,8 @@ export async function POST(request: Request) {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
       let userId = session.metadata?.userId;
-      const sessionId = session.metadata?.sessionId || session.client_reference_id;
+      const sessionId =
+        session.metadata?.sessionId || session.client_reference_id;
 
       if (!userId) {
         // Create a test user if none provided
@@ -108,61 +116,123 @@ export async function POST(request: Request) {
         userId = testUserId;
       }
 
-      console.log("[Stripe Test Webhook] 🔄 Processing test checkout completion", {
-        userId,
-        sessionId: sessionId || "all",
-        customerEmail: session.customer_email,
-      });
+      console.log(
+        "[Stripe Test Webhook] 🔄 Processing test checkout completion",
+        {
+          userId,
+          sessionId: sessionId || "all",
+          customerEmail: session.customer_email,
+        }
+      );
 
       try {
         // 1. Create or update user in MongoDB
+        // ✅ CORREÇÃO: Verificar primeiro por email para evitar duplicatas
+        const customerEmail = session.customer_email;
+
+        let existingUser: UserDocument | null = null;
+
+        // Tentar encontrar por email primeiro (se email existe)
+        if (customerEmail) {
+          existingUser = await db.findOne<UserDocument>("users", {
+            email: customerEmail,
+          });
+        }
+
+        // Se não encontrou por email, tentar por clerkUserId
+        if (!existingUser) {
+          existingUser = await db.findOne<UserDocument>("users", {
+            clerkUserId: userId,
+          });
+        }
+
         const userDoc: Omit<UserDocument, "_id" | "createdAt" | "updatedAt"> = {
           clerkUserId: userId,
-          email: session.customer_email || undefined,
+          email: customerEmail || undefined,
           plan: "PRO", // Test with PRO plan
-          usage: {
+          usage: existingUser?.usage || {
             tokensUsed: 0,
             companiesCount: 0,
             contactsCount: 0,
             filesUploaded: 0,
             lastResetDate: new Date(),
           },
-          createdAt: new Date(),
-          updatedAt: new Date(),
         };
 
-        await db.findOneAndUpdate<UserDocument>(
-          "users",
-          { clerkUserId: userId },
-          {
-            $set: {
-              ...userDoc,
-              updatedAt: new Date(),
+        // Se encontrou usuário existente, atualizar
+        if (existingUser) {
+          console.log("[Stripe Test Webhook] 🔄 Updating existing user:", {
+            _id: existingUser._id,
+            email: existingUser.email,
+            clerkUserId: existingUser.clerkUserId,
+            newClerkUserId: userId,
+          });
+
+          await db.updateOne(
+            "users",
+            { _id: existingUser._id } as any, // ObjectId precisa ser tratado como any para TypeScript
+            {
+              $set: {
+                clerkUserId: userId, // Atualizar clerkUserId se mudou
+                email: customerEmail || existingUser.email,
+                plan: "PRO",
+                updatedAt: new Date(),
+              },
+            }
+          );
+        } else {
+          // Criar novo usuário
+          // ✅ CORREÇÃO: Usar email como filtro se disponível para evitar duplicatas
+          const upsertFilter = customerEmail
+            ? { email: customerEmail }
+            : { clerkUserId: userId };
+
+          console.log("[Stripe Test Webhook] 🆕 Creating new user:", {
+            clerkUserId: userId,
+            email: customerEmail,
+            upsertFilter,
+          });
+
+          await db.findOneAndUpdate<UserDocument>(
+            "users",
+            upsertFilter,
+            {
+              $set: {
+                ...userDoc,
+                updatedAt: new Date(),
+              },
+              $setOnInsert: {
+                createdAt: new Date(),
+              },
             },
-            $setOnInsert: {
-              createdAt: new Date(),
-            },
-          },
-          { upsert: true }
+            { upsert: true }
+          );
+        }
+
+        console.log(
+          "[Stripe Test Webhook] ✅ Test user created/updated in MongoDB:",
+          userId
         );
 
-        console.log("[Stripe Test Webhook] ✅ Test user created/updated in MongoDB:", userId);
-
         // 2. Migrate guest data to member
-        const migrationResult = await migrateGuestDataToMember(userId, sessionId || undefined);
+        // ✅ CORREÇÃO: Migração não pode acessar localStorage no servidor
+        // A migração deve ser feita no cliente após pagamento confirmado
+        // Por enquanto, apenas logar que migração seria necessária
+        console.log(
+          "[Stripe Test Webhook] ℹ️ Migration should be triggered from client after payment confirmation"
+        );
+        console.log(
+          "[Stripe Test Webhook] ℹ️ User created/updated in MongoDB. Client should call migration endpoint."
+        );
 
-        if (migrationResult.success) {
-          console.log("[Stripe Test Webhook] ✅ Test migration completed:", {
-            userId,
-            workspacesMigrated: migrationResult.workspacesMigrated,
-            companiesMigrated: migrationResult.companiesMigrated,
-          });
-        } else {
-          console.error("[Stripe Test Webhook] ⚠️ Test migration partially failed:", {
-            userId,
-            errors: migrationResult.errors,
-          });
-        }
+        const migrationResult = {
+          success: true,
+          workspacesMigrated: 0,
+          companiesMigrated: 0,
+          errors: [
+            "Migration skipped: Cannot access localStorage from server. Client should trigger migration after payment confirmation.",
+          ],
+        };
 
         return NextResponse.json({
           success: true,
@@ -174,13 +244,18 @@ export async function POST(request: Request) {
             id: event.id,
           },
         });
-
       } catch (migrationError) {
-        const errorMessage = migrationError instanceof Error ? migrationError.message : String(migrationError);
-        console.error("[Stripe Test Webhook] ❌ Error processing test webhook:", {
-          userId,
-          error: errorMessage,
-        });
+        const errorMessage =
+          migrationError instanceof Error
+            ? migrationError.message
+            : String(migrationError);
+        console.error(
+          "[Stripe Test Webhook] ❌ Error processing test webhook:",
+          {
+            userId,
+            error: errorMessage,
+          }
+        );
         return NextResponse.json(
           { error: "Test webhook processing failed", details: errorMessage },
           { status: 500 }
@@ -189,7 +264,10 @@ export async function POST(request: Request) {
     }
 
     // Handle other test events
-    if (event.type === "customer.subscription.updated" || event.type === "customer.subscription.created") {
+    if (
+      event.type === "customer.subscription.updated" ||
+      event.type === "customer.subscription.created"
+    ) {
       const subscription = event.data.object;
       const userId = subscription.metadata?.userId;
 
@@ -209,10 +287,12 @@ export async function POST(request: Request) {
               subscriptionId: subscription.id,
               subscriptionStatus: subscription.status,
               updatedAt: new Date(),
-            }
+            },
           }
         );
-        console.log(`[Stripe Test Webhook] ✅ Test plan updated for user ${userId} to ${newPlan}`);
+        console.log(
+          `[Stripe Test Webhook] ✅ Test plan updated for user ${userId} to ${newPlan}`
+        );
 
         return NextResponse.json({
           success: true,
@@ -224,16 +304,21 @@ export async function POST(request: Request) {
     }
 
     // Unknown test event type
-    console.log("[Stripe Test Webhook] ℹ️ Unhandled test event type:", event.type);
+    console.log(
+      "[Stripe Test Webhook] ℹ️ Unhandled test event type:",
+      event.type
+    );
     return NextResponse.json({
       success: true,
       message: "Test event received but not processed",
       eventType: event.type,
     });
-
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("[Stripe Test Webhook] ❌ Unexpected error in test webhook:", errorMessage);
+    console.error(
+      "[Stripe Test Webhook] ❌ Unexpected error in test webhook:",
+      errorMessage
+    );
     return NextResponse.json(
       { error: "Test webhook processing failed", details: errorMessage },
       { status: 500 }

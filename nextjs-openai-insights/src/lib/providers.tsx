@@ -6,6 +6,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 
 import { ToastProvider } from "@/lib/state/toast-context";
 import { MembershipProvider } from "@/lib/state/membership-context";
+import { PaymentProvider } from "@/lib/state/payment-context";
 
 const swrConfig = {
   fetcher: async (resource: RequestInfo, init?: RequestInit) => {
@@ -49,9 +50,11 @@ export function Providers({ children }: PropsWithChildren) {
     );
     return (
       <SWRConfig value={swrConfig}>
-        <MembershipProvider>
-          <ToastProvider>{children}</ToastProvider>
-        </MembershipProvider>
+        <PaymentProvider>
+          <MembershipProvider>
+            <ToastProvider>{children}</ToastProvider>
+          </MembershipProvider>
+        </PaymentProvider>
       </SWRConfig>
     );
   }
@@ -59,11 +62,12 @@ export function Providers({ children }: PropsWithChildren) {
   return (
     <ClerkProvider publishableKey={clerkPublishableKey}>
       <SWRConfig value={swrConfig}>
-        <MembershipProvider>
-          <ToastProvider>{children}</ToastProvider>
-        </MembershipProvider>
+        <PaymentProvider>
+          <MembershipProvider>
+            <ToastProvider>{children}</ToastProvider>
+          </MembershipProvider>
+        </PaymentProvider>
       </SWRConfig>
     </ClerkProvider>
   );
 }
-

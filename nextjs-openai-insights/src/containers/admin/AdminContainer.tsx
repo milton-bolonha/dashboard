@@ -61,7 +61,9 @@ import {
   useMembership,
   type GuestAction,
 } from "@/lib/state/membership-context";
+import { usePayment } from "@/lib/state/payment-context";
 import { UpgradeModal } from "@/components/ui/UpgradeModal";
+import { PaymentEmailModal } from "@/components/ui/PaymentEmailModal";
 
 const DEFAULT_BASE_COLOR = process.env.NEXT_PUBLIC_ADE_BASE_COLOR ?? "#f5f5f0";
 const BASE_COLOR_STORAGE_KEY = "ade-base-color";
@@ -157,11 +159,13 @@ export function AdminContainer() {
 
           // If we have tiles but current dashboard doesn't, sync them
           // CRITICAL: Only sync once per session to avoid multiple re-renders
+          // ✅ CORREÇÃO: Não sincronizar se estamos atualizando dashboard (pode sobrescrever tiles)
           if (
             currentCompany &&
             currentDashboard &&
             currentDashboard.tiles.length === 0 &&
-            tilesSyncedForSessionRef.current !== data.sessionId
+            tilesSyncedForSessionRef.current !== data.sessionId &&
+            !isUpdatingDashboardRef.current
           ) {
             console.log(
               "[AdminContainer] 🔄 Syncing tiles to current dashboard",
@@ -182,6 +186,10 @@ export function AdminContainer() {
 
             // Force refresh companies/dashboards to trigger UI update
             refreshStoredWorkspaces();
+          } else if (isUpdatingDashboardRef.current) {
+            console.log(
+              "[AdminContainer] 🔒 Skipping tile sync - dashboard update in progress"
+            );
           }
 
           // Clear generation timestamp when tiles are detected
@@ -430,7 +438,42 @@ export function AdminContainer() {
     markMember,
     stripeCheckoutUrl,
   } = useMembership();
+  const payment = usePayment();
   const [isUpgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [isPaymentEmailModalOpen, setIsPaymentEmailModalOpen] = useState(false);
+
+  // Verificar status de pagamento ao carregar
+  useEffect(() => {
+    // Se precisa de onboarding, redirecionar
+    if (payment.status === "onboarding") {
+      router.push("/onboarding");
+      return;
+    }
+
+    // Se pagamento está sendo verificado, aguardar
+    if (payment.status === "verifying") {
+      return;
+    }
+
+    // Se pagamento foi confirmado mas ainda não completou onboarding, verificar novamente
+    if (payment.status === "paid" && payment.sessionId) {
+      payment.completePayment(payment.sessionId);
+    }
+  }, [payment.status, payment.sessionId, router, payment]);
+
+  // Verificar se precisa mostrar modal de email após checkout
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const searchParams = new URLSearchParams(window.location.search);
+    const hasCheckoutSuccess = searchParams.get("checkout") === "success";
+    const hasSessionId = searchParams.get("session_id");
+
+    // Se tem checkout=success mas não tem session_id, mostrar modal de email
+    if (hasCheckoutSuccess && !hasSessionId && payment.status === "pending") {
+      setIsPaymentEmailModalOpen(true);
+    }
+  }, [payment.status]);
   const [upgradeReason, setUpgradeReason] = useState<GuestAction | null>(null);
   const [isAddPromptModalOpen, setAddPromptModalOpen] = useState(false);
   const [isBulkUploadModalOpen, setBulkUploadModalOpen] = useState(false);
@@ -860,11 +903,37 @@ export function AdminContainer() {
   useEffect(() => {
     refreshStoredWorkspaces();
     const lastSession = getLastSessionId();
+
+    // ✅ CORREÇÃO: Se não tem último session, selecionar o primeiro workspace disponível
     if (!lastSession) {
-      // No cached session, trigger initial fetch
+      const stored = listStoredWorkspaces();
+      if (stored.length > 0) {
+        // Selecionar o primeiro workspace disponível
+        const firstWorkspace = stored[0];
+        console.log(
+          "[AdminContainer] 🔍 No last session, selecting first workspace:",
+          {
+            sessionId: firstWorkspace.sessionId,
+            companyName: firstWorkspace.snapshot?.company?.name,
+          }
+        );
+        setSessionId(firstWorkspace.sessionId);
+        setLocalWorkspace(firstWorkspace.snapshot);
+        setViewingSessionId(firstWorkspace.sessionId);
+        // Salvar como último session usado
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(
+            "last-session-id",
+            firstWorkspace.sessionId
+          );
+        }
+        return;
+      }
+      // No cached session and no stored workspaces, trigger initial fetch
       mutate();
       return;
     }
+
     const cached = loadCachedWorkspace(lastSession);
     if (cached) {
       setSessionId(lastSession);
@@ -877,7 +946,29 @@ export function AdminContainer() {
         }
       }
     } else {
-      // Cached session doesn't exist, trigger fetch
+      // Cached session doesn't exist, try to find another workspace
+      const stored = listStoredWorkspaces();
+      if (stored.length > 0) {
+        const firstWorkspace = stored[0];
+        console.log(
+          "[AdminContainer] 🔍 Last session not found, selecting first available:",
+          {
+            sessionId: firstWorkspace.sessionId,
+            companyName: firstWorkspace.snapshot?.company?.name,
+          }
+        );
+        setSessionId(firstWorkspace.sessionId);
+        setLocalWorkspace(firstWorkspace.snapshot);
+        setViewingSessionId(firstWorkspace.sessionId);
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(
+            "last-session-id",
+            firstWorkspace.sessionId
+          );
+        }
+        return;
+      }
+      // No workspaces at all, trigger fetch
       mutate();
     }
   }, [refreshStoredWorkspaces, mutate]);
@@ -973,18 +1064,63 @@ export function AdminContainer() {
 
       // CRITICAL: Force state update when tiles arrive to ensure UI re-renders
       // This fixes the issue where tiles are fetched but UI doesn't update until F5
-      if (localWorkspace?.sessionId === data.sessionId) {
+      // ✅ CORREÇÃO: Não sobrescrever se estamos atualizando dashboard (pode perder tiles)
+      if (
+        localWorkspace?.sessionId === data.sessionId &&
+        !isUpdatingDashboardRef.current
+      ) {
         const currentTileCount = localWorkspace?.company?.tiles?.length || 0;
         const newTileCount = data.company?.tiles?.length || 0;
 
+        // ✅ CORREÇÃO: Só atualizar se realmente temos mais tiles E não estamos em processo de atualização
+        // Se estamos atualizando dashboard, os tiles locais já estão corretos
         if (newTileCount > currentTileCount) {
           console.log(
             `[AdminContainer] 🎨 New tiles detected (${currentTileCount} → ${newTileCount}), forcing UI update`
           );
-          // Force re-render by creating a new object reference
-          setLocalWorkspace({ ...data });
-          saveCachedWorkspace(data.sessionId, data);
+
+          // ✅ CORREÇÃO: Mesclar tiles existentes com novos tiles ao invés de substituir
+          // Isso previne perder tiles quando a API retorna apenas o novo tile
+          const existingTiles = localWorkspace?.company?.tiles || [];
+          const newTiles = data.company?.tiles || [];
+
+          // Criar um mapa de tiles existentes por ID
+          const existingTilesMap = new Map(existingTiles.map((t) => [t.id, t]));
+
+          // Adicionar novos tiles ao mapa (novos sobrescrevem antigos se mesmo ID)
+          newTiles.forEach((tile) => {
+            existingTilesMap.set(tile.id, tile);
+          });
+
+          // Converter de volta para array e ordenar
+          const mergedTiles = Array.from(existingTilesMap.values()).sort(
+            (a, b) => {
+              const aIndex = a.orderIndex ?? 0;
+              const bIndex = b.orderIndex ?? 0;
+              return aIndex - bIndex;
+            }
+          );
+
+          console.log(
+            `[AdminContainer] 🔄 Merged tiles: ${existingTiles.length} existing + ${newTiles.length} new = ${mergedTiles.length} total`
+          );
+
+          // Atualizar workspace com tiles mesclados
+          const updatedWorkspace = {
+            ...data,
+            company: {
+              ...data.company,
+              tiles: mergedTiles,
+            },
+          };
+
+          setLocalWorkspace(updatedWorkspace);
+          saveCachedWorkspace(data.sessionId, updatedWorkspace);
         }
+      } else if (isUpdatingDashboardRef.current) {
+        console.log(
+          "[AdminContainer] 🔒 Skipping workspace update - dashboard update in progress"
+        );
       }
 
       // Clear generation flags when tiles arrive
@@ -2408,7 +2544,12 @@ export function AdminContainer() {
         });
       }
 
-      if (!workspace || !isViewingServerWorkspace) {
+      // ✅ CORREÇÃO: Para guests, verificar se há workspace local válido
+      // Para members, verificar se está visualizando workspace do servidor
+      const hasValidWorkspace =
+        workspace && (isMember ? isViewingServerWorkspace : true); // Guests sempre podem usar workspace local
+
+      if (!hasValidWorkspace) {
         push({
           title: "Cannot add prompts",
           description:
@@ -2424,6 +2565,7 @@ export function AdminContainer() {
           description: `Generating "${promptData.title}"`,
         });
 
+        // ✅ CORREÇÃO: Enviar dashboardId e companyId para isolar dados corretamente
         const response = await fetch("/api/workspace/tiles", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -2432,6 +2574,8 @@ export function AdminContainer() {
             prompt: promptData.description,
             useMaxPrompt: promptData.useMaxPrompt,
             requestSize: promptData.requestSize || "small",
+            dashboardId: dashboardToUse.id,
+            companyId: companyToUse.id,
           }),
         });
 
@@ -2630,6 +2774,36 @@ export function AdminContainer() {
             setTimeout(() => {
               isUpdatingDashboardRef.current = false;
               console.log("[AddPrompt] 🔓 Released update lock");
+
+              // ✅ CORREÇÃO: Após liberar o lock, atualizar o workspace local com os tiles mesclados
+              // Isso garante que o workspace local tenha todos os tiles (antigos + novo)
+              if (workspace && workspace.sessionId === viewingSessionId) {
+                const reloadedCompany = getCompanyById(companyToUse.id);
+                const reloadedDashboard = reloadedCompany?.dashboards.find(
+                  (d) => d.id === dashboardToUse.id
+                );
+
+                if (reloadedDashboard && reloadedDashboard.tiles) {
+                  console.log(
+                    "[AddPrompt] 🔄 Updating local workspace with merged tiles",
+                    {
+                      tilesCount: reloadedDashboard.tiles.length,
+                    }
+                  );
+
+                  // Atualizar workspace local com tiles mesclados
+                  const updatedWorkspace = {
+                    ...workspace,
+                    company: {
+                      ...workspace.company,
+                      tiles: reloadedDashboard.tiles,
+                    },
+                  };
+
+                  setLocalWorkspace(updatedWorkspace);
+                  saveCachedWorkspace(workspace.sessionId, updatedWorkspace);
+                }
+              }
             }, 1000); // Aumentado para 1s para garantir que tudo foi atualizado antes de permitir sync
           }
         } else {
@@ -3376,18 +3550,98 @@ export function AdminContainer() {
     />
   ) : null;
 
+  // Verificar se há workspaces salvos PRIMEIRO (antes de qualquer coisa)
+  // Isso previne mostrar empty state quando usuário já tem dados salvos
+  const hasSavedWorkspaces = useMemo(() => {
+    try {
+      // Verificar companies/dashboards salvos
+      const savedCompanies = loadCompaniesWithDashboards();
+      if (savedCompanies && savedCompanies.length > 0) {
+        console.log("[AdminContainer] ✅ Found saved companies", {
+          companiesCount: savedCompanies.length,
+        });
+        return true;
+      }
+
+      // Verificar workspaces salvos no localStorage
+      if (typeof window !== "undefined") {
+        const storedWorkspaces = listStoredWorkspaces();
+        if (storedWorkspaces && storedWorkspaces.length > 0) {
+          console.log("[AdminContainer] ✅ Found stored workspaces", {
+            workspacesCount: storedWorkspaces.length,
+          });
+          return true;
+        }
+      }
+    } catch (e) {
+      // Ignorar erros
+    }
+    return false;
+  }, []); // Sem dependências - só verifica uma vez na montagem
+
   // Check if this is just a default empty workspace (user hasn't generated anything yet)
   const isDefaultEmptyWorkspace = useMemo(() => {
-    return (
-      workspace &&
+    // Se tem workspaces salvos, NUNCA mostrar empty state
+    if (hasSavedWorkspaces) {
+      return false;
+    }
+
+    // Se está carregando, não decidir ainda (aguardar dados carregarem)
+    if (isLoading) {
+      return false;
+    }
+
+    // Se não tem workspace, não é empty workspace (é erro)
+    if (!workspace) return false;
+
+    // Se tem tiles, contacts ou notes no workspace, não é empty
+    const hasTiles =
+      workspace.company.tiles && workspace.company.tiles.length > 0;
+    const hasContacts =
+      workspace.company.contacts && workspace.company.contacts.length > 0;
+    const hasNotes =
+      workspace.company.notes && workspace.company.notes.length > 0;
+
+    if (hasTiles || hasContacts || hasNotes) {
+      return false;
+    }
+
+    // Se tem generatedAt, não é empty (foi gerado antes)
+    if (workspace.generatedAt) {
+      return false;
+    }
+
+    // Se há um viewingSessionId definido, significa que há um workspace sendo visualizado
+    // Mesmo que seja "New Company", não mostrar empty state se há sessionId
+    if (viewingSessionId) {
+      console.log("[AdminContainer] 🏠 Not empty: viewingSessionId exists", {
+        viewingSessionId,
+      });
+      return false;
+    }
+
+    // Só é empty se realmente não tem nada, não foi gerado, e não tem workspaces salvos
+    const isEmpty =
       workspace.company.name === "New Company" &&
-      workspace.generatedAt === null &&
       (!workspace.company.tiles || workspace.company.tiles.length === 0) &&
       (!workspace.company.contacts ||
         workspace.company.contacts.length === 0) &&
-      (!workspace.company.notes || workspace.company.notes.length === 0)
-    );
-  }, [workspace]);
+      (!workspace.company.notes || workspace.company.notes.length === 0);
+
+    if (isEmpty) {
+      console.log(
+        "[AdminContainer] 🏠 Workspace is truly empty (first access)",
+        {
+          hasSavedWorkspaces,
+          isLoading,
+          workspaceName: workspace.company.name,
+          viewingSessionId,
+        }
+      );
+    }
+
+    return isEmpty;
+  }, [workspace, hasSavedWorkspaces, isLoading, viewingSessionId]);
 
   if (workspaceError && !workspace) {
     return (
@@ -3402,7 +3656,17 @@ export function AdminContainer() {
   }
 
   // If this is just a default empty workspace, show onboarding instead
-  if (isDefaultEmptyWorkspace && !isLoading) {
+  // Mas só se realmente não tem workspaces salvos e não está carregando
+  const isGenerating = tilesSyncedForSessionRef.current !== null || isStreaming;
+
+  if (
+    isDefaultEmptyWorkspace &&
+    !isLoading &&
+    !workspaceError &&
+    !isGenerating &&
+    !hasSavedWorkspaces &&
+    !viewingSessionId
+  ) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f7f7f8] text-[#3a3a41]">
         <div className="rounded-3xl border border-slate-200 bg-white px-8 py-6 text-center shadow-sm max-w-md">
@@ -3728,6 +3992,12 @@ export function AdminContainer() {
         usage={usage}
         limits={limits}
         lastAction={upgradeReason}
+      />
+
+      {/* Payment Email Modal - aparece quando volta do Stripe sem session_id */}
+      <PaymentEmailModal
+        open={isPaymentEmailModalOpen}
+        onClose={() => setIsPaymentEmailModalOpen(false)}
       />
 
       <AddContactModal

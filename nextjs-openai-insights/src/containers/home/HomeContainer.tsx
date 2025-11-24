@@ -16,7 +16,9 @@ import {
   type ClassicHeroFormSubmission,
 } from "@/components/landing/ClassicHeroForm";
 import { useMembership } from "@/lib/state/membership-context";
+import { usePayment } from "@/lib/state/payment-context";
 import { UpgradeModal } from "@/components/ui/UpgradeModal";
+import { PaymentEmailModal } from "@/components/ui/PaymentEmailModal";
 import "@/components/landing/landing.css";
 
 export function HomeContainer() {
@@ -30,9 +32,32 @@ export function HomeContainer() {
     startCheckout,
     resetGuestUsage,
   } = useMembership();
+  const payment = usePayment();
   const [isSubmitting] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isUpgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [isPaymentEmailModalOpen, setIsPaymentEmailModalOpen] = useState(false);
+
+  // Verificar se precisa redirecionar para onboarding
+  useEffect(() => {
+    if (payment.status === "onboarding") {
+      router.push("/onboarding");
+    }
+  }, [payment.status, router]);
+
+  // Verificar se precisa mostrar modal de email após checkout
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const searchParams = new URLSearchParams(window.location.search);
+    const hasCheckoutSuccess = searchParams.get("checkout") === "success";
+    const hasSessionId = searchParams.get("session_id");
+
+    // Se tem checkout=success mas não tem session_id, mostrar modal de email
+    if (hasCheckoutSuccess && !hasSessionId && payment.status === "pending") {
+      setIsPaymentEmailModalOpen(true);
+    }
+  }, [payment.status]);
 
   useEffect(() => {
     router.prefetch("/admin");
@@ -90,6 +115,28 @@ export function HomeContainer() {
       variant: "default",
     });
 
+    // ✅ IMPORTANTE: Consumir usage ANTES de redirecionar
+    // Isso garante que o usage seja salvo mesmo se o usuário sair da página
+    if (!isMember) {
+      console.log(
+        "[HomeContainer] 📊 Consuming usage for createWorkspace (BEFORE redirect)"
+      );
+      const usageResult = consumeUsage("createWorkspace");
+      console.log("[HomeContainer] 📊 Usage result:", usageResult);
+
+      // Verificar se foi bloqueado
+      if (!usageResult.allowed) {
+        push({
+          title: "Limite atingido",
+          description: `Você já criou ${usageResult.used} workspaces. Faça upgrade para criar mais!`,
+          variant: "destructive",
+        });
+        return; // Não redirecionar se bloqueado
+      }
+    } else {
+      console.log("[HomeContainer] ⏭️ Skipping usage consumption (member)");
+    }
+
     router.push("/admin");
 
     // Start generation in background
@@ -110,13 +157,18 @@ export function HomeContainer() {
       };
 
       try {
-        console.log("🎯 [GENERATION-TRACKING] HomeContainer calling /api/generate", {
-          source: "HomeContainer.handleSubmit",
-          timestamp: new Date().toISOString(),
-          targetCompany: payload.targetCompany,
-          templateId: payload.templateId,
-          generationTimeFlag: window.localStorage.getItem("last-generation-time"),
-        });
+        console.log(
+          "🎯 [GENERATION-TRACKING] HomeContainer calling /api/generate",
+          {
+            source: "HomeContainer.handleSubmit",
+            timestamp: new Date().toISOString(),
+            targetCompany: payload.targetCompany,
+            templateId: payload.templateId,
+            generationTimeFlag: window.localStorage.getItem(
+              "last-generation-time"
+            ),
+          }
+        );
 
         const response = await fetch(targetUrl, {
           method: "POST",
@@ -150,10 +202,6 @@ export function HomeContainer() {
           });
         }
         console.log("[HomeContainer] ✅ Generation request accepted");
-
-        if (!isMember) {
-          consumeUsage("createWorkspace");
-        }
 
         // Update with success message
         push({
@@ -292,6 +340,12 @@ export function HomeContainer() {
         }}
         limits={limits}
         lastAction="createWorkspace"
+      />
+
+      {/* Payment Email Modal - aparece quando volta do Stripe sem session_id */}
+      <PaymentEmailModal
+        open={isPaymentEmailModalOpen}
+        onClose={() => setIsPaymentEmailModalOpen(false)}
       />
 
       {isHelpOpen ? (

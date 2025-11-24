@@ -11,6 +11,8 @@ import {
   useState,
   type PropsWithChildren,
 } from "react";
+import { usePayment } from "./payment-context";
+import { listStoredWorkspaces } from "@/lib/storage/workspace-browser";
 
 export type GuestAction =
   | "tileChat"
@@ -43,7 +45,7 @@ interface MembershipContextValue {
 }
 
 const MembershipContext = createContext<MembershipContextValue | undefined>(
-  undefined,
+  undefined
 );
 
 const MEMBERSHIP_STORAGE_KEY = "insights_membership_status";
@@ -98,16 +100,23 @@ function loadStoredUsage(): StoredUsageData {
 function saveUsage(data: StoredUsageData) {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(USAGE_STORAGE_KEY, JSON.stringify(data));
-  } catch {
+    const serialized = JSON.stringify(data);
+    window.localStorage.setItem(USAGE_STORAGE_KEY, serialized);
+    console.log("[Membership Context] 💾 Usage saved:", {
+      action: "saveUsage",
+      counts: data.counts,
+      lastReset: new Date(data.lastReset).toISOString(),
+      version: data.version,
+    });
+  } catch (error) {
+    console.error("[Membership Context] ❌ Failed to save usage:", error);
     // ignore quota failures
   }
 }
 
 function ensureFreshUsage(data: StoredUsageData): StoredUsageData {
   const shouldReset =
-    data.version !== USAGE_VERSION ||
-    Date.now() - data.lastReset > ONE_DAY_MS;
+    data.version !== USAGE_VERSION || Date.now() - data.lastReset > ONE_DAY_MS;
   if (shouldReset) {
     return createInitialUsage();
   }
@@ -132,8 +141,9 @@ function getMembershipStatus(): "guest" | "member" {
 }
 
 export function MembershipProvider({ children }: PropsWithChildren) {
+  const payment = usePayment();
   const [status, setStatus] = useState<"guest" | "member">(() =>
-    typeof window === "undefined" ? "guest" : getMembershipStatus(),
+    typeof window === "undefined" ? "guest" : getMembershipStatus()
   );
   const usageRef = useRef<StoredUsageData>(createInitialUsage());
   const [usageSnapshot, setUsageSnapshot] = useState<UsageCounts>({
@@ -164,24 +174,145 @@ export function MembershipProvider({ children }: PropsWithChildren) {
     if (typeof window === "undefined") return;
     usageRef.current = ensureFreshUsage(loadStoredUsage());
 
+    // ✅ CORREÇÃO: Detectar workspaces existentes e atualizar usage retroativamente
+    // Isso corrige o problema de workspaces criados antes do tracking estar funcionando
+    // IMPORTANTE: Contar apenas workspaces válidos (que têm dados reais)
+    if (status === "guest") {
+      try {
+        const storedWorkspaces = listStoredWorkspaces();
+        // Filtrar apenas workspaces válidos (que têm company name ou tiles)
+        const validWorkspaces = storedWorkspaces.filter((entry) => {
+          const snapshot = entry.snapshot;
+          return (
+            snapshot &&
+            snapshot.company &&
+            (snapshot.company.name !== "New Company" ||
+              (snapshot.company.tiles && snapshot.company.tiles.length > 0) ||
+              snapshot.generatedAt)
+          );
+        });
+
+        const currentWorkspaceCount =
+          usageRef.current.counts.createWorkspace ?? 0;
+        const actualWorkspaceCount = validWorkspaces.length;
+
+        console.log("[Membership Context] 🔍 Verificando workspaces:", {
+          totalEncontrados: storedWorkspaces.length,
+          validos: actualWorkspaceCount,
+          contados: currentWorkspaceCount,
+          workspaces: validWorkspaces.map((w) => ({
+            sessionId: w.sessionId,
+            companyName: w.snapshot?.company?.name,
+            tilesCount: w.snapshot?.company?.tiles?.length || 0,
+          })),
+        });
+
+        // Se há mais workspaces válidos do que contados, atualizar o usage
+        if (actualWorkspaceCount > currentWorkspaceCount) {
+          console.log(
+            "[Membership Context] 🔧 Corrigindo usage retroativamente:",
+            {
+              workspacesValidos: actualWorkspaceCount,
+              workspacesContados: currentWorkspaceCount,
+              diferenca: actualWorkspaceCount - currentWorkspaceCount,
+            }
+          );
+
+          // Atualizar o usage para refletir os workspaces válidos existentes
+          // Mas não exceder o limite
+          const limit = DEFAULT_LIMITS.createWorkspace;
+          const correctedCount = Math.min(actualWorkspaceCount, limit);
+
+          const nextCounts = {
+            ...usageRef.current.counts,
+            createWorkspace: correctedCount,
+          };
+          const nextUsage = {
+            ...usageRef.current,
+            counts: nextCounts,
+          };
+          usageRef.current = nextUsage;
+          saveUsage(nextUsage);
+          setUsageSnapshot(buildUsageSnapshot(nextUsage));
+
+          console.log("[Membership Context] ✅ Usage corrigido:", {
+            createWorkspace: correctedCount,
+            limit,
+          });
+        } else if (actualWorkspaceCount < currentWorkspaceCount) {
+          // Se há menos workspaces válidos do que contados, também corrigir
+          console.log(
+            "[Membership Context] 🔧 Corrigindo usage (menos workspaces válidos):",
+            {
+              workspacesValidos: actualWorkspaceCount,
+              workspacesContados: currentWorkspaceCount,
+            }
+          );
+          const nextCounts = {
+            ...usageRef.current.counts,
+            createWorkspace: actualWorkspaceCount,
+          };
+          const nextUsage = {
+            ...usageRef.current,
+            counts: nextCounts,
+          };
+          usageRef.current = nextUsage;
+          saveUsage(nextUsage);
+          setUsageSnapshot(buildUsageSnapshot(nextUsage));
+        }
+      } catch (error) {
+        console.error(
+          "[Membership Context] ❌ Erro ao corrigir usage retroativamente:",
+          error
+        );
+      }
+    }
+
     const searchParams = new URLSearchParams(window.location.search);
     const hasSuccess =
       searchParams.get("membership") === "success" ||
       searchParams.get("checkout") === "success";
+    const sessionId = searchParams.get("session_id");
+
     if (hasSuccess) {
-      startTransition(() => {
-        markMember();
-      });
+      // Se tem session_id, usar PaymentContext para verificar e completar pagamento
+      if (sessionId && payment.status === "pending") {
+        console.log(
+          "[Membership Context] 🔍 Detected checkout success with session_id, verifying payment..."
+        );
+        payment.verifyPayment(sessionId).then((verified: boolean) => {
+          if (verified) {
+            // Completar pagamento (vai redirecionar para onboarding se necessário)
+            payment.completePayment(sessionId);
+          }
+        });
+      } else if (!sessionId) {
+        // Sem session_id: não fazer nada aqui, deixar o componente mostrar modal de email
+        // O modal será mostrado pelo componente que detecta checkout=success
+        console.log(
+          "[Membership Context] 🔍 Detected checkout success without session_id - email verification needed"
+        );
+      }
+
       searchParams.delete("membership");
       searchParams.delete("checkout");
+      searchParams.delete("session_id");
       const newSearch = searchParams.toString();
       const nextUrl = `${window.location.pathname}${
         newSearch ? `?${newSearch}` : ""
       }${window.location.hash || ""}`;
       window.history.replaceState(null, "", nextUrl);
     }
+
+    // Se pagamento foi completado, marcar como member
+    if (payment.status === "paid") {
+      startTransition(() => {
+        markMember();
+      });
+    }
+
     setUsageSnapshot(buildUsageSnapshot(usageRef.current));
-  }, [markMember]);
+  }, [markMember, payment]);
 
   const evaluateUsage = useCallback(
     (action: GuestAction): UsageResult => {
@@ -209,12 +340,21 @@ export function MembershipProvider({ children }: PropsWithChildren) {
         limit,
       };
     },
-    [status],
+    [status]
   );
 
   const consumeUsage = useCallback(
     (action: GuestAction): UsageResult => {
+      console.log("[Membership Context] 🔄 consumeUsage called:", {
+        action,
+        status,
+        isMember: status === "member",
+      });
+
       if (status === "member") {
+        console.log(
+          "[Membership Context] ⏭️ Skipping usage consumption (member)"
+        );
         return {
           action,
           allowed: true,
@@ -227,7 +367,20 @@ export function MembershipProvider({ children }: PropsWithChildren) {
       usageRef.current = usage;
       const used = usage.counts[action] ?? 0;
       const limit = DEFAULT_LIMITS[action];
+
+      console.log("[Membership Context] 📊 Current usage:", {
+        action,
+        used,
+        limit,
+        counts: usage.counts,
+      });
+
       if (used >= limit) {
+        console.log("[Membership Context] 🚫 Limit reached:", {
+          action,
+          used,
+          limit,
+        });
         setUsageSnapshot(buildUsageSnapshot(usage));
         return {
           action,
@@ -249,6 +402,14 @@ export function MembershipProvider({ children }: PropsWithChildren) {
       usageRef.current = nextUsage;
       saveUsage(nextUsage);
       setUsageSnapshot(buildUsageSnapshot(nextUsage));
+
+      console.log("[Membership Context] ✅ Usage consumed:", {
+        action,
+        newUsed: used + 1,
+        limit,
+        allCounts: nextCounts,
+      });
+
       return {
         action,
         allowed: true,
@@ -257,7 +418,7 @@ export function MembershipProvider({ children }: PropsWithChildren) {
         limit,
       };
     },
-    [status],
+    [status]
   );
 
   const startCheckout = useCallback(() => {
@@ -290,7 +451,7 @@ export function MembershipProvider({ children }: PropsWithChildren) {
       status,
       stripeCheckoutUrl,
       usageSnapshot,
-    ],
+    ]
   );
 
   return (
@@ -307,5 +468,3 @@ export function useMembership(): MembershipContextValue {
   }
   return context;
 }
-
-
