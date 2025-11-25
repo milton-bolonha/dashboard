@@ -29,7 +29,9 @@ export function loadCompaniesWithDashboards(): CompanyWithDashboards[] {
 /**
  * Save companies with dashboards
  */
-export function saveCompaniesWithDashboards(companies: CompanyWithDashboards[]) {
+export function saveCompaniesWithDashboards(
+  companies: CompanyWithDashboards[]
+) {
   if (!isBrowser()) return;
   try {
     localStorage.setItem(DASHBOARDS_STORAGE_KEY, JSON.stringify(companies));
@@ -41,7 +43,9 @@ export function saveCompaniesWithDashboards(companies: CompanyWithDashboards[]) 
 /**
  * Get company by ID
  */
-export function getCompanyById(companyId: string): CompanyWithDashboards | null {
+export function getCompanyById(
+  companyId: string
+): CompanyWithDashboards | null {
   const companies = loadCompaniesWithDashboards();
   return companies.find((c) => c.id === companyId) ?? null;
 }
@@ -50,14 +54,30 @@ export function getCompanyById(companyId: string): CompanyWithDashboards | null 
  * Get or create company from workspace snapshot
  * Migrates existing workspace to new structure
  */
-export function getOrCreateCompanyFromWorkspace(workspace: WorkspaceSnapshot | null): CompanyWithDashboards | null {
+export function getOrCreateCompanyFromWorkspace(
+  workspace: WorkspaceSnapshot | null
+): CompanyWithDashboards | null {
   if (!workspace) return null;
-  
+
   const companies = loadCompaniesWithDashboards();
-  
+
   // Try to find existing company by sessionId (for migration)
   let company = companies.find((c) => c.id === workspace.sessionId);
-  
+
+  // Also try to find by name + website to avoid duplicates
+  if (!company) {
+    company = companies.find(
+      (c) =>
+        c.name === workspace.company.name &&
+        c.website === workspace.company.website
+    );
+    // If found by name/website, update the ID to match sessionId
+    if (company) {
+      company.id = workspace.sessionId;
+      saveCompaniesWithDashboards(companies);
+    }
+  }
+
   if (!company) {
     // Create new company from workspace
     company = {
@@ -74,9 +94,11 @@ export function getOrCreateCompanyFromWorkspace(workspace: WorkspaceSnapshot | n
           notes: workspace.company.notes ?? [],
           contacts: workspace.company.contacts ?? [],
           // Only set appearance if workspace has a valid baseColor
-          appearance: workspace.appearance?.baseColor && workspace.appearance.baseColor.trim() 
-            ? workspace.appearance 
-            : undefined,
+          appearance:
+            workspace.appearance?.baseColor &&
+            workspace.appearance.baseColor.trim()
+              ? workspace.appearance
+              : undefined,
           createdAt: workspace.generatedAt ?? new Date().toISOString(),
           updatedAt: workspace.generatedAt ?? new Date().toISOString(),
           isActive: true,
@@ -85,27 +107,28 @@ export function getOrCreateCompanyFromWorkspace(workspace: WorkspaceSnapshot | n
       createdAt: workspace.generatedAt ?? new Date().toISOString(),
       updatedAt: workspace.generatedAt ?? new Date().toISOString(),
     };
-    
+
     companies.push(company);
     saveCompaniesWithDashboards(companies);
   } else {
     // Update existing company with latest workspace data (sync tiles from active dashboard)
     // IMPORTANTE: Preservar TODOS os dashboards - nunca deletar ou substituir
-    const activeDashboard = company.dashboards.find((d) => d.isActive) ?? company.dashboards[0];
-    
+    const activeDashboard =
+      company.dashboards.find((d) => d.isActive) ?? company.dashboards[0];
+
     console.log("[DataSync] 🔍 Syncing workspace to existing company", {
       companyId: company.id,
       dashboardsCount: company.dashboards.length,
-      dashboardNames: company.dashboards.map(d => d.name),
+      dashboardNames: company.dashboards.map((d) => d.name),
       activeDashboardId: activeDashboard?.id,
       activeDashboardName: activeDashboard?.name,
     });
-    
+
     if (activeDashboard) {
       const workspaceTiles = workspace.company.tiles ?? [];
       const existingTiles = activeDashboard.tiles ?? [];
       const isDefaultDashboard = activeDashboard.name === "Default Dashboard";
-      
+
       console.log("[DataSync] 🔍 Checking if should sync tiles to dashboard", {
         dashboardId: activeDashboard.id,
         dashboardName: activeDashboard.name,
@@ -114,7 +137,7 @@ export function getOrCreateCompanyFromWorkspace(workspace: WorkspaceSnapshot | n
         isDefaultDashboard,
         shouldSync: isDefaultDashboard,
       });
-      
+
       // ONLY sync tiles from workspace if dashboard is the "Default Dashboard"
       // Blank dashboards created by user should remain empty and NOT sync from workspace
       // IMPORTANTE: NUNCA sobrescrever tiles do dashboard se ele já tem tiles
@@ -124,67 +147,87 @@ export function getOrCreateCompanyFromWorkspace(workspace: WorkspaceSnapshot | n
         // Se dashboard já tem tiles, NUNCA sobrescrever (mesmo que workspace tenha mais)
         // Isso previne perda de dados quando usuário cria tiles individuais
         const shouldSyncTiles = existingTiles.length === 0;
-        
+
         if (shouldSyncTiles) {
-          console.log("[DataSync] ✅ Syncing tiles to Default Dashboard (dashboard is empty)", {
-            dashboardId: activeDashboard.id,
-            oldTilesCount: existingTiles.length,
-            newTilesCount: workspaceTiles.length,
-          });
+          console.log(
+            "[DataSync] ✅ Syncing tiles to Default Dashboard (dashboard is empty)",
+            {
+              dashboardId: activeDashboard.id,
+              oldTilesCount: existingTiles.length,
+              newTilesCount: workspaceTiles.length,
+            }
+          );
           activeDashboard.tiles = workspaceTiles;
           activeDashboard.updatedAt = new Date().toISOString();
         } else {
-          console.log("[DataSync] 🔒 Preserving dashboard tiles (dashboard already has tiles)", {
-            dashboardId: activeDashboard.id,
-            dashboardTilesCount: existingTiles.length,
-            workspaceTilesCount: workspaceTiles.length,
-            reason: "Dashboard has tiles - NEVER overwrite user's data",
-          });
+          console.log(
+            "[DataSync] 🔒 Preserving dashboard tiles (dashboard already has tiles)",
+            {
+              dashboardId: activeDashboard.id,
+              dashboardTilesCount: existingTiles.length,
+              workspaceTilesCount: workspaceTiles.length,
+              reason: "Dashboard has tiles - NEVER overwrite user's data",
+            }
+          );
           // IMPORTANTE: Mesclar tiles do workspace com dashboard ao invés de sobrescrever
           // Isso garante que tiles criados individualmente não sejam perdidos
-          const dashboardTileIds = new Set(existingTiles.map(t => t.id));
-          
+          const dashboardTileIds = new Set(existingTiles.map((t) => t.id));
+
           // Encontrar tiles do workspace que não estão no dashboard
-          const missingTiles = workspaceTiles.filter(t => !dashboardTileIds.has(t.id));
-          
+          const missingTiles = workspaceTiles.filter(
+            (t) => !dashboardTileIds.has(t.id)
+          );
+
           if (missingTiles.length > 0) {
             console.log("[DataSync] 🔄 Merging missing tiles from workspace", {
               missingTilesCount: missingTiles.length,
-              missingTileIds: missingTiles.map(t => t.id),
+              missingTileIds: missingTiles.map((t) => t.id),
             });
             // Adicionar tiles faltantes ao dashboard (não sobrescrever)
             // Ordenar por orderIndex após mesclar
-            const mergedTiles = [...existingTiles, ...missingTiles].sort((a, b) => {
-              const aIndex = a.orderIndex ?? 0;
-              const bIndex = b.orderIndex ?? 0;
-              return aIndex - bIndex;
-            });
+            const mergedTiles = [...existingTiles, ...missingTiles].sort(
+              (a, b) => {
+                const aIndex = a.orderIndex ?? 0;
+                const bIndex = b.orderIndex ?? 0;
+                return aIndex - bIndex;
+              }
+            );
             activeDashboard.tiles = mergedTiles;
             activeDashboard.updatedAt = new Date().toISOString();
-            
+
             console.log("[DataSync] ✅ Merged tiles successfully", {
               dashboardId: activeDashboard.id,
               finalTilesCount: mergedTiles.length,
-              finalTileIds: mergedTiles.map(t => ({ id: t.id, orderIndex: t.orderIndex })),
+              finalTileIds: mergedTiles.map((t) => ({
+                id: t.id,
+                orderIndex: t.orderIndex,
+              })),
             });
           } else {
-            console.log("[DataSync] ✅ Dashboard already has all workspace tiles", {
-              dashboardId: activeDashboard.id,
-              tilesCount: existingTiles.length,
-            });
+            console.log(
+              "[DataSync] ✅ Dashboard already has all workspace tiles",
+              {
+                dashboardId: activeDashboard.id,
+                tilesCount: existingTiles.length,
+              }
+            );
           }
         }
       } else {
-        console.log("[DataSync] 🔒 Preserving dashboard tiles (not Default Dashboard)", {
-          dashboardId: activeDashboard.id,
-          dashboardName: activeDashboard.name,
-          existingTilesCount: existingTiles.length,
-          workspaceTilesCount: workspaceTiles.length,
-          reason: "Not Default Dashboard - blank dashboards should stay empty",
-        });
+        console.log(
+          "[DataSync] 🔒 Preserving dashboard tiles (not Default Dashboard)",
+          {
+            dashboardId: activeDashboard.id,
+            dashboardName: activeDashboard.name,
+            existingTilesCount: existingTiles.length,
+            workspaceTilesCount: workspaceTiles.length,
+            reason:
+              "Not Default Dashboard - blank dashboards should stay empty",
+          }
+        );
       }
     }
-    
+
     // Always sync notes and contacts (they are shared at company level)
     // Sync notes and contacts to active dashboard (not company level)
     if (activeDashboard) {
@@ -197,20 +240,20 @@ export function getOrCreateCompanyFromWorkspace(workspace: WorkspaceSnapshot | n
       }
       activeDashboard.updatedAt = new Date().toISOString();
     }
-    
+
     company.updatedAt = new Date().toISOString();
-    
+
     // IMPORTANTE: Preservar TODOS os dashboards - nunca deletar ou substituir
     // O array de dashboards deve permanecer intacto
     saveCompaniesWithDashboards(companies);
-    
+
     console.log("[DataSync] ✅ Sync completed - dashboards preserved", {
       companyId: company.id,
       dashboardsCount: company.dashboards.length,
-      dashboardNames: company.dashboards.map(d => d.name),
+      dashboardNames: company.dashboards.map((d) => d.name),
     });
   }
-  
+
   return company;
 }
 
@@ -224,11 +267,11 @@ export function createDashboard(
 ): Dashboard {
   const companies = loadCompaniesWithDashboards();
   const company = companies.find((c) => c.id === companyId);
-  
+
   if (!company) {
     throw new Error(`Company ${companyId} not found`);
   }
-  
+
   const newDashboard: Dashboard = {
     id: `dashboard_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
     name: dashboardName,
@@ -244,7 +287,7 @@ export function createDashboard(
     updatedAt: new Date().toISOString(),
     isActive: false,
   };
-  
+
   console.log("[createDashboard] ✅ Dashboard created", {
     dashboardId: newDashboard.id,
     dashboardName: newDashboard.name,
@@ -252,19 +295,19 @@ export function createDashboard(
     isBlank: !newDashboard.templateId,
     tilesCount: newDashboard.tiles.length,
   });
-  
+
   // Set all other dashboards as inactive
   company.dashboards.forEach((d) => {
     d.isActive = false;
   });
   newDashboard.isActive = true;
-  
+
   company.dashboards.push(newDashboard);
   company.updatedAt = new Date().toISOString();
-  
+
   saveCompaniesWithDashboards(companies);
   setActiveDashboard(companyId, newDashboard.id);
-  
+
   return newDashboard;
 }
 
@@ -274,8 +317,10 @@ export function createDashboard(
 export function getActiveDashboard(companyId: string): Dashboard | null {
   const company = getCompanyById(companyId);
   if (!company) return null;
-  
-  return company.dashboards.find((d) => d.isActive) ?? company.dashboards[0] ?? null;
+
+  return (
+    company.dashboards.find((d) => d.isActive) ?? company.dashboards[0] ?? null
+  );
 }
 
 /**
@@ -284,41 +329,53 @@ export function getActiveDashboard(companyId: string): Dashboard | null {
 export function setActiveDashboard(companyId: string, dashboardId: string) {
   if (!isBrowser()) return;
   try {
-    localStorage.setItem(ACTIVE_DASHBOARD_KEY, JSON.stringify({ companyId, dashboardId }));
+    localStorage.setItem(
+      ACTIVE_DASHBOARD_KEY,
+      JSON.stringify({ companyId, dashboardId })
+    );
   } catch {
     // Ignore errors
   }
-  
+
   const companies = loadCompaniesWithDashboards();
   const company = companies.find((c) => c.id === companyId);
   if (!company) return;
-  
+
   company.dashboards.forEach((d) => {
     d.isActive = d.id === dashboardId;
   });
-  
+
   saveCompaniesWithDashboards(companies);
 }
 
 /**
  * Update dashboard
  */
-export function updateDashboard(companyId: string, dashboardId: string, updates: Partial<Dashboard>) {
+export function updateDashboard(
+  companyId: string,
+  dashboardId: string,
+  updates: Partial<Dashboard>
+) {
   const companies = loadCompaniesWithDashboards();
   const company = companies.find((c) => c.id === companyId);
   if (!company) {
     console.error("[updateDashboard] ❌ Company not found", { companyId });
     return;
   }
-  
-  const dashboardIndex = company.dashboards.findIndex((d) => d.id === dashboardId);
+
+  const dashboardIndex = company.dashboards.findIndex(
+    (d) => d.id === dashboardId
+  );
   if (dashboardIndex === -1) {
-    console.error("[updateDashboard] ❌ Dashboard not found", { companyId, dashboardId });
+    console.error("[updateDashboard] ❌ Dashboard not found", {
+      companyId,
+      dashboardId,
+    });
     return;
   }
-  
+
   const currentDashboard = company.dashboards[dashboardIndex];
-  
+
   // Special handling for tiles array - merge instead of replace if needed
   const finalUpdates = { ...updates };
   if (updates.tiles && Array.isArray(updates.tiles)) {
@@ -330,16 +387,16 @@ export function updateDashboard(companyId: string, dashboardId: string, updates:
       newTileIds: updates.tiles.map((t: Tile) => t.id),
     });
   }
-  
+
   company.dashboards[dashboardIndex] = {
     ...currentDashboard,
     ...finalUpdates,
     updatedAt: new Date().toISOString(),
   };
   company.updatedAt = new Date().toISOString();
-  
+
   saveCompaniesWithDashboards(companies);
-  
+
   console.log("[updateDashboard] ✅ Dashboard updated", {
     dashboardId,
     tilesCount: company.dashboards[dashboardIndex].tiles?.length ?? 0,
@@ -353,27 +410,92 @@ export function deleteDashboard(companyId: string, dashboardId: string) {
   const companies = loadCompaniesWithDashboards();
   const company = companies.find((c) => c.id === companyId);
   if (!company) return;
-  
+
   company.dashboards = company.dashboards.filter((d) => d.id !== dashboardId);
-  
+
   // If deleted dashboard was active, activate first remaining dashboard
-  if (company.dashboards.length > 0 && !company.dashboards.some((d) => d.isActive)) {
+  if (
+    company.dashboards.length > 0 &&
+    !company.dashboards.some((d) => d.isActive)
+  ) {
     company.dashboards[0].isActive = true;
     setActiveDashboard(companyId, company.dashboards[0].id);
   }
-  
+
   company.updatedAt = new Date().toISOString();
   saveCompaniesWithDashboards(companies);
 }
 
 /**
+ * Remove duplicate companies (same name + website), keeping the first one
+ */
+export function cleanupDuplicateCompanies(): void {
+  const companies = loadCompaniesWithDashboards();
+  const seen = new Map<string, CompanyWithDashboards>();
+  const cleaned = [];
+
+  for (const company of companies) {
+    const key = `${company.name}|${company.website || ""}`;
+    if (!seen.has(key)) {
+      seen.set(key, company);
+      cleaned.push(company);
+    } else {
+      // Merge dashboards from duplicate to the first one found
+      const existing = seen.get(key)!;
+      for (const dashboard of company.dashboards) {
+        // Avoid duplicate dashboard IDs
+        if (!existing.dashboards.some((d) => d.id === dashboard.id)) {
+          existing.dashboards.push(dashboard);
+        }
+      }
+    }
+  }
+
+  saveCompaniesWithDashboards(cleaned);
+  console.log(`Cleaned up companies: ${companies.length} -> ${cleaned.length}`);
+}
+
+/**
+ * Clear all companies and dashboards (complete reset)
+ */
+export function clearAllCompanies(): void {
+  if (!isBrowser()) return;
+  try {
+    // Clear all dashboard-related data from localStorage
+    localStorage.removeItem(DASHBOARDS_STORAGE_KEY);
+    localStorage.removeItem(ACTIVE_DASHBOARD_KEY);
+
+    // Also clear any other dashboard-related keys that might exist
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.includes('dashboard') || key.includes('company'))) {
+        keysToRemove.push(key);
+      }
+    }
+
+    keysToRemove.forEach(key => {
+      localStorage.removeItem(key);
+      console.log(`🗑️ Cleared additional key: ${key}`);
+    });
+
+    console.log("🗑️ All companies, dashboards and active dashboard cleared");
+  } catch (error) {
+    console.error("Failed to clear companies:", error);
+  }
+}
+
+/**
  * Convert workspace snapshot to company with dashboards (for migration)
  */
-export function workspaceToCompany(workspace: WorkspaceSnapshot): CompanyWithDashboards {
+export function workspaceToCompany(
+  workspace: WorkspaceSnapshot
+): CompanyWithDashboards {
   const company = getOrCreateCompanyFromWorkspace(workspace);
   if (!company) {
-    throw new Error(`Failed to create company from workspace: ${workspace.sessionId}`);
+    throw new Error(
+      `Failed to create company from workspace: ${workspace.sessionId}`
+    );
   }
   return company;
 }
-

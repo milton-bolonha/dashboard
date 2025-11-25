@@ -324,7 +324,7 @@ export async function POST(request: Request) {
     try {
       const { userId } = await getAuth();
       const { sessionId } = await getCurrentSession();
-      if (sessionId && userId) {
+      if (sessionId && userId && updatedWorkspace) {
         await syncWorkspaceTilesToMongo(
           sessionId,
           userId,

@@ -9,6 +9,7 @@ import {
   rememberSessionId,
   saveWorkspace as saveCachedWorkspace,
 } from "@/lib/storage/workspace-browser";
+import { clearAllCompanies } from "@/lib/storage/dashboards-store";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { LandingFooter } from "@/components/landing/LandingFooter";
 import {
@@ -137,8 +138,6 @@ export function HomeContainer() {
       console.log("[HomeContainer] ⏭️ Skipping usage consumption (member)");
     }
 
-    router.push("/admin");
-
     // Start generation in background
     const generateInBackground = async () => {
       const targetUrl = "/api/generate";
@@ -157,6 +156,16 @@ export function HomeContainer() {
       };
 
       try {
+        // Set generation tracking flag
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem("generation-in-progress", "true");
+          window.localStorage.setItem("generation-source", "HomeContainer");
+          window.localStorage.setItem(
+            "generation-timestamp",
+            new Date().toISOString()
+          );
+        }
+
         console.log(
           "🎯 [GENERATION-TRACKING] HomeContainer calling /api/generate",
           {
@@ -203,6 +212,16 @@ export function HomeContainer() {
         }
         console.log("[HomeContainer] ✅ Generation request accepted");
 
+        // Redirect to admin AFTER workspace is cached
+        router.push("/admin");
+
+        // Clear generation tracking flags
+        if (typeof window !== "undefined") {
+          window.localStorage.removeItem("generation-in-progress");
+          window.localStorage.removeItem("generation-source");
+          window.localStorage.removeItem("generation-timestamp");
+        }
+
         // Update with success message
         push({
           title: "Insights generated!",
@@ -234,6 +253,7 @@ export function HomeContainer() {
         throw new Error("Could not reset the workspace");
       }
       clearAllWorkspaces();
+      clearAllCompanies();
 
       // Reset guest usage limits (workspaces count, etc.)
       resetGuestUsage();
@@ -243,8 +263,12 @@ export function HomeContainer() {
         window.localStorage.removeItem("ade-base-color");
         window.localStorage.removeItem("ade-appearance-tokens");
         window.localStorage.removeItem("last-generation-time");
+        // Clear generation tracking flags
+        window.localStorage.removeItem("generation-in-progress");
+        window.localStorage.removeItem("generation-source");
+        window.localStorage.removeItem("generation-timestamp");
         console.log(
-          "[HomeContainer] 🗑️ Cleared all appearance settings and generation timestamp"
+          "[HomeContainer] 🗑️ Cleared all appearance settings and generation tracking flags"
         );
       }
 
@@ -351,12 +375,12 @@ export function HomeContainer() {
       {isHelpOpen ? (
         <Fragment>
           <div
-            className="fixed inset-0 z-[60] bg-black/30 backdrop-blur-sm transition-opacity"
+            className="fixed inset-0 z-60 bg-black/30 backdrop-blur-sm transition-opacity"
             aria-hidden="true"
             onClick={closeHelp}
           />
           <section
-            className="fixed bottom-14 right-8 z-[70] w-full max-w-md rounded-2xl border border-slate-200 bg-white/95 p-6 shadow-2xl backdrop-blur"
+            className="fixed bottom-14 right-8 z-70 w-full max-w-md rounded-2xl border border-slate-200 bg-white/95 p-6 shadow-2xl backdrop-blur"
             role="dialog"
             aria-modal="true"
             aria-labelledby="home-help-heading"

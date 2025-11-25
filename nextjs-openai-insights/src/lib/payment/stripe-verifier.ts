@@ -87,7 +87,9 @@ export async function verifyPaymentBySessionId(
     let plan: "FREE" | "PRO" | "PRO_PLUS" = "FREE";
     if (session.line_items?.data && session.line_items.data.length > 0) {
       const priceId = session.line_items.data[0]?.price?.id;
-      plan = getPlanFromPriceId(priceId);
+      if (priceId) {
+        plan = getPlanFromPriceId(priceId);
+      }
     }
 
     const result: PaymentVerificationResult = {
@@ -197,8 +199,10 @@ export async function verifyPaymentByEmail(
           paidSession.line_items?.data &&
           paidSession.line_items.data.length > 0
         ) {
-          const priceId = paidSession.line_items.data[0].price.id;
-          plan = getPlanFromPriceId(priceId);
+          const priceId = paidSession.line_items.data[0]?.price?.id;
+          if (priceId) {
+            plan = getPlanFromPriceId(priceId);
+          }
         }
 
         const result: PaymentVerificationResult = {
